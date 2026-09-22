@@ -1,33 +1,33 @@
 # Workbench: an agentic lab workspace
 
-A shared workspace where humans and specialized agents collaborate on
-electrical engineering, hardware, and electrochemistry — from technical
-questions and designs to experiments and measured results.
+A shared workspace where humans and specialists collaborate on electrical
+engineering, hardware, and electrochemistry: technical questions, designs,
+experiments, and measured results.
 
 This is the initial scaffold of Workbench. It runs on
 [Ambion](https://github.com/ambionframework/ambion), the collaboration
-kernel, at its 0.1.0 release. The layout and the terminal follow
-[Ambion's own runnable example](https://github.com/ambionframework/ambion/tree/main/examples/workbench),
-with a lab domain of its own: one bench battery-characterization kit, five
-specialists, and a place for the Instruments and Data Analysis specialists
-to grow into once their resources exist.
+kernel, at its 0.1.0 release, and follows the layout and terminal of
+[Ambion's own runnable example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
+The lab domain is its own: one bench battery-characterization kit and
+five specialists. Instruments and Data Analysis wait for their resources
+to grow into their full role.
 
-## Specialized agents
+## Specialists
 
-| Agent                   | Scope of responsibility                                                                                                                                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Datasheets Agent**    | Find and interpret datasheets, manuals, application notes, and chemical safety data sheets. Compare specifications, identify operating limits, and cite exact sources and revisions.                                  |
-| **Design Agent**        | Develop and troubleshoot circuits, assemblies, materials, and formulations. Perform calculations and simulations, propose changes, and explain tradeoffs and failure hypotheses.                                      |
-| **Experiments Agent**   | Turn questions into test plans. Define procedures, variables, controls, measurement requirements, and acceptance criteria. Coordinate execution and recommend follow-up tests.                                        |
-| **Instruments Agent**   | Configure and operate connected equipment within approved procedures and limits. Check readiness, monitor runs, capture instrument settings and measurements, and request physical setup or intervention from humans. |
-| **Data Analysis Agent** | Convert measurements into reproducible results. Check data quality, visualize signals, fit models, quantify uncertainty, and compare runs against expectations.                                                       |
+| Specialist        | Scope of responsibility                                                                                                                                                                                               |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Datasheets**    | Find and interpret datasheets, manuals, application notes, and chemical safety data sheets. Compare specifications, identify operating limits, and cite exact sources and revisions.                                  |
+| **Design**        | Develop and troubleshoot circuits, assemblies, materials, and formulations. Perform calculations and simulations, propose changes, and explain tradeoffs and failure hypotheses.                                      |
+| **Experiments**   | Turn questions into test plans. Define procedures, variables, controls, measurement requirements, and acceptance criteria. Coordinate execution and recommend follow-up tests.                                        |
+| **Instruments**   | Configure and operate connected equipment within approved procedures and limits. Check readiness, monitor runs, capture instrument settings and measurements, and request physical setup or intervention from humans. |
+| **Data Analysis** | Convert measurements into reproducible results. Check data quality, visualize signals, fit models, quantify uncertainty, and compare runs against expectations.                                                       |
 
-**The Instruments and Data Analysis agents wait on a resource this scaffold
-does not build yet:** a live equipment connection, and analysis tooling.
-Each holds only the workspace tools today, and its instructions say so
-plainly to a person, instead of claiming a reading or a fit it cannot back.
-Give each its own resource, on the pattern of `src/domain/instrument.ts`, to grow
-it into the role its identity already names.
+**The Instruments and Data Analysis specialists wait on a resource this
+scaffold does not build yet:** a live equipment connection, and analysis
+tooling. Each holds only the workspace tools today. Its instructions
+state plainly that it has no resource to back a reading or a fit. Give
+each its own resource, on the pattern of `src/domain/instrument.ts`, to
+grow it into the role its identity already names.
 
 ## User-facing assistant
 
@@ -113,12 +113,12 @@ and writes the closing summary.
 | **Instruments**   | Names what a person must do by hand; no equipment connected yet    | Pi     | Workspace only             |
 | **Data Analysis** | Names the metric to read by hand; no analysis tooling yet          | Pi     | Workspace only             |
 
-Every seat shares one model, the one `WORKBENCH_MODEL` selects. A specialist
-that needs its own model, or a different provider's agent loop entirely
-(`@ambionframework/claude` or `@ambionframework/codex`, for a
-reasoning-effort control Pi does not expose), can move there;
-`src/domain/families.ts` is the one place that assignment would change. See the
-Ambion documentation for every executor.
+Every seat shares one model, the one `WORKBENCH_MODEL` selects. A
+specialist can move to its own model. It can also move to a different
+provider's agent loop entirely — `@ambionframework/claude` or
+`@ambionframework/codex` — for a reasoning-effort control Pi does not
+expose. `src/domain/families.ts` is the one place that assignment would
+change. See the Ambion documentation for every executor.
 
 ### One tool set, one filesystem, no native tool
 
@@ -196,9 +196,8 @@ A crash writes no departure. A reconnecting join restores the visit
 without another arrival. The default lease expiry is 60 seconds, so lost
 local work can pause before it continues.
 
-The person picker is a local convention, not authentication. A deployed
-application must authenticate people and control access to rooms and
-workspace resources.
+The person picker is a local convention. A deployed application must
+authenticate people and control access to rooms and workspace resources.
 
 ## Layout
 
@@ -267,30 +266,30 @@ Run it, and `pnpm format`, before every push.
 | `pnpm test:live`    | The live tier; costs money                             |
 
 Biome lints (`biome.jsonc`) and enforces the layering above with
-`noRestrictedImports`, one override per layer; Prettier formats
+`noRestrictedImports`, one override per layer. Prettier formats
 (`prettier.config.js`): tabs, single quotes, width 100, semicolons. Knip
 (`knip.json`) finds an export or a dependency nothing reaches. No
-explicit `any`, no non-null assertion, no unused import or variable, and
-cognitive complexity stays at 10 in source, 15 in tests — the same limits
-[Ambion](https://github.com/ambionframework/ambion) holds itself to
-(`docs/toolchain.md` §7 in that repository).
+explicit `any`, no non-null assertion, no unused import, and no unused
+variable. Cognitive complexity stays at 10 in source, 15 in tests — the
+same limits [Ambion](https://github.com/ambionframework/ambion) holds
+itself to (`docs/toolchain.md` §7 in that repository).
 
 ## What is next
 
-This is a scaffold, not the finished lab. The natural next steps, in
-order:
+This is a scaffold. The natural next steps, in order:
 
-1. **Build the Instruments resource.** A real equipment connection, on the
-   pattern of `src/domain/instrument.ts`, behind the same `operate` and
-   `approve_operation` tools, or a new pair suited to a live driver.
-2. **Build the Data Analysis resource.** A fit, a plot, or a data-quality
-   check over the `results` table, exposed as a tool bundle.
-3. **Grow the terminal.** `/files` already renders a Markdown datasheet and
-   a SQLite table; a plotted result or an image preview is the natural
-   next panel.
+1. **Build the Instruments resource.** This needs a real equipment
+   connection, on the pattern of `src/domain/instrument.ts`, behind the
+   same `operate` and `approve_operation` tools, or behind a new pair
+   suited to a live driver.
+2. **Build the Data Analysis resource.** This needs a fit, a plot, or a
+   data-quality check over the `results` table, exposed as a tool bundle.
+3. **Grow the terminal.** `/files` already renders a Markdown datasheet
+   and a SQLite table. A plotted result or an image preview is the
+   natural next panel.
 4. **Widen the kit.** The library, the lab schema, and the rooms describe
    one bench project. A second project is a second set of library files
-   and a second `scenarios.ts` entry, not a new mechanism.
+   and a second `scenarios.ts` entry.
 
 ## License
 

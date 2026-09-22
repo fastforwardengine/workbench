@@ -1,8 +1,7 @@
 # Status
 
-**Workbench is a scaffold, not the finished lab.** It runs today.
-This page states what it does, so a reader does not have to read the code
-to find out.
+**Workbench is a scaffold.** It runs today. This page states what it
+does, so a reader does not have to read the code to find out.
 
 ## What it is
 
@@ -58,40 +57,43 @@ One bench project: characterizing an 18650 Li-ion cell.
 - `pnpm check` passes clean: Prettier, `tsc --noEmit`, Biome (including
   the layering rule below) with warnings as errors, Knip, and 166
   scripted tests. No key and no network.
-- `pnpm start` and `pnpm test:live` have both been run end to end, on the
-  `openai` preset (`WORKBENCH_MODEL=openai`) — the `ANTHROPIC_API_KEY` in
-  `.env` is out of credit. The terminal draws, accepts a message, seats a
-  specialist, and publishes a cited summary with a real cost. Both live
-  scenarios in `test/live/engine.test.ts` pass.
-- That run found one test bug, since fixed: the `characterization`
-  scenario checked `summary.text` for the word "library", but the
+- The project has run `pnpm start` and `pnpm test:live` end to end, on
+  the `openai` preset (`WORKBENCH_MODEL=openai`); the
+  `ANTHROPIC_API_KEY` in `.env` is out of credit. The terminal draws,
+  accepts a message, seats a specialist, and publishes a cited summary
+  with a real cost. Both live scenarios in `test/live/engine.test.ts`
+  pass.
+- That run found one test bug, now fixed. The `characterization`
+  scenario checked `summary.text` for the word "library," but the
   assistant cites what it relies on in the message's `refs` field
   (`file:///library/...`), per the `shared` instructions in
-  `src/domain/definitions.ts` — not by naming it in prose. The test now
-  checks `refs`.
+  `src/domain/definitions.ts`. The test now checks `refs`.
 
 ## Layout
 
-Mirrors `examples/workbench` in the Ambion repository, laid out in
-layers: `src/domain/` (`definitions.ts`, `scenarios.ts`, `instrument.ts`,
-`families.ts`) holds the vocabulary; `src/view/` formats the record for
-display (`steps.ts`, `timeline.ts`, `refs.ts`, `database.ts`, `text.ts`);
-`src/host/` (`host.ts`, `rooms.ts`, `files.ts`, `approvals.ts`,
-`names.ts`, `unavailable.ts`) is what a host owns; `src/terminal/` is the
-OpenTUI terminal, over the three below it. `src/main.ts` composes domain
-and terminal. Biome's `noRestrictedImports` refuses an import that points
-up. `test/` stays flat, on the Ambion repository's own convention. See
-the "Files" table and the "Layout" diagram in `README.md` for the
-one-line purpose of each module.
+This layout mirrors `examples/workbench` in the Ambion repository, laid
+out in layers. `src/domain/` (`definitions.ts`, `scenarios.ts`,
+`instrument.ts`, `families.ts`) holds the vocabulary. `src/view/`
+formats the record for display (`steps.ts`, `timeline.ts`, `refs.ts`,
+`database.ts`, `text.ts`). `src/host/` (`host.ts`, `rooms.ts`,
+`files.ts`, `approvals.ts`, `names.ts`, `unavailable.ts`) is what a host
+owns. `src/terminal/` is the OpenTUI terminal, over the three layers
+below it.
+
+`src/main.ts` composes domain and terminal. Biome's `noRestrictedImports`
+refuses an import that points up. `test/` stays flat, on the Ambion
+repository's own convention. See the "Files" table and the "Layout"
+diagram in `README.md` for the one-line purpose of each module.
 
 ## Toolchain
 
 Biome lints (`biome.jsonc`), Prettier formats (`prettier.config.js`),
-Knip finds dead code (`knip.json`) — the same tools, the same rules, and
-the same limits (cognitive complexity 10 in source, 15 in tests; no
-explicit `any`; no non-null assertion) that
+and Knip finds dead code (`knip.json`). These are the same tools, the
+same rules, and the same limits that
 [Ambion](https://github.com/ambionframework/ambion) holds its own source
-to. `pnpm check` is the gate: format, types, lint, test, in that order.
+to: cognitive complexity 10 in source and 15 in tests, no explicit
+`any`, and no non-null assertion. `pnpm check` is the gate: format,
+types, lint, test, in that order.
 
 ## Not built yet
 
