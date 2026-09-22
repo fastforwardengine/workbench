@@ -11,4 +11,3 @@ minimumReleaseAgeExclude:
   - '@ambionframework/pi@0.1.0'
   - '@ambionframework/workspace@0.1.0'
   - '@ambionframework/assistant@0.1.0'
-  - '@ambionframework/codex@0.1.0'
