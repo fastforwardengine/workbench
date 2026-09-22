@@ -1,0 +1,165 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			// A complexity budget, enforced rather than reported. Biome ships this
+			// rule at `info` with a threshold of 15, which is a number nothing
+			// checks; 10 is the bar this project actually holds, and it is an
+			// error like every other rule here.
+			"complexity": {
+				"noExcessiveCognitiveComplexity": {
+					"level": "error",
+					"options": { "maxAllowedComplexity": 10 }
+				}
+			},
+			"correctness": {
+				"noUnusedImports": "error",
+				"noUnusedVariables": "error",
+				// Source imports use bundler-resolved `.ts` specifiers, which this
+				// rule reads as a missing extension.
+				"useImportExtensions": "off"
+			},
+			"style": {
+				"useNodejsImportProtocol": "error",
+				"noNonNullAssertion": "error",
+				"noInferrableTypes": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "error",
+				// The terminal and the CLI entry are a console program, on the
+				// pattern of Ambion's own example (examples/workbench).
+				"noConsole": "off"
+			}
+		}
+	},
+	"vcs": {
+		"clientKind": "git",
+		"enabled": true,
+		"useIgnoreFile": true
+	},
+	// Formatting is Prettier's job (see prettier.config.js); Biome lints only.
+	"formatter": {
+		"enabled": false
+	},
+	"overrides": [
+		{
+			"includes": ["**/tsconfig.json", "**/tsconfig.*.json"],
+			"json": {
+				"parser": {
+					"allowComments": true,
+					"allowTrailingCommas": true
+				}
+			}
+		},
+		// `src/` is laid out in layers, and an import points down only:
+		//
+		//   domain/     the vocabulary: people, specialists, rooms, the lab schema, the instruments
+		//   view/       formatting the record for display: text, steps, a timeline, refs, a database preview
+		//   host/       what a host owns: the room catalog, approvals, files, the Lab facade — over domain and view
+		//   terminal/   the OpenTUI terminal: session state and every widget — over host, domain, and view
+		//   main.ts     the entry point, which composes domain and terminal
+		//
+		// The README's "Files" table names each module. The overrides below
+		// refuse the imports a layer may not make.
+		{
+			"includes": ["src/domain/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../view/*", "../host/*", "../terminal/*", "../main.ts"],
+										"message": "The domain is the vocabulary: no view, no host, no terminal."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["src/view/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../domain/*", "../host/*", "../terminal/*", "../main.ts"],
+										"message": "The view formats the record for display: no domain, no host, no terminal."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["src/host/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../terminal/*", "../main.ts"],
+										"message": "A host owns the room catalog and the Lab facade; it runs no terminal."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["src/terminal/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../main.ts"],
+										"message": "The terminal is composed by the entry point; it does not reach back into it."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			// Biome charges a nested function for the nesting it sits in, so
+			// inside `describe` → `it` every branch costs three rather than one.
+			// Tests keep a budget — one that has become a program still fails —
+			// but it is measured from where a test body actually starts.
+			"includes": ["**/test/**"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "error",
+							"options": { "maxAllowedComplexity": 15 }
+						}
+					}
+				}
+			}
+		}
+	]
+}

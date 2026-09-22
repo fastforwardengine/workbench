@@ -1,0 +1,32 @@
+{
+	"compilerOptions": {
+		// resolution
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"allowImportingTsExtensions": true,
+		"esModuleInterop": true,
+		"resolveJsonModule": true,
+		"target": "ES2023",
+		"lib": ["ESNext"],
+		// TS 7 defaults `types` to []; keep the ambient Node globals
+		// (process, Buffer, URL, ...) that the runtime relies on.
+		"types": ["node"],
+
+		// strictness
+		"strict": true,
+		"skipLibCheck": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"forceConsistentCasingInFileNames": true,
+
+		// util
+		"noEmit": true,
+		"incremental": true,
+
+		// DX
+		"preserveWatchOutput": true
+	},
+	"include": ["src", "test"]
+}

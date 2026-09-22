@@ -1,0 +1,41 @@
+{
+	"name": "workbench",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"description": "Workbench: an agentic lab workspace for electrical engineering, hardware, and electrochemistry.",
+	"scripts": {
+		"start": "node --experimental-ffi --env-file-if-exists=.env src/main.ts",
+		"check:types": "tsc --noEmit",
+		"check:format": "prettier . --cache --check",
+		"check:lint": "biome lint . --error-on-warnings && knip",
+		"check": "pnpm run check:format && pnpm run check:types && pnpm run check:lint && pnpm run test",
+		"format": "pnpm run format:lint && pnpm run format:style",
+		"format:lint": "biome check . --write",
+		"format:style": "prettier . --cache --write --list-different",
+		"test": "vitest run --exclude 'test/live/**'",
+		"test:live": "vitest run --config vitest.live.config.ts"
+	},
+	"dependencies": {
+		"@ambionframework/ambion": "^0.1.0",
+		"@ambionframework/assistant": "^0.1.0",
+		"@ambionframework/journal": "^0.1.0",
+		"@ambionframework/pi": "^0.1.0",
+		"@ambionframework/workspace": "^0.1.0",
+		"@opentui/core": "0.5.11",
+		"typebox": "^1.3.18"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.10",
+		"@types/node": "^26.2.0",
+		"knip": "^6.32.2",
+		"prettier": "^3.9.6",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.11",
+		"@earendil-works/pi-ai": "^0.85.1"
+	},
+	"engines": {
+		"node": ">=26.4.0"
+	}
+}

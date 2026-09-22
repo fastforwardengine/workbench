@@ -1,0 +1,96 @@
+# Status
+
+**Workbench is a scaffold, not the finished lab.** It runs today.
+This page states what it does, so a reader does not have to read the code
+to find out.
+
+## What it is
+
+Workbench is an agentic lab workspace for electrical
+engineering, hardware, and electrochemistry. It runs on
+[Ambion](https://github.com/ambionframework/ambion) 0.1.0, the
+collaboration kernel, and it ports the layout, host, and OpenTUI terminal
+of Ambion's own runnable example onto a lab domain of its own.
+
+## The team
+
+One assistant and five specialists, every seat on Pi:
+
+| Agent         | Scope                                                           | Resource today             |
+| ------------- | --------------------------------------------------------------- | -------------------------- |
+| Assistant     | Understands the request, seats a specialist, returns a summary  | Workspace, lab, instrument |
+| Datasheets    | Reads `/library` and states exact limits with their source      | Workspace, lab, instrument |
+| Design        | Chooses parts and values, and shows the calculation             | Workspace, lab, instrument |
+| Experiments   | Turns a question into a short, repeatable test plan             | Workspace, lab, instrument |
+| Instruments   | Names what a person must do by hand; no equipment connected yet | Workspace only             |
+| Data Analysis | Names the metric to read by hand; no analysis tooling yet       | Workspace only             |
+
+`WORKBENCH_MODEL` switches every seat between two presets: `anthropic`
+(`anthropic/claude-sonnet-5`) and `openai` (`openai/gpt-5.6-luna`). The
+default is `anthropic`. Any other value passes through as a full Pi model
+id. `src/domain/families.ts` holds the presets and the one key check per family.
+
+Four people: `priya` (hardware lead), `noor` (electrochemistry lead),
+`jae` (lab technician), and one added automatically for the account
+running the process (`node:os` `userInfo().username`). The terminal opens
+straight to that automatic person unless `WORKBENCH_USER` or `--as` names
+someone else.
+
+## The domain
+
+One bench project: characterizing an 18650 Li-ion cell.
+
+- **Library** (`library/`): five datasheet summaries — the cell, a
+  TP4056-based charge and protection module, a power resistor bank, a
+  K-type thermocouple, and JST-PH connectors and silicone wire.
+- **Lab database** (`lab.db`): `projects`, `test_plans`, `runs`,
+  `results`, `operations`, apart from the room journals.
+- **Instruments**: two simulated bench instruments, `discharge-current`
+  (2000 mA limit) and `charge-voltage` (4.2 V limit), behind `operate` and
+  `approve_operation`. An operation above its limit waits for the owner of
+  the exchange.
+- **Rooms**: `characterization` (datasheet check → design decision),
+  `cycling` (design → test plan), `budget` (datasheet check → power
+  budget).
+
+## What runs
+
+- `pnpm check` passes clean: Prettier, `tsc --noEmit`, Biome (including
+  the layering rule below) with warnings as errors, Knip, and 166
+  scripted tests. No key and no network.
+- `pnpm test:live` and `pnpm start` need a key (`.env`, from
+  `.env.example`) and have not been run in this session — both cost
+  money or require a person at the keyboard.
+- The full OpenTUI terminal is ported and typechecks, but nobody has run
+  it end to end yet. Treat "does the terminal actually draw and respond"
+  as unverified until someone runs `pnpm start` and looks at it.
+
+## Layout
+
+Mirrors `examples/workbench` in the Ambion repository, laid out in
+layers: `src/domain/` (`definitions.ts`, `scenarios.ts`, `instrument.ts`,
+`families.ts`) holds the vocabulary; `src/view/` formats the record for
+display (`steps.ts`, `timeline.ts`, `refs.ts`, `database.ts`, `text.ts`);
+`src/host/` (`host.ts`, `rooms.ts`, `files.ts`, `approvals.ts`,
+`names.ts`, `unavailable.ts`) is what a host owns; `src/terminal/` is the
+OpenTUI terminal, over the three below it. `src/main.ts` composes domain
+and terminal. Biome's `noRestrictedImports` refuses an import that points
+up. `test/` stays flat, on the Ambion repository's own convention. See
+the "Files" table and the "Layout" diagram in `README.md` for the
+one-line purpose of each module.
+
+## Toolchain
+
+Biome lints (`biome.jsonc`), Prettier formats (`prettier.config.js`),
+Knip finds dead code (`knip.json`) — the same tools, the same rules, and
+the same limits (cognitive complexity 10 in source, 15 in tests; no
+explicit `any`; no non-null assertion) that
+[Ambion](https://github.com/ambionframework/ambion) holds its own source
+to. `pnpm check` is the gate: format, types, lint, test, in that order.
+
+## Not built yet
+
+- The Instruments and Data Analysis specialists are stubs: workspace tools
+  only, and instructions that say plainly they have no resource to back a
+  reading or a fit. See `backlog.md`.
+- No CI. `pnpm check` is run by hand.
