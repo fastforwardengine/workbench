@@ -19,11 +19,13 @@ and add a line to `decisions.md` if it changed the shape of the project.
 
 ## Build the two stub resources
 
-- [ ] **Instruments.** A real equipment connection, on the pattern of
-      `src/domain/instrument.ts`: a resource with an `env`, tools behind it, and
-      provenance on every row. Decide first whether it drives the same
-      `operations` table with `operate`/`approve_operation`, or needs its
-      own shape for a live driver's readings.
+- [ ] **Instruments.** A real equipment connection. It drives the same
+      `operations` table with `operate`/`approve_operation`; the
+      infrastructure already proves that shape (provenance, the
+      limit-and-approval flow, `lab.use()`'s serialization). What's left
+      is picking real hardware and writing one `InstrumentDriver` for it,
+      then giving the `instruments` specialist the full bundle. See
+      `docs/instrument.md` for the seam design.
 - [ ] **Data Analysis.** A fit, a plot, or a data-quality check over the
       `results` table, exposed as a tool bundle. Decide the smallest
       useful first tool: likely a fit of one metric across the runs of one
