@@ -58,12 +58,17 @@ One bench project: characterizing an 18650 Li-ion cell.
 - `pnpm check` passes clean: Prettier, `tsc --noEmit`, Biome (including
   the layering rule below) with warnings as errors, Knip, and 166
   scripted tests. No key and no network.
-- `pnpm test:live` and `pnpm start` need a key (`.env`, from
-  `.env.example`) and have not been run in this session — both cost
-  money or require a person at the keyboard.
-- The full OpenTUI terminal is ported and typechecks, but nobody has run
-  it end to end yet. Treat "does the terminal actually draw and respond"
-  as unverified until someone runs `pnpm start` and looks at it.
+- `pnpm start` and `pnpm test:live` have both been run end to end, on the
+  `openai` preset (`WORKBENCH_MODEL=openai`) — the `ANTHROPIC_API_KEY` in
+  `.env` is out of credit. The terminal draws, accepts a message, seats a
+  specialist, and publishes a cited summary with a real cost. Both live
+  scenarios in `test/live/engine.test.ts` pass.
+- That run found one test bug, since fixed: the `characterization`
+  scenario checked `summary.text` for the word "library", but the
+  assistant cites what it relies on in the message's `refs` field
+  (`file:///library/...`), per the `shared` instructions in
+  `src/domain/definitions.ts` — not by naming it in prose. The test now
+  checks `refs`.
 
 ## Layout
 

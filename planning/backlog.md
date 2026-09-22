@@ -6,13 +6,16 @@ and add a line to `decisions.md` if it changed the shape of the project.
 
 ## Verify what has not been run yet
 
-- [ ] Run `pnpm start` once and confirm the terminal actually draws,
-      accepts a message, and shows a reply. It typechecks and the unit
-      tests pass, but nobody has looked at it running.
-- [ ] Run `pnpm test:live` for at least one scenario, on purpose, to
-      confirm a real model reaches the room and a summary publishes with a
-      real cost. Costs money; run the smallest thing first
-      (`vitest run --config vitest.live.config.ts test/live/engine.test.ts`).
+- [x] Run `pnpm start` once and confirm the terminal actually draws,
+      accepts a message, and shows a reply. Done on the `openai` preset;
+      see `status.md`.
+- [x] Run `pnpm test:live` for at least one scenario. Done on the `openai`
+      preset; both scenarios pass. Found and fixed a test bug in
+      `test/live/engine.test.ts` (checked prose for "library" instead of
+      the summary's `refs`).
+- [ ] Get `pnpm start` and `pnpm test:live` passing on the `anthropic`
+      preset too — the account behind `ANTHROPIC_API_KEY` in `.env` is
+      out of credit, so only `openai` has been proven live.
 
 ## Build the two stub resources
 
