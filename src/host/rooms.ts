@@ -4,20 +4,17 @@ import {
 	createRuntime,
 	type Room,
 	type RoomNotification,
-	readActivation,
 	readRoom,
 	resumeRoom,
 	startRoom,
 } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
 import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journal';
+import { directoryBackend } from '@ambionframework/just-bash';
 import { type PiExecutionOptions, piExecution } from '@ambionframework/pi';
-import {
-	directoryBackend,
-	openSqlResource,
-	openWorkspace,
-	type RoomMirror,
-} from '@ambionframework/workspace';
+import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
+import { openSqlResource } from '@ambionframework/workspace/sql';
+import { sqliteBackend } from '@ambionframework/workspace/sqlite';
 import { team } from '../domain/definitions.ts';
 import { type Environment, hasKey, keyVariable, unavailableSeats } from '../domain/families.ts';
 import { openInstrument } from '../domain/instrument.ts';
@@ -28,6 +25,7 @@ import {
 	scenarios,
 	seedWorkspace,
 } from '../domain/scenarios.ts';
+import { stepLog } from '../view/steps.ts';
 import { readApprovals } from './approvals.ts';
 import { unavailable } from './unavailable.ts';
 
@@ -100,19 +98,30 @@ export async function openRooms(
 	const missing = options.stream
 		? []
 		: unavailableSeats(options.env ?? process.env).map(({ seat }) => seat);
+	const entries = new Map<string, HostedRoom>();
+	// The steps of each activation go to a log in this process. Each step
+	// tells the watchers of its room to read again.
+	const log = stepLog();
 	const runtime = createRuntime({
 		storage: sqliteJournals(sql),
 		execution: familyExecutions(options),
+		logger: (record) => {
+			log.logger(record);
+			const entry = entries.get(record.room);
+			if (entry) for (const watcher of [...entry.watchers]) watcher();
+		},
 	});
 	database.exec(
 		'CREATE TABLE IF NOT EXISTS engine_rooms (name TEXT PRIMARY KEY, goal TEXT NOT NULL, enabled INTEGER NOT NULL)',
 	);
-	const entries = new Map<string, HostedRoom>();
 	let closing = false;
 	const workspacePath = resolve(directory, 'workspace');
 	const workspace = openWorkspace({
 		name: 'workbench',
-		backend: directoryBackend(workspacePath),
+		backend: {
+			bash: directoryBackend(workspacePath),
+			sql: sqliteBackend(resolve(directory, 'shared.db')),
+		},
 		audit: {},
 	});
 	try {
@@ -295,9 +304,8 @@ export async function openRooms(
 		withWorkspace,
 		workspace,
 		lifecycle,
-		/** The trace of one activation, read from the runtime the room writes to. */
-		activation: (name: string, id: string) =>
-			withRoom(name, () => readActivation(name, id, { runtime })),
+		/** The steps of one activation that this process logged. */
+		activation: (name: string, id: string) => withRoom(name, async () => log.read(name, id)),
 		/** The operations of a room that wait for the owner of the exchange. */
 		approvals: (name: string) => withRoom(name, () => readApprovals(lab, name)),
 		list: () =>
@@ -366,7 +374,6 @@ function recordActivity(entry: HostedRoom, event: RoomNotification): void {
 function describeEvent(event: RoomNotification): Omit<Activity, 'at'> | undefined {
 	switch (event.type) {
 		case 'error':
-		case 'audit_error':
 		case 'delivery_error':
 			return { type: event.type, agent: event.agent, text: event.error.message };
 		case 'activation_start':

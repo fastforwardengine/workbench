@@ -1,5 +1,5 @@
 import type {
-	ActivationRead,
+	ActivationSteps,
 	Approval,
 	FileContent,
 	FileEntry,
@@ -102,7 +102,7 @@ export class FakeHost implements Lab {
 		return created;
 	}
 	/** The traces the host holds, by activation id. */
-	readonly traces = new Map<string, ActivationRead>();
+	readonly traces = new Map<string, ActivationSteps>();
 	pendingApprovals: Approval[] = [];
 	async activation(_room: string, id: string) {
 		this.calls.push(`activation:${id}`);

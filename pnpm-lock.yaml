@@ -9,20 +9,23 @@ importers:
   .:
     dependencies:
       '@ambionframework/ambion':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       '@ambionframework/assistant':
-        specifier: ^0.1.0
-        version: 0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+        specifier: ^0.2.0
+        version: 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@ambionframework/journal':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
+      '@ambionframework/just-bash':
+        specifier: ^0.2.0
+        version: 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@ambionframework/pi':
-        specifier: ^0.1.0
-        version: 0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+        specifier: ^0.2.0
+        version: 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@ambionframework/workspace':
-        specifier: ^0.1.0
-        version: 0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+        specifier: ^0.2.0
+        version: 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@opentui/core':
         specifier: 0.5.11
         version: 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
@@ -54,29 +57,29 @@ importers:
 
 packages:
 
-  '@ambionframework/ambion@0.1.0':
-    resolution: {integrity: sha512-ORN3DZhJ4V4jbm1imJVrPk9euSguIsV/B4KISIi1c+CTTBbB3n+Qb23nQP7Zf1VHoiAUKzDEV+RAZv+ab/UweA==}
-    engines: {node: '>=26.4.0'}
+  '@ambionframework/ambion@0.2.0':
+    resolution: {integrity: sha512-9NoI9+hxeSJAOeNrDJoYILJN2PQCHyX1UOzQgEtWKORlhGWtw1qUhmOTuNTdQZg5+EeFxZowz1lRWqejHVzltg==}
+    engines: {node: '>=22.19.0'}
 
-  '@ambionframework/assistant@0.1.0':
-    resolution: {integrity: sha512-rDZyySf6BTZPMeGUT2HPo+9+GRKUtsf3eFeKM73euVbpMmod9EtMR8pLn5wP2fldvAXX50u4xftF5b9K7KUZWA==}
-    engines: {node: '>=26.4.0'}
+  '@ambionframework/assistant@0.2.0':
+    resolution: {integrity: sha512-I+OJbY0NDNUPaLtXVduTt6l5HMAmrok1S2RdAuUzYBiP3hRZTXzK4xu9PrE+cc7iwh+Gd1kuR38pXxxOMlPWmQ==}
+    engines: {node: '>=22.19.0'}
 
-  '@ambionframework/journal@0.1.0':
-    resolution: {integrity: sha512-1hNRWMq9VQ4FKcjrO/USqIj+gPTncg6MKhyT1NKtQO1jvF0ltaG9OZpkePA5pcTJXUetMqv1EpVdH2HelfOCLQ==}
-    engines: {node: '>=26.4.0'}
+  '@ambionframework/journal@0.2.0':
+    resolution: {integrity: sha512-Q3p2YEZ3XdFjKYsAE6MwsMKbzNp6fwfseWo/bq/nrdCmt4fA2Mxtmzo+qB2YSZXRlGDPSj+Y4eIUW2uusoFgMQ==}
+    engines: {node: '>=22.19.0'}
 
-  '@ambionframework/pi-journal@0.1.0':
-    resolution: {integrity: sha512-2aLyZRTsAiKkGLu6lKSYE5+Wn40L9YvSPLY+PEfKvCWFb831vJSr4jJTkq1N7wuNQWnAZIwULEJDfxh36kuA8A==}
-    engines: {node: '>=26.4.0'}
+  '@ambionframework/just-bash@0.2.0':
+    resolution: {integrity: sha512-R9oeUgh2CuTHXu2t6TY8Iln1iRQPrp0rvi9aU3bT07ozcti1UYwQvRsMx4iKm/i5mtrjq82vTl4PxQ0C/W1KVg==}
+    engines: {node: '>=22.19.0'}
 
-  '@ambionframework/pi@0.1.0':
-    resolution: {integrity: sha512-fQttaInHgLK8kpov0OPIpzSnrNoLEuPoafsrrSnd4biBZ//jLDO8zh2LcZbMn90OgnMCSuyJwioyOcKKPwdoSA==}
-    engines: {node: '>=26.4.0'}
+  '@ambionframework/pi@0.2.0':
+    resolution: {integrity: sha512-JYsbZz+ww6y6rRq50wynUAGq9JHQGYmDv/9oo6jAApdnR0Abx+MDW4pamm30dx5q9gQh4DMwTwIh2EhsN0YjDA==}
+    engines: {node: '>=22.19.0'}
 
-  '@ambionframework/workspace@0.1.0':
-    resolution: {integrity: sha512-fhQlRPJo5tRawKgfFLyXSa0u0TZa+GY3iazoYDXcqErN0IxtiqR2caz2FiGNfgvl0yvF1ox1IQm7glcqx47Cgw==}
-    engines: {node: '>=26.4.0'}
+  '@ambionframework/workspace@0.2.0':
+    resolution: {integrity: sha512-LpmHs5rB15VkERunGJMiBBUEzRi3m/o/C5IPS1i51ZAgSk1kRuH/LB8ZrBl67BGNXe18FXM/I2T5elC0jc02Jw==}
+    engines: {node: '>=22.19.0'}
 
   '@anthropic-ai/sdk@0.123.0':
     resolution: {integrity: sha512-Y9oX9mPNGZClHQOFqrWRk43Srcu/UHuPq3rfxxOq7JgW0gi+lJA2MAOK4Ul3k/+AUrwRWFJvd0tK3oC0Pw25dw==}
@@ -1540,6 +1543,9 @@ packages:
     engines: {node: '>=20.18.1'}
     hasBin: true
 
+  just-git@1.8.2:
+    resolution: {integrity: sha512-0DVPqml0VVzjK3DompySws16j+jQTnw1TSExHPl/f1uTikYduza0V36Q+4ViORhIfAxxKTaNbc8S7Wx1avnOLw==}
+
   jwa@2.0.1:
     resolution: {integrity: sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==}
 
@@ -2215,15 +2221,15 @@ packages:
 
 snapshots:
 
-  '@ambionframework/ambion@0.1.0':
+  '@ambionframework/ambion@0.2.0':
     dependencies:
-      '@ambionframework/journal': 0.1.0
+      '@ambionframework/journal': 0.2.0
       typebox: 1.3.34
 
-  '@ambionframework/assistant@0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
+  '@ambionframework/assistant@0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
     dependencies:
-      '@ambionframework/ambion': 0.1.0
-      '@ambionframework/pi': 0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+      '@ambionframework/ambion': 0.2.0
+      '@ambionframework/pi': 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - bufferutil
@@ -2232,12 +2238,14 @@ snapshots:
       - ws
       - zod
 
-  '@ambionframework/journal@0.1.0': {}
+  '@ambionframework/journal@0.2.0': {}
 
-  '@ambionframework/pi-journal@0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
+  '@ambionframework/just-bash@0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
     dependencies:
-      '@ambionframework/journal': 0.1.0
+      '@ambionframework/workspace': 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-agent-core': 0.85.1(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+      just-bash: 3.4.2
+      just-git: 1.8.2
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - bufferutil
@@ -2246,11 +2254,9 @@ snapshots:
       - ws
       - zod
 
-  '@ambionframework/pi@0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
+  '@ambionframework/pi@0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
     dependencies:
-      '@ambionframework/ambion': 0.1.0
-      '@ambionframework/journal': 0.1.0
-      '@ambionframework/pi-journal': 0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+      '@ambionframework/ambion': 0.2.0
       '@earendil-works/pi-agent-core': 0.85.1(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-ai': 0.85.1(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       typebox: 1.3.34
@@ -2262,11 +2268,11 @@ snapshots:
       - ws
       - zod
 
-  '@ambionframework/workspace@0.1.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
+  '@ambionframework/workspace@0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
     dependencies:
-      '@ambionframework/ambion': 0.1.0
+      '@ambionframework/ambion': 0.2.0
       '@earendil-works/pi-agent-core': 0.85.1(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
-      just-bash: 3.4.2
+      typebox: 1.3.34
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - bufferutil
@@ -3699,6 +3705,8 @@ snapshots:
       node-liblzma: 2.2.0
     transitivePeerDependencies:
       - supports-color
+
+  just-git@1.8.2: {}
 
   jwa@2.0.1:
     dependencies:
