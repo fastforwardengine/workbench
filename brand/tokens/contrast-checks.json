@@ -1,0 +1,18 @@
+{
+	"text/bg": 15.43,
+	"text/panel": 12.83,
+	"muted/bg": 9.55,
+	"muted/panel": 7.94,
+	"dim/bg": 6.57,
+	"dim/panel": 5.46,
+	"accent/bg": 8.96,
+	"accent/panel": 7.45,
+	"coral/bg": 8.5,
+	"coral/panel": 7.07,
+	"summary/bg": 10.65,
+	"summary/panel": 8.86,
+	"green/bg": 9.14,
+	"green/panel": 7.6,
+	"red/bg": 9.01,
+	"red/panel": 7.49
+}

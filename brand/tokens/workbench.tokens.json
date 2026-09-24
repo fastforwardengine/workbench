@@ -1,0 +1,40 @@
+{
+	"brand": {
+		"ink": "#1B252A",
+		"paper": "#F4F1E8",
+		"amber": "#E9A23B",
+		"teal": "#326B70",
+		"white": "#FFFFFF",
+		"muted": "#5D6D73",
+		"pale": "#A7CED0"
+	},
+	"terminal": {
+		"bg": "#141B1E",
+		"panel": "#202B30",
+		"text": "#F4F1E8",
+		"muted": "#B6C2C5",
+		"dim": "#8FA2AA",
+		"accent": "#F4AC36",
+		"coral": "#FA9D89",
+		"summary": "#E6C68F",
+		"green": "#89C9AC",
+		"red": "#FFA1A1",
+		"line": "#6A8088",
+		"selected": "#35444B",
+		"steer": "#2B3940"
+	},
+	"typography": {
+		"display": "Space Grotesk",
+		"body": "Space Grotesk",
+		"technical": "IBM Plex Mono"
+	},
+	"spacing": [4, 8, 12, 16, 24, 32, 48, 64],
+	"logo": {
+		"clearSpace": 60,
+		"width": 240,
+		"height": 144,
+		"minimumVisibleWidth": 32,
+		"minimumHorizontalCanvas": 220,
+		"minimumDescriptorCanvas": 640
+	}
+}
