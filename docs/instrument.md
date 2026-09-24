@@ -98,8 +98,8 @@ to `simulated`, which behaves exactly like the old `readingOf`.
 
 ## Build order
 
-1. Pick the hardware and its protocol (`planning/next.md`: activity 1, "Decide the
-   hardware").
+1. Pick the hardware and its protocol (`planning/next.md`, activity 1:
+   "Decide the hardware").
 2. Build the interface above.
 3. Write one concrete `InstrumentDriver` for that hardware.
 4. Switch the `instruments` specialist from the workspace-only stub
