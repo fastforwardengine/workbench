@@ -2,3 +2,6 @@ node_modules/
 pnpm-lock.yaml
 # Local Workbench workspace artifacts are runtime data.
 .data/
+
+# A template never changes after its registration, so no tool rewrites it.
+templates/

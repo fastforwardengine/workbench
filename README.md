@@ -205,7 +205,7 @@ authenticate people and control access to rooms and workspace resources.
 refuses the rest (see `biome.jsonc`).
 
 ```text
-domain/     the vocabulary: people, specialists, rooms, the lab schema, the instruments
+domain/     the vocabulary: people, specialists, rooms, the lab schema, the instruments, the templates
 view/       formatting the record for display: text, steps, a timeline, refs, a database preview
 host/       what a host owns: the room catalog, approvals, files, the Lab facade — over domain and view
 terminal/   the OpenTUI terminal: session state and every widget — over host, domain, and view
@@ -220,6 +220,7 @@ main.ts     the entry point, which composes domain and terminal
 | `src/domain/families.ts`       | The executor family and the key of each seat                       |
 | `src/domain/scenarios.ts`      | The rooms, the workspace seed, the lab schema, and the instruments |
 | `src/domain/instrument.ts`     | The simulated bench instruments and their approval step            |
+| `src/domain/templates.ts`      | The registry of the git templates under `templates/`               |
 | `src/view/text.ts`             | One line of text fitted to a width, with an ellipsis               |
 | `src/view/steps.ts`            | The steps of an activation, and the cost of a run                  |
 | `src/view/timeline.ts`         | The record grouped into questions, threads, and summaries          |
@@ -229,6 +230,7 @@ main.ts     the entry point, which composes domain and terminal
 | `src/host/unavailable.ts`      | The execution of a family that has no key                          |
 | `src/host/approvals.ts`        | The instrument operations that wait for an answer                  |
 | `src/host/rooms.ts`            | The host lifecycle and the room catalog                            |
+| `src/host/repositories.ts`     | The git backend of the workspace, with every template registered   |
 | `src/host/files.ts`            | The workspace list and one file preview                            |
 | `src/host/host.ts`             | The host API the terminal calls in process                         |
 | `src/terminal/session-text.ts` | The terminal's fixed text: help, done messages, an empty room      |

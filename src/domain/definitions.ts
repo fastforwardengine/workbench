@@ -6,6 +6,7 @@ import type { Workspace } from '@ambionframework/workspace';
 import type { SqlResource } from '@ambionframework/workspace/sql';
 import { piModel } from './families.ts';
 import type { Instrument } from './instrument.ts';
+import { templateInstructions } from './templates.ts';
 
 /** The name of the account running this process. The one automatic person below uses it. */
 const owner = userInfo().username;
@@ -79,7 +80,7 @@ const specialists = [
 		name: 'experiments',
 		identity: 'Experiments specialist. Turns a question into a test plan.',
 		instructions:
-			'Define the procedure, the variables, the controls, the measurement requirements, and the acceptance criteria. Keep the plan short and repeatable, and recommend a follow-up test when one result raises a new question. Save a plan under /shared when the person permits file edits. Record the plan with `record` in the test_plans table, and read earlier runs and results with `query`.',
+			'Define the procedure, the variables, the controls, the measurement requirements, and the acceptance criteria. Keep the plan short and repeatable, and recommend a follow-up test when one result raises a new question. Record the plan with `record` in the test_plans table, and read earlier runs and results with `query`.',
 	},
 ];
 
@@ -117,22 +118,19 @@ export function team(workspace: Workspace, lab: SqlResource, instrument: Instrum
 	// back a lab record or an instrument reading.
 	const stubBundles: ToolBundle[] = [workspace.tools()];
 	const assistant = defineAssistant({ model, instructions: shared, bundles });
-	const specialistDefinitions = specialists.map(({ instructions, ...definition }) =>
-		defineAgent({
-			...definition,
-			executor: pi({ instructions: `${shared}${instructions}${CLOSING}`, model, bundles }),
-		}),
-	);
-	const stubDefinitions = stubs.map(({ instructions, ...definition }) =>
-		defineAgent({
-			...definition,
-			executor: pi({
-				instructions: `${shared}${instructions}${CLOSING}`,
-				model,
-				bundles: stubBundles,
-			}),
-		}),
-	);
+	const seat =
+		(seatBundles: ToolBundle[]) =>
+		({ instructions, ...definition }: { name: string; identity: string; instructions: string }) =>
+			defineAgent({
+				...definition,
+				executor: pi({
+					instructions: `${shared}${instructions}${templateInstructions(definition.name)}${CLOSING}`,
+					model,
+					bundles: seatBundles,
+				}),
+			});
+	const specialistDefinitions = specialists.map(seat(bundles));
+	const stubDefinitions = stubs.map(seat(stubBundles));
 	return {
 		workspace,
 		lab,

@@ -18,6 +18,41 @@ and add a line to `decisions.md` if it changed the shape of the project.
       out of credit, so the project has proven only the `openai` preset
       live.
 
+## The first real use case: an LED parameter sweep
+
+**A power supply drives an LED through a range of values, and a camera
+measures the light at each step.** The power supply and the camera
+connect to a workstation. It is the first use case on real hardware, and
+the items below set the stage for it. Nothing here is built yet.
+
+- [ ] **Decide the hardware.** Name the power supply and its interface,
+      such as SCPI over USB or LAN. Name the camera and its interface,
+      such as a USB camera. Add a datasheet for the LED, the supply, and
+      the camera to `library/`.
+- [ ] **Decide the workstation connection.** Ambion's
+      `@ambionframework/workstation` runs each agent's shell over SSH on
+      one server. Its git reaches the git server over HTTP, through the
+      `handler` of `gitBackend` and its `url` option. The host, the
+      network, and the accounts are not defined yet. Until then the bash
+      backend stays the local just-bash directory, which has no Python and
+      no hardware access.
+- [ ] **Write a test plan for the sweep** from the `test-plan` template:
+      the variable (the LED current), its range and step, the camera
+      exposure as a control, and the LED current limit from its
+      datasheet.
+- [ ] **Add an `led-sweep` template** on the pattern of
+      `docs/templates.md`. It holds a script that steps the supply, reads
+      the camera at each step, and writes one CSV row for each step. It
+      has a simulated mode that needs no hardware. It refuses a setpoint
+      above the limit in its configuration.
+- [ ] **Connect the sweep to the lab database.** Each sweep is a `runs`
+      row, and each step gives `results` rows. The supply goes through
+      `operate` and its limit, per `docs/instrument.md`, or the sweep
+      script records its rows after the run. Decide which.
+- [ ] **Give Instruments and Data Analysis the sweep.** Instruments
+      prepares and runs it. Data Analysis reads the CSV and states the
+      brightness against the current.
+
 ## Build the two stub resources
 
 - [ ] **Instruments.** This needs a real equipment connection. It drives
@@ -63,8 +98,9 @@ and add a line to `decisions.md` if it changed the shape of the project.
 - [x] A Biome and Prettier config of this project's own, and the layered
       `src/` directory structure Biome's `noRestrictedImports` holds.
       See `decisions.md` §6.
-- [ ] CI: run `pnpm check` on push, holding back `test:live`. Never run
-      `pnpm test:live` on a pull request; it costs money and needs a key.
+- [x] CI: `.github/workflows/ci.yml` runs `pnpm check` on each pull
+      request and each push to `main`. It never runs `pnpm test:live`,
+      which costs money and needs a key.
 - [ ] Decide whether to move a specialist to `@ambionframework/claude` or
       `@ambionframework/codex` for a capability Pi does not have —
       Codex's reasoning-effort control, or a harness's built-in tools

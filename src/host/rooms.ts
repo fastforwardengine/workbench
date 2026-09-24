@@ -27,6 +27,7 @@ import {
 } from '../domain/scenarios.ts';
 import { stepLog } from '../view/steps.ts';
 import { readApprovals } from './approvals.ts';
+import { labRepositories } from './repositories.ts';
 import { unavailable } from './unavailable.ts';
 
 /** What a person can do to a room's work. Abort ends the open exchange. Stop and resume end and start a run. */
@@ -121,18 +122,17 @@ export async function openRooms(
 		backend: {
 			bash: directoryBackend(workspacePath),
 			sql: sqliteBackend(resolve(directory, 'shared.db')),
+			git: labRepositories(resolve(directory, 'git.db')),
 		},
 		audit: {},
 	});
-	try {
-		await seedWorkspace(workspacePath);
-	} catch (error) {
-		await workspace.dispose().catch(() => {});
-		throw error;
-	}
 	// The lab records live in their own file, apart from the journal database.
 	let lab: ReturnType<typeof openSqlResource>;
 	try {
+		await seedWorkspace(workspacePath);
+		// Register the templates now, so a changed template stops the start
+		// with an error that names it.
+		await workspace.git?.use(workspace.host, (env) => env.list());
 		lab = openSqlResource({
 			name: 'lab',
 			location: resolve(directory, 'lab.db'),
