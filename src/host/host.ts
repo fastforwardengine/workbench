@@ -1,10 +1,10 @@
 import { access, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { ActivationRead } from '@ambionframework/ambion';
 import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
 import { scenarios } from '../domain/scenarios.ts';
+import type { ActivationSteps } from '../view/steps.ts';
 import type { Approval } from './approvals.ts';
 import {
 	type FileContent,
@@ -24,8 +24,8 @@ import {
 	type RoomView,
 } from './rooms.ts';
 
-export type { ActivationRead } from '@ambionframework/ambion';
 export type { Person } from '../domain/definitions.ts';
+export type { ActivationSteps } from '../view/steps.ts';
 export type { Approval } from './approvals.ts';
 export type { FileContent, FileEntry, TableView } from './files.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
@@ -56,10 +56,11 @@ export interface Lab {
 	send(room: string, person: string, key: string, text: string): Promise<void>;
 	control(room: string, action: RoomAction): Promise<RoomView>;
 	/**
-	 * The trace of one activation: its passes and steps. A running activation returns
-	 * the steps written so far. An id with no trace returns no passes.
+	 * The steps of one activation, as the logger of this process received them.
+	 * A running activation returns the steps so far. An activation this process
+	 * did not run returns nothing.
 	 */
-	activation(room: string, id: string): Promise<ActivationRead | undefined>;
+	activation(room: string, id: string): Promise<ActivationSteps | undefined>;
 	/** The operations of a room that wait for an answer from the owner of their exchange. */
 	approvals(room: string): Promise<Approval[]>;
 	create(name: string, goal: string): Promise<RoomView>;

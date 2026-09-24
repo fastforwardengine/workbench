@@ -2,7 +2,8 @@ import { userInfo } from 'node:os';
 import { defineAgent, defineHuman, type ToolBundle } from '@ambionframework/ambion';
 import { defineAssistant } from '@ambionframework/assistant';
 import { pi } from '@ambionframework/pi';
-import type { SqlResource, Workspace } from '@ambionframework/workspace';
+import type { Workspace } from '@ambionframework/workspace';
+import type { SqlResource } from '@ambionframework/workspace/sql';
 import { piModel } from './families.ts';
 import type { Instrument } from './instrument.ts';
 

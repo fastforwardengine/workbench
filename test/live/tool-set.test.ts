@@ -16,18 +16,21 @@ import {
 	type Message,
 	type Room,
 	type RoomNotification,
-	readActivation,
 	startRoom,
 } from '@ambionframework/ambion';
 import { settled } from '@ambionframework/ambion/testing';
 import { memoryJournals } from '@ambionframework/journal';
+import { memoryBackend } from '@ambionframework/just-bash';
 import { piExecution } from '@ambionframework/pi';
-import { memoryBackend, openSqlResource, openWorkspace } from '@ambionframework/workspace';
+import { openWorkspace } from '@ambionframework/workspace';
+import { openSqlResource } from '@ambionframework/workspace/sql';
+import { sqliteBackend } from '@ambionframework/workspace/sqlite';
 import { describe, expect, it } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
 import { hasKey } from '../../src/domain/families.ts';
 import { openInstrument } from '../../src/domain/instrument.ts';
 import { instruments, labSchema, labWritable } from '../../src/domain/scenarios.ts';
+import { stepLog } from '../../src/view/steps.ts';
 
 const QUIET_MS = 150_000;
 
@@ -68,7 +71,10 @@ function asker() {
 
 async function openRoom(seats: readonly string[]) {
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-toolset-live-'));
-	const workspace = openWorkspace({ name: 'workbench', backend: memoryBackend() });
+	const workspace = openWorkspace({
+		name: 'workbench',
+		backend: { bash: memoryBackend(), sql: sqliteBackend(':memory:') },
+	});
 	const lab = openSqlResource({
 		name: 'lab',
 		location: join(directory, 'lab.db'),
@@ -76,7 +82,12 @@ async function openRoom(seats: readonly string[]) {
 		writable: labWritable,
 	});
 	const built = team(workspace, lab, openInstrument({ lab, instruments }));
-	const runtime = createRuntime({ storage: memoryJournals(), execution: piExecution({}) });
+	const log = stepLog();
+	const runtime = createRuntime({
+		storage: memoryJournals(),
+		execution: piExecution({}),
+		logger: log.logger,
+	});
 	const name = `toolset-live-${process.pid}-${Date.now()}`;
 	const room = await startRoom({
 		name,
@@ -93,7 +104,7 @@ async function openRoom(seats: readonly string[]) {
 		await lab.dispose().catch(() => undefined);
 		await rm(directory, { recursive: true, force: true });
 	};
-	return { room, name, runtime, events, close };
+	return { room, name, log, events, close };
 }
 
 async function untilQuiet(room: Room): Promise<void> {
@@ -126,10 +137,8 @@ async function calledBy(
 	const activations = opened.events.flatMap((event) =>
 		event.type === 'activation_start' && event.agent === seat ? [event.activation] : [],
 	);
-	const reads = await Promise.all(
-		activations.map((id) => readActivation(opened.name, id, { runtime: opened.runtime })),
-	);
-	return reads
+	return activations
+		.map((id) => opened.log.read(opened.name, id))
 		.flatMap((read) => read?.passes.flatMap((pass) => [...pass.steps]) ?? [])
 		.flatMap((step) => (step.type === 'tool_call' ? [step.name] : []));
 }

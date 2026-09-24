@@ -6,7 +6,7 @@ experiments, and measured results.
 
 This is the initial scaffold of Workbench. It runs on
 [Ambion](https://github.com/ambionframework/ambion), the collaboration
-kernel, at its 0.1.0 release, and follows the layout and terminal of
+kernel, at its 0.2.0 release, and follows the layout and terminal of
 [Ambion's own runnable example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
 The lab domain is its own: one bench battery-characterization kit and
 five specialists. Instruments and Data Analysis wait for their resources

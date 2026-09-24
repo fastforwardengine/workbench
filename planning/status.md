@@ -7,7 +7,7 @@ does, so a reader does not have to read the code to find out.
 
 Workbench is an agentic lab workspace for electrical
 engineering, hardware, and electrochemistry. It runs on
-[Ambion](https://github.com/ambionframework/ambion) 0.1.0, the
+[Ambion](https://github.com/ambionframework/ambion) 0.2.0, the
 collaboration kernel, and it ports the layout, host, and OpenTUI terminal
 of Ambion's own runnable example onto a lab domain of its own.
 
@@ -84,6 +84,12 @@ below it.
 refuses an import that points up. `test/` stays flat, on the Ambion
 repository's own convention. See the "Files" table and the "Layout"
 diagram in `README.md` for the one-line purpose of each module.
+
+**The steps of an activation live in the host process.** Ambion 0.2.0
+sends each step to a `TraceLogger`. The host keeps the steps of the
+latest 200 activations in memory (`stepLog` in `src/view/steps.ts`). A
+restart loses them, so the terminal shows no steps for an activation
+from an earlier run.
 
 ## Toolchain
 

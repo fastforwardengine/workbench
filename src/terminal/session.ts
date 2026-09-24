@@ -1,4 +1,4 @@
-import type { ActivationRead, ExchangeView } from '@ambionframework/ambion';
+import type { ExchangeView } from '@ambionframework/ambion';
 import type { Approval, FileEntry, Lab, Person, RoomAction, RoomView } from '../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../host/names.ts';
 import {
@@ -10,7 +10,7 @@ import {
 	shows,
 	tableOfUri,
 } from '../view/refs.ts';
-import { activationLine, ended, stepsView } from '../view/steps.ts';
+import { type ActivationSteps, activationLine, ended, stepsView } from '../view/steps.ts';
 import { type Block, buildTimeline } from '../view/timeline.ts';
 import { attentionOf, newest, pick } from './attention.ts';
 import { FileBrowser } from './browser.ts';
@@ -52,7 +52,7 @@ export class Session {
 	/** The operations of the open room that wait for an answer. */
 	approvals: Approval[] = [];
 	/** The activation whose steps the terminal shows. It re-reads on each room change. */
-	steps: { id: string; read: ActivationRead | undefined } | undefined;
+	steps: { id: string; read: ActivationSteps | undefined } | undefined;
 	private readonly feed: RoomFeed<RoomView>;
 	private readonly changed: () => void;
 	private sending = false;
