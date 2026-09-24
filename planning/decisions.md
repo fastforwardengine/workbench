@@ -71,6 +71,20 @@ layers name what was already true, and Biome now holds it. Ambion's own
 toolchain was the obvious source for the rules, since this project
 already follows its formatting by hand.
 
+## 7. Templates as a registry in the domain, with a digest
+
+**Choice:** The files of each template live in `templates/<name>/`. The
+entry in `src/domain/templates.ts` holds its description, its use, its
+specialists, and a SHA-256 digest of its files. `src/host/repositories.ts`
+registers every entry on an in-process git server. The bash backend stays
+the local just-bash directory. **Why:** Ambion's git server refuses a
+changed template under its old name, so a changed file stops a host that
+registered the old one. The digest test catches the change in `pnpm
+check`, before any host sees it. The registry also gives each specialist
+one instruction line per template, from one list. The workstation, and
+the connection of its git to this server, are not defined yet. See
+`docs/templates.md`.
+
 ## Open questions this leaves
 
 - Whether a real equipment connection for Instruments, or analysis tooling

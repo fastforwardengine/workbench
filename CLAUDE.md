@@ -20,6 +20,7 @@ floor).
 | `src/view`     | Read-only projections over the room journal: the timeline, steps, refs           |
 | `src/host`     | The room host: rooms, approvals, file handling, name assignment                  |
 | `src/terminal` | The OpenTUI terminal: layout, keys, the composer, the transcript                 |
+| `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern     |
 | `docs/`        | Design pages, such as `instrument.md`, the instrument driver interface           |
 | `planning/`    | `decisions.md` (why, in order), `backlog.md`, `status.md` — read before a change |
 

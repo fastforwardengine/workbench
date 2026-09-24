@@ -20,6 +20,7 @@
 	"dependencies": {
 		"@ambionframework/ambion": "^0.2.0",
 		"@ambionframework/assistant": "^0.2.0",
+		"@ambionframework/git": "^0.2.0",
 		"@ambionframework/journal": "^0.2.0",
 		"@ambionframework/just-bash": "^0.2.0",
 		"@ambionframework/pi": "^0.2.0",
@@ -29,12 +30,12 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.10",
+		"@earendil-works/pi-ai": "^0.85.1",
 		"@types/node": "^26.2.0",
 		"knip": "^6.32.2",
 		"prettier": "^3.9.6",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.11",
-		"@earendil-works/pi-ai": "^0.85.1"
+		"vitest": "^4.1.11"
 	},
 	"engines": {
 		"node": ">=26.4.0"

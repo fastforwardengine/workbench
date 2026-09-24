@@ -48,6 +48,9 @@ One bench project: characterizing an 18650 Li-ion cell.
   (2000 mA limit) and `charge-voltage` (4.2 V limit), behind `operate` and
   `approve_operation`. An operation above its limit waits for the owner of
   the exchange.
+- **Templates** (`templates/`): `test-plan`, on the git server of the
+  workspace. Experiments forks it, and pushes its plan on a branch. See
+  `docs/templates.md`.
 - **Rooms**: `characterization` (datasheet check → design decision),
   `cycling` (design → test plan), `budget` (datasheet check → power
   budget).
@@ -55,7 +58,7 @@ One bench project: characterizing an 18650 Li-ion cell.
 ## What runs
 
 - `pnpm check` passes clean: Prettier, `tsc --noEmit`, Biome (including
-  the layering rule below) with warnings as errors, Knip, and 166
+  the layering rule below) with warnings as errors, Knip, and 172
   scripted tests. No key and no network.
 - The project has run `pnpm start` and `pnpm test:live` end to end, on
   the `openai` preset (`WORKBENCH_MODEL=openai`); the

@@ -14,6 +14,9 @@ importers:
       '@ambionframework/assistant':
         specifier: ^0.2.0
         version: 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+      '@ambionframework/git':
+        specifier: ^0.2.0
+        version: 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@ambionframework/journal':
         specifier: ^0.2.0
         version: 0.2.0
@@ -63,6 +66,10 @@ packages:
 
   '@ambionframework/assistant@0.2.0':
     resolution: {integrity: sha512-I+OJbY0NDNUPaLtXVduTt6l5HMAmrok1S2RdAuUzYBiP3hRZTXzK4xu9PrE+cc7iwh+Gd1kuR38pXxxOMlPWmQ==}
+    engines: {node: '>=22.19.0'}
+
+  '@ambionframework/git@0.2.0':
+    resolution: {integrity: sha512-F2wRbpvc16MXyS8W2TgKnCehY07uCHxG+hRjlBc0CL3zfi9IDr5VWSygLK65KKX2tkVxbsqFWQX2iT0QJrdR6Q==}
     engines: {node: '>=22.19.0'}
 
   '@ambionframework/journal@0.2.0':
@@ -2230,6 +2237,18 @@ snapshots:
     dependencies:
       '@ambionframework/ambion': 0.2.0
       '@ambionframework/pi': 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@ambionframework/git@0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
+    dependencies:
+      '@ambionframework/workspace': 0.2.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+      just-git: 1.8.2
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - bufferutil
