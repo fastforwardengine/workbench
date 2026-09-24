@@ -108,5 +108,5 @@ types, lint, test, in that order.
 
 - The Instruments and Data Analysis specialists are stubs: workspace tools
   only, and instructions that say plainly they have no resource to back a
-  reading or a fit. See `backlog.md`.
-- No CI. `pnpm check` is run by hand.
+  reading or a fit.
+- The next work is the LED parameter sweep. See `backlog.md`.

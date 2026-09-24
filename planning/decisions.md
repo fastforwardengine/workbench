@@ -89,9 +89,10 @@ the connection of its git to this server, are not defined yet. See
 
 - Whether a real equipment connection for Instruments, or analysis tooling
   for Data Analysis, should follow the `SqlResource` pattern of
-  `src/domain/instrument.ts`, or need a resource of their own. Decide when
-  building either; see `backlog.md`.
+  `src/domain/instrument.ts`, or need a resource of their own. Activity 5
+  of `backlog.md` decides it for the LED sweep.
 - Whether a second bench project (a second kit) is a second `scenarios.ts`
   entry or its own room-independent structure. The current layout assumes
   one shared workspace and one lab database for every room, which holds
-  for one kit and has not been tested with two.
+  for one kit and has not been tested with two. Activity 2 of
+  `backlog.md` meets it, when the LED sweep joins the battery rooms.

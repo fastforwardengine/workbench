@@ -7,7 +7,7 @@ README and the code.
 | -------------- | -------------------------------------------------------------- |
 | `status.md`    | What exists today: the team, the domain, the tests, the layout |
 | `decisions.md` | The choices made so far, and why, in the order they happened   |
-| `backlog.md`   | The work after today, in the order it likely comes             |
+| `backlog.md`   | The next activities, in order: the LED parameter sweep         |
 
 Update `status.md` and `decisions.md` when a choice changes the shape of
 the project. Move a backlog item to done in `status.md` when it ships.

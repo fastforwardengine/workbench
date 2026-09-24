@@ -1,111 +1,111 @@
 # Backlog
 
-Work after today, roughly in the order it likely comes. Nothing here is
-scheduled; move an item to `status.md` under "What runs" once it ships,
-and add a line to `decisions.md` if it changed the shape of the project.
+**The next work is one use case: an LED parameter sweep.** A power
+supply drives an LED through a range of currents. A camera measures the
+light at each step. The supply and the camera connect to a workstation.
+It is the first use case on real hardware.
 
-## Verify what has not been run yet
+The activities below come in order. Each one ends with a result that a
+person can check. When an activity ships, record it in `status.md`. When
+it changes the shape of the project, add an entry to `decisions.md`.
 
-- [x] Run `pnpm start` once and confirm the terminal actually draws,
-      accepts a message, and shows a reply. Done on the `openai` preset;
-      see `status.md`.
-- [x] Run `pnpm test:live` for at least one scenario. Done on the `openai`
-      preset; both scenarios pass. Found and fixed a test bug in
-      `test/live/engine.test.ts`: it checked prose for the word
-      "library" in place of the summary's `refs`.
-- [ ] Get `pnpm start` and `pnpm test:live` passing on the `anthropic`
-      preset too — the account behind `ANTHROPIC_API_KEY` in `.env` is
-      out of credit, so the project has proven only the `openai` preset
-      live.
+## 1. Decide the hardware
 
-## The first real use case: an LED parameter sweep
+- [ ] Name the power supply, its interface (such as SCPI over USB or
+      LAN), and its current and voltage ranges.
+- [ ] Name the camera, its interface (such as a USB camera), and the
+      controls that the sweep holds fixed: exposure, gain, and white
+      balance.
+- [ ] Name the LED and its maximum forward current.
 
-**A power supply drives an LED through a range of values, and a camera
-measures the light at each step.** The power supply and the camera
-connect to a workstation. It is the first use case on real hardware, and
-the items below set the stage for it. Nothing here is built yet.
+**Done when** `library/` holds a datasheet summary for the LED, the
+supply, and the camera, and each limit cites its source.
 
-- [ ] **Decide the hardware.** Name the power supply and its interface,
-      such as SCPI over USB or LAN. Name the camera and its interface,
-      such as a USB camera. Add a datasheet for the LED, the supply, and
-      the camera to `library/`.
-- [ ] **Decide the workstation connection.** Ambion's
-      `@ambionframework/workstation` runs each agent's shell over SSH on
-      one server. Its git reaches the git server over HTTP, through the
-      `handler` of `gitBackend` and its `url` option. The host, the
-      network, and the accounts are not defined yet. Until then the bash
-      backend stays the local just-bash directory, which has no Python and
-      no hardware access.
-- [ ] **Write a test plan for the sweep** from the `test-plan` template:
-      the variable (the LED current), its range and step, the camera
-      exposure as a control, and the LED current limit from its
-      datasheet.
-- [ ] **Add an `led-sweep` template** on the pattern of
-      `docs/templates.md`. It holds a script that steps the supply, reads
-      the camera at each step, and writes one CSV row for each step. It
-      has a simulated mode that needs no hardware. It refuses a setpoint
-      above the limit in its configuration.
-- [ ] **Connect the sweep to the lab database.** Each sweep is a `runs`
-      row, and each step gives `results` rows. The supply goes through
-      `operate` and its limit, per `docs/instrument.md`, or the sweep
-      script records its rows after the run. Decide which.
-- [ ] **Give Instruments and Data Analysis the sweep.** Instruments
-      prepares and runs it. Data Analysis reads the CSV and states the
-      brightness against the current.
+## 2. Make the sweep the project of the lab
 
-## Build the two stub resources
+- [ ] Describe the bench in `/shared/kit.md`: the parts, the connections,
+      and the house rules.
+- [ ] Add a `led-sweep` room to `src/domain/scenarios.ts`, with its goal
+      and its seats.
+- [ ] Replace the simulated instruments with the ones the sweep uses,
+      such as `led-current`, with the limit from the LED datasheet.
+- [ ] Decide what happens to the three battery rooms: keep them as
+      examples, or remove them.
 
-- [ ] **Instruments.** This needs a real equipment connection. It drives
-      the same `operations` table with `operate`/`approve_operation`;
-      the infrastructure already proves that shape: provenance, the
-      limit-and-approval flow, and `lab.use()`'s serialization. What
-      remains is picking real hardware and writing one `InstrumentDriver`
-      for it, then giving the `instruments` specialist the full bundle.
-      See `docs/instrument.md` for the interface design.
-- [ ] **Data Analysis.** This needs a fit, a plot, or a data-quality
-      check over the `results` table, exposed as a tool bundle. Decide
-      the smallest useful first tool: likely a fit of one metric across
-      the runs of one project, given that `lab:///results` already lets
-      a person read the raw rows by hand.
-- Once either exists, give that specialist the full bundle
-  (`workspace.tools()`, `lab.tools()`, plus the new one) in place of the
-  workspace-only stub bundle. Drop the "no resource" line from its
-  instructions.
+**Done when** a person opens the `led-sweep` room, and a specialist
+cites the LED limit from `/library`.
 
-## Grow the terminal
+## 3. Write the test plan
 
-- [ ] A plotted result or an image preview in the files panel, once Data
-      Analysis can produce one. `/files` already renders a Markdown
-      datasheet and a SQLite table; a plot is the natural third form.
-- [ ] A brand kit of its own. The palette in `src/terminal/brand.ts` is a
-      placeholder; `examples/workbench` reads the Ambion repository's brand
-      kit, which this standalone project does not have.
+- [ ] Experiments writes the plan from the `test-plan` template: the
+      variable (the LED current), its range and step, the camera controls,
+      the settle time, the frames at each step, and the current limit.
 
-## Widen the domain
+**Done when** the plan is on a pushed branch of a fork of
+`templates/test-plan`, and a `test_plans` row names it.
 
-- [ ] A second bench project: a second `scenarios.ts` entry, a second set
-      of library files, and a decision on whether it shares the lab
-      database and workspace of the first, or needs its own. The current
-      code assumes one shared workspace and one lab database across every
-      room; this is untested with two projects.
-- [ ] Reconsider the three-person default team (`priya`, `noor`, `jae`,
-      plus the automatic account person) once more than one real person
-      uses the project. The person picker is a local convention; see
-      `README.md`, "Restart".
+## 4. Add the `led-sweep` template
 
-## Project hygiene
+- [ ] Follow `docs/templates.md`. The template holds a script that steps
+      the supply, reads the camera at each step, and writes one CSV row
+      for each step.
+- [ ] It has a simulated mode that needs no hardware.
+- [ ] It refuses a setpoint above the limit in its configuration.
 
-- [x] A Biome and Prettier config of this project's own, and the layered
-      `src/` directory structure Biome's `noRestrictedImports` holds.
-      See `decisions.md` §6.
-- [x] CI: `.github/workflows/ci.yml` runs `pnpm check` on each pull
-      request and each push to `main`. It never runs `pnpm test:live`,
-      which costs money and needs a key.
-- [ ] Decide whether to move a specialist to `@ambionframework/claude` or
-      `@ambionframework/codex` for a capability Pi does not have —
-      Codex's reasoning-effort control, or a harness's built-in tools
-      under policy. See `decisions.md` §3 for why the project tried this
-      once and reverted it. A future attempt should keep the whole team
-      on one family unless a specific specialist needs the move. This
-      avoids splitting every scripted test across two scripted
-      executions again.
+**Done when** the simulated mode writes a CSV, and a scripted test checks
+it.
+
+## 5. Decide how a sweep reaches the lab database
+
+- [ ] Choose one path. Either the supply goes through `operate` and its
+      limit, with a real `InstrumentDriver` per `docs/instrument.md`, or
+      the sweep script records its rows after the run.
+- [ ] Each sweep is one `runs` row. Each step gives `results` rows: the
+      current, the voltage, and the brightness.
+
+**Done when** a simulated sweep leaves one run and its results in the lab
+database, with provenance.
+
+## 6. Connect the workstation
+
+- [ ] Define the host, the network, and the accounts. Ambion's
+      `@ambionframework/workstation` runs the shell of each agent over SSH,
+      with one Unix account for each agent.
+- [ ] Serve the `handler` of the git backend over HTTP, and set its `url`,
+      so that `git` on the workstation reaches the templates.
+- [ ] Move the bash backend from the local just-bash directory to the
+      workstation.
+
+**Done when** an agent forks `led-sweep`, clones it on the workstation,
+and runs the simulated mode there.
+
+## 7. Give the sweep to its specialists
+
+- [ ] Instruments prepares the sweep, runs it, and reports the run.
+- [ ] Data Analysis reads the results and states the brightness against
+      the current.
+- [ ] Give both specialists the full bundle, and remove the "no
+      resource" line from their instructions.
+
+**Done when** the tool-set test shows both specialists with the full
+bundle, and a scripted room runs the sweep in simulated mode.
+
+## 8. Run the sweep on the bench
+
+- [ ] A person asks for the sweep in the `led-sweep` room.
+- [ ] The operation above any limit waits for the approval of that
+      person.
+
+**Done when** a real sweep is in the lab database, and the summary of the
+room cites the plan, the run, and the results.
+
+## Parked
+
+Not part of the next work. Each item waits until the sweep runs.
+
+- Get `pnpm start` and `pnpm test:live` passing on the `anthropic` preset.
+  The account behind `ANTHROPIC_API_KEY` is out of credit.
+- A plot or an image preview in the files panel.
+- A brand kit of its own. The palette today is a placeholder.
+- A move of a specialist to the Claude or Codex family. See
+  `decisions.md` §3.
