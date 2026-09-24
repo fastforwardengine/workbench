@@ -1,111 +1,14 @@
 # Backlog
 
-**The next work is one use case: an LED parameter sweep.** A power
-supply drives an LED through a range of currents. A camera measures the
-light at each step. The supply and the camera connect to a workstation.
-It is the first use case on real hardware.
-
-The activities below come in order. Each one ends with a result that a
-person can check. When an activity ships, record it in `status.md`. When
-it changes the shape of the project, add an entry to `decisions.md`.
-
-## 1. Decide the hardware
-
-- [ ] Name the power supply, its interface (such as SCPI over USB or
-      LAN), and its current and voltage ranges.
-- [ ] Name the camera, its interface (such as a USB camera), and the
-      controls that the sweep holds fixed: exposure, gain, and white
-      balance.
-- [ ] Name the LED and its maximum forward current.
-
-**Done when** `library/` holds a datasheet summary for the LED, the
-supply, and the camera, and each limit cites its source.
-
-## 2. Make the sweep the project of the lab
-
-- [ ] Describe the bench in `/shared/kit.md`: the parts, the connections,
-      and the house rules.
-- [ ] Add a `led-sweep` room to `src/domain/scenarios.ts`, with its goal
-      and its seats.
-- [ ] Replace the simulated instruments with the ones the sweep uses,
-      such as `led-current`, with the limit from the LED datasheet.
-- [ ] Decide what happens to the three battery rooms: keep them as
-      examples, or remove them.
-
-**Done when** a person opens the `led-sweep` room, and a specialist
-cites the LED limit from `/library`.
-
-## 3. Write the test plan
-
-- [ ] Experiments writes the plan from the `test-plan` template: the
-      variable (the LED current), its range and step, the camera controls,
-      the settle time, the frames at each step, and the current limit.
-
-**Done when** the plan is on a pushed branch of a fork of
-`templates/test-plan`, and a `test_plans` row names it.
-
-## 4. Add the `led-sweep` template
-
-- [ ] Follow `docs/templates.md`. The template holds a script that steps
-      the supply, reads the camera at each step, and writes one CSV row
-      for each step.
-- [ ] It has a simulated mode that needs no hardware.
-- [ ] It refuses a setpoint above the limit in its configuration.
-
-**Done when** the simulated mode writes a CSV, and a scripted test checks
-it.
-
-## 5. Decide how a sweep reaches the lab database
-
-- [ ] Choose one path. Either the supply goes through `operate` and its
-      limit, with a real `InstrumentDriver` per `docs/instrument.md`, or
-      the sweep script records its rows after the run.
-- [ ] Each sweep is one `runs` row. Each step gives `results` rows: the
-      current, the voltage, and the brightness.
-
-**Done when** a simulated sweep leaves one run and its results in the lab
-database, with provenance.
-
-## 6. Connect the workstation
-
-- [ ] Define the host, the network, and the accounts. Ambion's
-      `@ambionframework/workstation` runs the shell of each agent over SSH,
-      with one Unix account for each agent.
-- [ ] Serve the `handler` of the git backend over HTTP, and set its `url`,
-      so that `git` on the workstation reaches the templates.
-- [ ] Move the bash backend from the local just-bash directory to the
-      workstation.
-
-**Done when** an agent forks `led-sweep`, clones it on the workstation,
-and runs the simulated mode there.
-
-## 7. Give the sweep to its specialists
-
-- [ ] Instruments prepares the sweep, runs it, and reports the run.
-- [ ] Data Analysis reads the results and states the brightness against
-      the current.
-- [ ] Give both specialists the full bundle, and remove the "no
-      resource" line from their instructions.
-
-**Done when** the tool-set test shows both specialists with the full
-bundle, and a scripted room runs the sweep in simulated mode.
-
-## 8. Run the sweep on the bench
-
-- [ ] A person asks for the sweep in the `led-sweep` room.
-- [ ] The operation above any limit waits for the approval of that
-      person.
-
-**Done when** a real sweep is in the lab database, and the summary of the
-room cites the plan, the run, and the results.
-
-## Parked
-
-Not part of the next work. Each item waits until the sweep runs.
+**This page holds the work that is not immediately actionable.** Each
+item waits until the LED sweep of `next.md` runs on the bench.
 
 - Get `pnpm start` and `pnpm test:live` passing on the `anthropic` preset.
   The account behind `ANTHROPIC_API_KEY` is out of credit.
 - A plot or an image preview in the files panel.
 - A brand kit of its own. The palette today is a placeholder.
-- A move of a specialist to the Claude or Codex family. See
-  `decisions.md` §3.
+- A move of a specialist to the Claude or Codex family, for a capability
+  that Pi does not have. The project tried Codex once and moved back to
+  Pi, because two families split every scripted test across two scripted
+  executions. Keep the whole team on one family unless one specialist
+  needs the move.

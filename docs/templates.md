@@ -60,4 +60,4 @@ that a tool writes beside a template does not change it.
 | ----------- | ----------- | ----------- |
 | `test-plan` | A test plan | Experiments |
 
-`planning/backlog.md` names the next one: an LED parameter sweep.
+`planning/next.md` names the next one: an LED parameter sweep.

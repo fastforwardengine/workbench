@@ -14,15 +14,15 @@ five specialists, and an assistant that coordinates them.
 pnpm workspace, ESM only, TypeScript, Node 26.4 or newer (the OpenTUI
 floor).
 
-| Path           | What                                                                             |
-| -------------- | -------------------------------------------------------------------------------- |
-| `src/domain`   | The lab domain: instruments, operations, model families, scenario definitions    |
-| `src/view`     | Read-only projections over the room journal: the timeline, steps, refs           |
-| `src/host`     | The room host: rooms, approvals, file handling, name assignment                  |
-| `src/terminal` | The OpenTUI terminal: layout, keys, the composer, the transcript                 |
-| `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern     |
-| `docs/`        | Design pages, such as `instrument.md`, the instrument driver interface           |
-| `planning/`    | `decisions.md` (why, in order), `backlog.md`, `status.md` — read before a change |
+| Path           | What                                                                              |
+| -------------- | --------------------------------------------------------------------------------- |
+| `src/domain`   | The lab domain: instruments, operations, model families, scenario definitions     |
+| `src/view`     | Read-only projections over the room journal: the timeline, steps, refs            |
+| `src/host`     | The room host: rooms, approvals, file handling, name assignment                   |
+| `src/terminal` | The OpenTUI terminal: layout, keys, the composer, the transcript                  |
+| `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern      |
+| `docs/`        | Design pages, such as `instrument.md`, the instrument driver interface            |
+| `planning/`    | `next.md` (the next activities, in order) and `backlog.md` — read before a change |
 
 Import rules run upward only: `domain` and `view` are independent leaves;
 `host` depends on both; `terminal` depends on all three. Biome holds this

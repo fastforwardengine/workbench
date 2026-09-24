@@ -89,7 +89,7 @@ to `simulated`, which behaves exactly like the old `readingOf`.
   instructions in `src/domain/definitions.ts` stay as they are. It still
   correctly says it has no resource, because it still has none. Moving
   it to the full bundle is a separate, later step — see activity 7 of
-  `planning/backlog.md`.
+  `planning/next.md`.
 - **No concurrency lock.** `lab.use()` already serializes.
 - **No migration tooling** for the new `error` column. No migration
   system exists yet: this is scaffold stage, `.data/` is gitignored, and
@@ -98,7 +98,7 @@ to `simulated`, which behaves exactly like the old `readingOf`.
 
 ## Build order
 
-1. Pick the hardware and its protocol (backlog: activity 1, "Decide the
+1. Pick the hardware and its protocol (`planning/next.md`: activity 1, "Decide the
    hardware").
 2. Build the interface above.
 3. Write one concrete `InstrumentDriver` for that hardware.
