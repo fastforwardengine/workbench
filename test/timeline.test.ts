@@ -15,6 +15,22 @@ const summaryOf = (seq: number, to: string): Summary =>
 		text: `summary ${seq}`,
 		at: '2026-01-01T00:00:00Z',
 	}) as Summary;
+const closedExchange = (
+	from: number,
+	through: number,
+	owner: string,
+	summary: object = { status: 'silent' },
+): ExchangeView =>
+	({
+		from,
+		through,
+		status: 'closed',
+		activations: [],
+		outcome: { kind: 'complete' },
+		owner,
+		at: AT,
+		summary,
+	}) as ExchangeView;
 const arrived = (seq: number): Message =>
 	({ seq, kind: 'arrived', subject: 'noor', at: '2026-01-01T00:00:00Z' }) as Message;
 
@@ -102,6 +118,62 @@ describe('buildTimeline', () => {
 		expect(shape(build(messages, [exchange]))).toEqual(['question:59', 'said:61']);
 	});
 
+	it('shows a returned say as the opening of its own exchange, and the answer after it', () => {
+		const scheduled = { ...said(61, 'agent', 'agent'), after: 600 } as Message;
+		const returned = {
+			seq: 70,
+			kind: 'returned',
+			to: 'agent',
+			message: 61,
+			owner: 'noor',
+			text: 'Check the build.',
+			at: AT,
+		} as Message;
+		const messages = [said(59, 'noor'), scheduled, returned, said(72, 'agent', 'noor')];
+		const exchanges = [closedExchange(59, 61, 'noor'), closedExchange(70, 72, 'noor')];
+		expect(shape(build(messages, exchanges))).toEqual([
+			'question:59',
+			'said:61',
+			'returned:70',
+			'said:72',
+		]);
+	});
+
+	it('marks a scheduled say that a dismissal names, in the open and in a discussion', () => {
+		const scheduled = { ...said(61, 'agent', 'agent'), after: 600 } as Message;
+		const dismissed = { seq: 62, kind: 'dismissed', message: 61, at: AT } as Message;
+		const open = build([said(59, 'noor'), scheduled, dismissed], []);
+		expect(open.find((block) => block.type === 'message' && block.message.seq === 61)).toEqual({
+			type: 'message',
+			message: scheduled,
+			role: 'said',
+			dismissed: true,
+		});
+		const messages = [said(59, 'noor'), scheduled, dismissed, said(63, 'agent')];
+		const [, discussion] = build(messages, [closedExchange(59, 63, 'noor')]);
+		expect(discussion).toMatchObject({ type: 'discussion', count: 2 });
+		if (discussion?.type !== 'discussion') throw new Error('Expected a discussion.');
+		expect(discussion.items.map((item) => item.dismissed)).toEqual([true, undefined]);
+	});
+
+	it('keeps a returned say that lands in an open exchange inside its discussion', () => {
+		const returned = {
+			seq: 70,
+			kind: 'returned',
+			to: 'agent',
+			message: 61,
+			owner: 'noor',
+			text: 'Check the build.',
+			at: AT,
+		} as Message;
+		const scheduled = { ...said(61, 'agent', 'agent'), after: 600 } as Message;
+		const messages = [said(59, 'noor'), scheduled, returned, said(72, 'agent'), said(75, 'agent')];
+		expect(shape(build(messages, [closedExchange(59, 75, 'noor')]))).toEqual([
+			'question:59',
+			'discussion:59(4)',
+		]);
+	});
+
 	it('keeps the closing mark when a person is the only one who spoke after the question', () => {
 		// An exchange aborted after a follow-up: no agent replied, so there is nothing to show directly.
 		const exchange: ExchangeView = {
@@ -133,6 +205,73 @@ describe('buildTimeline', () => {
 		const blocks = build([said(75, 'noor')], [exchange]);
 		expect(shape(blocks)).toEqual(['question:75', 'note']);
 		expect(blocks[1]).toMatchObject({ text: 'Closed without a summary' });
+	});
+
+	describe('a failed activation', () => {
+		const attempt = (
+			id: string,
+			purpose: string,
+			status: string,
+			cause: string,
+			attempt = 1,
+		): object => ({ id, seat: 'assistant', purpose, attempt, outcome: { status, cause } });
+		const limit = '400 invalid_request_error: You have reached your specified API usage limits.';
+		const failures = new Map([
+			['m1', limit],
+			['s1', limit],
+		]);
+		const exhausted = (activations: object[], summary: object = { status: 'failed' }) =>
+			({
+				...closedExchange(75, 75, 'theo', summary),
+				outcome: { kind: 'exhausted' },
+				activations,
+			}) as ExchangeView;
+
+		it.each([
+			[
+				'names the seat the room gave up on, that it does not retry, and why',
+				exhausted([
+					attempt('m1', 'respond', 'failed', 'permanent'),
+					attempt('m2', 'respond', 'abandoned', 'permanent', 2),
+					attempt('s1', 'summary', 'failed', 'permanent'),
+				]),
+				failures,
+				`Closed, assistant failed, the room does not retry this: ${limit}`,
+			],
+			[
+				'counts the attempts of a transient failure',
+				exhausted([attempt('m3', 'respond', 'failed', 'transient', 3)]),
+				failures,
+				'Closed, assistant failed, after 3 attempts',
+			],
+			[
+				'names why a summary failed after a reply',
+				{
+					...closedExchange(75, 75, 'theo', { status: 'failed' }),
+					activations: [attempt('s1', 'summary', 'failed', 'permanent')],
+				} as ExchangeView,
+				failures,
+				`Closed, summary failed: assistant failed, the room does not retry this: ${limit}`,
+			],
+			[
+				'keeps the plain line when this process heard no reason',
+				exhausted([attempt('m1', 'respond', 'failed', 'permanent')]),
+				undefined,
+				'Closed, assistant failed, the room does not retry this',
+			],
+		])('%s', (_what, exchange, known, text) => {
+			const blocks = build([said(75, 'theo')], [exchange], { failures: known });
+			expect(blocks[1]).toMatchObject({ type: 'note', text });
+		});
+
+		it('flags a discussion whose reply the room gave up on', () => {
+			const exchange = {
+				...closed,
+				outcome: { kind: 'exhausted' },
+				activations: [attempt('m1', 'respond', 'failed', 'permanent')],
+			} as ExchangeView;
+			expect(build(thread, [exchange])[1]).toMatchObject({ flag: 'assistant failed' });
+		});
 	});
 
 	it('flags a discussion whose summary is pending or failed', () => {

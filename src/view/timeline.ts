@@ -1,15 +1,20 @@
-import type { ExchangeView, Message } from '@ambionframework/ambion';
+import type { ExchangeActivation, ExchangeView, Message } from '@ambionframework/ambion';
 import { formatUsage, type PassView } from './steps.ts';
 
 type ClosedView = Extract<ExchangeView, { status: 'closed' }>;
 
-/** How a message reads in the conversation. A steer is a person's message inside a thread. */
-export type Role = 'question' | 'said' | 'summary' | 'steer';
+/**
+ * How a message reads in the conversation. A steer is a person's message
+ * inside a thread. A returned say is the room giving an agent's say back to it.
+ */
+export type Role = 'question' | 'said' | 'summary' | 'steer' | 'returned';
 
 export interface MessageBlock {
 	type: 'message';
 	message: Message;
 	role: Role;
+	/** Set on a scheduled say that its seat or the host dismissed. It does not return. */
+	dismissed?: true;
 }
 
 /** The thread between a question and its summary. It opens and closes. */
@@ -66,6 +71,8 @@ export interface TimelineInput {
 	expanded: ReadonlySet<string>;
 	/** Blocks that follow the closed exchanges, before the live block. */
 	tail?: readonly Block[];
+	/** Why each failed activation failed, by activation id, as this process heard it. */
+	failures?: ReadonlyMap<string, string>;
 }
 
 interface Group {
@@ -75,15 +82,42 @@ interface Group {
 	direct: boolean;
 }
 
-const spoken = (message: Message): boolean => message.kind === 'said' || message.kind === 'summary';
+const spoken = (message: Message): boolean =>
+	message.kind === 'said' || message.kind === 'summary' || message.kind === 'returned';
 
 function waitingOn(exchange: ClosedView): string | undefined {
 	return exchange.outcome.kind === 'awaiting' ? `Waiting on ${exchange.outcome.person}` : undefined;
 }
 
+/** The newest activation of a purpose that failed, or undefined when none did. */
+const lastFailed = (
+	exchange: ClosedView,
+	purpose: ExchangeActivation['purpose'],
+): ExchangeActivation | undefined =>
+	exchange.activations.findLast(
+		(activation) => activation.purpose === purpose && activation.outcome.status === 'failed',
+	);
+
+/** The seat whose reply the room gave up on, or undefined when the room gave up on none. */
+const gaveUpOn = (exchange: ClosedView): ExchangeActivation | undefined =>
+	exchange.outcome.kind === 'exhausted' ? lastFailed(exchange, 'respond') : undefined;
+
+/**
+ * One failed activation: the seat, whether the room tried it again, and the
+ * reason when this process heard it. A permanent failure runs once.
+ */
+function failureText(activation: ExchangeActivation, failures?: ReadonlyMap<string, string>) {
+	const permanent = 'cause' in activation.outcome && activation.outcome.cause === 'permanent';
+	const tries = permanent ? 'the room does not retry this' : `after ${activation.attempt} attempts`;
+	const reason = failures?.get(activation.id);
+	return `${activation.seat} failed, ${tries}${reason ? `: ${reason}` : ''}`;
+}
+
 function flagFor(exchange: ClosedView): string {
 	const waiting = waitingOn(exchange);
 	if (waiting) return waiting;
+	const failed = gaveUpOn(exchange);
+	if (failed) return `${failed.seat} failed`;
 	const status = exchange.summary.status;
 	if (status === 'published') return '';
 	if (status === 'pending') return 'Summary pending';
@@ -91,13 +125,22 @@ function flagFor(exchange: ClosedView): string {
 	return 'No summary';
 }
 
-function noteFor(exchange: ClosedView): string {
+/**
+ * The line under a closed exchange with no reply. A reply the room gave up on
+ * comes first, with its reason, because it is why the exchange has no reply.
+ */
+function noteFor(exchange: ClosedView, failures?: ReadonlyMap<string, string>): string {
 	const cost = formatUsage(exchange.usage);
 	const suffix = cost ? ` · ${cost}` : '';
 	const waiting = waitingOn(exchange);
 	if (waiting) return `${waiting}${suffix}`;
+	const failed = gaveUpOn(exchange);
+	if (failed) return `Closed, ${failureText(failed, failures)}${suffix}`;
 	const status = exchange.summary.status;
 	if (status === 'pending') return `Closed, summary pending${suffix}`;
+	const summary = lastFailed(exchange, 'summary');
+	if (status === 'failed' && summary)
+		return `Closed, summary failed: ${failureText(summary, failures)}${suffix}`;
 	if (status === 'failed') return `Closed, summary failed${suffix}`;
 	return `Closed without a summary${suffix}`;
 }
@@ -108,7 +151,9 @@ function groupsOf(input: TimelineInput): Group[] {
 		.map((exchange) => {
 			const source = input.messages.filter(
 				(message) =>
-					message.kind === 'said' && message.seq > exchange.from && message.seq <= exchange.through,
+					(message.kind === 'said' || message.kind === 'returned') &&
+					message.seq > exchange.from &&
+					message.seq <= exchange.through,
 			);
 			const published = exchange.summary.status === 'published';
 			return {
@@ -154,11 +199,16 @@ class Builder {
 	private readonly index: Index;
 	private readonly blocks: Block[] = [];
 	private readonly done = new Set<Group>();
+	/** The seqs of the scheduled says that a dismissal names. */
+	private readonly dismissed: ReadonlySet<number>;
 
 	constructor(input: TimelineInput) {
 		this.input = input;
 		this.groups = groupsOf(input);
 		this.index = indexGroups(this.groups);
+		this.dismissed = new Set(
+			input.messages.flatMap((message) => (message.kind === 'dismissed' ? [message.message] : [])),
+		);
 	}
 
 	build(): Block[] {
@@ -172,9 +222,17 @@ class Builder {
 
 	private roleOf = (message: Message, inThread: boolean): Role => {
 		if (message.kind === 'summary') return 'summary';
+		if (message.kind === 'returned') return 'returned';
 		if (!this.input.humans.has(message.from ?? '')) return 'said';
 		return inThread ? 'steer' : 'question';
 	};
+
+	private blockOf = (message: Message, inThread: boolean): MessageBlock => ({
+		type: 'message',
+		message,
+		role: this.roleOf(message, inThread),
+		...(this.dismissed.has(message.seq) ? { dismissed: true } : {}),
+	});
 
 	/** Put one message in its place: in a thread, in the open, or nowhere when a summary shows it. */
 	private place(message: Message): void {
@@ -184,7 +242,7 @@ class Builder {
 			return;
 		}
 		if (this.index.summarySeqs.has(message.seq)) return;
-		this.blocks.push({ type: 'message', message, role: this.roleOf(message, false) });
+		this.blocks.push(this.blockOf(message, false));
 		const opening = this.index.byOpening.get(message.seq);
 		if (opening) this.emit(opening);
 	}
@@ -192,7 +250,7 @@ class Builder {
 	private emit(group: Group): void {
 		if (this.done.has(group)) return;
 		this.done.add(group);
-		if (!group.direct) this.blocks.push(...groupBlocks(group, this.input, this.roleOf));
+		if (!group.direct) this.blocks.push(...groupBlocks(group, this.input, this.blockOf));
 	}
 }
 
@@ -212,13 +270,15 @@ export function buildTimeline(input: TimelineInput): Block[] {
 function groupBlocks(
 	group: Group,
 	input: TimelineInput,
-	roleOf: (message: Message, inThread: boolean) => Role,
+	blockOf: (message: Message, inThread: boolean) => MessageBlock,
 ): Block[] {
 	const summary: Block[] = group.summary
 		? [{ type: 'message', message: group.summary, role: 'summary' }]
 		: [];
 	if (group.source.length === 0)
-		return summary.length > 0 ? summary : [{ type: 'note', text: noteFor(group.exchange) }];
+		return summary.length > 0
+			? summary
+			: [{ type: 'note', text: noteFor(group.exchange, input.failures) }];
 	const key = String(group.exchange.from);
 	const voices = [...new Set(group.source.map((message) => message.from ?? ''))].filter(Boolean);
 	const discussion: DiscussionBlock = {
@@ -230,11 +290,7 @@ function groupBlocks(
 		cost: formatUsage(group.exchange.usage),
 		activations: group.exchange.activations.length,
 		expanded: input.expanded.has(key),
-		items: group.source.map((message) => ({
-			type: 'message',
-			message,
-			role: roleOf(message, true),
-		})),
+		items: group.source.map((message) => blockOf(message, true)),
 	};
 	return [discussion, ...summary];
 }

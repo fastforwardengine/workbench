@@ -15,11 +15,12 @@ import { type Block, buildTimeline } from '../view/timeline.ts';
 import { attentionOf, newest, pick } from './attention.ts';
 import { FileBrowser } from './browser.ts';
 import { type Choices, type Parsed, parse, type Suggestion, suggest } from './commands.ts';
+import { dismissCommand } from './dismiss.ts';
 import { RoomFeed } from './feed.ts';
-import { DONE, errorText, HELP, refusal, workingAgents } from './session-text.ts';
+import { DONE, errorText, HELP, notesOf, refusal, workingAgents } from './session-text.ts';
 
 /** What the terminal does after a command, beyond what the session already changed. */
-export type Intent = { type: 'quit' } | { type: 'files' } | { type: 'compose'; text: string };
+export type Intent = { type: 'quit' | 'files' | 'processes' } | { type: 'compose'; text: string };
 
 /**
  * Everything the terminal does that is not drawing. It holds who the person is,
@@ -183,7 +184,7 @@ export class Session {
 
 	/** The blocks that follow the closed exchanges: what waits on the person, and the open steps. */
 	private tail(view: RoomView): Block[] {
-		const blocks: Block[] = this.attention.map((text) => ({ type: 'note', text }));
+		const blocks = notesOf(this.attention, view);
 		const steps = this.steps;
 		if (!steps?.read) return blocks;
 		const activation = view.exchanges
@@ -215,6 +216,7 @@ export class Session {
 			activity: activity ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
 			expanded: this.expanded,
 			tail: this.tail(view),
+			failures: view.failures,
 		});
 		this.changed();
 	}
@@ -228,6 +230,7 @@ export class Session {
 			})),
 			people: this.host.people.map((person) => ({ name: person.name, role: person.role })),
 			files: this.files,
+			says: this.view?.scheduled ?? [],
 		};
 	}
 
@@ -293,8 +296,13 @@ export class Session {
 				return this.openFiles();
 			case 'open':
 				return this.openFile(argument);
+			case 'dismiss': {
+				const done = await dismissCommand(this.host, this.view, argument);
+				return void ('error' in done ? this.fail(done.error) : this.say(done.notice));
+			}
 			case 'try':
-				return this.tryPrompt();
+				if (this.view?.prompt) return { type: 'compose', text: this.view.prompt };
+				return void this.say('This room has no suggested question.');
 			case 'abort':
 			case 'stop':
 			case 'resume':
@@ -307,7 +315,7 @@ export class Session {
 			case 'help':
 				return void this.say(HELP);
 			default:
-				return { type: 'quit' };
+				return { type: name === 'ps' ? 'processes' : 'quit' };
 		}
 	}
 
@@ -447,15 +455,6 @@ export class Session {
 		} catch (error) {
 			this.fail(error);
 		}
-	}
-
-	private tryPrompt(): Intent | undefined {
-		const prompt = this.view?.prompt;
-		if (!prompt) {
-			this.say('This room has no suggested question.');
-			return undefined;
-		}
-		return { type: 'compose', text: prompt };
 	}
 
 	// Files

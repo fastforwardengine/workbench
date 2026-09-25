@@ -52,9 +52,15 @@ cites the LED limit from `/library`.
       for each step.
 - [ ] It has a simulated mode that needs no hardware.
 - [ ] It refuses a setpoint above the limit in its configuration.
+- [ ] Its `README.md` tells the agent to start the sweep with a `name`.
+      `bash` then returns while the sweep runs as a background process.
+      The agent reads the end with `wait` or `status`. The sweep of
+      Ambion's example, `templates/firmware-sketch/sweep`, shows the
+      pattern.
 
 **Done when** the simulated mode writes a CSV, and a scripted test checks
-it.
+it. The test starts the sweep in one exchange and reads its end in a
+later one, as the sweep test in Ambion's example `tool-set.test.ts` does.
 
 ## 5. Decide how a sweep reaches the lab database
 
@@ -72,8 +78,10 @@ database, with provenance.
 - [ ] Define the host, the network, and the accounts. Ambion's
       `@ambionframework/workstation` runs the shell of each agent over SSH,
       with one Unix account for each agent.
-- [ ] Serve the `handler` of the git backend over HTTP, and set its `url`,
-      so that `git` on the workstation reaches the templates.
+- [ ] Replace `justGitBackend` with `workstationGitBackend` from the same
+      package. One account on the workstation, such as `lab-git`, owns
+      every repository. Each agent clones and pushes with its own `git` over
+      SSH, and the host opens no port.
 - [ ] Move the bash backend from the local just-bash directory to the
       workstation.
 

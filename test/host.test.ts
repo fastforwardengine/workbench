@@ -4,6 +4,7 @@ import { join as joinPath } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { PiExecutionOptions } from '@ambionframework/pi';
 import {
+	type AssistantMessage,
 	createAssistantMessageEventStream,
 	fauxAssistantMessage,
 	fauxToolCall,
@@ -52,7 +53,14 @@ function scriptedResponse(agent: string, call: number, closing: boolean) {
 	return fauxAssistantMessage('quiet', { stopReason: 'stop' });
 }
 
-const makeStream = (): PiExecutionOptions['stream'] => {
+/** What a scripted stream answers: the seat, its request count from 1, and whether the exchange closes. */
+type Respond = (agent: string, call: number, closing: boolean) => AssistantMessage;
+
+/**
+ * A model stream that answers each request of each Pi seat from `respond`. A
+ * request whose signal has aborted ends with an abort.
+ */
+const scriptedStream = (respond: Respond): PiExecutionOptions['stream'] => {
 	const calls = new Map<string, number>();
 	return (_model, context, options) => {
 		const output = createAssistantMessageEventStream();
@@ -60,7 +68,7 @@ const makeStream = (): PiExecutionOptions['stream'] => {
 		const agent = context.systemPrompt?.match(/You are '([^']+)'/)?.[1] ?? 'assistant';
 		const call = (calls.get(agent) ?? 0) + 1;
 		calls.set(agent, call);
-		const response = scriptedResponse(agent, call, closing);
+		const response = respond(agent, call, closing);
 		queueMicrotask(() => {
 			if (options?.signal?.aborted) {
 				output.push({
@@ -81,7 +89,7 @@ const makeStream = (): PiExecutionOptions['stream'] => {
 	};
 };
 
-async function open(directory: string, stream = makeStream()) {
+async function open(directory: string, stream = scriptedStream(scriptedResponse)) {
 	const lab = await openLab({ directory, stream });
 	opened.push({ lab, directory });
 	return lab;
@@ -436,4 +444,77 @@ describe('Workbench host steps and approvals', () => {
 		expect(await lab.approvals('characterization')).toEqual([]);
 		await expect(lab.approvals('nowhere')).rejects.toThrow(/Unknown room/);
 	});
+
+	it('lists a say that waits to return, and dismisses it once', async () => {
+		const lab = await open(
+			await freshDirectory(),
+			scriptedStream((agent, call, closing) => {
+				if (closing || agent !== 'assistant' || call !== 1)
+					return fauxAssistantMessage('quiet', { stopReason: 'stop' });
+				const later = { to: 'assistant', text: 'Check the cell temperature.', after: 600 };
+				return fauxAssistantMessage([fauxToolCall('say', later)], { stopReason: 'toolUse' });
+			}),
+		);
+		await lab.join('characterization', 'priya');
+		await lab.send('characterization', 'priya', 'later-1', 'Check the cell later.');
+		const waiting = await vi.waitFor(async () => {
+			const [say] = (await lab.read('characterization', 0)).scheduled;
+			if (!say) throw new Error('No say waits yet.');
+			return say;
+		});
+		expect(waiting).toMatchObject({ seat: 'assistant', owner: 'priya' });
+		expect(await lab.dismiss('characterization', waiting.seq)).toBe(true);
+		expect(await lab.dismiss('characterization', waiting.seq)).toBe(false);
+		expect((await lab.read('characterization', 0)).scheduled).toEqual([]);
+		expect((await messagesOf(lab, 'characterization')).at(-1)).toMatchObject({
+			kind: 'dismissed',
+			message: waiting.seq,
+		});
+	});
+
+	it('lists the processes that an agent starts with bash, reads an output, and cancels a running one', async () => {
+		// The assistant starts a short process that ends in its window, then a long one that it leaves running.
+		const stream = scriptedStream((agent, call, closing) => {
+			const start = (command: string, name: string, wait: number) =>
+				fauxAssistantMessage([fauxToolCall('bash', { command, name, wait })], {
+					stopReason: 'toolUse',
+				});
+			if (agent !== 'assistant' || closing) return fauxAssistantMessage('quiet');
+			if (call === 1) return start('echo hello from the bench', 'greet', 5);
+			if (call === 2) return start('sleep 60', 'soak', 0);
+			return fauxAssistantMessage('quiet');
+		});
+		const lab = await open(await freshDirectory(), stream);
+		let events = 0;
+		const end = lab.watchProcesses(() => {
+			events += 1;
+		});
+		expect(await lab.processes()).toEqual([]);
+		await lab.join('characterization', 'priya');
+		await lab.send('characterization', 'priya', 'ps-1', 'Start the soak.');
+		await vi.waitFor(async () => expect(await lab.processes()).toHaveLength(2), {
+			timeout: 5_000,
+		});
+		// The running process comes first, then the newest start.
+		const [soak, greet] = await lab.processes();
+		expect(soak).toMatchObject({ name: 'soak', agent: 'assistant', state: 'running' });
+		expect(greet).toMatchObject({ name: 'greet', state: 'exited', exitCode: 0 });
+		expect(await lab.processOutput(greet?.handle ?? '', 'assistant')).toEqual({
+			handle: greet?.handle,
+			text: 'hello from the bench\n',
+			size: 21,
+			truncated: false,
+		});
+		await expect(lab.processOutput('bash-000000000000', 'assistant')).rejects.toThrow(/No process/);
+
+		const cancelled = await lab.cancelProcess(soak?.handle ?? '');
+		expect(cancelled.state).toBe('cancelled');
+		expect((await lab.processes()).map((process) => process.state)).toEqual([
+			'cancelled',
+			'exited',
+		]);
+		// One start and one end for each process.
+		await vi.waitFor(() => expect(events).toBe(4));
+		end();
+	}, 20_000);
 });

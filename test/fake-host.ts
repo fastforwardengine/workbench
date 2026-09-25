@@ -5,6 +5,7 @@ import type {
 	FileEntry,
 	Lab,
 	Person,
+	ProcessView,
 	RoomView,
 } from '../src/host/host.ts';
 import { Session } from '../src/terminal/session.ts';
@@ -18,11 +19,13 @@ export const view = (name: string, extra: Record<string, unknown> = {}) =>
 		goal: `${name} goal`,
 		status: 'running',
 		activity: [],
+		failures: new Map(),
 		prompt: `Try ${name}`,
 		messages: [],
 		participants: [],
 		exchanges: [],
 		exchange: undefined,
+		scheduled: [],
 		watermark: 0,
 		...extra,
 	}) as unknown as RoomView;
@@ -95,6 +98,12 @@ export class FakeHost implements Lab {
 		this.record(`control:${room}:${action}`);
 		return this.read(room);
 	}
+	/** What `dismiss` answers: true while the say waits. */
+	dismissed = true;
+	async dismiss(room: string, handle: number) {
+		this.calls.push(`dismiss:${room}:${handle}`);
+		return this.dismissed;
+	}
 	async create(name: string, goal: string) {
 		this.record(`create:${name}:${goal}`);
 		const created = view(name, { goal });
@@ -119,6 +128,40 @@ export class FakeHost implements Lab {
 	async file(path: string): Promise<FileContent> {
 		this.reads.push(path);
 		return { path, text: `text of ${path}`, truncated: false };
+	}
+	/** The processes the host lists. A cancel moves one to `cancelled`. */
+	processTable: ProcessView[] = [];
+	readonly processWatchers = new Set<() => void>();
+	/** While set, a process list waits for it. */
+	processGate: Promise<void> | undefined;
+	/** While set, a process list fails with it. */
+	processFailure: string | undefined;
+	/** The state a cancel gives. `running` stands for a process that did not end in time. */
+	cancelState: ProcessView['state'] = 'cancelled';
+	async processes() {
+		const table = [...this.processTable];
+		if (this.processGate) await this.processGate;
+		if (this.processFailure) throw new Error(this.processFailure);
+		return table;
+	}
+	async processOutput(handle: string) {
+		this.reads.push(handle);
+		return { handle, text: `output of ${handle}\n`, size: 20, truncated: false };
+	}
+	async cancelProcess(handle: string) {
+		this.calls.push(`cancel:${handle}`);
+		this.processTable = this.processTable.map((process) =>
+			process.handle === handle ? { ...process, state: this.cancelState } : process,
+		);
+		const found = this.processTable.find((process) => process.handle === handle);
+		if (!found) throw new Error(`No process ${handle}.`);
+		return found;
+	}
+	watchProcesses(changed: () => void) {
+		this.processWatchers.add(changed);
+		return () => {
+			this.processWatchers.delete(changed);
+		};
 	}
 	labNames: string[] = ['runs', 'results'];
 	async labTables() {
