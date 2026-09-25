@@ -15,6 +15,7 @@ import {
 	readLabTable,
 } from './files.ts';
 import { MAX_GOAL, ROOM_NAME } from './names.ts';
+import { byRecency, type ProcessOutput, type ProcessView, readOutput } from './processes.ts';
 import {
 	fail,
 	liveRoom,
@@ -28,6 +29,7 @@ export type { Person } from '../domain/definitions.ts';
 export type { ActivationSteps } from '../view/steps.ts';
 export type { Approval } from './approvals.ts';
 export type { FileContent, FileEntry, TableView } from './files.ts';
+export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
 
 /**
@@ -55,6 +57,8 @@ export interface Lab {
 	/** Send a message. The same key and text return the first exchange and add no message. */
 	send(room: string, person: string, key: string, text: string): Promise<void>;
 	control(room: string, action: RoomAction): Promise<RoomView>;
+	/** Dismiss a say of a room that waits to return, by its handle. False when it no longer waits. */
+	dismiss(room: string, handle: number): Promise<boolean>;
 	/**
 	 * The steps of one activation, as the logger of this process received them.
 	 * A running activation returns the steps so far. An activation this process
@@ -66,6 +70,23 @@ export interface Lab {
 	create(name: string, goal: string): Promise<RoomView>;
 	files(): Promise<FileEntry[]>;
 	file(path: string): Promise<FileContent>;
+	/**
+	 * The background processes of the agents that used the workspace in this
+	 * run: the running processes first, then the newest start first.
+	 */
+	processes(): Promise<ProcessView[]>;
+	/**
+	 * The end of the output of the process `handle` of `agent`: the last 64 K
+	 * characters. An output over 1 MiB gives its size and no text.
+	 */
+	processOutput(handle: string, agent: string): Promise<ProcessOutput>;
+	/**
+	 * Stop one process. It waits up to 10 seconds for the end, then gives the
+	 * state. It runs outside the queue of the host's file reads.
+	 */
+	cancelProcess(handle: string): Promise<ProcessView>;
+	/** Call `changed` when a process starts and when one ends. The return value ends the watch. */
+	watchProcesses(changed: () => void): () => void;
 	/** The names of the tables of the lab database. */
 	labTables(): Promise<string[]>;
 	/** One table of the lab database. `uri` is `lab:///<table>`. */
@@ -162,6 +183,7 @@ function hosted(rooms: Rooms, database: DatabaseSync, labPath: string): Lab {
 			});
 		},
 		control: (room, action) => rooms.lifecycle(room, action),
+		dismiss: (room, handle) => inRoom(room, (live) => live.dismiss(handle)),
 		activation: (room, id) => rooms.activation(room, id),
 		approvals: (room) => rooms.approvals(room),
 		// Async, so a refusal is a rejected promise like every other failure of this interface.
@@ -175,6 +197,19 @@ function hosted(rooms: Rooms, database: DatabaseSync, labPath: string): Lab {
 		},
 		files: () => rooms.withWorkspace(() => listFiles(rooms.workspace)),
 		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path)),
+		processes: () =>
+			rooms.withWorkspace(async () => byRecency(await rooms.workspace.processes.list())),
+		processOutput: (handle, agent) =>
+			rooms.withWorkspace(async () => {
+				const listed = await rooms.workspace.processes.list({ agent });
+				const process = listed.find((candidate) => candidate.handle === handle);
+				if (!process) fail(`No process ${handle}.`);
+				return readOutput(rooms.workspace, process);
+			}),
+		// The table orders a stop on the bash owner of the agent, so the cancel
+		// needs no place in the host's queue, and a wait for the end holds no read.
+		cancelProcess: (handle) => rooms.workspace.processes.cancel(handle),
+		watchProcesses: (changed) => rooms.workspace.processes.subscribe(() => changed()),
 		labTables: async () => listLabTables(labPath),
 		labTable: async (uri) => readLabTable(labPath, uri),
 		close() {

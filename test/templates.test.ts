@@ -1,7 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-	templateDigest,
 	templateFiles,
 	templateInstructions,
 	templates,
@@ -15,13 +14,6 @@ describe('the Workbench templates', () => {
 			.map((entry) => entry.name)
 			.sort();
 		expect(templates.map((template) => template.name).sort()).toEqual(directories);
-	});
-
-	it.each(templates)('keeps $name unchanged since its registration', ({ name, digest }) => {
-		expect(
-			templateDigest(name),
-			`A template never changes. Register the change as a new template, such as ${name}-2.`,
-		).toBe(digest);
 	});
 
 	it.each(templates)('gives $name a README.md and a valid name', ({ name }) => {

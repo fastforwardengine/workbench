@@ -5,11 +5,9 @@ allowBuilds:
   node-liblzma: true
   protobufjs: true
 minimumReleaseAgeExclude:
-  - '@ambionframework/ambion@0.2.0'
-  - '@ambionframework/journal@0.2.0'
-  - '@ambionframework/just-bash@0.2.0'
-  - '@ambionframework/pi@0.2.0'
-  - '@ambionframework/workspace@0.2.0'
-  - '@ambionframework/assistant@0.2.0'
-  - '@ambionframework/git@0.2.0'
-  - '@ambionframework/git@0.2.0'
+  - '@ambionframework/ambion@0.3.0'
+  - '@ambionframework/journal@0.3.0'
+  - '@ambionframework/just-bash@0.3.0'
+  - '@ambionframework/pi@0.3.0'
+  - '@ambionframework/workspace@0.3.0'
+  - '@ambionframework/assistant@0.3.0'

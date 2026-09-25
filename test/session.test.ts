@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ActivationSteps } from '../src/host/host.ts';
+import type { ActivationSteps, ProcessView } from '../src/host/host.ts';
+import { lastPart } from '../src/host/processes.ts';
+import { ProcessBrowser, stateText } from '../src/terminal/process-browser.ts';
 import type { Session } from '../src/terminal/session.ts';
 import { started, view } from './fake-host.ts';
 
@@ -417,6 +419,75 @@ describe('Session steps', () => {
 		await session.submit('/steps');
 		expect(session.notice).toMatch(/holds no steps/);
 	});
+
+	it('opens the attempt that ran, and not the attempt the room abandoned after it', async () => {
+		const { host, session } = await started();
+		const attempt = (id: string, status: string, attempt: number) => ({
+			id,
+			seat: 'assistant',
+			purpose: 'respond',
+			attempt,
+			outcome: { status, cause: 'permanent' },
+		});
+		const activations = [attempt('act-4', 'failed', 1), attempt('act-4b', 'abandoned', 2)];
+		host.table.set(
+			'characterization',
+			view('characterization', { exchanges: [closedExchange(4, { activations })] }),
+		);
+		host.traces.set('act-4', trace('act-4', true));
+		await session.refresh();
+		await session.submit('/steps');
+		expect(session.steps?.id).toBe('act-4');
+	});
+});
+
+describe('Session scheduled says', () => {
+	it('notes each say that waits to return, with its seat, its time, and its owner', async () => {
+		const { host, session } = await started();
+		const say = { seq: 5, seat: 'design', owner: 'noor', due: 'soon', text: 'Check the build.' };
+		host.table.set('characterization', view('characterization', { scheduled: [say] }));
+		await session.refresh();
+		expect(session.blocks).toContainEqual({
+			type: 'note',
+			text: 'design comes back at soon for noor: Check the build. (/dismiss 5)',
+		});
+		expect(session.suggestions('/dismiss ').map((row) => row.insert)).toEqual(['/dismiss 5']);
+		host.table.set('characterization', view('characterization'));
+		await session.refresh();
+		expect(blockTypes(session)).not.toContain('note');
+	});
+
+	it('dismisses a say by the handle that the note shows, and refuses any other', async () => {
+		const { host, session } = await started();
+		const say = { seq: 5, seat: 'design', owner: 'noor', due: 'soon', text: 'Check the build.' };
+		host.table.set('characterization', view('characterization', { scheduled: [say] }));
+		await session.refresh();
+		for (const typed of ['/dismiss 6', '/dismiss']) {
+			await session.submit(typed);
+			expect(session.notice).toMatch(/^Use \/dismiss <n>/);
+		}
+		await session.submit('/dismiss 5');
+		expect(session.notice).toBe('Dismissed say 5. design does not come back to it.');
+		host.dismissed = false;
+		await session.submit('/dismiss 5');
+		expect(session.notice).toBe('Say 5 no longer waits.');
+		expect(host.calls.filter((call) => call.startsWith('dismiss'))).toEqual([
+			'dismiss:characterization:5',
+			'dismiss:characterization:5',
+		]);
+		host.dismiss = async () => {
+			throw new Error('Resume this room first.');
+		};
+		await session.submit('/dismiss 5');
+		expect(session.error).toBe('Resume this room first.');
+		host.table.set(
+			'characterization',
+			view('characterization', { scheduled: [say], status: 'stopped' }),
+		);
+		await session.refresh();
+		await session.submit('/dismiss 5');
+		expect(session.notice).toBe('characterization is not running. Use /resume first.');
+	});
 });
 
 describe('Session awaiting and approval', () => {
@@ -454,5 +525,131 @@ describe('Session awaiting and approval', () => {
 		host.pendingApprovals = [];
 		await session.submit('/user priya');
 		expect(session.attention).toEqual([]);
+	});
+});
+
+describe('Session /ps', () => {
+	const at = (seconds: number) => new Date(Date.UTC(2026, 0, 1, 12, 0, seconds)).toISOString();
+	const process = (handle: string, extra: Partial<ProcessView> = {}): ProcessView => ({
+		handle,
+		kind: 'bash',
+		agent: 'design',
+		command: 'npm test',
+		state: 'running',
+		output: `/home/design/.processes/${handle}/out`,
+		timeout: 600,
+		startedAt: at(0),
+		...extra,
+	});
+
+	it('opens on the processes, reads the chosen output, cancels on the second x, and stops reading on close', async () => {
+		const { host, session } = await started();
+		host.processTable = [
+			process('bash-000000000001', { name: 'soak' }),
+			process('bash-000000000002', { state: 'exited', exitCode: 0, endedAt: at(3) }),
+		];
+		expect(await session.submit('/ps')).toEqual({ type: 'processes' });
+		const panel = new ProcessBrowser(host, () => {});
+		await panel.show();
+		expect(panel.open).toBe(true);
+		expect(host.processWatchers.size).toBe(1);
+		await vi.waitFor(() => expect(panel.output?.handle).toBe('bash-000000000001'));
+		panel.move(1);
+		await vi.waitFor(() => expect(panel.output?.text).toBe('output of bash-000000000002\n'));
+		await panel.cancel();
+		expect(panel.message).toBe('bash-000000000002 is not running.');
+
+		panel.move(-1);
+		await panel.cancel();
+		expect(panel.message).toBe('Press x again to cancel soak (bash-000000000001).');
+		expect(host.calls).not.toContain('cancel:bash-000000000001');
+		await panel.cancel();
+		expect(host.calls).toContain('cancel:bash-000000000001');
+		expect(panel.message).toBe('soak (bash-000000000001) is cancelled.');
+		expect(panel.selected?.state).toBe('cancelled');
+
+		// A start or an end reads the list again, and keeps the chosen process.
+		host.processTable = [process('bash-000000000003'), ...host.processTable];
+		for (const changed of host.processWatchers) changed();
+		await vi.waitFor(() => expect(panel.processes).toHaveLength(3));
+		expect(panel.selected?.handle).toBe('bash-000000000001');
+
+		panel.hide();
+		expect(host.processWatchers.size).toBe(0);
+		host.processTable = [];
+		await panel.refresh();
+		expect(panel.processes).toHaveLength(3);
+	});
+
+	it.each([
+		[{}, 'running 1m 5s'],
+		[{ state: 'exited', exitCode: 2, endedAt: at(3) }, 'exit 2 after 3s'],
+		[{ state: 'timed_out', endedAt: at(59) }, 'timed out after 59s'],
+		[{ state: 'cancelled', endedAt: at(20) }, 'cancelled after 20s'],
+		[{ state: 'cancelled' }, 'cancelled'],
+		[{ state: 'exited', exitCode: 0 }, 'exit 0'],
+		[{ state: 'failed', error: 'The backend closed.' }, 'failed: The backend closed.'],
+		[{ startedAt: new Date(Date.UTC(2026, 0, 1, 10, 55)).toISOString() }, 'running 1h 6m'],
+	] as const)('states %o as %s', (extra, text) => {
+		expect(stateText(process('bash-000000000001', extra), Date.parse(at(65)))).toBe(text);
+	});
+
+	it('keeps a move made while a list read runs, and drops a read that lands after a close', async () => {
+		const { host } = await started();
+		host.processTable = [process('bash-000000000001'), process('bash-000000000002')];
+		const panel = new ProcessBrowser(host, () => {});
+		await panel.show();
+		let open = () => {};
+		host.processGate = new Promise<void>((resolve) => {
+			open = resolve;
+		});
+		const reading = panel.refresh();
+		panel.move(1);
+		open();
+		await reading;
+		expect(panel.selected?.handle).toBe('bash-000000000002');
+		await vi.waitFor(() => expect(panel.output?.handle).toBe('bash-000000000002'));
+
+		host.processGate = new Promise<void>((resolve) => {
+			open = resolve;
+		});
+		const late = panel.refresh();
+		panel.hide();
+		host.processTable = [];
+		open();
+		await late;
+		expect(panel.processes).toHaveLength(2);
+		host.processGate = undefined;
+	});
+
+	it('shows a failed list read, a cancel that does not end in time, and a cancel in progress', async () => {
+		const { host } = await started();
+		host.processTable = [process('bash-000000000001')];
+		host.processFailure = 'The workspace is closed.';
+		const panel = new ProcessBrowser(host, () => {});
+		await panel.show();
+		expect(panel.problem).toBe('The workspace is closed.');
+		host.processFailure = undefined;
+		await panel.refresh();
+		expect(panel.problem).toBeUndefined();
+
+		host.cancelState = 'running';
+		await panel.cancel();
+		const cancelling = panel.cancel();
+		// A third press while the cancel runs takes no second cancel.
+		void panel.cancel();
+		expect(panel.message).toBe('Cancelling bash-000000000001.');
+		await cancelling;
+		expect(panel.message).toBe('bash-000000000001 did not end within 10 seconds.');
+		expect(host.calls.filter((call) => call.startsWith('cancel:'))).toHaveLength(1);
+	});
+
+	it.each([
+		['short', 'short', false],
+		['one\ntwo\nthree\n', 'three\n', true],
+		['aaaaaaaaaa\n', 'aaaaaa\n', true],
+		['aaaaaaaaaaa', 'aaaaaaa', true],
+	])('keeps the end of %j as %j', (text, end, truncated) => {
+		expect(lastPart(text, 7)).toEqual({ text: end, truncated });
 	});
 });

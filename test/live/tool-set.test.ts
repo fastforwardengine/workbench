@@ -37,10 +37,13 @@ const QUIET_MS = 150_000;
 /** The full specialists: every seat but the two stubs, plus the assistant. */
 const specialists = ['assistant', 'datasheets', 'design', 'experiments'] as const;
 
-/** Native tool names a harness might add. Pi holds none of them by design. */
+/**
+ * Native tool names a harness might add. Pi holds none of them by design. The
+ * list omits the native `wait` of Codex: the workspace process tool has the
+ * same name.
+ */
 const NATIVE = [
 	'exec',
-	'wait',
 	'shell',
 	'Bash',
 	'Read',

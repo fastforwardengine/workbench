@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,12 +18,6 @@ export interface Template {
 	readonly use: string;
 	/** The specialists whose instructions name this template. */
 	readonly specialists: readonly string[];
-	/**
-	 * The SHA-256 of the files, as `templateDigest` computes it. A template
-	 * never changes after its registration. A change takes a new name, such as
-	 * `test-plan-2`, and a new digest. `test/templates.test.ts` holds the rule.
-	 */
-	readonly digest: string;
 }
 
 /** The templates, in the order that `repos` lists them. */
@@ -35,7 +28,6 @@ export const templates: readonly Template[] = [
 			'A numbered test plan: the question, the setup, the variable, the controls, the measurement, the limits, and the pass criterion.',
 		use: 'a test plan',
 		specialists: ['experiments'],
-		digest: '6e93f5727dac639b44c4d4c66e7d0349ba61cff0965ac56a9521b78fcfc4cc03',
 	},
 ];
 
@@ -44,8 +36,7 @@ const IGNORED = new Set(['.git', '.DS_Store', '__pycache__']);
 
 /**
  * The files of one template, by path, as text. The host registers exactly
- * these files, and the digest covers exactly these files. A template holds
- * text files only.
+ * these files. A template holds text files only.
  */
 export function templateFiles(name: string): Record<string, string> {
 	const root = join(templatesDirectory, name);
@@ -56,13 +47,6 @@ export function templateFiles(name: string): Record<string, string> {
 		files[path] = readFileSync(join(root, path), 'utf8');
 	}
 	return Object.fromEntries(Object.entries(files).sort(([a], [b]) => (a < b ? -1 : 1)));
-}
-
-/** The SHA-256 of each path and its text, in path order. */
-export function templateDigest(name: string): string {
-	const hash = createHash('sha256');
-	for (const [path, text] of Object.entries(templateFiles(name))) hash.update(`${path}\0${text}\0`);
-	return hash.digest('hex');
 }
 
 /** The instruction lines that name the templates of one specialist. Empty when it has none. */

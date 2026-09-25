@@ -1,5 +1,6 @@
-import type { ParticipantInfo } from '@ambionframework/ambion';
+import type { ParticipantInfo, PendingSay } from '@ambionframework/ambion';
 import type { RoomAction, RoomView } from '../host/host.ts';
+import type { Block } from '../view/timeline.ts';
 
 export const HELP = [
 	'Commands',
@@ -8,8 +9,11 @@ export const HELP = [
 	'  /user <name>      switch to another person',
 	'  /files            search the workspace files and read one in a side panel',
 	'  /open <path>      open the files panel on one file',
+	'  /ps               show the background processes of the agents, their output,',
+	'                    and cancel one with x, twice',
 	'  /try              fill the composer with the room’s suggested question',
 	'  /abort            cancel the open exchange in this room',
+	'  /dismiss <n>      dismiss the say n that waits to return. The agent does not come back to it.',
 	'  /stop             stop the room. /resume starts it again.',
 	'  /steps [n]        show the steps of the newest activation of exchange n, oldest first.',
 	'                    Without n, the latest exchange. /steps off hides them.',
@@ -56,4 +60,24 @@ export const workingAgents = (view: RoomView | undefined): string[] =>
 export function emptyText(view: RoomView): string {
 	const start = 'Nothing here yet. Ask a question below, or type / for commands.';
 	return view.prompt ? `${start}\nTry: ${view.prompt}  (type /try to use it)` : start;
+}
+
+/** The notes after the closed exchanges: what waits on the person, then each say that waits. */
+export function notesOf(attention: readonly string[], view: RoomView): Block[] {
+	const notes = [...attention, ...view.scheduled.map(pendingLine)];
+	return notes.map((text) => ({ type: 'note', text }));
+}
+
+/** One say that waits to return, as the conversation notes it. */
+function pendingLine(say: PendingSay): string {
+	const due = new Date(say.due);
+	const later = due.valueOf() - Date.now() > 86_400_000;
+	const time = Number.isNaN(due.valueOf())
+		? say.due
+		: due.toLocaleString([], {
+				...(later ? { month: 'short', day: 'numeric' } : {}),
+				hour: '2-digit',
+				minute: '2-digit',
+			});
+	return `${say.seat} comes back at ${time} for ${say.owner}: ${say.text} (/dismiss ${say.seq})`;
 }

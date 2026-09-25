@@ -12,7 +12,13 @@ import { tui as palette } from './brand.ts';
 import type { Suggestion } from './commands.ts';
 
 /** The palette's title, by what its rows complete to. */
-const TITLES = { command: 'Commands', room: 'Rooms', person: 'People', file: 'Files' } as const;
+const TITLES = {
+	command: 'Commands',
+	room: 'Rooms',
+	person: 'People',
+	file: 'Files',
+	say: 'Says that wait',
+} as const;
 
 const MAX_INPUT_LINES = 6;
 const MAX_PALETTE_ROWS = 6;

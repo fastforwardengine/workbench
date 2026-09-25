@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { team } from '../src/domain/definitions.ts';
 import { describeUnavailable, keyVariable, piModel, seatFamilies } from '../src/domain/families.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
+import { buildTimeline } from '../src/view/timeline.ts';
 
 describe('Workbench executor families', () => {
 	it('puts every seat on Pi', () => {
@@ -88,6 +89,27 @@ describe('Workbench with no key', () => {
 				"Seat 'assistant' cannot run: ANTHROPIC_API_KEY is not set",
 			);
 			expect(view.status).toBe('running');
+		});
+		// The exchange closes on the failure, and its note keeps the reason.
+		const missing = "Seat 'assistant' cannot run: ANTHROPIC_API_KEY is not set";
+		await vi.waitFor(async () => {
+			const view = await lab.read('cycling', 0);
+			const closed = view.exchanges.find((exchange) => exchange.status === 'closed');
+			expect(closed).toMatchObject({ outcome: { kind: 'exhausted' } });
+			const blocks = buildTimeline({
+				messages: view.messages,
+				exchanges: view.exchanges,
+				humans: new Set(['noor']),
+				working: [],
+				expanded: new Set(),
+				failures: view.failures,
+			});
+			expect(blocks).toContainEqual({
+				type: 'note',
+				text: expect.stringContaining(
+					`Closed, assistant failed, the room does not retry this: ${missing}`,
+				),
+			});
 		});
 	});
 });
