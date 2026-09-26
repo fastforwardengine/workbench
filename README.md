@@ -42,6 +42,25 @@ pnpm start ./bench                # another directory
 - **A new data directory gets the `led-sweep` room and the library.** An
   existing one resumes its rooms.
 
+## Run on a local workstation
+
+**A workstation runs the shell and the git repositories of the
+specialists, one Unix account for each.** `workstation/` builds one in a
+container, with `sshd` on `127.0.0.1:2222`. The journals stay in the
+SQLite file of the data directory.
+
+```sh
+make                  # the workstation up, then Workbench on it
+make stop             # stop the workstation; the volumes keep every file
+```
+
+**`make` does each step that is not done yet.** It installs the
+dependencies, writes the keys into `.workstation/`, builds and starts the
+container, waits for `sshd`, and starts Workbench with
+`WORKBENCH_WORKSTATION`. The `Makefile` lists the other targets.
+[`workstation/README.md`](workstation/README.md) holds the accounts, the
+layout, and the tests.
+
 ## The team
 
 **Three specialists hear every message, at `broadcast`. The assistant

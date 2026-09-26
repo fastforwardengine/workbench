@@ -36,6 +36,8 @@ try {
 		// The one person of Workbench has the name of this account
 		// (src/domain/definitions.ts), so the terminal opens as that person.
 		person: userInfo().username,
+		// The bash and git backends run on the workstation that this file names.
+		workstation: process.env.WORKBENCH_WORKSTATION || undefined,
 	});
 } catch (error) {
 	console.error(error instanceof Error ? error.message : String(error));

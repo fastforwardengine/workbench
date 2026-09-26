@@ -64,15 +64,16 @@ later one, as the sweep test in Ambion's example `tool-set.test.ts` does.
 
 ## 5. Connect the workstation
 
-- [ ] Define the host, the network, and the accounts. Ambion's
-      `@ambionframework/workstation` runs the shell of each agent over SSH,
-      with one Unix account for each agent.
-- [ ] Replace `justGitBackend` with `workstationGitBackend` from the same
-      package. One account on the workstation, such as `lab-git`, owns
-      every repository. Each agent clones and pushes with its own `git` over
-      SSH, and the host opens no port.
-- [ ] Move the bash backend from the local just-bash directory to the
-      workstation.
+- [x] Run the bash and git backends on a workstation when
+      `WORKBENCH_WORKSTATION` names its `workstation.json`. `workstation/`
+      builds a local one in a container: one account for each specialist,
+      the host account, and the git account `workbench-git`.
+- [ ] Define the workstation of the bench: the machine that the supply
+      and the camera connect to, its network, and its accounts. Prepare it
+      as `workstation/Dockerfile` and `workstation/entrypoint.sh` do, and
+      write its `workstation.json`.
+- [ ] Give the accounts of the bench workstation the access to the supply
+      and the camera, such as the `dialout` and `video` groups.
 
 **Done when** an agent forks `led-sweep`, clones it on the workstation,
 and runs the simulated mode there.

@@ -10,8 +10,6 @@ import { fail } from './rooms.ts';
 
 export type { TableView };
 
-const browser = { name: 'assistant', identity: 'Workspace browser' };
-
 /** One file of the workspace. */
 export interface FileEntry {
 	path: string;
@@ -26,15 +24,39 @@ export interface FileContent {
 	tables?: TableView[];
 }
 
-export async function listFiles(workspace: Workspace): Promise<FileEntry[]> {
-	return workspace.use(browser, async (env) => {
+/** The environment of one workspace operation. */
+type Env = Parameters<Parameters<Workspace['use']>[1]>[0];
+
+/**
+ * The files and the folders of one folder. A root must list. A folder below
+ * a root that the host account cannot read, such as a folder of mode 0700 on
+ * a workstation, gives nothing.
+ */
+async function listFolder(env: Env, folder: string, root: boolean) {
+	const result = await env.listDir(folder, BACKGROUND_CONTEXT);
+	if (!result.ok && root) throw result.error;
+	return result.ok ? result.value : [];
+}
+
+/**
+ * The files under `roots`, as the host account reads them, up to 500
+ * entries. A local directory lists `/`. A workstation lists its shared
+ * folders, because each home has mode 0700.
+ */
+export async function listFiles(
+	workspace: Workspace,
+	roots: readonly string[],
+): Promise<FileEntry[]> {
+	return workspace.use(workspace.host, async (env) => {
 		const files: FileEntry[] = [];
-		const pending = ['/'];
+		const pending = [...roots];
 		let visited = 0;
 		while (pending.length > 0 && visited < 500) {
-			const result = await env.listDir(pending.shift() ?? '/', BACKGROUND_CONTEXT);
-			if (!result.ok) throw result.error;
-			const entries = result.value.slice(0, 500 - visited);
+			const folder = pending.shift() ?? '/';
+			const entries = (await listFolder(env, folder, roots.includes(folder))).slice(
+				0,
+				500 - visited,
+			);
 			visited += entries.length;
 			files.push(
 				...entries
@@ -60,7 +82,7 @@ export async function readFile(workspace: Workspace, path: string): Promise<File
 	) {
 		fail('Use an absolute workspace file path.');
 	}
-	return workspace.use(browser, async (env) => {
+	return workspace.use(workspace.host, async (env) => {
 		let prefix = '';
 		for (const part of parts) {
 			prefix += `/${part}`;

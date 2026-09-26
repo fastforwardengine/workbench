@@ -1,0 +1,31 @@
+# A local Workbench workstation. Run workstation/setup.sh first, then:
+#
+#   docker compose -f workstation/compose.yaml up -d --build
+#
+# sshd listens on 127.0.0.1:2222 only. The named volumes keep the homes, the
+# repositories of the git account, the library, and /shared across a restart.
+services:
+  workstation:
+    build: .
+    image: workbench-workstation
+    ports:
+      - 127.0.0.1:2222:2222
+    volumes:
+      - ../.workstation:/etc/workbench:ro
+      - home:/home
+      - srv:/srv
+      - library:/library
+      - shared:/shared
+    restart: unless-stopped
+    # Healthy once sshd accepts a connection, so `up --wait` returns then.
+    healthcheck:
+      test: ['CMD', 'bash', '-c', 'exec 3<>/dev/tcp/127.0.0.1/2222']
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  home:
+  srv:
+  library:
+  shared:

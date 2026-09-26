@@ -21,6 +21,7 @@ floor).
 | `src/host`     | The room host: rooms, file handling, processes, name assignment                    |
 | `src/terminal` | The OpenTUI terminal: layout, keys, the composer, the transcript                   |
 | `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern       |
+| `workstation/` | A workstation in a container: the bash and git backends over SSH                   |
 | `docs/`        | Design pages, such as `templates.md`, the git templates                            |
 | `planning/`    | `next.md` (the next activities, in order) and `backlog.md` — read before a change  |
 
@@ -33,6 +34,8 @@ unused import or variable.
 ## Commands
 
 - `pnpm start` — run the terminal.
+- `make` — bring up the local workstation in `workstation/`, and run the
+  terminal on it. The `Makefile` lists the other targets.
 - `pnpm check` — format, types, lint, and the scripted test tier, in that
   order.
 - `pnpm test` — the scripted tier: no key, no network.

@@ -16,6 +16,7 @@ import {
 	type RoomsOptions,
 	type RoomView,
 } from './rooms.ts';
+import { loadWorkstation } from './workstation.ts';
 
 export type { Person } from '../domain/definitions.ts';
 export type { ActivationSteps } from '../view/steps.ts';
@@ -87,6 +88,11 @@ export interface OpenOptions {
 	stream?: PiExecutionOptions['stream'];
 	/** The environment that holds the key. The default is the environment of the process. */
 	env?: RoomsOptions['env'];
+	/**
+	 * The path of `workstation.json`. The bash and git backends then run on
+	 * that workstation. Without it, both run on this machine.
+	 */
+	workstation?: string;
 }
 
 type Rooms = Awaited<ReturnType<typeof openRooms>>;
@@ -105,13 +111,19 @@ function personNamed(name: string): Person {
 
 /** Open Workbench. A fresh directory gets the sample rooms. An old one resumes its rooms. */
 export async function openLab(options: OpenOptions): Promise<Lab> {
+	// Read the workstation first, so a bad file stops the start before any room opens.
+	const workstation = options.workstation ? await loadWorkstation(options.workstation) : undefined;
 	const path = resolve(options.directory, 'rooms.db');
 	const fresh = !(await exists(path));
 	await mkdir(options.directory, { recursive: true });
 	const database = new DatabaseSync(path);
 	let rooms: Rooms | undefined;
 	try {
-		rooms = await openRooms(database, options.directory, options);
+		rooms = await openRooms(database, options.directory, {
+			stream: options.stream,
+			env: options.env,
+			workstation,
+		});
 		if (fresh) await seedRooms(rooms);
 	} catch (error) {
 		await rooms?.close().catch(() => undefined);
@@ -179,7 +191,7 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 				fail(`Give a room goal of 1 to ${MAX_GOAL} characters.`);
 			return rooms.create(name, trimmed);
 		},
-		files: () => rooms.withWorkspace(() => listFiles(rooms.workspace)),
+		files: () => rooms.withWorkspace(() => listFiles(rooms.workspace, rooms.roots)),
 		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path)),
 		processes: () =>
 			rooms.withWorkspace(async () => byRecency(await rooms.workspace.processes.list())),

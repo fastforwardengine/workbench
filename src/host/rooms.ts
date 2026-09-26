@@ -16,10 +16,12 @@ import { type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
 import { type Environment, hasKey, keyVariable, unavailableSeats } from '../domain/families.ts';
-import { scenarios, seats, seedWorkspace } from '../domain/scenarios.ts';
+import { scenarios, seats } from '../domain/scenarios.ts';
 import { stepLog } from '../view/steps.ts';
 import { labRepositories } from './repositories.ts';
+import { seedWorkspace } from './seed.ts';
 import { unavailable } from './unavailable.ts';
+import { type WorkstationConfig, workstationBackends } from './workstation.ts';
 
 /** What a person can do to a room's work. Abort ends the open exchange. Stop and resume end and start a run. */
 export type RoomAction = 'abort' | 'stop' | 'resume';
@@ -64,6 +66,24 @@ export interface RoomsOptions {
 	stream?: PiExecutionOptions['stream'];
 	/** The environment that holds the key. The default is the environment of the process. */
 	env?: Environment;
+	/**
+	 * The workstation that runs the bash and git backends. Without it, both run
+	 * on this machine: a just-bash directory and a git backend in this process.
+	 */
+	workstation?: WorkstationConfig;
+}
+
+/** The backends of the workspace, and the folders that the files panel lists. */
+async function workspaceBackends(directory: string, workstation?: WorkstationConfig) {
+	if (workstation)
+		return { backend: await workstationBackends(workstation), roots: workstation.roots };
+	return {
+		backend: {
+			bash: directoryBackend(resolve(directory, 'workspace')),
+			git: labRepositories(resolve(directory, 'git.db')),
+		},
+		roots: ['/'],
+	};
 }
 
 /**
@@ -114,17 +134,10 @@ export async function openRooms(
 		'CREATE TABLE IF NOT EXISTS engine_rooms (name TEXT PRIMARY KEY, goal TEXT NOT NULL, enabled INTEGER NOT NULL)',
 	);
 	let closing = false;
-	const workspacePath = resolve(directory, 'workspace');
-	const workspace = openWorkspace({
-		name: 'workbench',
-		backend: {
-			bash: directoryBackend(workspacePath),
-			git: labRepositories(resolve(directory, 'git.db')),
-		},
-		audit: {},
-	});
+	const { backend, roots } = await workspaceBackends(directory, options.workstation);
+	const workspace = openWorkspace({ name: 'workbench', backend, audit: {} });
 	try {
-		await seedWorkspace(workspacePath);
+		await seedWorkspace(workspace);
 		// Register the templates now, so a template that fails to register
 		// stops the start with an error that names it.
 		await workspace.git?.use(workspace.host, (env) => env.list());
@@ -292,6 +305,8 @@ export async function openRooms(
 		watch,
 		withWorkspace,
 		workspace,
+		/** The folders that the files panel lists. */
+		roots,
 		lifecycle,
 		/** The steps of one activation that this process logged. */
 		activation: (name: string, id: string) => withRoom(name, async () => log.read(name, id)),
