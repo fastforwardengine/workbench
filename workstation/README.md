@@ -147,7 +147,9 @@ starts. It attaches every USB device of the Mac, except:
 An attached device leaves macOS, except a serial adapter, which stays
 usable on both. `make usb-detach` gives the devices back. A second
 `make usb` changes nothing, and it attaches a device again after a replug
-or a restart of OrbStack. On a machine without OrbStack, the devices are
+or a restart of OrbStack. It also attaches again a device that OrbStack
+holds and Linux lost: it counts the devices of each USB ID on both sides.
+It leaves a device that another OrbStack machine holds. On a machine without OrbStack, the devices are
 native, and `make usb` does nothing.
 
 ## Look inside

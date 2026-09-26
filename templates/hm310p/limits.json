@@ -1,0 +1,5 @@
+{
+	"max_voltage": 5.0,
+	"max_current": 0.5,
+	"max_power": 2.5
+}
