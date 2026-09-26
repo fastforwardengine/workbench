@@ -14,6 +14,10 @@ serial adapter, which stays usable on both. So the script leaves out:
 
 It attaches every other device. On a machine without OrbStack, such as a
 Linux bench machine, the devices are native, and the script does nothing.
+
+OrbStack can keep an attach that Linux lost, such as after a replug through
+a hub. When the workstation container runs, the script asks it which USB
+devices Linux sees, and attaches such a device again.
 """
 
 import json
@@ -23,6 +27,10 @@ import sys
 from pathlib import Path
 
 IGNORE_FILE = Path(__file__).with_name("usb-ignore")
+COMPOSE_FILE = Path(__file__).with_name("compose.yaml")
+
+# The vendor:product ID of each USB device in sysfs.
+LIST_IDS = 'for d in /sys/bus/usb/devices/*; do [ -f "$d/idVendor" ] && echo "$(cat "$d/idVendor"):$(cat "$d/idProduct")"; done'
 
 # The OrbStack categories that stay with macOS.
 KEEP_ON_MAC = {"input": "an input device, which macOS needs", "billboard": "a hub's billboard"}
@@ -45,6 +53,16 @@ def devices():
     if listed.returncode != 0:
         sys.exit(f"orb usb list failed: {listed.stderr.strip()}")
     return json.loads(listed.stdout).get("devices", [])
+
+
+def linux_ids():
+    """The vendor:product IDs that Linux sees, or None when the container does not run."""
+    listed = subprocess.run(
+        ["docker", "compose", "-f", str(COMPOSE_FILE), "exec", "-T", "workstation", "sh", "-c", LIST_IDS],
+        capture_output=True,
+        text=True,
+    )
+    return set(listed.stdout.split()) if listed.returncode == 0 else None
 
 
 def attached(bus_id):
@@ -78,13 +96,18 @@ def main(action):
         print("usb: no OrbStack here, so the USB devices are native to Linux.")
         return
     skip = ignored()
+    seen = linux_ids() if action == "attach" else None
     for device in devices():
-        _, name = label(device)
+        usb_id, name = label(device)
         reason = reason_to_keep(device, skip)
         if reason:
             print(f"usb: {name} stays with macOS: {reason}.")
             continue
         is_attached = attached(device["bus_id"])
+        if is_attached and seen is not None and usb_id not in seen:
+            print(f"usb: {name} is attached for OrbStack, and Linux does not see it. Attaching it again.")
+            orb("usb", "detach", device["bus_id"])
+            is_attached = False
         if (action == "attach") == is_attached:
             print(f"usb: {name} is {'already attached' if is_attached else 'with macOS'}.")
             continue
