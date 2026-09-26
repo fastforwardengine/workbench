@@ -8,22 +8,23 @@ Workbench is a shared workspace where humans and specialists collaborate
 on electrical engineering, hardware, and electrochemistry. It runs on
 [Ambion](https://github.com/ambionframework/ambion), the collaboration
 kernel, and follows Ambion's own runnable example (`examples/workbench`)
-with a lab domain of its own: one LED parameter sweep on a bench, three
-specialists, and an assistant that coordinates them.
+with a lab domain of its own: a bench with a programmable supply and a
+camera, three specialists, and an assistant that coordinates them. The
+milestone is an FM radio that the team helps build and then controls.
 
 pnpm workspace, ESM only, TypeScript, Node 26.4 or newer (the OpenTUI
 floor).
 
-| Path           | What                                                                               |
-| -------------- | ---------------------------------------------------------------------------------- |
-| `src/domain`   | The lab domain: the person, the specialists, the room, the model family, templates |
-| `src/view`     | Read-only projections over the room journal: the timeline, steps, refs             |
-| `src/host`     | The room host: rooms, file handling, processes, name assignment                    |
-| `src/terminal` | The OpenTUI terminal: layout, keys, the composer, the transcript                   |
-| `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern       |
-| `workstation/` | A workstation in a container: the bash and git backends over SSH                   |
-| `docs/`        | Design pages, such as `templates.md`, the git templates                            |
-| `planning/`    | `next.md` (the next activities, in order) and `backlog.md` — read before a change  |
+| Path           | What                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------- |
+| `src/domain`   | The lab domain: the person, the specialists, the room, the model family, templates    |
+| `src/view`     | Read-only projections over the room journal: the timeline, steps, refs                |
+| `src/host`     | The room host: rooms, file handling, processes, name assignment                       |
+| `src/terminal` | The OpenTUI terminal: layout, keys, the composer, the transcript                      |
+| `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern          |
+| `workstation/` | A workstation in a container: the bash and git backends over SSH                      |
+| `docs/`        | Design pages, such as `templates.md`, the git templates                               |
+| `planning/`    | `next.md` (the milestone and its activities) and `fm-radio.md` — read before a change |
 
 Import rules run upward only: `domain` and `view` are independent leaves;
 `host` depends on both; `terminal` depends on all three. Biome holds this

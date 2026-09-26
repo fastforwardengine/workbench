@@ -5,8 +5,18 @@ engineering, hardware, and electrochemistry.** It runs on
 [Ambion](https://github.com/ambionframework/ambion) 0.3.0, the
 collaboration kernel, and follows
 [Ambion's example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
-Its first project is an LED parameter sweep on real hardware.
-[`planning/next.md`](planning/next.md) holds the next work.
+**The objective now is an FM radio that the team helps build and then
+controls.** The team tunes the radio in three ways: it presses its buttons,
+drives its tuner chip, and replaces its firmware. It then guides the build
+of a second kit, and checks each step with the camera and the instruments.
+The team knows the state of the bench at all times, from its instruments,
+its camera, and a microphone.
+[`planning/next.md`](planning/next.md) holds the milestone, and
+[`planning/fm-radio.md`](planning/fm-radio.md) the kit.
+
+**The first project, an LED on a programmable supply, is done.** The team
+drove the supply, watched the LED through the camera, swept it, and
+blinked it.
 
 ## Install
 

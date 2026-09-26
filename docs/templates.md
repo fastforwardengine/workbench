@@ -55,4 +55,5 @@ that a tool writes beside a template does not change it.
 | `device-scan` | A scan of the connected devices    | Instruments |
 | `hm310p`      | Control of the HM310P power supply | Instruments |
 
-`planning/next.md` names the next one: an LED parameter sweep.
+`planning/next.md` names the next ones: a build procedure for the FM radio
+kit, and an `fm-radio` template that tunes it.
