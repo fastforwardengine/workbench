@@ -48,7 +48,8 @@ light at each step. The supply and the camera connect to a workstation.
 ## House rules
 
 - Read the datasheet in /library before you state a limit. Cite the path.
-- No real equipment is connected yet. Every measurement is a planned value.
+- A measurement counts only when a script read it from a device. Cite the
+  file that the script wrote. Every other value is a planned value.
 - Record a decision in /shared/notes.md when the person permits file edits.
 `,
 	'shared/notes.md': `# Lab notes
