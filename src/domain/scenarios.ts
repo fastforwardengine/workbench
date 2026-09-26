@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Attention } from '@ambionframework/ambion';
 import { packageDirectory } from './package-root.ts';
 
@@ -57,31 +57,18 @@ Status: empty. Record decisions and test plans here.
 `,
 };
 
-async function copyLibrary(path: string): Promise<void> {
-	const entries = await readdir(libraryDirectory, { withFileTypes: true });
-	for (const entry of entries) {
-		if (!entry.isFile()) continue;
-		const source = resolve(libraryDirectory, entry.name);
-		const target = resolve(path, 'library', entry.name);
-		await mkdir(dirname(target), { recursive: true });
-		await writeIfAbsent(target, await readFile(source, 'utf8'));
+/**
+ * The seed of a workspace: each file by its workspace path, such as
+ * `/shared/kit.md`. The library comes from `library/` of the package. The
+ * host writes each file that the workspace does not hold yet, so an edit
+ * always remains.
+ */
+export function seedFiles(): Record<string, string> {
+	const files: Record<string, string> = {};
+	for (const entry of readdirSync(libraryDirectory, { withFileTypes: true })) {
+		if (entry.isFile())
+			files[`/library/${entry.name}`] = readFileSync(join(libraryDirectory, entry.name), 'utf8');
 	}
-}
-
-async function writeIfAbsent(target: string, content: string): Promise<void> {
-	try {
-		await writeFile(target, content, { flag: 'wx' });
-	} catch (error) {
-		if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error;
-	}
-}
-
-/** Add missing datasheets and starter files. Existing edits always remain. */
-export async function seedWorkspace(path: string): Promise<void> {
-	await copyLibrary(path);
-	for (const [name, content] of Object.entries(sharedFiles)) {
-		const target = resolve(path, name);
-		await mkdir(dirname(target), { recursive: true });
-		await writeIfAbsent(target, content);
-	}
+	for (const [name, content] of Object.entries(sharedFiles)) files[`/${name}`] = content;
+	return files;
 }

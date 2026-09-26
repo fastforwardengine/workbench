@@ -189,6 +189,8 @@ export interface RunOptions {
 	person?: string;
 	/** A model stream, for tests. */
 	stream?: OpenOptions['stream'];
+	/** The path of `workstation.json`, for the bash and git backends. */
+	workstation?: OpenOptions['workstation'];
 }
 
 /**
@@ -197,7 +199,11 @@ export interface RunOptions {
  * person leaves and the rooms stop.
  */
 export async function runEngine(options: RunOptions): Promise<void> {
-	const host = await openLab({ directory: options.directory, stream: options.stream });
+	const host = await openLab({
+		directory: options.directory,
+		stream: options.stream,
+		workstation: options.workstation,
+	});
 	try {
 		const identity = options.person
 			? host.people.find((person) => person.name === options.person)

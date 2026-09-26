@@ -1,0 +1,14 @@
+# The sshd of the Workbench workstation. The port is the same inside the
+# container and on the machine that runs Workbench: the git backend tells
+# each agent to reach the git account on 127.0.0.1 at this port.
+Port 2222
+ListenAddress 0.0.0.0
+HostKey /etc/ssh/workbench/ssh_host_ed25519_key
+UsePAM no
+AuthenticationMethods publickey
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+Subsystem sftp internal-sftp
+# The entrypoint appends `AllowUsers` from the account list. A `Match` block
+# holds every line after it, so the entrypoint adds it last.

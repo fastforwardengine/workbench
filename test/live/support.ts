@@ -27,8 +27,9 @@ import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
 import { piModel, THINKING } from '../../src/domain/families.ts';
-import { scenarios, seats, seedWorkspace } from '../../src/domain/scenarios.ts';
+import { scenarios, seats } from '../../src/domain/scenarios.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
+import { seedWorkspace } from '../../src/host/seed.ts';
 
 const MODEL = piModel();
 export const JUDGE_MODEL = process.env.JUDGE_MODEL || MODEL;
@@ -84,11 +85,11 @@ export async function openRoom(
 	execution: Execution = piExecution(),
 ): Promise<{ room: Room; workspace: Workspace }> {
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-eval-'));
-	await seedWorkspace(directory);
 	const workspace = openWorkspace({
 		name: 'workbench',
 		backend: { bash: directoryBackend(directory), git: labRepositories(':memory:') },
 	});
+	await seedWorkspace(workspace);
 	const built = team(workspace);
 	const room = await startRoom({
 		name: `workbench-eval-${crypto.randomUUID()}`,
