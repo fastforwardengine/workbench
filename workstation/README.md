@@ -30,15 +30,16 @@ flowchart LR
 the root of the repository. It skips each step that is done: the keys stay,
 and the image builds again only when a file of it changes.
 
-| Target                    | What it does                                                               |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `make`, `make workbench`  | The workstation up, then Workbench on it. `DATA=` names the data directory |
-| `make workstation`        | The workstation up, and nothing else                                       |
-| `make stop`               | Stop the workstation. The volumes keep every file                          |
-| `make logs`, `make shell` | Follow the log of `sshd`, or open a root shell                             |
-| `make ssh ACCOUNT=<name>` | A shell as one account, over `ssh`                                         |
-| `make test-workstation`   | The workspace tier on the workstation, with no model                       |
-| `make reset`              | Remove the workstation and its volumes, after a prompt                     |
+| Target                        | What it does                                                               |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `make`, `make workbench`      | The workstation up, then Workbench on it. `DATA=` names the data directory |
+| `make workstation`            | The workstation up and the USB devices attached                            |
+| `make usb`, `make usb-detach` | Attach the USB devices to OrbStack's Linux, or give them back              |
+| `make stop`                   | Stop the workstation. The volumes keep every file                          |
+| `make logs`, `make shell`     | Follow the log of `sshd`, or open a root shell                             |
+| `make ssh ACCOUNT=<name>`     | A shell as one account, over `ssh`                                         |
+| `make test-workstation`       | The workspace tier on the workstation, with no model                       |
+| `make reset`                  | Remove the workstation and its volumes, after a prompt                     |
 
 The steps, by hand:
 
@@ -135,15 +136,19 @@ for a UVC camera, `cdc-acm`, `ftdi_sio`, `ch341`, `cp210x`, and `pl2303` for
 a serial port, and `usbtmc` for an instrument. A module loads when its
 device arrives.
 
-**With OrbStack on macOS, attach a device to Linux first:**
+**With OrbStack on macOS, `make` attaches the USB devices to its Linux.**
+`make workstation`, and so `make`, runs `make usb` after the container
+starts. It attaches every USB device of the Mac, except:
 
-```sh
-orb usb list            # find the device
-orb usb attach <id>     # hand it to OrbStack's Linux
-```
+- a keyboard, a mouse, or another input device, which macOS needs;
+- the billboard device of a USB-C hub, which does nothing;
+- each vendor:product ID that `workstation/usb-ignore` names.
 
-A serial adapter stays usable on macOS. Any other device leaves macOS until
-`orb usb detach <id>`.
+An attached device leaves macOS, except a serial adapter, which stays
+usable on both. `make usb-detach` gives the devices back. A second
+`make usb` changes nothing, and it attaches a device again after a replug
+or a restart of OrbStack. On a machine without OrbStack, the devices are
+native, and `make usb` does nothing.
 
 ## Look inside
 

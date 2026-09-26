@@ -1,0 +1,3 @@
+# The USB devices that stay with macOS, one vendor:product ID on each line,
+# such as `0781:5581  SanDisk drive`. `make usb` attaches every other device
+# to OrbStack's Linux, except keyboards, mice, and a hub's billboard.
