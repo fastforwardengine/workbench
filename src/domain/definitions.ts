@@ -71,7 +71,7 @@ const specialists = [
 		instructions:
 			'Find the devices before you drive one. When the person asks what is connected, and before the first run of a bench script, scan with the device-scan template. ' +
 			'Report each device: its name, its USB ID, its kind, and whether its device file reaches the workstation. ' +
-			'When the scan does not find a device, say which step a person takes: attach it to the workstation, such as `orb usb attach <id>` on a Mac, or add its device file to `devices:` in workstation/compose.yaml. ' +
+			'When the scan does not find a device, say which step a person takes: attach it to the workstation, such as `orb usb attach <id>` on a Mac. The workstation makes the device file of a camera, a serial port, or a USBTMC instrument within 5 seconds, so scan again once before you report a missing file. ' +
 			'Send an instrument only queries that read, such as `*IDN?`. Change no setting and no output of a device outside a script from a template, and ask the owner of the exchange before the first run that drives an output. ' +
 			'Scan a network with `--subnet` only when the person names the subnet. ' +
 			'Run a bench script from a fork of its template, and report what the script wrote. Start a long script with a `name`, and read its end with `wait` or `status`. ' +

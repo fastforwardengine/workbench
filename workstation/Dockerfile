@@ -22,13 +22,16 @@ RUN apt-get update -q \
 #   libusb, pyusb,    USBTMC and other USB instruments through libusb, with
 #   pyvisa, pyvisa-py no kernel driver; psutil and zeroconf let pyvisa-py
 #   psutil, zeroconf  list the instruments on the network too
-#   v4l-utils         v4l2-ctl, the USB cameras (UVC) and their formats
+#   v4l-utils         v4l2-ctl, the USB cameras (UVC), their formats and controls
+#   fswebcam          one frame of a V4L2 camera, as a JPEG
+#   numpy, pil        a frame as numbers: the brightness of each step
 #   gphoto2           the cameras that gphoto2 drives, such as a DSLR
 #   nmap              the SCPI ports of the instruments on a subnet
 RUN apt-get update -q \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
 		usbutils python3-serial libusb-1.0-0 python3-usb python3-pyvisa \
-		python3-pyvisa-py python3-psutil python3-zeroconf v4l-utils gphoto2 nmap \
+		python3-pyvisa-py python3-psutil python3-zeroconf v4l-utils fswebcam \
+		python3-numpy python3-pil gphoto2 nmap \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY accounts /etc/workbench-accounts
