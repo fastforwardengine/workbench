@@ -39,8 +39,9 @@ unused import or variable.
 - `pnpm test:live` — the live tier: evals on `@ambionframework/simulator`.
   Needs a real model key, and costs money.
 - `pnpm format` — write formatting and lint fixes.
-- `pnpm build` — write the bundle of the npm package, `dist/main.mjs`. A
-  version tag publishes `@fastforwardengine/workbench` (README, Release).
+- `pnpm build` — write the bundle of the npm package, `dist/main.mjs`. The
+  `Release` workflow publishes `@fastforwardengine/workbench` (README,
+  Release).
 
 ## Writing documentation
 
