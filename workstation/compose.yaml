@@ -16,6 +16,14 @@ services:
       - srv:/srv
       - library:/library
       - shared:/shared
+      # The USB devices of the machine, for lsusb and libusb. With OrbStack on
+      # macOS, `orb usb attach <id>` hands a device to its Linux first.
+      - /dev/bus/usb:/dev/bus/usb
+    # Access to every USB device file (major 189), also to one attached after
+    # the start. A serial port or a camera also needs a `devices:` entry,
+    # such as /dev/ttyUSB0 or /dev/video0, once its model is known.
+    device_cgroup_rules:
+      - 'c 189:* rmw'
     restart: unless-stopped
     # Healthy once sshd accepts a connection, so `up --wait` returns then.
     healthcheck:

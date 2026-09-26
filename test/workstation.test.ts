@@ -165,4 +165,34 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		});
 		expect(output).toBe(`instruments\n${marker}\n`);
 	}, 120_000);
+
+	it('lets Instruments fork the device-scan template, scan the workstation, and push the report', async () => {
+		const built = await build();
+		const name = `scan-${token()}`;
+		const script = byAgent({
+			assistant: (_step, _seat, call) => (call === 1 ? speak('Scan.', 'instruments') : quiet()),
+			instruments: (step, _seat, call) => {
+				if (call === 1)
+					return callTool('fork', { source: 'templates/device-scan', name, clone: `~/${name}` });
+				if (call === 2)
+					return callTool('bash', {
+						command: `cd ~/${name} && git switch -qc scan && python3 scan/scan.py > /dev/null && git add scans && git -c user.name=instruments -c user.email=instruments@workbench commit -qm 'Scan the workstation' && git push -q origin scan && ls scans`,
+						wait: 60,
+					});
+				if (call === 3) return speak(`Scanned: ${step.results.at(-1)?.text}`, 'assistant');
+				return quiet();
+			},
+		});
+		const room = await runRoom(built, script, 'Scan the devices.');
+		const fork = await built.workspace.git?.use({ name: 'instruments' }, (env) =>
+			env.get(`instruments/${name}`),
+		);
+		expect(fork?.source).toBe('templates/device-scan');
+		expect(Object.keys(fork?.branches ?? {}).sort()).toEqual(['main', 'scan']);
+		const said = (await room.read()).messages.flatMap((message) =>
+			message.kind === 'said' && message.from === 'instruments' ? [message.text] : [],
+		);
+		// The report pairs: one JSON file and one Markdown file.
+		expect(said.at(-1)).toMatch(/\.json[\s\S]*\.md/);
+	}, 120_000);
 });
