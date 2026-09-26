@@ -1,0 +1,44 @@
+name: Release
+
+# Publishes @fastforwardengine/workbench to npmjs when a tag such as v0.1.0
+# lands. The tag must name the version in package.json. `npm publish` runs
+# `prepack`, which builds dist/main.mjs, and adds provenance from this run.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  # Provenance signs the package with the identity of this workflow.
+  id-token: write
+
+jobs:
+  publish:
+    name: Check, build, and publish to npmjs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v5
+        with:
+          # The OpenTUI floor.
+          node-version: 26.4.0
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - name: The tag names the version of the package
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "The tag ${GITHUB_REF_NAME} does not name version ${version}."
+            exit 1
+          fi
+      - run: pnpm run check
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
