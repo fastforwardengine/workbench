@@ -36,6 +36,13 @@ export const templates: readonly Template[] = [
 		use: 'a scan of the connected devices',
 		specialists: ['instruments'],
 	},
+	{
+		name: 'hm310p',
+		description:
+			'psu.py, a command-line tool for the HANMATEK HM310P power supply over USB: the output, the setpoints, the readings, the protection limits, the presets, and the buzzer, within limits.json. A simulated supply runs with no hardware.',
+		use: 'control of the HM310P power supply',
+		specialists: ['instruments'],
+	},
 ];
 
 /** Paths that a tool writes beside the files of a template. A template never holds them. */
