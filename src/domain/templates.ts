@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { packageDirectory } from './package-root.ts';
 
 /** The directory that holds one directory for each template. */
-export const templatesDirectory = fileURLToPath(new URL('../../templates/', import.meta.url));
+export const templatesDirectory = packageDirectory('templates');
 
 /**
  * One read-only template on the git server of the workspace. An agent forks

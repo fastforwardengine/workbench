@@ -32,3 +32,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # The scripted tier needs no key and no network.
       - run: pnpm run check
+      # The npm package: the bundle builds, and the tarball holds what ships.
+      - run: pnpm pack --dry-run

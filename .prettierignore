@@ -3,5 +3,8 @@ pnpm-lock.yaml
 # Local Workbench workspace artifacts are runtime data.
 .data/
 
-# A template never changes after its registration, so no tool rewrites it.
+# No tool rewrites a template: its files are the files a fork starts with.
 templates/
+
+# The bundle that tsdown writes.
+dist/

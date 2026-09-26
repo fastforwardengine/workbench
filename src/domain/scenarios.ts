@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { Attention } from '@ambionframework/ambion';
+import { packageDirectory } from './package-root.ts';
 
 /** The seats of every room. Every specialist hears every message, at `broadcast`. */
 export const seats: Record<string, Attention> = {
@@ -29,7 +29,7 @@ export const scenarios: {
 	},
 ];
 
-const libraryDirectory = fileURLToPath(new URL('../../library/', import.meta.url));
+const libraryDirectory = packageDirectory('library');
 
 /** The starter files under /shared. Existing edits always remain intact. */
 const sharedFiles: Record<string, string> = {

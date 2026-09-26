@@ -1,9 +1,11 @@
+#!/usr/bin/env -S node --experimental-ffi
+import { existsSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { parseArgs } from 'node:util';
 import { describeUnavailable } from './domain/families.ts';
 import { runEngine } from './terminal/tui.ts';
 
-const USAGE = 'Usage: pnpm start [directory]';
+const USAGE = 'Usage: workbench [directory]';
 
 /**
  * Say which seats cannot run for want of a key. Workbench still
@@ -16,7 +18,16 @@ function reportMissingKeys(): void {
 	}
 }
 
+/**
+ * Read `.env` in the working directory, when it exists. A variable that the
+ * environment already sets keeps its value.
+ */
+function loadEnvironment(): void {
+	if (existsSync('.env')) process.loadEnvFile('.env');
+}
+
 try {
+	loadEnvironment();
 	const { positionals } = parseArgs({ allowPositionals: true });
 	if (positionals.length > 1) throw new Error(USAGE);
 	reportMissingKeys();

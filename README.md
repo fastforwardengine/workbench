@@ -7,9 +7,21 @@ engineering, hardware, and electrochemistry.** It runs on
 It is a scaffold. [`planning/next.md`](planning/next.md) holds the next
 work: an LED parameter sweep on real hardware.
 
-## Run
+## Install
 
-Use Node 26.4 or newer.
+Use Node 26.4 or newer, on macOS or Linux.
+
+```sh
+npm install -g @fastforwardengine/workbench
+export ANTHROPIC_API_KEY=...       # or put it in .env in the working directory
+workbench                         # data in ./.data
+workbench ./bench                 # another directory
+```
+
+**The `workbench` command reads `.env` in the working directory.** A
+variable that the environment already sets keeps its value.
+
+## Run from the repository
 
 ```sh
 pnpm install
@@ -65,6 +77,7 @@ Every measurement is a planned value.
 | `pnpm format`    | Writes the formatting and the lint fixes                 |
 | `pnpm test`      | The scripted tests: no key, no network                   |
 | `pnpm test:live` | The evals on the simulator: needs a key, and costs money |
+| `pnpm build`     | Writes the bundle of the npm package, `dist/main.mjs`    |
 
 **`src/` has four layers, and an import points down only.** Biome holds
 the rule.
@@ -75,6 +88,20 @@ view/       projections of the room record: steps, timeline, refs
 host/       rooms, files, processes, and the git backend
 terminal/   the OpenTUI terminal
 ```
+
+## Release
+
+**A version tag publishes the npm package.** The `Release` workflow runs
+`pnpm check`, builds `dist/main.mjs`, and runs `npm publish` with
+provenance. The package ships `dist/`, `library/`, and `templates/`.
+
+1. Set `version` in `package.json`, and merge the change to `main`.
+2. Tag the merge commit with the version, such as `v0.1.0`, and push the
+   tag. The workflow refuses a tag that does not name the version.
+
+The workflow reads the npm token from the `NPM_TOKEN` secret of the
+repository. The token must be able to publish to the `@fastforwardengine`
+scope.
 
 ## License
 

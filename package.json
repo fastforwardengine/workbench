@@ -1,12 +1,41 @@
 {
-	"name": "workbench",
-	"private": true,
+	"name": "@fastforwardengine/workbench",
 	"version": "0.1.0",
 	"type": "module",
 	"license": "Apache-2.0",
 	"description": "Workbench: an agentic lab workspace for electrical engineering, hardware, and electrochemistry.",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/fastforwardengine/workbench.git"
+	},
+	"homepage": "https://github.com/fastforwardengine/workbench#readme",
+	"bugs": {
+		"url": "https://github.com/fastforwardengine/workbench/issues"
+	},
+	"keywords": [
+		"ambion",
+		"agents",
+		"lab",
+		"terminal",
+		"hardware"
+	],
+	"bin": {
+		"workbench": "dist/main.mjs"
+	},
+	"files": [
+		"dist",
+		"library",
+		"templates"
+	],
+	"engines": {
+		"node": ">=26.4.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
-		"start": "node --experimental-ffi --env-file-if-exists=.env src/main.ts",
+		"start": "node --experimental-ffi src/main.ts",
+		"build": "tsdown",
 		"check:types": "tsc --noEmit",
 		"check:format": "prettier . --cache --check",
 		"check:lint": "biome lint . --error-on-warnings && knip",
@@ -15,7 +44,8 @@
 		"format:lint": "biome check . --write",
 		"format:style": "prettier . --cache --write --list-different",
 		"test": "vitest run --exclude 'test/live/**'",
-		"test:live": "vitest run --config vitest.live.config.ts"
+		"test:live": "vitest run --config vitest.live.config.ts",
+		"prepack": "pnpm run build"
 	},
 	"dependencies": {
 		"@ambionframework/ambion": "^0.3.0",
@@ -33,10 +63,8 @@
 		"@types/node": "^26.2.0",
 		"knip": "^6.32.2",
 		"prettier": "^3.9.6",
+		"tsdown": "^0.22.14",
 		"typescript": "^7.0.2",
 		"vitest": "^4.1.11"
-	},
-	"engines": {
-		"node": ">=26.4.0"
 	}
 }
