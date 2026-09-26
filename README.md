@@ -91,17 +91,20 @@ terminal/   the OpenTUI terminal
 
 ## Release
 
-**A version tag publishes the npm package.** The `Release` workflow runs
-`pnpm check`, builds `dist/main.mjs`, and runs `npm publish` with
-provenance. The package ships `dist/`, `library/`, and `templates/`.
+**A release publishes the head of `main` to npmjs, and tags the commit.**
+Run the `Release` workflow from the Actions tab, or with
+`gh workflow run release.yml`. It runs `pnpm check`, builds
+`dist/main.mjs`, publishes with provenance, and pushes the tag.
 
-1. Set `version` in `package.json`, and merge the change to `main`.
-2. Tag the merge commit with the version, such as `v0.1.0`, and push the
-   tag. The workflow refuses a tag that does not name the version.
+**The version is `<major>.<minor>.<count>-g<hash>`,** such as
+`0.1.14-g1a852f1`. `package.json` holds the base, `0.1`. The count is the
+number of commits of `main`, so each release has a higher version. The
+hash is the short hash of the commit. The tag is the version with a `v`.
+`node scripts/release-version.ts` prints the version of the checkout.
 
-The workflow reads the npm token from the `NPM_TOKEN` secret of the
-repository. The token must be able to publish to the `@fastforwardengine`
-scope.
+**The workflow needs no npm token.** npm trusted publishing accepts the
+identity of the workflow. The settings of the package on npmjs name the
+repository `fastforwardengine/workbench` and the workflow `release.yml`.
 
 ## License
 

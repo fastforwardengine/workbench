@@ -1,26 +1,45 @@
 name: Release
 
-# Publishes @fastforwardengine/workbench to npmjs when a tag such as v0.1.0
-# lands. The tag must name the version in package.json. `npm publish` runs
-# `prepack`, which builds dist/main.mjs, and adds provenance from this run.
+# Publishes @fastforwardengine/workbench to npmjs from the head of main, then
+# tags the commit. Start it from the Actions tab, or with
+# `gh workflow run release.yml`.
+#
+# The version is `<major>.<minor>.<count>-g<hash>`: the base in package.json,
+# the number of commits of main, and the short hash
+# (scripts/release-version.ts). Each release has a higher count, and the run
+# refuses a version that is not above the `latest` version on npm.
+#
+# npm trusted publishing signs the publish with the identity of this
+# workflow, so the run needs no npm token. The package settings on npmjs
+# name this repository and `release.yml` as the trusted publisher.
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
-  contents: read
-  # Provenance signs the package with the identity of this workflow.
+  # The run pushes the tag of the release.
+  contents: write
+  # Trusted publishing and provenance use the identity of this workflow.
   id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   publish:
-    name: Check, build, and publish to npmjs
+    name: Check, build, publish, and tag
     runs-on: ubuntu-latest
     steps:
+      - name: The run releases the head of main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "Release from main, not from ${GITHUB_REF}."
+          exit 1
       - uses: actions/checkout@v5
         with:
-          persist-credentials: false
+          # The commit count of the version needs the whole history.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 12.6.0
@@ -31,14 +50,22 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
-      - name: The tag names the version of the package
+      - name: Compute the version
+        id: version
         run: |
-          version="$(node -p "require('./package.json').version")"
-          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
-            echo "The tag ${GITHUB_REF_NAME} does not name version ${version}."
-            exit 1
-          fi
+          published="$(npm view @fastforwardengine/workbench version 2>/dev/null || true)"
+          version="$(node scripts/release-version.ts --after "${published}")"
+          echo "Release ${version}, after ${published:-no published version}."
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
       - run: pnpm run check
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Set the version, and build the bundle
+        run: |
+          npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
+          pnpm run build
+      # A version with a hash is a prerelease to npm, so the run names the tag.
+      - run: npm publish --provenance --access public --tag latest
+      - name: Tag the commit
+        run: |
+          tag="v${{ steps.version.outputs.version }}"
+          git tag "${tag}"
+          git push origin "${tag}"
