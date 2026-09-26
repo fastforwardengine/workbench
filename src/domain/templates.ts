@@ -29,6 +29,13 @@ export const templates: readonly Template[] = [
 		use: 'a test plan',
 		specialists: ['experiments'],
 	},
+	{
+		name: 'device-scan',
+		description:
+			'A scan of the devices that the workstation reaches: USB devices, serial ports, VISA instruments, cameras, and the SCPI ports of a subnet. Each scan writes a report, and inventory.md records the bench.',
+		use: 'a scan of the connected devices',
+		specialists: ['instruments'],
+	},
 ];
 
 /** Paths that a tool writes beside the files of a template. A template never holds them. */

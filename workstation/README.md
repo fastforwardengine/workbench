@@ -87,8 +87,42 @@ ACL again. It also installs the public key of each account from
 `.workstation/keys`.
 
 **The container has the tools of the specialists:** `bash`, `git`,
-`sqlite3`, and `python3`. Add a tool to the `apt-get install` line of the
+`sqlite3`, and `python3`. Add a tool to an `apt-get install` line of the
 `Dockerfile`, and rebuild.
+
+## Devices
+
+**Instruments has the tools to find and drive the devices of the bench.**
+The `device-scan` template runs them all, and writes one report
+(`templates/device-scan`).
+
+| Tool                                   | Finds                                              |
+| -------------------------------------- | -------------------------------------------------- |
+| `lsusb`, sysfs                         | Each USB device, its ID, and its interface class   |
+| `python3-serial`                       | The serial ports: a USB-serial chip, or CDC-ACM    |
+| `pyvisa`, `pyvisa-py`, `pyusb`, libusb | USBTMC instruments, with no kernel driver          |
+| `v4l2-ctl`, `gphoto2`                  | USB cameras (UVC), and cameras that gphoto2 drives |
+| `nmap`                                 | The SCPI ports of the instruments on a subnet      |
+
+**Instruments is in the groups `dialout`, `video`, and `plugdev`.** The
+container mounts `/dev/bus/usb` with a rule for every USB device file, so
+libusb reaches a device that arrives after the start. The container runs no
+udev, so the entrypoint gives `plugdev` read and write on each USB device
+file every 5 seconds.
+
+**A serial port or a camera needs a `devices:` entry** in `compose.yaml`,
+such as `/dev/ttyUSB0` or `/dev/video0`. The scan says which device file
+does not reach the container.
+
+**With OrbStack on macOS, attach a device to Linux first:**
+
+```sh
+orb usb list            # find the device
+orb usb attach <id>     # hand it to OrbStack's Linux
+```
+
+A serial adapter stays usable on macOS. Any other device leaves macOS until
+`orb usb detach <id>`.
 
 ## Look inside
 

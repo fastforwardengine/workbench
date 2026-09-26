@@ -49,8 +49,9 @@ that a tool writes beside a template does not change it.
 
 ## The templates today
 
-| Template    | Use         | Specialists |
-| ----------- | ----------- | ----------- |
-| `test-plan` | A test plan | Experiments |
+| Template      | Use                             | Specialists |
+| ------------- | ------------------------------- | ----------- |
+| `test-plan`   | A test plan                     | Experiments |
+| `device-scan` | A scan of the connected devices | Instruments |
 
 `planning/next.md` names the next one: an LED parameter sweep.

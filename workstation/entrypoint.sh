@@ -47,6 +47,19 @@ setfacl -R -m g::rwX /srv/workbench/audit /shared
 setfacl -d -m g::rwx /srv/workbench/audit /shared
 install -d -m 2750 -o workbench-host -g workbench /srv/workbench/rooms /library
 
+# The USB devices of the machine, when compose.yaml mounts /dev/bus/usb. The
+# container runs no udev, so each device file comes in as root's. The group
+# plugdev gets read and write, so Instruments reaches a device through
+# libusb. A device attached after the start gets a file of its own, so a
+# loop in the background applies the rule again every 5 seconds.
+usb_access() {
+	[ -d /dev/bus/usb ] || return 0
+	chgrp -R plugdev /dev/bus/usb 2>/dev/null || true
+	chmod -R g+rw /dev/bus/usb 2>/dev/null || true
+}
+usb_access
+( while sleep 5; do usb_access; done ) &
+
 # The account list decides who logs in. The Match block of the git account
 # adds the keys that the git backend issues.
 cp "$CONFIG" /etc/ssh/sshd_workbench_config.run
