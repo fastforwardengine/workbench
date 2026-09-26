@@ -36,6 +36,7 @@
 	"scripts": {
 		"start": "node --experimental-ffi src/main.ts",
 		"build": "tsdown",
+		"release": "node scripts/release.ts",
 		"check:types": "tsc --noEmit",
 		"check:format": "prettier . --cache --check",
 		"check:lint": "biome lint . --error-on-warnings && knip",
