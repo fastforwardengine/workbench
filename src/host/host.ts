@@ -5,15 +5,7 @@ import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
 import { scenarios } from '../domain/scenarios.ts';
 import type { ActivationSteps } from '../view/steps.ts';
-import type { Approval } from './approvals.ts';
-import {
-	type FileContent,
-	type FileEntry,
-	listFiles,
-	listLabTables,
-	readFile,
-	readLabTable,
-} from './files.ts';
+import { type FileContent, type FileEntry, listFiles, readFile } from './files.ts';
 import { MAX_GOAL, ROOM_NAME } from './names.ts';
 import { byRecency, type ProcessOutput, type ProcessView, readOutput } from './processes.ts';
 import {
@@ -27,7 +19,6 @@ import {
 
 export type { Person } from '../domain/definitions.ts';
 export type { ActivationSteps } from '../view/steps.ts';
-export type { Approval } from './approvals.ts';
 export type { FileContent, FileEntry, TableView } from './files.ts';
 export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
@@ -65,8 +56,6 @@ export interface Lab {
 	 * did not run returns nothing.
 	 */
 	activation(room: string, id: string): Promise<ActivationSteps | undefined>;
-	/** The operations of a room that wait for an answer from the owner of their exchange. */
-	approvals(room: string): Promise<Approval[]>;
 	create(name: string, goal: string): Promise<RoomView>;
 	files(): Promise<FileEntry[]>;
 	file(path: string): Promise<FileContent>;
@@ -87,10 +76,6 @@ export interface Lab {
 	cancelProcess(handle: string): Promise<ProcessView>;
 	/** Call `changed` when a process starts and when one ends. The return value ends the watch. */
 	watchProcesses(changed: () => void): () => void;
-	/** The names of the tables of the lab database. */
-	labTables(): Promise<string[]>;
-	/** One table of the lab database. `uri` is `lab:///<table>`. */
-	labTable(uri: string): Promise<FileContent>;
 	/** Stop every room and release the storage. The journals stay, so a later open resumes them. */
 	close(): Promise<void>;
 }
@@ -133,7 +118,7 @@ export async function openLab(options: OpenOptions): Promise<Lab> {
 		database.close();
 		throw error;
 	}
-	return hosted(rooms, database, resolve(options.directory, 'lab.db'));
+	return hosted(rooms, database);
 }
 
 async function seedRooms(rooms: Rooms): Promise<void> {
@@ -153,7 +138,7 @@ function present(
 	);
 }
 
-function hosted(rooms: Rooms, database: DatabaseSync, labPath: string): Lab {
+function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 	let closing: Promise<void> | undefined;
 	const inRoom = <T>(name: string, operation: (room: ReturnType<typeof liveRoom>) => Promise<T>) =>
 		rooms.withRoom(name, (entry) => operation(liveRoom(entry)));
@@ -185,7 +170,6 @@ function hosted(rooms: Rooms, database: DatabaseSync, labPath: string): Lab {
 		control: (room, action) => rooms.lifecycle(room, action),
 		dismiss: (room, handle) => inRoom(room, (live) => live.dismiss(handle)),
 		activation: (room, id) => rooms.activation(room, id),
-		approvals: (room) => rooms.approvals(room),
 		// Async, so a refusal is a rejected promise like every other failure of this interface.
 		async create(name, goal) {
 			if (!ROOM_NAME.test(name))
@@ -210,8 +194,6 @@ function hosted(rooms: Rooms, database: DatabaseSync, labPath: string): Lab {
 		// needs no place in the host's queue, and a wait for the end holds no read.
 		cancelProcess: (handle) => rooms.workspace.processes.cancel(handle),
 		watchProcesses: (changed) => rooms.workspace.processes.subscribe(() => changed()),
-		labTables: async () => listLabTables(labPath),
-		labTable: async (uri) => readLabTable(labPath, uri),
 		close() {
 			if (closing) return closing;
 			const attempt = shutdown(rooms, database);

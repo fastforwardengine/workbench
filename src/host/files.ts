@@ -2,24 +2,20 @@ import { BACKGROUND_CONTEXT, type Workspace } from '@ambionframework/workspace';
 import {
 	isDatabase,
 	isDatabasePath,
-	readNamedTable,
 	readTables,
 	type TableView,
-	tableNames,
 	tablesText,
 } from '../view/database.ts';
-import { labUri, tableOfUri } from '../view/refs.ts';
 import { fail } from './rooms.ts';
 
 export type { TableView };
 
 const browser = { name: 'assistant', identity: 'Workspace browser' };
 
-/** One file. `kind` is `table` for a table of the lab database, and its path is the lab URI. */
+/** One file of the workspace. */
 export interface FileEntry {
 	path: string;
 	size: number;
-	kind?: 'table';
 }
 
 /** One file: its text, or for a SQLite database its tables, with a text copy in `text`. */
@@ -108,29 +104,4 @@ async function readDatabase(env: Reader, path: string): Promise<FileContent> {
 			`Cannot read this database: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
-}
-
-/** The tables of the lab database, or none when the database does not exist yet. */
-export function listLabTables(location: string): string[] {
-	try {
-		return tableNames(location);
-	} catch {
-		return [];
-	}
-}
-
-/** One table of the lab database, as a preview. `path` is the lab URI of the table. */
-export function readLabTable(location: string, uri: string): FileContent {
-	const name = tableOfUri(uri);
-	if (name === undefined) return fail('Use lab:///<table>.');
-	let table: TableView | undefined;
-	try {
-		table = readNamedTable(location, name);
-	} catch (error) {
-		return fail(
-			`Cannot read the lab database: ${error instanceof Error ? error.message : String(error)}`,
-		);
-	}
-	if (!table) return fail('No such lab table.');
-	return { path: labUri(name), text: tablesText([table]), truncated: false, tables: [table] };
 }

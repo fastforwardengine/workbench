@@ -86,8 +86,8 @@ function boundMethod(statement: ReturnType<DatabaseSync['prepare']>, method: str
 	return typeof value === 'function' ? value.bind(statement) : value;
 }
 
-const priya = people.at(0);
-if (!priya) throw new Error('The test team has no human.');
+const person = people.at(0);
+if (!person) throw new Error('The test team has no human.');
 
 function noModelStream() {
 	let calls = 0;
@@ -154,13 +154,13 @@ describe('Workbench host stop recovery', () => {
 		try {
 			await rooms.create('review', 'Check durable stop.');
 			await rooms.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(priya);
+				await liveRoom(entry).visit(person);
 			});
 
 			wrapped.setFailure('before');
 			await expect(rooms.lifecycle('review', 'stop')).rejects.toThrow(/write failure/);
 			await expect(
-				rooms.withRoom('review', (entry) => liveRoom(entry).visit(priya)),
+				rooms.withRoom('review', (entry) => liveRoom(entry).visit(person)),
 			).rejects.toThrow(/Resume this room first/);
 			expect((await rooms.list())[0]?.status).toBe('stopping');
 
@@ -192,7 +192,7 @@ describe('Workbench host stop recovery', () => {
 			first = await openRooms(wrapped.database, directory, { stream: model.stream });
 			await first.create('review', 'Check durable stop.');
 			await first.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(priya);
+				await liveRoom(entry).visit(person);
 			});
 			wrapped.setFailure('before');
 			await expect(first.lifecycle('review', 'stop')).rejects.toThrow(/write failure/);
@@ -223,7 +223,7 @@ describe('Workbench host stop recovery', () => {
 		try {
 			await rooms.create('review', 'Check durable stop.');
 			await rooms.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(priya);
+				await liveRoom(entry).visit(person);
 			});
 
 			wrapped.setFailure('after');
@@ -239,7 +239,7 @@ describe('Workbench host stop recovery', () => {
 			await rooms.lifecycle('review', 'resume');
 			wrapped.setFailure('before');
 			await rooms.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(priya);
+				await liveRoom(entry).visit(person);
 			});
 			await expect(rooms.close()).rejects.toThrow(/write failure/);
 			expect((await rooms.list())[0]?.status).toBe('stopping');
@@ -263,7 +263,7 @@ describe('Workbench host stop recovery', () => {
 			rooms = await openRooms(wrapped.database, directory, { stream: model.stream });
 			await rooms.create('review', 'Check durable stop.');
 			await rooms.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(priya);
+				await liveRoom(entry).visit(person);
 			});
 			wrapped.setCatalogFailure(true);
 			await expect(rooms.lifecycle('review', 'stop')).rejects.toThrow(/catalog save failure/);
@@ -297,21 +297,21 @@ describe('Workbench host stop recovery', () => {
 		let lab: Awaited<ReturnType<typeof openLab>> | undefined;
 		try {
 			lab = await openLab({ directory: joinPath(directory, 'run'), stream });
-			await lab.join('characterization', 'priya');
-			await expect(lab.control('characterization', 'stop')).rejects.toThrow(/write failure/);
-			await expect(lab.join('characterization', 'priya')).rejects.toThrow(/Resume this room first/);
-			expect((await lab.rooms()).find((room) => room.name === 'characterization')?.status).toBe(
+			await lab.join('led-sweep', person.name);
+			await expect(lab.control('led-sweep', 'stop')).rejects.toThrow(/write failure/);
+			await expect(lab.join('led-sweep', person.name)).rejects.toThrow(/Resume this room first/);
+			expect((await lab.rooms()).find((room) => room.name === 'led-sweep')?.status).toBe(
 				'stopping',
 			);
 			failure.restore();
-			expect((await lab.control('characterization', 'stop')).status).toBe('stopped');
-			const messages = (await lab.read('characterization', 0)).messages;
+			expect((await lab.control('led-sweep', 'stop')).status).toBe('stopped');
+			const messages = (await lab.read('led-sweep', 0)).messages;
 			expect(messages.filter((message) => message.kind === 'left')).toHaveLength(1);
 			expect(failure.attempts()).toBe(1);
 			const shutdownFailure = failNextDeparture();
 			try {
-				expect((await lab.control('characterization', 'resume')).status).toBe('running');
-				await lab.join('characterization', 'priya');
+				expect((await lab.control('led-sweep', 'resume')).status).toBe('running');
+				await lab.join('led-sweep', person.name);
 				await expect(lab.close()).rejects.toThrow(/write failure/);
 			} finally {
 				shutdownFailure.restore();

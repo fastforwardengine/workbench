@@ -15,7 +15,10 @@ import { type Lab, openLab } from '../src/host/host.ts';
 
 const opened: { lab: Lab; directory: string }[] = [];
 
-const PLAN = 'Load resistor plan: 4.7 ohm at 0.89 A.\n';
+/** The one person of Workbench: the account that runs the tests. */
+const person = people[0]?.name ?? '';
+
+const PLAN = 'LED sweep plan: 1 mA to 20 mA in 1 mA steps.\n';
 
 function scriptedResponse(agent: string, call: number, closing: boolean) {
 	if (closing)
@@ -24,32 +27,23 @@ function scriptedResponse(agent: string, call: number, closing: boolean) {
 		});
 	if (agent === 'assistant' && call === 1)
 		return fauxAssistantMessage(
-			[fauxToolCall('say', { to: 'design', text: 'Please choose the load resistor.' })],
+			[fauxToolCall('say', { to: 'experiments', text: 'Please plan the sweep.' })],
 			{ stopReason: 'toolUse' },
 		);
 	if (agent === 'assistant' && call === 2)
-		return fauxAssistantMessage([fauxToolCall('read', { path: '/library/cell-18650.md' })], {
-			stopReason: 'toolUse',
-		});
-	if (agent === 'assistant' && call === 3)
 		return fauxAssistantMessage(
-			[fauxToolCall('say', { to: 'design', text: 'Thanks, that is clear.' })],
+			[fauxToolCall('say', { to: 'experiments', text: 'Thanks, that is clear.' })],
 			{ stopReason: 'toolUse' },
 		);
-	if (agent === 'design' && call === 1)
+	if (agent === 'experiments' && call === 1)
 		return fauxAssistantMessage(
 			[fauxToolCall('write', { path: 'shared/plan.md', content: PLAN })],
-			{
-				stopReason: 'toolUse',
-			},
+			{ stopReason: 'toolUse' },
 		);
-	if (agent === 'design' && call === 2)
-		return fauxAssistantMessage(
-			[fauxToolCall('say', { to: 'assistant', text: 'Resistor chosen.' })],
-			{
-				stopReason: 'toolUse',
-			},
-		);
+	if (agent === 'experiments' && call === 2)
+		return fauxAssistantMessage([fauxToolCall('say', { to: 'assistant', text: 'Plan written.' })], {
+			stopReason: 'toolUse',
+		});
 	return fauxAssistantMessage('quiet', { stopReason: 'stop' });
 }
 
@@ -118,23 +112,18 @@ afterEach(async () => {
 });
 
 describe('Workbench host', () => {
-	it('lists the people and the three sample rooms, and resumes them without seeding again', async () => {
+	it('lists the person and the sample room, and resumes it without seeding again', async () => {
 		const parent = await freshDirectory();
 		const directory = joinPath(parent, 'run');
 		const first = await open(directory);
 		expect(first.people.map((person) => person.name)).toEqual(people.map((person) => person.name));
 		expect((await first.rooms()).map((room) => [room.name, room.status])).toEqual([
-			['characterization', 'running'],
-			['cycling', 'running'],
-			['budget', 'running'],
+			['led-sweep', 'running'],
 		]);
+		await first.create('second', 'A second room.');
 		await first.close();
 		const again = await open(directory);
-		expect((await again.rooms()).map((room) => room.name)).toEqual([
-			'characterization',
-			'cycling',
-			'budget',
-		]);
+		expect((await again.rooms()).map((room) => room.name)).toEqual(['led-sweep', 'second']);
 	});
 
 	it('creates a room, and refuses a duplicate and a bad name or goal', async () => {
@@ -158,77 +147,74 @@ describe('Workbench host', () => {
 
 	it('attributes deliveries, retries by key, and keeps rooms independent', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		await lab.join('characterization', 'priya');
-		await lab.join('cycling', 'noor');
-		await lab.send('characterization', 'priya', 'characterization-1', 'Which resistor?');
-		await lab.send('characterization', 'priya', 'characterization-1', 'Which resistor?');
-		await lab.send('cycling', 'noor', 'cycling-1', 'Which cycle plan?');
-		const characterization = await messagesOf(lab, 'characterization');
-		const cycling = await messagesOf(lab, 'cycling');
-		expect(
-			characterization.filter(
-				(message) => 'key' in message && message.key === 'characterization-1',
-			),
-		).toHaveLength(1);
-		expect(characterization).toEqual(
-			expect.arrayContaining([expect.objectContaining({ from: 'priya', text: 'Which resistor?' })]),
+		await lab.create('second', 'A second room.');
+		await lab.join('led-sweep', person);
+		await lab.join('second', person);
+		await lab.send('led-sweep', person, 'sweep-1', 'Which current range?');
+		await lab.send('led-sweep', person, 'sweep-1', 'Which current range?');
+		await lab.send('second', person, 'second-1', 'Which camera?');
+		const sweep = await messagesOf(lab, 'led-sweep');
+		const second = await messagesOf(lab, 'second');
+		expect(sweep.filter((message) => 'key' in message && message.key === 'sweep-1')).toHaveLength(
+			1,
 		);
-		expect(cycling).toEqual(
+		expect(sweep).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ from: 'noor', text: 'Which cycle plan?' }),
+				expect.objectContaining({ from: person, text: 'Which current range?' }),
 			]),
 		);
-		expect(characterization.some((message) => 'from' in message && message.from === 'noor')).toBe(
+		expect(second).toEqual(
+			expect.arrayContaining([expect.objectContaining({ from: person, text: 'Which camera?' })]),
+		);
+		expect(sweep.some((message) => 'text' in message && message.text === 'Which camera?')).toBe(
 			false,
 		);
-		expect(cycling.some((message) => 'from' in message && message.from === 'priya')).toBe(false);
 	});
 
 	it('requires a person to be present before sending, also after leaving', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		await expect(lab.send('characterization', 'priya', 'k0', 'Hello?')).rejects.toThrow(
+		await expect(lab.send('led-sweep', person, 'k0', 'Hello?')).rejects.toThrow(/Enter this room/);
+		await lab.join('led-sweep', person);
+		await lab.send('led-sweep', person, 'k1', 'Keep this delivery.');
+		await lab.leave('led-sweep', person);
+		await expect(lab.send('led-sweep', person, 'k1', 'Keep this delivery.')).rejects.toThrow(
 			/Enter this room/,
 		);
-		await lab.join('characterization', 'priya');
-		await lab.send('characterization', 'priya', 'k1', 'Keep this delivery.');
-		await lab.leave('characterization', 'priya');
-		await expect(
-			lab.send('characterization', 'priya', 'k1', 'Keep this delivery.'),
-		).rejects.toThrow(/Enter this room/);
-		await lab.join('characterization', 'priya');
-		await lab.send('characterization', 'priya', 'k1', 'Keep this delivery.');
-		const messages = await messagesOf(lab, 'characterization');
+		await lab.join('led-sweep', person);
+		await lab.send('led-sweep', person, 'k1', 'Keep this delivery.');
+		const messages = await messagesOf(lab, 'led-sweep');
 		expect(messages.filter((message) => 'key' in message && message.key === 'k1')).toHaveLength(1);
 		expect(messages.filter((message) => message.kind === 'arrived')).toHaveLength(2);
 	});
 
 	it('does not record a departure for a person who never entered, and rejects an unknown person', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		const before = await messagesOf(lab, 'characterization');
-		await lab.leave('characterization', 'jae');
-		expect(await messagesOf(lab, 'characterization')).toEqual(before);
-		await expect(lab.join('characterization', 'nobody')).rejects.toThrow(/Unknown person/);
-		await expect(lab.join('nowhere', 'priya')).rejects.toThrow(/Unknown room/);
+		const before = await messagesOf(lab, 'led-sweep');
+		await lab.leave('led-sweep', person);
+		expect(await messagesOf(lab, 'led-sweep')).toEqual(before);
+		await expect(lab.join('led-sweep', 'nobody')).rejects.toThrow(/Unknown person/);
+		await expect(lab.join('nowhere', person)).rejects.toThrow(/Unknown room/);
 	});
 
 	it('stops, keeps its history, and stays stopped across a restart until resumed', async () => {
 		const parent = await freshDirectory();
 		const directory = joinPath(parent, 'run');
 		let lab = await open(directory);
-		await lab.join('characterization', 'priya');
-		await lab.send('characterization', 'priya', 'stop-1', 'Persist this.');
-		const before = await messagesOf(lab, 'characterization');
-		const stopped = await lab.control('characterization', 'stop');
+		await lab.create('second', 'A second room.');
+		await lab.join('led-sweep', person);
+		await lab.send('led-sweep', person, 'stop-1', 'Persist this.');
+		const before = await messagesOf(lab, 'led-sweep');
+		const stopped = await lab.control('led-sweep', 'stop');
 		expect(stopped.status).toBe('stopped');
-		const history = await messagesOf(lab, 'characterization');
+		const history = await messagesOf(lab, 'led-sweep');
 		expect(history).toEqual(expect.arrayContaining(before as unknown[]));
 		expect(history.some((message) => message.kind === 'left')).toBe(true);
 		await lab.close();
 		lab = await open(directory);
 		const restarted = await lab.rooms();
-		expect(restarted.find((room) => room.name === 'characterization')?.status).toBe('stopped');
-		expect(restarted.find((room) => room.name === 'budget')?.status).toBe('running');
-		const resumed = await lab.control('characterization', 'resume');
+		expect(restarted.find((room) => room.name === 'led-sweep')?.status).toBe('stopped');
+		expect(restarted.find((room) => room.name === 'second')?.status).toBe('running');
+		const resumed = await lab.control('led-sweep', 'resume');
 		expect(resumed.status).toBe('running');
 	}, 20_000);
 
@@ -242,10 +228,10 @@ describe('Workbench host', () => {
 		await symlink('/etc/hosts', joinPath(root, 'escape.txt'));
 		const paths = (await lab.files()).map((file) => file.path);
 		expect(paths).toEqual(
-			expect.arrayContaining(['/plain.txt', '/library/cell-18650.md', '/shared/kit.md']),
+			expect.arrayContaining(['/plain.txt', '/library/README.md', '/shared/kit.md']),
 		);
 		expect(paths).not.toContain('/dev/null');
-		expect((await lab.file('/library/cell-18650.md')).text).toContain('Nominal voltage');
+		expect((await lab.file('/shared/kit.md')).text).toContain('LED parameter sweep');
 		expect((await lab.file('/plain.txt')).text).toBe('safe');
 		await expect(lab.file('/escape.txt')).rejects.toThrow(/symbolic links/);
 		await expect(lab.file('/../rooms.db')).rejects.toThrow(/absolute workspace file path/);
@@ -256,11 +242,11 @@ describe('Workbench host', () => {
 		const parent = await freshDirectory();
 		const directory = joinPath(parent, 'run');
 		let lab = await open(directory);
-		await lab.join('characterization', 'priya');
-		await lab.send('characterization', 'priya', 'summary-1', 'Pick the load resistor.');
-		const messages = await untilSummary(lab, 'characterization');
+		await lab.join('led-sweep', person);
+		await lab.send('led-sweep', person, 'summary-1', 'Plan the sweep.');
+		const messages = await untilSummary(lab, 'led-sweep');
 		expect(messages.some((message) => message.kind === 'summary')).toBe(true);
-		const path = '/home/design/shared/plan.md';
+		const path = '/home/experiments/shared/plan.md';
 		expect((await lab.file(path)).text).toBe(PLAN);
 		await lab.close();
 		lab = await open(directory);
@@ -294,28 +280,14 @@ describe('Workbench host', () => {
 		await expect(lab.file('/shared/fake.db')).rejects.toThrow(/not a SQLite database/);
 	});
 
-	it('previews a lab table by its lab URI, and refuses any other name', async () => {
-		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		expect(await lab.labTables()).toEqual(
-			expect.arrayContaining(['projects', 'runs', 'results', 'operations']),
-		);
-		const preview = await lab.labTable('lab:///projects');
-		expect(preview.path).toBe('lab:///projects');
-		expect(preview.tables?.map((table) => table.name)).toEqual(['projects']);
-		expect(preview.text).toContain('# projects');
-		await expect(lab.labTable('lab:///nothing')).rejects.toThrow(/No such lab table/);
-		await expect(lab.labTable('/etc/hosts')).rejects.toThrow(/Use lab:/);
-		await expect(lab.labTable('lab:///sqlite_master')).rejects.toThrow(/No such lab table/);
-	});
-
 	it('aborts an open exchange and keeps the room available', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'), () =>
 			createAssistantMessageEventStream(),
 		);
-		await lab.join('characterization', 'priya');
-		await lab.send('characterization', 'priya', 'pending-1', 'Wait for work.');
-		expect((await lab.read('characterization', 0)).exchange).toBeDefined();
-		const aborted = await lab.control('characterization', 'abort');
+		await lab.join('led-sweep', person);
+		await lab.send('led-sweep', person, 'pending-1', 'Wait for work.');
+		expect((await lab.read('led-sweep', 0)).exchange).toBeDefined();
+		const aborted = await lab.control('led-sweep', 'abort');
 		expect(aborted.exchange).toBeUndefined();
 		expect(aborted.status).toBe('running');
 		expect(aborted.exchanges).toContainEqual(
@@ -329,35 +301,36 @@ describe('Workbench host watch', () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
 		let changes = 0;
 		let control = 0;
-		const stop = lab.watch('characterization', () => {
+		const stop = lab.watch('led-sweep', () => {
 			changes += 1;
 		});
-		lab.watch('characterization', () => {
+		lab.watch('led-sweep', () => {
 			control += 1;
 		});
-		await lab.join('characterization', 'priya');
+		await lab.join('led-sweep', person);
 		await vi.waitFor(() => expect(changes).toBeGreaterThan(0));
 		stop();
 		const seen = changes;
 		const controlSeen = control;
-		await lab.send('characterization', 'priya', 'watch-1', 'Which resistor?');
+		await lab.send('led-sweep', person, 'watch-1', 'Which current range?');
 		await vi.waitFor(() => expect(control).toBeGreaterThan(controlSeen));
 		expect(changes).toBe(seen);
 	});
 
 	it('watches one room and not another', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		let characterization = 0;
-		let cycling = 0;
-		lab.watch('characterization', () => {
-			characterization += 1;
+		await lab.create('second', 'A second room.');
+		let sweep = 0;
+		let second = 0;
+		lab.watch('led-sweep', () => {
+			sweep += 1;
 		});
-		lab.watch('cycling', () => {
-			cycling += 1;
+		lab.watch('second', () => {
+			second += 1;
 		});
-		await lab.join('cycling', 'noor');
-		await vi.waitFor(() => expect(cycling).toBeGreaterThan(0));
-		expect(characterization).toBe(0);
+		await lab.join('second', person);
+		await vi.waitFor(() => expect(second).toBeGreaterThan(0));
+		expect(sweep).toBe(0);
 	});
 
 	it('refuses to watch a room that does not exist', async () => {
@@ -368,29 +341,29 @@ describe('Workbench host watch', () => {
 	it('keeps a watch across a stop and a resume', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
 		let changes = 0;
-		lab.watch('characterization', () => {
+		lab.watch('led-sweep', () => {
 			changes += 1;
 		});
-		await lab.control('characterization', 'stop');
-		await lab.control('characterization', 'resume');
+		await lab.control('led-sweep', 'stop');
+		await lab.control('led-sweep', 'resume');
 		await new Promise<void>((resolve) => setTimeout(resolve, 50));
 		const settled = changes;
-		await lab.join('characterization', 'priya');
+		await lab.join('led-sweep', person);
 		await vi.waitFor(() => expect(changes).toBeGreaterThan(settled));
 	}, 20_000);
 });
 
-describe('Workbench host steps and approvals', () => {
+describe('Workbench host steps, says, and processes', () => {
 	it('reads the trace of an activation the room ran', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		await lab.join('characterization', 'priya');
-		await lab.send('characterization', 'priya', 'trace-1', 'Pick the load resistor.');
-		await untilSummary(lab, 'characterization');
-		const view = await lab.read('characterization', 0);
+		await lab.join('led-sweep', person);
+		await lab.send('led-sweep', person, 'trace-1', 'Plan the sweep.');
+		await untilSummary(lab, 'led-sweep');
+		const view = await lab.read('led-sweep', 0);
 		const activations = view.exchanges.flatMap((exchange) => exchange.activations);
 		expect(activations.length).toBeGreaterThan(0);
 		const id = activations[0]?.id ?? '';
-		const read = await lab.activation('characterization', id);
+		const read = await lab.activation('led-sweep', id);
 		expect(read?.activation).toBe(id);
 		const passes = read?.passes ?? [];
 		expect(passes.length).toBeGreaterThan(0);
@@ -398,52 +371,9 @@ describe('Workbench host steps and approvals', () => {
 		const types = steps.map((step) => step.type);
 		expect(types).toContain('tool_call');
 		expect(types.at(-1)).toBe('end');
-		expect(await lab.activation('characterization', 'not-an-id')).toBeUndefined();
+		expect(await lab.activation('led-sweep', 'not-an-id')).toBeUndefined();
 		await expect(lab.activation('nowhere', id)).rejects.toThrow(/Unknown room/);
 	}, 20_000);
-
-	it('lists a requested operation until an answer names it', async () => {
-		const directory = joinPath(await freshDirectory(), 'run');
-		const lab = await open(directory);
-		expect(await lab.approvals('characterization')).toEqual([]);
-		const database = new DatabaseSync(joinPath(directory, 'lab.db'));
-		const insert = database.prepare(
-			'INSERT INTO operations (instrument, setpoint, outcome, request_id, room, exchange_owner, at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-		);
-		insert.run(
-			'discharge-current',
-			2500,
-			'requested',
-			null,
-			'characterization',
-			'priya',
-			'2026-01-01T00:00:00Z',
-		);
-		insert.run('charge-voltage', 4.5, 'requested', null, 'cycling', 'noor', '2026-01-01T00:00:01Z');
-		expect(await lab.approvals('characterization')).toEqual([
-			{
-				id: 1,
-				instrument: 'discharge-current',
-				setpoint: 2500,
-				unit: 'mA',
-				owner: 'priya',
-				at: '2026-01-01T00:00:00Z',
-			},
-		]);
-		expect((await lab.approvals('cycling')).map((approval) => approval.owner)).toEqual(['noor']);
-		insert.run(
-			'discharge-current',
-			2500,
-			'approved',
-			1,
-			'characterization',
-			'priya',
-			'2026-01-01T00:00:02Z',
-		);
-		database.close();
-		expect(await lab.approvals('characterization')).toEqual([]);
-		await expect(lab.approvals('nowhere')).rejects.toThrow(/Unknown room/);
-	});
 
 	it('lists a say that waits to return, and dismisses it once', async () => {
 		const lab = await open(
@@ -451,35 +381,35 @@ describe('Workbench host steps and approvals', () => {
 			scriptedStream((agent, call, closing) => {
 				if (closing || agent !== 'assistant' || call !== 1)
 					return fauxAssistantMessage('quiet', { stopReason: 'stop' });
-				const later = { to: 'assistant', text: 'Check the cell temperature.', after: 600 };
+				const later = { to: 'assistant', text: 'Check the LED temperature.', after: 600 };
 				return fauxAssistantMessage([fauxToolCall('say', later)], { stopReason: 'toolUse' });
 			}),
 		);
-		await lab.join('characterization', 'priya');
-		await lab.send('characterization', 'priya', 'later-1', 'Check the cell later.');
+		await lab.join('led-sweep', person);
+		await lab.send('led-sweep', person, 'later-1', 'Check the LED later.');
 		const waiting = await vi.waitFor(async () => {
-			const [say] = (await lab.read('characterization', 0)).scheduled;
+			const [say] = (await lab.read('led-sweep', 0)).scheduled;
 			if (!say) throw new Error('No say waits yet.');
 			return say;
 		});
-		expect(waiting).toMatchObject({ seat: 'assistant', owner: 'priya' });
-		expect(await lab.dismiss('characterization', waiting.seq)).toBe(true);
-		expect(await lab.dismiss('characterization', waiting.seq)).toBe(false);
-		expect((await lab.read('characterization', 0)).scheduled).toEqual([]);
-		expect((await messagesOf(lab, 'characterization')).at(-1)).toMatchObject({
+		expect(waiting).toMatchObject({ seat: 'assistant', owner: person });
+		expect(await lab.dismiss('led-sweep', waiting.seq)).toBe(true);
+		expect(await lab.dismiss('led-sweep', waiting.seq)).toBe(false);
+		expect((await lab.read('led-sweep', 0)).scheduled).toEqual([]);
+		expect((await messagesOf(lab, 'led-sweep')).at(-1)).toMatchObject({
 			kind: 'dismissed',
 			message: waiting.seq,
 		});
 	});
 
 	it('lists the processes that an agent starts with bash, reads an output, and cancels a running one', async () => {
-		// The assistant starts a short process that ends in its window, then a long one that it leaves running.
+		// Instruments starts a short process that ends in its window, then a long one that it leaves running.
 		const stream = scriptedStream((agent, call, closing) => {
 			const start = (command: string, name: string, wait: number) =>
 				fauxAssistantMessage([fauxToolCall('bash', { command, name, wait })], {
 					stopReason: 'toolUse',
 				});
-			if (agent !== 'assistant' || closing) return fauxAssistantMessage('quiet');
+			if (agent !== 'instruments' || closing) return fauxAssistantMessage('quiet');
 			if (call === 1) return start('echo hello from the bench', 'greet', 5);
 			if (call === 2) return start('sleep 60', 'soak', 0);
 			return fauxAssistantMessage('quiet');
@@ -490,22 +420,24 @@ describe('Workbench host steps and approvals', () => {
 			events += 1;
 		});
 		expect(await lab.processes()).toEqual([]);
-		await lab.join('characterization', 'priya');
-		await lab.send('characterization', 'priya', 'ps-1', 'Start the soak.');
+		await lab.join('led-sweep', person);
+		await lab.send('led-sweep', person, 'ps-1', 'Start the soak.');
 		await vi.waitFor(async () => expect(await lab.processes()).toHaveLength(2), {
 			timeout: 5_000,
 		});
 		// The running process comes first, then the newest start.
 		const [soak, greet] = await lab.processes();
-		expect(soak).toMatchObject({ name: 'soak', agent: 'assistant', state: 'running' });
+		expect(soak).toMatchObject({ name: 'soak', agent: 'instruments', state: 'running' });
 		expect(greet).toMatchObject({ name: 'greet', state: 'exited', exitCode: 0 });
-		expect(await lab.processOutput(greet?.handle ?? '', 'assistant')).toEqual({
+		expect(await lab.processOutput(greet?.handle ?? '', 'instruments')).toEqual({
 			handle: greet?.handle,
 			text: 'hello from the bench\n',
 			size: 21,
 			truncated: false,
 		});
-		await expect(lab.processOutput('bash-000000000000', 'assistant')).rejects.toThrow(/No process/);
+		await expect(lab.processOutput('bash-000000000000', 'instruments')).rejects.toThrow(
+			/No process/,
+		);
 
 		const cancelled = await lab.cancelProcess(soak?.handle ?? '');
 		expect(cancelled.state).toBe('cancelled');

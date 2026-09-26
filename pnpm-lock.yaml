@@ -29,10 +29,10 @@ importers:
       '@opentui/core':
         specifier: 0.5.11
         version: 0.5.11(typescript@7.0.2)(web-tree-sitter@0.25.10)
-      typebox:
-        specifier: ^1.3.18
-        version: 1.3.34
     devDependencies:
+      '@ambionframework/simulator':
+        specifier: ^0.3.0
+        version: 0.3.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@biomejs/biome':
         specifier: ^2.5.10
         version: 2.5.14
@@ -75,6 +75,10 @@ packages:
 
   '@ambionframework/pi@0.3.0':
     resolution: {integrity: sha512-r52rgHqed0jLfD+i4opfrf2aIueOJTiKd6hLiJRBiW9xLmZWR27riL6mB8RURuIR/uan58oBiMN4TvQUUGWd+w==}
+    engines: {node: '>=22.19.0'}
+
+  '@ambionframework/simulator@0.3.0':
+    resolution: {integrity: sha512-G37K504lH4e8XRP0HmT1qsqASC6C0rRqNsyuZFzffKAldSmer/WnGgfAbFZAKDnWZGulSTQkXQVv+zu/EYudZA==}
     engines: {node: '>=22.19.0'}
 
   '@ambionframework/workspace@0.3.0':
@@ -2259,6 +2263,19 @@ snapshots:
       '@ambionframework/ambion': 0.3.0
       '@earendil-works/pi-agent-core': 0.85.1(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-ai': 0.85.1(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
+      typebox: 1.3.34
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@ambionframework/simulator@0.3.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)':
+    dependencies:
+      '@ambionframework/ambion': 0.3.0
+      '@ambionframework/pi': 0.3.0(@modelcontextprotocol/sdk@1.30.0(zod@4.6.5))(ws@8.21.3)(zod@4.6.5)
       typebox: 1.3.34
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'

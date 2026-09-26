@@ -35,7 +35,7 @@ export type Parsed =
 
 /**
  * Read one composer submission. A leading `//` sends a message that starts with
- * one slash, so a person can still write a path such as `/library/cell-18650.md`.
+ * one slash, so a person can still write a path such as `/shared/kit.md`.
  */
 export function parse(input: string): Parsed {
 	const text = input.trim();

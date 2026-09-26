@@ -8,21 +8,21 @@ Workbench is a shared workspace where humans and specialists collaborate
 on electrical engineering, hardware, and electrochemistry. It runs on
 [Ambion](https://github.com/ambionframework/ambion), the collaboration
 kernel, and follows Ambion's own runnable example (`examples/workbench`)
-with a lab domain of its own: one bench battery-characterization kit,
-five specialists, and an assistant that coordinates them.
+with a lab domain of its own: one LED parameter sweep on a bench, three
+specialists, and an assistant that coordinates them.
 
 pnpm workspace, ESM only, TypeScript, Node 26.4 or newer (the OpenTUI
 floor).
 
-| Path           | What                                                                              |
-| -------------- | --------------------------------------------------------------------------------- |
-| `src/domain`   | The lab domain: instruments, operations, model families, scenario definitions     |
-| `src/view`     | Read-only projections over the room journal: the timeline, steps, refs            |
-| `src/host`     | The room host: rooms, approvals, file handling, name assignment                   |
-| `src/terminal` | The OpenTUI terminal: layout, keys, the composer, the transcript                  |
-| `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern      |
-| `docs/`        | Design pages, such as `instrument.md`, the instrument driver interface            |
-| `planning/`    | `next.md` (the next activities, in order) and `backlog.md` — read before a change |
+| Path           | What                                                                               |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `src/domain`   | The lab domain: the person, the specialists, the room, the model family, templates |
+| `src/view`     | Read-only projections over the room journal: the timeline, steps, refs             |
+| `src/host`     | The room host: rooms, file handling, processes, name assignment                    |
+| `src/terminal` | The OpenTUI terminal: layout, keys, the composer, the transcript                   |
+| `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern       |
+| `docs/`        | Design pages, such as `templates.md`, the git templates                            |
+| `planning/`    | `next.md` (the next activities, in order) and `backlog.md` — read before a change  |
 
 Import rules run upward only: `domain` and `view` are independent leaves;
 `host` depends on both; `terminal` depends on all three. Biome holds this
@@ -36,7 +36,8 @@ unused import or variable.
 - `pnpm check` — format, types, lint, and the scripted test tier, in that
   order.
 - `pnpm test` — the scripted tier: no key, no network.
-- `pnpm test:live` — the live tier: needs a real model key.
+- `pnpm test:live` — the live tier: evals on `@ambionframework/simulator`.
+  Needs a real model key, and costs money.
 - `pnpm format` — write formatting and lint fixes.
 
 ## Writing documentation
@@ -58,11 +59,11 @@ Rules that carry the most weight here:
    seat is where one agent sits in it; an activation is the room waking one
    seat; an exchange is a person's question and every activation until the
    room goes quiet. This project adds its own terms on top: a
-   **specialist** is a named agent role (Datasheets, Design, Experiments,
-   Instruments, Data Analysis); a **family** is the executor a seat runs on
-   (Pi, Claude, Codex); a **resource** is a shared tool implementation
-   (workspace, lab, instrument). Do not use "agent" where "specialist" or
-   "seat" names the thing more exactly.
+   **specialist** is a named agent role (Datasheets, Experiments,
+   Instruments); a **family** is the executor a seat runs on (Pi, Claude,
+   Codex); a **resource** is a shared tool implementation (the workspace).
+   Do not use "agent" where "specialist" or "seat" names the thing more
+   exactly.
 5. **Simple tenses.** Present for how things work, imperative for
    instructions.
 6. **Keep articles and relative pronouns.** "The seat that waits", not

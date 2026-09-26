@@ -24,14 +24,12 @@ supply, and the camera, and each limit cites its source.
 
 ## 2. Make the sweep the project of the lab
 
-- [ ] Describe the bench in `/shared/kit.md`: the parts, the connections,
-      and the house rules.
-- [ ] Add a `led-sweep` room to `src/domain/scenarios.ts`, with its goal
-      and its seats.
-- [ ] Replace the simulated instruments with the ones the sweep uses,
-      such as `led-current`, with the limit from the LED datasheet.
-- [ ] Decide what happens to the three battery rooms: keep them as
-      examples, or remove them.
+- [x] Add a `led-sweep` room to `src/domain/scenarios.ts`, with its goal
+      and its seats: Datasheets, Experiments, and Instruments at
+      `broadcast`.
+- [ ] Describe the bench in `/shared/kit.md`: the parts of step 1, the
+      connections, and the house rules. The seed holds a placeholder.
+- [ ] Give the room goal the LED limit from the datasheet.
 
 **Done when** a person opens the `led-sweep` room, and a specialist
 cites the LED limit from `/library`.
@@ -43,13 +41,13 @@ cites the LED limit from `/library`.
       the settle time, the frames at each step, and the current limit.
 
 **Done when** the plan is on a pushed branch of a fork of
-`templates/test-plan`, and a `test_plans` row names it.
+`templates/test-plan`.
 
 ## 4. Add the `led-sweep` template
 
 - [ ] Follow `docs/templates.md`. The template holds a script that steps
       the supply, reads the camera at each step, and writes one CSV row
-      for each step.
+      for each step: the current, the voltage, and the brightness.
 - [ ] It has a simulated mode that needs no hardware.
 - [ ] It refuses a setpoint above the limit in its configuration.
 - [ ] Its `README.md` tells the agent to start the sweep with a `name`.
@@ -57,23 +55,14 @@ cites the LED limit from `/library`.
       The agent reads the end with `wait` or `status`. The sweep of
       Ambion's example, `templates/firmware-sketch/sweep`, shows the
       pattern.
+- [ ] Its `README.md` tells the agent to commit the CSV of each run and
+      push the branch. The pushed CSV is the record of the run.
 
 **Done when** the simulated mode writes a CSV, and a scripted test checks
 it. The test starts the sweep in one exchange and reads its end in a
 later one, as the sweep test in Ambion's example `tool-set.test.ts` does.
 
-## 5. Decide how a sweep reaches the lab database
-
-- [ ] Choose one path. Either the supply goes through `operate` and its
-      limit, with a real `InstrumentDriver` per `docs/instrument.md`, or
-      the sweep script records its rows after the run.
-- [ ] Each sweep is one `runs` row. Each step gives `results` rows: the
-      current, the voltage, and the brightness.
-
-**Done when** a simulated sweep leaves one run and its results in the lab
-database, with provenance.
-
-## 6. Connect the workstation
+## 5. Connect the workstation
 
 - [ ] Define the host, the network, and the accounts. Ambion's
       `@ambionframework/workstation` runs the shell of each agent over SSH,
@@ -88,22 +77,18 @@ database, with provenance.
 **Done when** an agent forks `led-sweep`, clones it on the workstation,
 and runs the simulated mode there.
 
-## 7. Give the sweep to its specialists
+## 6. Give the sweep to Instruments
 
-- [ ] Instruments prepares the sweep, runs it, and reports the run.
-- [ ] Data Analysis reads the results and states the brightness against
-      the current.
-- [ ] Give both specialists the full bundle, and remove the "no
-      resource" line from their instructions.
+- [ ] Instruments prepares the sweep, runs it, and reports the run: the
+      branch, the CSV, and the brightness against the current.
 
-**Done when** the tool-set test shows both specialists with the full
-bundle, and a scripted room runs the sweep in simulated mode.
+**Done when** a scripted room runs the sweep in simulated mode, and an
+eval in `test/live` grades the report of Instruments.
 
-## 8. Run the sweep on the bench
+## 7. Run the sweep on the bench
 
 - [ ] A person asks for the sweep in the `led-sweep` room.
-- [ ] The operation above any limit waits for the approval of that
-      person.
+- [ ] The sweep script refuses a setpoint above the limit of the LED.
 
-**Done when** a real sweep is in the lab database, and the summary of the
-room cites the plan, the run, and the results.
+**Done when** the CSV of a real sweep is on a pushed branch, and the
+summary of the room cites the plan and the run.

@@ -1,6 +1,5 @@
 import type {
 	ActivationSteps,
-	Approval,
 	FileContent,
 	FileEntry,
 	Lab,
@@ -112,13 +111,9 @@ export class FakeHost implements Lab {
 	}
 	/** The traces the host holds, by activation id. */
 	readonly traces = new Map<string, ActivationSteps>();
-	pendingApprovals: Approval[] = [];
 	async activation(_room: string, id: string) {
 		this.calls.push(`activation:${id}`);
 		return this.traces.get(id);
-	}
-	async approvals() {
-		return this.pendingApprovals;
 	}
 	async files() {
 		return this.fileList;
@@ -162,14 +157,6 @@ export class FakeHost implements Lab {
 		return () => {
 			this.processWatchers.delete(changed);
 		};
-	}
-	labNames: string[] = ['runs', 'results'];
-	async labTables() {
-		return this.labNames;
-	}
-	async labTable(uri: string): Promise<FileContent> {
-		this.reads.push(uri);
-		return { path: uri, text: `table ${uri}`, truncated: false };
 	}
 	async close() {
 		this.calls.push('close');

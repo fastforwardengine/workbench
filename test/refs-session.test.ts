@@ -35,7 +35,7 @@ function room(host: FakeHost, cite = true): void {
 			participants: [{ name: 'priya', kind: 'human' }],
 			messages: [
 				said(1, 'priya'),
-				said(2, 'design', cite ? [FILE, 'lab:///runs'] : undefined),
+				said(2, 'design', cite ? [FILE, 'ambion://room/characterization/message/1'] : undefined),
 				said(3, 'datasheets'),
 				said(4, 'priya', cite ? ['ambion://room/characterization/message/3', MISSING] : undefined),
 				said(
@@ -111,25 +111,6 @@ describe('the refs of a message', () => {
 		expect(session.browser.open).toBe(true);
 		expect(session.browser.selected?.path).toBe('/library/cell-18650.md');
 		expect(host.reads).toContain('/library/cell-18650.md');
-	});
-
-	it('opens a table ref in the table preview', async () => {
-		const { session, host } = await open();
-		session.setAllOpen(true);
-		expect(await session.openRef('2#1')).toEqual({ type: 'files' });
-		await vi.waitFor(() => expect(session.browser.file?.path).toBe('lab:///runs'));
-		expect(session.browser.selected).toEqual({ path: 'lab:///runs', size: 0, kind: 'table' });
-		expect(host.reads).toContain('lab:///runs');
-	});
-
-	it('lists the tables in the files panel beside the files', async () => {
-		const { session } = await open();
-		await session.submit('/files');
-		expect(session.browser.matches.map((entry) => entry.path)).toEqual([
-			'/library/cell-18650.md',
-			'lab:///runs',
-			'lab:///results',
-		]);
 	});
 
 	it('opens nothing for a ref that does not resolve, and reads nothing from the host', async () => {

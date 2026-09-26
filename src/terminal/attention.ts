@@ -1,5 +1,5 @@
 import type { ExchangeActivation, ExchangeView } from '@ambionframework/ambion';
-import type { Approval, RoomView } from '../host/host.ts';
+import type { RoomView } from '../host/host.ts';
 
 /**
  * The newest activation of an exchange that ran, or undefined when it has
@@ -24,15 +24,11 @@ export function pick(
 	return Number.isInteger(ordinal) ? exchanges[ordinal - 1] : undefined;
 }
 
-/** What the person owes the room: replies that wait on them and operations that wait on their answer. */
-export function attentionOf(
-	view: RoomView | undefined,
-	person: string,
-	approvals: readonly Approval[],
-): string[] {
+/** What the person owes the room: the replies that wait on them. */
+export function attentionOf(view: RoomView | undefined, person: string): string[] {
 	if (!view || !person) return [];
 	// `pendingFor` reads a `RoomRead`, and the host view overrides `goal`, so filter here.
-	const replies = view.exchanges
+	return view.exchanges
 		.filter(
 			(exchange) =>
 				exchange.status === 'closed' &&
@@ -40,11 +36,4 @@ export function attentionOf(
 				exchange.outcome.person === person,
 		)
 		.map((exchange) => `The exchange from message ${exchange.from} waits for your reply.`);
-	const operations = approvals
-		.filter((approval) => approval.owner === person)
-		.map(
-			(approval) =>
-				`Operation ${approval.id} needs your answer: ${approval.instrument} to ${approval.setpoint} ${approval.unit} is above its limit. Say allow or deny in the room, and the agent records it.`,
-		);
-	return [...replies, ...operations];
 }

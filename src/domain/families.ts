@@ -1,3 +1,5 @@
+import type { PiOptions } from '@ambionframework/pi';
+
 /**
  * The executor family of each seat, and the credential that family needs.
  *
@@ -16,15 +18,13 @@ export type Environment = Readonly<Record<string, string | undefined>>;
 export const seatFamilies: Readonly<Record<string, Family>> = {
 	assistant: 'pi',
 	datasheets: 'pi',
-	design: 'pi',
 	experiments: 'pi',
 	instruments: 'pi',
-	'data-analysis': 'pi',
 };
 
 /** The short names `WORKBENCH_MODEL` accepts, each for one Pi model id. */
 const MODEL_PRESETS: Readonly<Record<string, string>> = {
-	anthropic: 'anthropic/claude-sonnet-5',
+	anthropic: 'anthropic/claude-sonnet-4-5',
 	openai: 'openai/gpt-5.6-luna',
 };
 
@@ -36,9 +36,12 @@ const MODEL_PRESETS: Readonly<Record<string, string>> = {
  */
 export function piModel(env: Environment = process.env): string {
 	const choice = env.WORKBENCH_MODEL;
-	if (!choice) return MODEL_PRESETS.anthropic ?? 'anthropic/claude-sonnet-5';
+	if (!choice) return MODEL_PRESETS.anthropic ?? 'anthropic/claude-sonnet-4-5';
 	return MODEL_PRESETS[choice] ?? choice;
 }
+
+/** The thinking level of every seat. Pi sends it to the provider of the model. */
+export const THINKING: NonNullable<PiOptions['thinking']> = 'low';
 
 /** The environment variable that holds the key of a family. */
 export function keyVariable(_family: Family, env: Environment = process.env): string {

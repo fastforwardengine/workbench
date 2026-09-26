@@ -9,8 +9,8 @@ import { people } from '../src/domain/definitions.ts';
 import { openLab } from '../src/host/host.ts';
 import { liveRoom, openRooms } from '../src/host/rooms.ts';
 
-const priya = people.at(0);
-if (!priya) throw new Error('The test team has no human.');
+const person = people.at(0);
+if (!person) throw new Error('The test team has no human.');
 
 function quietStream(counter: { calls: number }): PiExecutionOptions['stream'] {
 	return (_model, _context, _options) => {
@@ -42,10 +42,10 @@ describe('Workbench room reads and recovery', () => {
 			stream: quietStream(counter),
 		});
 		try {
-			await lab.join('characterization', 'priya');
-			await lab.send('characterization', 'priya', 'read-1', 'Read this room.');
+			await lab.join('led-sweep', person.name);
+			await lab.send('led-sweep', person.name, 'read-1', 'Read this room.');
 			const closedExchange = async () => {
-				const exchange = (await lab.read('characterization', 0)).exchanges[0];
+				const exchange = (await lab.read('led-sweep', 0)).exchanges[0];
 				return exchange?.status === 'closed' && exchange.summary.status === 'silent'
 					? exchange
 					: undefined;
@@ -53,20 +53,20 @@ describe('Workbench room reads and recovery', () => {
 			await expect.poll(async () => (await closedExchange()) !== undefined).toBe(true);
 			const from = (await closedExchange())?.from ?? 0;
 			const beforeRead = counter.calls;
-			const full = await lab.read('characterization', 0);
-			const selected = await lab.read('characterization', from);
+			const full = await lab.read('led-sweep', 0);
+			const selected = await lab.read('led-sweep', from);
 			expect(counter.calls).toBe(beforeRead);
 			expect(full).toMatchObject({
 				initialized: true,
-				goal: expect.stringContaining('Discharge-test the 18650 cell'),
+				goal: expect.stringContaining('Sweep the drive current of an LED'),
 				status: 'running',
 				participants: expect.any(Array),
 				exchanges: expect.any(Array),
 				watermark: expect.any(Number),
 			});
 			expect(selected.messages.every((message) => message.seq > from)).toBe(true);
-			await lab.control('characterization', 'stop');
-			const stopped = await lab.read('characterization', 0);
+			await lab.control('led-sweep', 'stop');
+			const stopped = await lab.read('led-sweep', 0);
 			expect(stopped).toMatchObject({ status: 'stopped', initialized: true });
 			expect(stopped.exchanges).toContainEqual(expect.objectContaining({ from, status: 'closed' }));
 			expect(counter.calls).toBe(beforeRead);
@@ -86,7 +86,7 @@ describe('Workbench room reads and recovery', () => {
 			rooms = await openRooms(database, directory, { stream: quietStream(counter) });
 			await rooms.create('legacy', 'Recorded goal.');
 			await rooms.withRoom('legacy', async (entry) => {
-				await liveRoom(entry).unseat('design');
+				await liveRoom(entry).unseat('experiments');
 			});
 			await rooms.lifecycle('legacy', 'stop');
 			await rooms.close();
@@ -102,7 +102,7 @@ describe('Workbench room reads and recovery', () => {
 				status: 'running',
 			});
 			expect(status?.participants).not.toEqual(
-				expect.arrayContaining([expect.objectContaining({ name: 'design' })]),
+				expect.arrayContaining([expect.objectContaining({ name: 'experiments' })]),
 			);
 			expect(counter.calls).toBe(0);
 		} finally {
