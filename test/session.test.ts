@@ -490,7 +490,7 @@ describe('Session scheduled says', () => {
 	});
 });
 
-describe('Session awaiting and approval', () => {
+describe('Session awaiting', () => {
 	const awaiting = closedExchange(4, { outcome: { kind: 'awaiting', person: 'priya' } });
 
 	it('shows an awaiting exchange to the person it waits on, and to nobody else', async () => {
@@ -500,30 +500,6 @@ describe('Session awaiting and approval', () => {
 		expect(session.attention).toEqual(['The exchange from message 4 waits for your reply.']);
 		expect(blockTypes(session)).toContain('note');
 		await session.submit('/user noor');
-		expect(session.attention).toEqual([]);
-	});
-
-	it('shows a pending operation to the owner of the exchange only', async () => {
-		const { host, session } = await started();
-		host.pendingApprovals = [
-			{
-				id: 3,
-				instrument: 'discharge-current',
-				setpoint: 2500,
-				unit: 'mA',
-				owner: 'priya',
-				at: AT,
-			},
-		];
-		await session.refresh();
-		expect(session.attention).toHaveLength(1);
-		expect(session.attention[0]).toMatch(
-			/Operation 3 needs your answer.*discharge-current to 2500 mA/,
-		);
-		await session.submit('/user noor');
-		expect(session.attention).toEqual([]);
-		host.pendingApprovals = [];
-		await session.submit('/user priya');
 		expect(session.attention).toEqual([]);
 	});
 });

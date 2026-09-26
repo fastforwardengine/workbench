@@ -1,15 +1,7 @@
 import type { ExchangeView } from '@ambionframework/ambion';
-import type { Approval, FileEntry, Lab, Person, RoomAction, RoomView } from '../host/host.ts';
+import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../host/names.ts';
-import {
-	holderOf,
-	type Known,
-	labUri,
-	type RefItem,
-	refItems,
-	shows,
-	tableOfUri,
-} from '../view/refs.ts';
+import { holderOf, type Known, type RefItem, refItems, shows } from '../view/refs.ts';
 import { type ActivationSteps, activationLine, ended, stepsView } from '../view/steps.ts';
 import { type Block, buildTimeline } from '../view/timeline.ts';
 import { attentionOf, newest, pick } from './attention.ts';
@@ -32,8 +24,6 @@ export class Session {
 	identity: Person | undefined;
 	rooms: RoomView[] = [];
 	files: FileEntry[] = [];
-	/** The tables of the lab database, for the refs that name one. */
-	tables: string[] = [];
 	/** The seq of the message that a ref jumped to. The terminal highlights it. */
 	focus: number | undefined;
 	/** The files panel. It searches `files` and loads the chosen one. */
@@ -50,8 +40,6 @@ export class Session {
 	noticeSeq = 0;
 	/** The name of a room that waits for its goal. The next submission is the goal. */
 	awaitingGoal: string | undefined;
-	/** The operations of the open room that wait for an answer. */
-	approvals: Approval[] = [];
 	/** The activation whose steps the terminal shows. It re-reads on each room change. */
 	steps: { id: string; read: ActivationSteps | undefined } | undefined;
 	private readonly feed: RoomFeed<RoomView>;
@@ -69,10 +57,7 @@ export class Session {
 		this.identity = identity;
 		this.changed = changed;
 		this.feed = new RoomFeed<RoomView>(host);
-		this.browser = new FileBrowser(
-			(path) => (tableOfUri(path) === undefined ? host.file(path) : host.labTable(path)),
-			changed,
-		);
+		this.browser = new FileBrowser((path) => host.file(path), changed);
 	}
 
 	/** True once when the conversation should scroll to its end, as after a notice. */
@@ -112,7 +97,6 @@ export class Session {
 		try {
 			this.rooms = await this.host.rooms();
 			this.files = await this.host.files();
-			this.tables = await this.host.labTables();
 			this.offline = undefined;
 		} catch (error) {
 			this.offline = errorText(error);
@@ -165,21 +149,18 @@ export class Session {
 		if (this.view?.status !== 'running') await this.refresh();
 	}
 
-	/** Read what a room read does not hold: the operations and the open steps. A failure keeps the last answer. */
+	/** Read what a room read does not hold: the open steps. A failure keeps the last answer. */
 	private async readSide(room: string): Promise<void> {
 		const steps = this.steps;
-		const [approvals, read] = await Promise.all([
-			this.host.approvals(room).catch(() => undefined),
-			steps ? this.host.activation(room, steps.id).catch(() => undefined) : undefined,
-		]);
+		if (!steps) return;
+		const read = await this.host.activation(room, steps.id).catch(() => undefined);
 		if (this.room !== room) return;
-		if (approvals) this.approvals = approvals;
-		if (steps && read && this.steps?.id === steps.id) this.steps = { id: steps.id, read };
+		if (read && this.steps?.id === steps.id) this.steps = { id: steps.id, read };
 	}
 
 	/** What the person owes the room, one line each. It is empty when nothing waits. */
 	get attention(): string[] {
-		return attentionOf(this.view, this.whoami, this.approvals);
+		return attentionOf(this.view, this.whoami);
 	}
 
 	/** The blocks that follow the closed exchanges: what waits on the person, and the open steps. */
@@ -329,7 +310,6 @@ export class Session {
 		this.blocks = [];
 		this.focus = undefined;
 		this.expanded.clear();
-		this.approvals = [];
 		this.steps = undefined;
 		this.notice = undefined;
 		this.entered = false;
@@ -459,34 +439,24 @@ export class Session {
 
 	// Files
 
-	/** The entries of the files panel: the workspace files, then the tables of the lab database. */
-	private get entries(): FileEntry[] {
-		return [
-			...this.files,
-			...this.tables.map((name) => ({ path: labUri(name), size: 0, kind: 'table' as const })),
-		];
-	}
-
 	private async openFiles(path?: string): Promise<Intent | undefined> {
 		try {
 			this.files = await this.host.files();
-			this.tables = await this.host.labTables();
 		} catch (error) {
 			this.fail(error);
 			return undefined;
 		}
-		this.browser.show(this.entries, path);
+		this.browser.show(this.files, path);
 		return { type: 'files' };
 	}
 
 	// Refs
 
-	/** What a ref is checked against: the workspace files, the lab tables, and this room. */
+	/** What a ref is checked against: the workspace files and this room. */
 	private get known(): Known {
 		return {
 			room: this.room,
 			files: this.files.map((file) => file.path),
-			tables: this.tables,
 			seqs: new Set(this.feed.messages.map((message) => message.seq)),
 		};
 	}
@@ -497,7 +467,7 @@ export class Session {
 	}
 
 	/**
-	 * Open a ref. A file or a table opens in the files panel, and the terminal
+	 * Open a ref. A file opens in the files panel, and the terminal
 	 * shows the panel when this returns the intent. A message ref moves the focus
 	 * to that message. A ref that does not resolve opens nothing.
 	 */
@@ -508,7 +478,7 @@ export class Session {
 			this.jump(target.seq);
 			return undefined;
 		}
-		return this.openFiles(target.kind === 'file' ? target.path : labUri(target.name));
+		return this.openFiles(target.path);
 	}
 
 	/** Focus one message. It opens the discussion that holds the message. */

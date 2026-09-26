@@ -11,30 +11,13 @@ import type { Block } from './timeline.ts';
  * a list the host gives, so no ref reaches a host file:
  *
  * - `file:///<path>` names a file of the workspace.
- * - `lab:///<table>` names a table of the lab database.
  * - `ambion://room/<room>/message/<seq>` names a message of the open room.
  */
 
-/** The start of a lab table URI. The file browser also uses it as the path of a table. */
-const LAB_PREFIX = 'lab:///';
-
 const FILE_PREFIX = /^file:\/\/\/(.*)$/is;
-const TABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-/** The URI that names one table of the lab database. */
-export const labUri = (table: string): string => `${LAB_PREFIX}${table}`;
-
-/** The table that a lab URI names, or undefined for any other string. */
-export function tableOfUri(uri: string): string | undefined {
-	const name = uri.startsWith(LAB_PREFIX) ? uri.slice(LAB_PREFIX.length) : undefined;
-	return name !== undefined && TABLE_NAME.test(name) ? name : undefined;
-}
 
 /** What opening a resolved ref does. */
-type RefTarget =
-	| { kind: 'file'; path: string }
-	| { kind: 'table'; name: string }
-	| { kind: 'message'; seq: number };
+type RefTarget = { kind: 'file'; path: string } | { kind: 'message'; seq: number };
 
 /** What the terminal knows, to check a ref against. */
 export interface Known {
@@ -42,13 +25,11 @@ export interface Known {
 	room: string;
 	/** The paths of the workspace files, as the host lists them. */
 	files: readonly string[];
-	/** The tables of the lab database. */
-	tables: readonly string[];
 	/** The seqs of the messages read from the open room. */
 	seqs: ReadonlySet<number>;
 }
 
-type RefKind = 'file' | 'table' | 'message' | 'unknown';
+type RefKind = 'file' | 'message' | 'unknown';
 
 /** One ref after resolution. `target` is absent when the ref does not resolve. */
 export interface ResolvedRef {
@@ -103,13 +84,6 @@ function resolveFile(ref: string, known: Known): ResolvedRef {
 	return { ref, kind: 'file', label: named.path, target: { kind: 'file', path: named.path } };
 }
 
-function resolveTable(ref: string, known: Known): ResolvedRef {
-	const name = tableOfUri(ref);
-	if (name === undefined) return unresolved(ref, 'table', 'use lab:///<table>');
-	if (!known.tables.includes(name)) return unresolved(ref, 'table', 'no such lab table');
-	return { ref, kind: 'table', label: name, target: { kind: 'table', name } };
-}
-
 function resolveMessage(ref: string, known: Known): ResolvedRef {
 	const uri = parseRoomUri(ref);
 	if (uri?.message === undefined) return unresolved(ref, 'unknown', 'names a room, not a message');
@@ -128,7 +102,6 @@ function resolveMessage(ref: string, known: Known): ResolvedRef {
 export function resolveRef(ref: string, known: Known): ResolvedRef {
 	const scheme = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(ref)?.[1]?.toLowerCase();
 	if (scheme === 'file') return resolveFile(ref, known);
-	if (scheme === 'lab') return resolveTable(ref, known);
 	if (scheme === 'ambion') return resolveMessage(ref, known);
 	return unresolved(ref, 'unknown', 'this scheme opens nothing');
 }

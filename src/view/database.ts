@@ -82,23 +82,3 @@ export function tablesText(tables: readonly TableView[]): string {
 		)
 		.join('\n\n');
 }
-
-/** The names of the tables of a database file, read-only. */
-export function tableNames(location: string): string[] {
-	const database = new DatabaseSync(location, { readOnly: true });
-	try {
-		return listNames(database);
-	} finally {
-		database.close();
-	}
-}
-
-/** One table of a database file, read-only. The name must be one that the database lists. */
-export function readNamedTable(location: string, name: string): TableView | undefined {
-	const database = new DatabaseSync(location, { readOnly: true });
-	try {
-		return listNames(database).includes(name) ? readTable(database, name) : undefined;
-	} finally {
-		database.close();
-	}
-}

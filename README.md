@@ -15,48 +15,47 @@ Use Node 26.4 or newer.
 pnpm install
 cp .env.example .env              # set ANTHROPIC_API_KEY, OPENAI_API_KEY, or both
 pnpm start                        # data in ./.data
-pnpm start ./bench --as priya     # another directory, and another person
+pnpm start ./bench                # another directory
 ```
 
 - **`WORKBENCH_MODEL`** selects the model of every seat: `anthropic`
-  (the default, `anthropic/claude-sonnet-5`), `openai`
-  (`openai/gpt-5.6-luna`), or a full Pi model ID.
+  (the default, `anthropic/claude-sonnet-4-5`), `openai`
+  (`openai/gpt-5.6-luna`), or a full Pi model ID. Every seat thinks at
+  the `low` level (`THINKING` in `src/domain/families.ts`).
 - **A seat whose key is not set does not run.** The header marks it
   `no key`, and the other seats keep running.
-- **The terminal opens as the person named for your OS account.** Set
-  `WORKBENCH_USER` or pass `--as` to open as another person.
-- **A new data directory gets the sample rooms and the datasheets.** An
+- **The terminal opens as the person named for your OS account.** That
+  person is the one person of Workbench.
+- **A new data directory gets the `led-sweep` room and the library.** An
   existing one resumes its rooms.
 
 ## The team
 
-**An assistant brings in the specialists and writes the closing
-summary.** Every seat runs on Pi.
+**Three specialists hear every message, at `broadcast`. The assistant
+writes the closing summary.** Every seat runs on Pi.
 
-| Seat          | Work                                                     | Tools                      |
-| ------------- | -------------------------------------------------------- | -------------------------- |
-| Assistant     | Clarifies the request, seats specialists, and summarizes | Workspace, lab, instrument |
-| Datasheets    | States limits from `/library`, with the source           | Workspace, lab, instrument |
-| Design        | Chooses parts and values, and shows the calculation      | Workspace, lab, instrument |
-| Experiments   | Writes a short, repeatable test plan                     | Workspace, lab, instrument |
-| Instruments   | Names what a person does by hand; no equipment yet       | Workspace                  |
-| Data Analysis | Names the metric to read by hand; no analysis tools yet  | Workspace                  |
+| Seat        | Work                                                   | Tools     |
+| ----------- | ------------------------------------------------------ | --------- |
+| Assistant   | Seats and unseats specialists, and summarizes          | None      |
+| Datasheets  | States limits from `/library`, with the source         | Workspace |
+| Experiments | Writes a short, repeatable test plan                   | Workspace |
+| Instruments | Prepares and runs the bench scripts, and reports a run | Workspace |
+
+**The workspace tools are the only tools.** They read and write files,
+run shell commands as background processes, and fork the git templates.
+The shell has `sqlite3`, so a specialist makes a database when a result
+needs one. A bench script comes from a template.
 
 ## The lab
 
-- **Rooms:** `characterization`, `cycling`, and `budget`. Each one works
-  on the 18650 cell kit.
+- **Room:** `led-sweep`. `/new` adds a room with the same three seats.
 - **Workspace:** one directory for every room. It holds `/library`,
-  `/shared`, and a home for each agent. The `sql` tool reaches a shared
-  database.
-- **Lab database:** the `projects`, `test_plans`, `runs`, `results`, and
-  `operations` tables. Two simulated instruments wait for approval above
-  their limits.
+  `/shared`, and a home for each agent.
 - **Templates:** git repositories that an agent forks and pushes to. See
   [`docs/templates.md`](docs/templates.md).
 
-The datasheets are summaries, and no real hardware is connected. Every
-measurement is a planned value.
+The library holds no datasheet yet, and no real hardware is connected.
+Every measurement is a planned value.
 
 ## Develop
 
@@ -65,15 +64,15 @@ measurement is a planned value.
 | `pnpm check`     | Format, types, lint, and the scripted tests. CI runs it. |
 | `pnpm format`    | Writes the formatting and the lint fixes                 |
 | `pnpm test`      | The scripted tests: no key, no network                   |
-| `pnpm test:live` | The live tests: needs a key, and costs money             |
+| `pnpm test:live` | The evals on the simulator: needs a key, and costs money |
 
 **`src/` has four layers, and an import points down only.** Biome holds
 the rule.
 
 ```text
-domain/     people, specialists, rooms, the lab schema, instruments, templates
+domain/     the person, the specialists, the room, and the templates
 view/       projections of the room record: steps, timeline, refs
-host/       rooms, approvals, files, and the git backend
+host/       rooms, files, processes, and the git backend
 terminal/   the OpenTUI terminal
 ```
 

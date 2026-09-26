@@ -14,20 +14,10 @@ import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journa
 import { directoryBackend } from '@ambionframework/just-bash';
 import { type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
-import { openSqlResource } from '@ambionframework/workspace/sql';
-import { sqliteBackend } from '@ambionframework/workspace/sqlite';
 import { team } from '../domain/definitions.ts';
 import { type Environment, hasKey, keyVariable, unavailableSeats } from '../domain/families.ts';
-import { openInstrument } from '../domain/instrument.ts';
-import {
-	instruments,
-	labSchema,
-	labWritable,
-	scenarios,
-	seedWorkspace,
-} from '../domain/scenarios.ts';
+import { scenarios, seats, seedWorkspace } from '../domain/scenarios.ts';
 import { stepLog } from '../view/steps.ts';
-import { readApprovals } from './approvals.ts';
 import { labRepositories } from './repositories.ts';
 import { unavailable } from './unavailable.ts';
 
@@ -129,29 +119,20 @@ export async function openRooms(
 		name: 'workbench',
 		backend: {
 			bash: directoryBackend(workspacePath),
-			sql: sqliteBackend(resolve(directory, 'shared.db')),
 			git: labRepositories(resolve(directory, 'git.db')),
 		},
 		audit: {},
 	});
-	// The lab records live in their own file, apart from the journal database.
-	let lab: ReturnType<typeof openSqlResource>;
 	try {
 		await seedWorkspace(workspacePath);
-		// Register the templates now, so a changed template stops the start
-		// with an error that names it.
+		// Register the templates now, so a template that fails to register
+		// stops the start with an error that names it.
 		await workspace.git?.use(workspace.host, (env) => env.list());
-		lab = openSqlResource({
-			name: 'lab',
-			location: resolve(directory, 'lab.db'),
-			schema: labSchema,
-			writable: labWritable,
-		});
 	} catch (error) {
 		await workspace.dispose().catch(() => {});
 		throw error;
 	}
-	const roomTeam = team(workspace, lab, openInstrument({ lab, instruments }));
+	const roomTeam = team(workspace);
 	let workspaceTail = Promise.resolve();
 	function withWorkspace<T>(operation: () => Promise<T>): Promise<T> {
 		if (closing) fail('The host is stopping.');
@@ -203,7 +184,7 @@ export async function openRooms(
 					runtime,
 					name: entry.name,
 					goal: entry.goal,
-					seats: scenario?.seats ?? { design: 'named' },
+					seats: scenario?.seats ?? seats,
 				});
 		// The handle is owned before subscription. A later host failure leaves a
 		// usable running room that shutdown can still clean up.
@@ -303,7 +284,6 @@ export async function openRooms(
 		await closeEntries().catch(() => {});
 		await workspaceTail.catch(() => {});
 		await workspace.dispose().catch(() => {});
-		await lab.dispose().catch(() => {});
 		throw error;
 	}
 	return {
@@ -315,8 +295,6 @@ export async function openRooms(
 		lifecycle,
 		/** The steps of one activation that this process logged. */
 		activation: (name: string, id: string) => withRoom(name, async () => log.read(name, id)),
-		/** The operations of a room that wait for the owner of the exchange. */
-		approvals: (name: string) => withRoom(name, () => readApprovals(lab, name)),
 		list: () =>
 			Promise.all([...entries.values()].map((entry) => serial(entry, () => status(entry)))),
 		read: (name: string, since?: number) =>
@@ -338,7 +316,6 @@ export async function openRooms(
 			await closeEntries();
 			await workspaceTail;
 			await workspace.dispose();
-			await lab.dispose();
 		},
 	};
 }

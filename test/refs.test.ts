@@ -1,19 +1,11 @@
 import type { Message } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
-import {
-	chipLine,
-	type Known,
-	labUri,
-	refItems,
-	resolveRef,
-	tableOfUri,
-} from '../src/view/refs.ts';
+import { chipLine, type Known, refItems, resolveRef } from '../src/view/refs.ts';
 import type { Block } from '../src/view/timeline.ts';
 
 const known: Known = {
 	room: 'characterization',
 	files: ['/library/cell-18650.md', '/shared/my notes.md'],
-	tables: ['runs', 'results'],
 	seqs: new Set([1, 2, 3]),
 };
 
@@ -58,11 +50,11 @@ describe('resolveRef', () => {
 		expect(resolveRef('file:///etc/passwd', known).problem).toBe('not in the workspace');
 	});
 
-	it('resolves a lab URI to a table, and marks a missing one', () => {
-		expect(resolveRef(labUri('runs'), known).target).toEqual({ kind: 'table', name: 'runs' });
-		expect(resolveRef('lab:///nothing', known).problem).toBe('no such lab table');
-		expect(resolveRef('lab:///runs;drop', known).target).toBeUndefined();
-		expect(resolveRef('lab:///', known).target).toBeUndefined();
+	it('opens nothing for a lab URI', () => {
+		expect(resolveRef('lab:///runs', known)).toMatchObject({
+			kind: 'unknown',
+			problem: 'this scheme opens nothing',
+		});
 	});
 
 	it('resolves a message URI of this room to its seq', () => {
@@ -86,21 +78,12 @@ describe('resolveRef', () => {
 	});
 });
 
-describe('tableOfUri', () => {
-	it('reads a lab URI and no other string', () => {
-		expect(tableOfUri('lab:///runs')).toBe('runs');
-		expect(tableOfUri('/shared/runs')).toBeUndefined();
-		expect(tableOfUri('lab:///a/b')).toBeUndefined();
-	});
-});
-
 describe('chipLine', () => {
 	const file = resolveRef('file:///library/cell-18650.md', known);
 	const missing = resolveRef('file:///library/missing-datasheet-with-a-long-name.md', known);
 
 	it('shows a marker, the kind, and the label', () => {
 		expect(chipLine(file, 80)).toBe('↗ file  /library/cell-18650.md');
-		expect(chipLine(resolveRef('lab:///runs', known), 80)).toBe('↗ table  runs');
 		expect(chipLine(resolveRef('ambion://room/characterization/message/2', known), 80)).toBe(
 			'↗ message  2',
 		);
@@ -131,7 +114,10 @@ describe('refItems', () => {
 	const blocks: Block[] = [
 		{
 			type: 'message',
-			message: said(1, ['lab:///runs', 'file:///library/cell-18650.md']),
+			message: said(1, [
+				'ambion://room/characterization/message/2',
+				'file:///library/cell-18650.md',
+			]),
 			role: 'said',
 		},
 		{ type: 'message', message: said(2), role: 'said' },
@@ -144,14 +130,16 @@ describe('refItems', () => {
 			cost: '',
 			activations: 1,
 			expanded: false,
-			items: [{ type: 'message', message: said(3, ['lab:///results']), role: 'said' }],
+			items: [
+				{ type: 'message', message: said(3, ['file:///shared/my%20notes.md']), role: 'said' },
+			],
 		},
 	];
 
 	it('lists the refs of the shown messages in order, with one id each', () => {
 		const items = refItems(blocks, known);
 		expect(items.map((item) => item.id)).toEqual(['1#0', '1#1']);
-		expect(items.map((item) => item.resolved.kind)).toEqual(['table', 'file']);
+		expect(items.map((item) => item.resolved.kind)).toEqual(['message', 'file']);
 	});
 
 	it('lists the refs inside a discussion only when it is open', () => {

@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 import { describeUnavailable } from './domain/families.ts';
 import { runEngine } from './terminal/tui.ts';
 
-const USAGE = 'Usage: pnpm start [directory] [--as <person>]';
+const USAGE = 'Usage: pnpm start [directory]';
 
 /**
  * Say which seats cannot run for want of a key. Workbench still
@@ -17,17 +17,14 @@ function reportMissingKeys(): void {
 }
 
 try {
-	const { values, positionals } = parseArgs({
-		options: { as: { type: 'string' } },
-		allowPositionals: true,
-	});
+	const { positionals } = parseArgs({ allowPositionals: true });
 	if (positionals.length > 1) throw new Error(USAGE);
 	reportMissingKeys();
 	await runEngine({
 		directory: positionals[0] ?? '.data',
-		// Workbench adds a person named for this account (src/domain/definitions.ts),
-		// so with no explicit choice it opens straight to that person.
-		person: values.as ?? process.env.WORKBENCH_USER ?? userInfo().username,
+		// The one person of Workbench has the name of this account
+		// (src/domain/definitions.ts), so the terminal opens as that person.
+		person: userInfo().username,
 	});
 } catch (error) {
 	console.error(error instanceof Error ? error.message : String(error));
