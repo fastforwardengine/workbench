@@ -2,10 +2,11 @@
 
 **A shared lab workspace where people and specialists work on electrical
 engineering, hardware, and electrochemistry.** It runs on
-[Ambion](https://github.com/ambionframework/ambion) 0.3.0 and follows
+[Ambion](https://github.com/ambionframework/ambion) 0.3.0, the
+collaboration kernel, and follows
 [Ambion's example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
-It is a scaffold. [`planning/next.md`](planning/next.md) holds the next
-work: an LED parameter sweep on real hardware.
+Its first project is an LED parameter sweep on real hardware.
+[`planning/next.md`](planning/next.md) holds the next work.
 
 ## Install
 
