@@ -16,8 +16,10 @@
 
 The supply speaks Modbus RTU at 9600 baud, 8N1, address 1, over its CH340
 USB-serial chip. docs/registers.md holds the register map and what each
-entry rests on. The tool refuses a setpoint or a protection limit above
-limits.json. The supply's own OVP and OCP act only when the panel arms them.
+entry rests on. The tool refuses a setpoint, a preset, or a protection limit
+above limits.json: a voltage above max_voltage, a current above max_current,
+or a power above max_power. The supply's own OVP and OCP act only when the
+panel arms them.
 """
 
 import argparse
@@ -130,6 +132,8 @@ class SimulatedBus:
         }
         self.registers = {**self.DEFAULTS, **presets, **state.get("registers", {})}
         self.load_ohms = state.get("load_ohms", load_ohms)
+        # Each write, in order, so a test can check the order of a change.
+        self.writes = state.get("writes", [])
 
     def _output(self):
         """Constant voltage until the current limit, then constant current."""
@@ -147,15 +151,18 @@ class SimulatedBus:
 
     def write(self, register, value):
         self.registers[f"{register}"] = value
+        self.writes.append([register, value])
         self._save()
 
     def write_many(self, first, values):
         for k, value in enumerate(values):
             self.registers[f"{first + k}"] = value
+            self.writes.append([first + k, value])
         self._save()
 
     def _save(self):
-        self.path.write_text(json.dumps({"load_ohms": self.load_ohms, "registers": self.registers}, indent=1))
+        state = {"load_ohms": self.load_ohms, "registers": self.registers, "writes": self.writes}
+        self.path.write_text(json.dumps(state, indent=1))
 
     def close(self):
         pass
@@ -210,17 +217,29 @@ class Supply:
         if value > ceiling:
             raise SupplyError(f"{name} {value:g} {unit} is above the limit {ceiling:g} {unit} of limits.json.")
 
+    def _check_pair(self, volts, amps, what):
+        """Refuse a voltage, a current, or their product above limits.json."""
+        self._within(volts, f"{what}: the voltage", min(self.limits["max_voltage"], RATED_V), "V")
+        self._within(amps, f"{what}: the current", min(self.limits["max_current"], RATED_I), "A")
+        self._within(volts * amps, f"{what}: the power", self.limits["max_power"], "W")
+
     def set(self, voltage=None, current=None):
         now = self.setpoints()
         volts = now["voltage"] if voltage is None else voltage
         amps = now["current"] if current is None else current
-        self._within(volts, "The voltage", min(self.limits["max_voltage"], RATED_V), "V")
-        self._within(amps, "The current", min(self.limits["max_current"], RATED_I), "A")
-        self._within(volts * amps, "The power of the setpoints", self.limits["max_power"], "W")
+        self._check_pair(volts, amps, "The setpoints")
+        # One register changes at a time. When the voltage rises, the current
+        # goes first, so the state between the two writes stays at or below the
+        # old or the new setpoints, and so within limits.json.
+        writes = []
         if voltage is not None:
-            self.bus.write(SET_V, round(voltage * 100))
+            writes.append((SET_V, round(voltage * 100)))
         if current is not None:
-            self.bus.write(SET_I, round(current * 1000))
+            writes.append((SET_I, round(current * 1000)))
+        if voltage is not None and voltage > now["voltage"]:
+            writes.reverse()
+        for register, value in writes:
+            self.bus.write(register, value)
         return self.setpoints()
 
     def output(self, on):
@@ -230,14 +249,18 @@ class Supply:
         return "on" if self.bus.read(OUTPUT)[0] else "off"
 
     def protect(self, ovp=None, ocp=None, opp=None):
+        # A protection limit trips at or before the limit of limits.json.
         if ovp is not None:
-            self._within(ovp, "OVP", MAX_OVP, "V")
+            self._within(ovp, "OVP", min(self.limits["max_voltage"], MAX_OVP), "V")
+        if ocp is not None:
+            self._within(ocp, "OCP", min(self.limits["max_current"], MAX_OCP), "A")
+        if opp is not None:
+            self._within(opp, "OPP", min(self.limits["max_power"], MAX_OPP), "W")
+        if ovp is not None:
             self.bus.write(OVP, round(ovp * 100))
         if ocp is not None:
-            self._within(ocp, "OCP", MAX_OCP, "A")
             self.bus.write(OCP, round(ocp * 1000))
         if opp is not None:
-            self._within(opp, "OPP", MAX_OPP, "W")
             raw = round(opp * 1000)
             self.bus.write_many(OPP, [raw >> 16, raw & 0xFFFF])
         return self.protection_limits()
@@ -253,11 +276,15 @@ class Supply:
         if not 1 <= number <= PRESETS:
             raise SupplyError(f"The supply has presets 1 to {PRESETS}.")
         base = PRESET_BASE + PRESET_STEP * (number - 1)
+        stored = self.presets()[number - 1]
+        # The panel can recall the preset, so the whole preset must be within
+        # limits.json: the new values, and the stored values it keeps.
+        volts = stored["voltage"] if voltage is None else voltage
+        amps = stored["current"] if current is None else current
+        self._check_pair(volts, amps, f"Preset {number}")
         if voltage is not None:
-            self._within(voltage, "The voltage", min(self.limits["max_voltage"], RATED_V), "V")
             self.bus.write(base, round(voltage * 100))
         if current is not None:
-            self._within(current, "The current", min(self.limits["max_current"], RATED_I), "A")
             self.bus.write(base + 1, round(current * 1000))
         return self.presets()[number - 1]
 
@@ -375,16 +402,25 @@ def show(result, as_json):
 def main(argv=None):
     args = parser().parse_args(argv)
     limits = json.loads(Path(args.limits).read_text())
-    bus = SimulatedBus(args.sim) if args.sim else SerialBus(args.port, args.address)
-    supply = Supply(bus, limits)
+    bus = None
     try:
+        bus = SimulatedBus(args.sim) if args.sim else SerialBus(args.port, args.address)
+        supply = Supply(bus, limits)
         supply.check_model()
         show(run(supply, args), args.json)
     except SupplyError as error:
         print(f"psu: {error}", file=sys.stderr)
         return 1
+    except OSError as error:
+        # pyserial's SerialException is an OSError: a missing, busy, or lost port.
+        print(f"psu: The serial port {args.port} failed: {error}", file=sys.stderr)
+        return 1
+    except ImportError:
+        print("psu: pyserial is not installed. The workstation has it: python3-serial.", file=sys.stderr)
+        return 1
     finally:
-        bus.close()
+        if bus is not None:
+            bus.close()
     return 0
 
 
