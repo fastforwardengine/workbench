@@ -50,15 +50,51 @@ install -d -m 2750 -o workbench-host -g workbench /srv/workbench/rooms /library
 # The USB devices of the machine, when compose.yaml mounts /dev/bus/usb. The
 # container runs no udev, so each device file comes in as root's. The group
 # plugdev gets read and write, so Instruments reaches a device through
-# libusb. A device attached after the start gets a file of its own, so a
-# loop in the background applies the rule again every 5 seconds.
+# libusb.
 usb_access() {
 	[ -d /dev/bus/usb ] || return 0
 	chgrp -R plugdev /dev/bus/usb 2>/dev/null || true
 	chmod -R g+rw /dev/bus/usb 2>/dev/null || true
 }
+
+# The device file of each camera, serial port, and USBTMC instrument that the
+# kernel lists in /sys, with the group that reaches it. The container's own
+# /dev holds no file for a device that arrives after the start, so the
+# script makes it from the major and minor numbers in /sys, and removes the
+# file of a device that went away.
+device_files() {
+	local entry name group numbers
+	for entry in /sys/class/video4linux/video* /sys/class/tty/ttyUSB* \
+		/sys/class/tty/ttyACM* /sys/class/usbmisc/usbtmc*; do
+		[ -e "$entry/dev" ] || continue
+		name="$(basename "$entry")"
+		case "$name" in
+		video*) group=video ;;
+		tty*) group=dialout ;;
+		*) group=plugdev ;;
+		esac
+		if ! [ -e "/dev/$name" ]; then
+			numbers="$(cat "$entry/dev")"
+			mknod "/dev/$name" c "${numbers%%:*}" "${numbers##*:}" 2>/dev/null || continue
+		fi
+		chgrp "$group" "/dev/$name" && chmod 0660 "/dev/$name"
+	done
+	for entry in /dev/video* /dev/ttyUSB* /dev/ttyACM* /dev/usbtmc*; do
+		[ -e "$entry" ] || continue
+		name="$(basename "$entry")"
+		case "$name" in
+		video*) [ -e "/sys/class/video4linux/$name" ] || rm -f "$entry" ;;
+		tty*) [ -e "/sys/class/tty/$name" ] || rm -f "$entry" ;;
+		*) [ -e "/sys/class/usbmisc/$name" ] || rm -f "$entry" ;;
+		esac
+	done
+}
+
+# A device attached after the start gets a file of its own, so a loop in the
+# background applies both rules again every 5 seconds.
 usb_access
-( while sleep 5; do usb_access; done ) &
+device_files
+( while sleep 5; do usb_access; device_files; done ) &
 
 # The account list decides who logs in. The Match block of the git account
 # adds the keys that the git backend issues.

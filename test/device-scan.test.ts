@@ -105,6 +105,6 @@ describe.skipIf(!python)('the device scan', () => {
 		]);
 		// The files are not in this container, so the report says where to add them.
 		expect(printed).toContain('**Rigol DP800** `1ab1:0e11` at port 1-2: instrument (USBTMC)');
-		expect(printed).toContain('`/dev/usbtmc0`, not in the container: add it to `devices:`');
+		expect(printed).toContain('`/dev/usbtmc0`, not in the container yet: scan again in 5 seconds');
 	});
 });

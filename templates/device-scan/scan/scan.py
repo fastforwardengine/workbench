@@ -198,7 +198,7 @@ def markdown(report):
         name = " ".join(filter(None, [device["manufacturer"], device["product"]])) or "(no name)"
         lines.append(f"- **{name}** `{device['id']}` at port {device['port']}: {device['kind']}")
         for node in device["nodes"]:
-            state = "in the container" if node["here"] else "not in the container: add it to `devices:`"
+            state = "in the container" if node["here"] else "not in the container yet: scan again in 5 seconds"
             lines.append(f"  - `{node['name']}`, {state}")
         usbfs = device["usbfs"]
         access = "read and write" if usbfs["writable"] else "no write access"

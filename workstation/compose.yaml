@@ -19,11 +19,16 @@ services:
       # The USB devices of the machine, for lsusb and libusb. With OrbStack on
       # macOS, `orb usb attach <id>` hands a device to its Linux first.
       - /dev/bus/usb:/dev/bus/usb
-    # Access to every USB device file (major 189), also to one attached after
-    # the start. A serial port or a camera also needs a `devices:` entry,
-    # such as /dev/ttyUSB0 or /dev/video0, once its model is known.
+    # Access to the device files of the bench, also to one attached after the
+    # start: USB devices (189), cameras (81), USB-serial chips (188), CDC-ACM
+    # serial ports (166), and USBTMC instruments (180). The entrypoint makes
+    # the file of each camera, serial port, and instrument from /sys.
     device_cgroup_rules:
       - 'c 189:* rmw'
+      - 'c 81:* rmw'
+      - 'c 188:* rmw'
+      - 'c 166:* rmw'
+      - 'c 180:* rmw'
     restart: unless-stopped
     # Healthy once sshd accepts a connection, so `up --wait` returns then.
     healthcheck:

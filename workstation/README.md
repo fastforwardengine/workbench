@@ -110,9 +110,30 @@ libusb reaches a device that arrives after the start. The container runs no
 udev, so the entrypoint gives `plugdev` read and write on each USB device
 file every 5 seconds.
 
-**A serial port or a camera needs a `devices:` entry** in `compose.yaml`,
-such as `/dev/ttyUSB0` or `/dev/video0`. The scan says which device file
-does not reach the container.
+**The workstation makes the device file of each camera, serial port, and
+USBTMC instrument.** The container's own `/dev` holds no file for a device
+that arrives after the start. The entrypoint reads the major and minor
+numbers in `/sys` every 5 seconds, makes `/dev/video*`, `/dev/ttyUSB*`,
+`/dev/ttyACM*`, and `/dev/usbtmc*` with the group of Instruments, and removes
+the file of a device that went away. `compose.yaml` allows these device
+types. No `devices:` entry is needed.
+
+**Capture a frame** as Instruments:
+
+```sh
+v4l2-ctl --list-devices                          # the cameras
+v4l2-ctl -d /dev/video0 --list-formats-ext       # their formats and sizes
+fswebcam -d /dev/video0 -r 1280x720 -S 10 --no-banner frame.jpg
+python3 -c "from PIL import Image; import numpy; print(numpy.asarray(Image.open('frame.jpg').convert('L')).mean())"
+```
+
+`-S 10` skips 10 frames, so the exposure settles. The last line prints the
+mean brightness of the frame.
+
+**OrbStack's Linux has the drivers of the bench as modules:** `uvcvideo`
+for a UVC camera, `cdc-acm`, `ftdi_sio`, `ch341`, `cp210x`, and `pl2303` for
+a serial port, and `usbtmc` for an instrument. A module loads when its
+device arrives.
 
 **With OrbStack on macOS, attach a device to Linux first:**
 
