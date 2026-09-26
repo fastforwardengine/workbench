@@ -19,22 +19,6 @@ each claim with evidence.
 needs from each. A capability that serves any room goes into Ambion. A
 capability that is about the bench goes into Workbench.
 
-## Where the prototype left the lab
-
-**The LED prototype is done.** Its goal was a real device under agent
-control, and the agents drove the HM310P, saw the LED through the camera,
-swept it, and blinked it. The milestone builds on what it left:
-
-| Capability                                                    | Where                                 |
-| ------------------------------------------------------------- | ------------------------------------- |
-| The workstation: one Unix account for each agent, over SSH    | `workstation/`, `make`                |
-| USB devices of the Mac, attached to the workstation           | `make usb`, `workstation/usb.py`      |
-| Device files of cameras, serial ports, and USBTMC instruments | `workstation/entrypoint.sh`           |
-| A scan of the connected devices                               | The `device-scan` template            |
-| The HM310P under control, within `limits.json`                | The `hm310p` template                 |
-| Frames of the BRIO camera, and their brightness               | `fswebcam`, `v4l2-ctl`, numpy, Pillow |
-| Evals on the simulator                                        | `test/live`                           |
-
 ## The workstation: a Lambda Vector
 
 **A Lambda Vector becomes the workstation of the workspace.** It has two
@@ -72,7 +56,7 @@ bench and the evidence for it.
 | 7   | The team guides the build of the second kit, and checks the placement and the orientation of each polarized part    |
 | 8   | The first power-on of the second kit is current-limited by the HM310P, and the team stops it on an abnormal current |
 | 9   | Path C: new firmware takes serial commands, and the buttons and the display still work                              |
-| 10  | An eval on the simulator grades the awareness of the team, with the failures of the prototype as its first cases    |
+| 10  | An eval on the simulator grades the awareness of the team on the cases of activity 9                                |
 
 ## Situation awareness
 
@@ -218,9 +202,9 @@ the display shows the frequency that the team set.
 
 - [ ] A simulated bench: recorded frames, recorded clips, simulated device
       events, and the `hm310p` simulator.
-- [ ] Cases from the failures of the prototype: an open circuit, a lead in
-      the ground terminal, a device that the host lost, and a lit LED at
-      0 mA.
+- [ ] Cases of a bench that disagrees with itself: an open circuit, a
+      lead in the ground terminal, a device that the host lost, and a lit
+      part at 0 mA.
 
 **Done when** the eval grades each case, and a case fails when the team
 claims what its evidence does not show.
