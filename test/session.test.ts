@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ActivationSteps, ProcessView } from '../src/host/host.ts';
 import { lastPart } from '../src/host/processes.ts';
+import { COMMANDS } from '../src/terminal/commands.ts';
 import { ProcessBrowser, stateText } from '../src/terminal/process-browser.ts';
 import type { Session } from '../src/terminal/session.ts';
+import { HELP } from '../src/terminal/session-text.ts';
 import { started, view } from './fake-host.ts';
 
 describe('Session start', () => {
@@ -627,5 +629,53 @@ describe('Session /ps', () => {
 		['aaaaaaaaaaa', 'aaaaaaa', true],
 	])('keeps the end of %j as %j', (text, end, truncated) => {
 		expect(lastPart(text, 7)).toEqual({ text: end, truncated });
+	});
+});
+
+describe('Session commands', () => {
+	it('runs every command of the list through a handler', async () => {
+		for (const { name } of COMMANDS) {
+			const { session } = await started();
+			await expect(session.submit(`/${name}`), name).resolves.not.toThrow();
+			expect(session.error, name).toBeUndefined();
+		}
+	});
+
+	it('gives the intent of the two commands that leave the room', async () => {
+		const { session } = await started();
+		expect(await session.submit('/ps')).toEqual({ type: 'processes' });
+		expect(await session.submit('/quit')).toEqual({ type: 'quit' });
+		expect(await session.submit('/files')).toEqual({ type: 'files' });
+	});
+
+	it('opens every discussion with /expand and closes them with /collapse', async () => {
+		const { host, session } = await started();
+		const said = (seq: number, from: string) => ({
+			seq,
+			kind: 'said',
+			from,
+			text: `m${seq}`,
+			at: AT,
+		});
+		host.table.set(
+			'characterization',
+			view('characterization', {
+				participants: [{ name: 'priya', kind: 'human' }],
+				messages: [said(1, 'priya'), said(2, 'design'), said(3, 'datasheets'), said(4, 'priya')],
+				exchanges: [closedExchange(1, { through: 3 })],
+			}),
+		);
+		await session.refresh();
+		expect(session.expanded.size).toBe(0);
+		await session.submit('/expand');
+		expect(session.expanded.size).toBe(1);
+		await session.submit('/collapse');
+		expect(session.expanded.size).toBe(0);
+	});
+
+	it('shows the help text with /help', async () => {
+		const { session } = await started();
+		await session.submit('/help');
+		expect(session.notice).toBe(HELP);
 	});
 });

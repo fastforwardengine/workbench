@@ -7,9 +7,16 @@ import { errorText } from '../view/text.ts';
 import { type Block, buildTimeline } from '../view/timeline.ts';
 import { attentionOf, newest, pick } from './attention.ts';
 import { entryLoader, FileBrowser } from './browser.ts';
-import { type Choices, type Parsed, parse, type Suggestion, suggest } from './commands.ts';
+import {
+	type Choices,
+	type CommandName,
+	type Parsed,
+	parse,
+	type Suggestion,
+	suggest,
+} from './commands.ts';
 import { dismissCommand } from './dismiss.ts';
-import { RoomFeed } from './feed.ts';
+import { RoomReader } from './room-reader.ts';
 import { DONE, HELP, notesOf, refusal, workingAgents } from './session-text.ts';
 
 /** What the terminal does after a command, beyond what the session already changed. */
@@ -43,21 +50,23 @@ export class Session {
 	awaitingGoal: string | undefined;
 	/** The activation whose steps the terminal shows. It re-reads on each room change. */
 	steps: { id: string; read: ActivationSteps | undefined } | undefined;
-	private readonly feed: RoomFeed<RoomView>;
+	private readonly reader: RoomReader<RoomView>;
 	private readonly changed: () => void;
 	private sending = false;
 	private wantBottom = false;
-	/** True while a read runs. A change during the read sets `pending` for one more read. */
-	private refreshing = false;
-	private pending = false;
-	/** Ends the watch on the open room. The session watches one room at a time. */
-	private unwatch: (() => void) | undefined;
 
 	constructor(host: Lab, identity: Person | undefined, changed: () => void) {
 		this.host = host;
 		this.identity = identity;
 		this.changed = changed;
-		this.feed = new RoomFeed<RoomView>(host);
+		this.reader = new RoomReader<RoomView>(
+			host,
+			(view) => this.applyView(view),
+			(error) => {
+				this.offline = errorText(error);
+				this.changed();
+			},
+		);
 		this.browser = new FileBrowser(entryLoader(host), changed);
 	}
 
@@ -105,39 +114,17 @@ export class Session {
 		this.changed();
 	}
 
-	/**
-	 * Read the open room. A watch calls this on each change. A change that lands
-	 * during a read sets `pending`, so one more read runs after the current one
-	 * and no change is lost.
-	 */
-	async refresh(): Promise<void> {
-		if (this.refreshing) {
-			this.pending = true;
-			return;
-		}
-		this.refreshing = true;
-		try {
-			do {
-				this.pending = false;
-				await this.readOnce();
-			} while (this.pending);
-		} finally {
-			this.refreshing = false;
-		}
+	/** Read the open room. The reader does it again when a change lands during a read. */
+	refresh(): Promise<void> {
+		return this.reader.refresh();
 	}
 
-	private async readOnce(): Promise<void> {
-		try {
-			const view = await this.feed.refresh();
-			if (!view) return;
-			this.view = view;
-			this.offline = undefined;
-			await this.readSide(view.name);
-			this.rebuild();
-		} catch (error) {
-			this.offline = errorText(error);
-			this.changed();
-		}
+	/** Take a room view from the reader: keep it, read the open steps, and build the timeline. */
+	private async applyView(view: RoomView): Promise<void> {
+		this.view = view;
+		this.offline = undefined;
+		await this.readSide(view.name);
+		this.rebuild();
 	}
 
 	/**
@@ -186,7 +173,7 @@ export class Session {
 		if (!view) return;
 		const activity = view.activity.at(-1);
 		this.blocks = buildTimeline({
-			messages: this.feed.messages,
+			messages: this.reader.messages,
 			exchanges: view.exchanges,
 			open: view.exchange,
 			humans: new Set(
@@ -266,40 +253,50 @@ export class Session {
 		return this.command(parsed.name, parsed.argument);
 	}
 
-	private async command(name: string, argument: string): Promise<Intent | undefined> {
-		switch (name) {
-			case 'room':
-				return void (await this.goTo(argument));
-			case 'new':
-				return void (await this.newRoom(argument));
-			case 'user':
-				return void (await this.chooseUser(argument));
-			case 'files':
-				return this.openFiles();
-			case 'open':
-				return this.openFile(argument);
-			case 'dismiss': {
-				const done = await dismissCommand(this.host, this.view, argument);
-				return void ('error' in done ? this.fail(done.error) : this.say(done.notice));
-			}
-			case 'try':
-				if (this.view?.prompt) return { type: 'compose', text: this.view.prompt };
-				return void this.say('This room has no suggested question.');
-			case 'abort':
-			case 'stop':
-			case 'resume':
-				return void (await this.control(name));
-			case 'steps':
-				return void (await this.stepsCommand(argument));
-			case 'expand':
-			case 'collapse':
-				return void this.setAllOpen(name === 'expand');
-			case 'help':
-				return void this.say(HELP);
-			default:
-				return { type: name === 'ps' ? 'processes' : 'quit' };
-		}
+	private command(name: CommandName, argument: string): Promise<Intent | undefined> {
+		return this.handlers[name](argument);
 	}
+
+	/** Wait for some work, then report that the command has no intent to pass on. */
+	private async finish(work: unknown): Promise<undefined> {
+		await work;
+		return undefined;
+	}
+
+	/**
+	 * What each command does. The type holds a handler for every name in
+	 * `COMMANDS`, so a new command that has none does not compile.
+	 */
+	private readonly handlers: Record<
+		CommandName,
+		(argument: string) => Promise<Intent | undefined>
+	> = {
+		room: (argument) => this.finish(this.goTo(argument)),
+		new: (argument) => this.finish(this.newRoom(argument)),
+		user: (argument) => this.finish(this.chooseUser(argument)),
+		files: () => this.openFiles(),
+		open: (argument) => this.openFile(argument),
+		ps: async () => ({ type: 'processes' }),
+		dismiss: async (argument) => {
+			const done = await dismissCommand(this.host, this.view, argument);
+			if ('error' in done) this.fail(done.error);
+			else this.say(done.notice);
+			return undefined;
+		},
+		try: async () => {
+			if (this.view?.prompt) return { type: 'compose', text: this.view.prompt };
+			this.say('This room has no suggested question.');
+			return undefined;
+		},
+		abort: () => this.finish(this.control('abort')),
+		stop: () => this.finish(this.control('stop')),
+		resume: () => this.finish(this.control('resume')),
+		steps: (argument) => this.finish(this.stepsCommand(argument)),
+		expand: () => this.finish(this.setAllOpen(true)),
+		collapse: () => this.finish(this.setAllOpen(false)),
+		help: () => this.finish(this.say(HELP)),
+		quit: async () => ({ type: 'quit' }),
+	};
 
 	// Rooms
 
@@ -315,17 +312,10 @@ export class Session {
 		this.notice = undefined;
 		this.entered = false;
 		this.wantBottom = true;
-		this.feed.select(name);
-		this.watchRoom();
+		this.reader.select(name);
 		if (previous) await this.host.leave(previous, this.whoami).catch(() => {});
 		await this.join();
 		await this.refresh();
-	}
-
-	/** Watch the open room, so a change reads it at once. It replaces an earlier watch. */
-	private watchRoom(): void {
-		this.unwatch?.();
-		this.unwatch = this.host.watch(this.room, () => void this.refresh());
 	}
 
 	private async join(): Promise<void> {
@@ -458,7 +448,7 @@ export class Session {
 		return {
 			room: this.room,
 			files: this.files.map((file) => file.path),
-			seqs: new Set(this.feed.messages.map((message) => message.seq)),
+			seqs: new Set(this.reader.messages.map((message) => message.seq)),
 		};
 	}
 
@@ -568,8 +558,7 @@ export class Session {
 
 	/** End the person's visit, so the room shows them as gone after the terminal exits. */
 	async leave(): Promise<void> {
-		this.unwatch?.();
-		this.unwatch = undefined;
+		this.reader.stop();
 		if (this.room && this.entered && this.identity)
 			await this.host.leave(this.room, this.identity.name).catch(() => {});
 	}

@@ -6,31 +6,109 @@ interface Command {
 	summary: string;
 	/** What the command takes after its name. A command with nothing runs at once. */
 	argument?: 'room' | 'person' | 'file' | 'say' | 'text';
+	/** The lines that `/help` shows for the command. A command that another line covers has none. */
+	help: readonly string[];
 }
 
-const COMMANDS: readonly Command[] = [
-	{ name: 'room', summary: 'Switch to another room', argument: 'room' },
-	{ name: 'new', summary: 'Create a room: /new <name> [goal]', argument: 'text' },
-	{ name: 'user', summary: 'Switch to another person', argument: 'person' },
-	{ name: 'files', summary: 'Search the workspace files' },
-	{ name: 'open', summary: 'Open a workspace file in the side panel', argument: 'file' },
-	{ name: 'ps', summary: 'Show the background processes of the agents' },
-	{ name: 'try', summary: 'Fill the composer with the room’s suggested question' },
-	{ name: 'abort', summary: 'Cancel the open exchange' },
-	{ name: 'dismiss', summary: 'Dismiss a say that waits to return: /dismiss <n>', argument: 'say' },
-	{ name: 'stop', summary: 'Stop the room' },
-	{ name: 'resume', summary: 'Resume the room' },
-	{ name: 'steps', summary: 'Show the steps of an activation: /steps [n]', argument: 'text' },
-	{ name: 'expand', summary: 'Open every discussion' },
-	{ name: 'collapse', summary: 'Close every discussion' },
-	{ name: 'help', summary: 'Show the commands and keys' },
-	{ name: 'quit', summary: 'Leave the terminal' },
-];
+/**
+ * The commands, in the order that `/help` and the palette list them. The
+ * session must hold a handler for each name, and the compiler checks it.
+ */
+export const COMMANDS = [
+	{
+		name: 'room',
+		summary: 'Switch to another room',
+		argument: 'room',
+		help: ['  /room <name>      switch to another room. Ctrl+R lists the rooms.'],
+	},
+	{
+		name: 'new',
+		summary: 'Create a room: /new <name> [goal]',
+		argument: 'text',
+		help: ['  /new <name> [goal]  create a room. Without a goal, the next line is the goal.'],
+	},
+	{
+		name: 'user',
+		summary: 'Switch to another person',
+		argument: 'person',
+		help: ['  /user <name>      switch to another person'],
+	},
+	{
+		name: 'files',
+		summary: 'Search the workspace files',
+		help: ['  /files            search the workspace files and read one in a side panel'],
+	},
+	{
+		name: 'open',
+		summary: 'Open a workspace file in the side panel',
+		argument: 'file',
+		help: ['  /open <path>      open the files panel on one file'],
+	},
+	{
+		name: 'ps',
+		summary: 'Show the background processes of the agents',
+		help: [
+			'  /ps               show the background processes of the agents, their output,',
+			'                    and cancel one with x, twice',
+		],
+	},
+	{
+		name: 'try',
+		summary: 'Fill the composer with the room’s suggested question',
+		help: ['  /try              fill the composer with the room’s suggested question'],
+	},
+	{
+		name: 'abort',
+		summary: 'Cancel the open exchange',
+		help: ['  /abort            cancel the open exchange in this room'],
+	},
+	{
+		name: 'dismiss',
+		summary: 'Dismiss a say that waits to return: /dismiss <n>',
+		argument: 'say',
+		help: [
+			'  /dismiss <n>      dismiss the say n that waits to return. The agent does not come back to it.',
+		],
+	},
+	{
+		name: 'stop',
+		summary: 'Stop the room',
+		help: ['  /stop             stop the room. /resume starts it again.'],
+	},
+	{ name: 'resume', summary: 'Resume the room', help: [] },
+	{
+		name: 'steps',
+		summary: 'Show the steps of an activation: /steps [n]',
+		argument: 'text',
+		help: [
+			'  /steps [n]        show the steps of the newest activation of exchange n, oldest first.',
+			'                    Without n, the latest exchange. /steps off hides them.',
+		],
+	},
+	{
+		name: 'expand',
+		summary: 'Open every discussion',
+		help: ['  /expand           open every discussion. /collapse closes them.'],
+	},
+	{ name: 'collapse', summary: 'Close every discussion', help: [] },
+	{ name: 'help', summary: 'Show the commands and keys', help: [] },
+	{
+		name: 'quit',
+		summary: 'Leave the terminal',
+		help: ['  /quit             leave the terminal. The rooms stop with it.'],
+	},
+] as const satisfies readonly Command[];
+
+/** The name of a command. */
+export type CommandName = (typeof COMMANDS)[number]['name'];
+
+/** The commands as the parser and the palette read them: with the optional fields typed. */
+const LISTED: readonly Command[] = COMMANDS;
 
 /** What the person typed, once read. */
 export type Parsed =
 	| { kind: 'message'; text: string }
-	| { kind: 'command'; name: string; argument: string }
+	| { kind: 'command'; name: CommandName; argument: string }
 	| { kind: 'unknown'; name: string };
 
 /**
@@ -43,8 +121,9 @@ export function parse(input: string): Parsed {
 	if (!text.startsWith('/') || text.includes('\n')) return { kind: 'message', text };
 	const [head = '', ...rest] = text.slice(1).split(/\s+/);
 	const name = head.toLowerCase();
-	if (!COMMANDS.some((command) => command.name === name)) return { kind: 'unknown', name };
-	return { kind: 'command', name, argument: rest.join(' ').trim() };
+	const command = COMMANDS.find((candidate) => candidate.name === name);
+	if (!command) return { kind: 'unknown', name };
+	return { kind: 'command', name: command.name, argument: rest.join(' ').trim() };
 }
 
 /** A room the person can switch to. */
@@ -96,7 +175,7 @@ const bytes = (size: number): string =>
 	size < 1024 ? `${size} B` : `${(size / 1024).toFixed(1)} KB`;
 
 function commandSuggestions(prefix: string): Suggestion[] {
-	return COMMANDS.filter((command) => command.name.startsWith(prefix.toLowerCase())).map(
+	return LISTED.filter((command) => command.name.startsWith(prefix.toLowerCase())).map(
 		(command) => ({
 			kind: 'command' as const,
 			label: `/${command.name}`,

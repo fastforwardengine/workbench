@@ -1,24 +1,10 @@
 import type { ParticipantInfo, PendingSay } from '@ambionframework/ambion';
 import type { RoomAction, RoomView } from '../host/host.ts';
 import type { Block } from '../view/timeline.ts';
+import { COMMANDS } from './commands.ts';
 
-export const HELP = [
-	'Commands',
-	'  /room <name>      switch to another room. Ctrl+R lists the rooms.',
-	'  /new <name> [goal]  create a room. Without a goal, the next line is the goal.',
-	'  /user <name>      switch to another person',
-	'  /files            search the workspace files and read one in a side panel',
-	'  /open <path>      open the files panel on one file',
-	'  /ps               show the background processes of the agents, their output,',
-	'                    and cancel one with x, twice',
-	'  /try              fill the composer with the room’s suggested question',
-	'  /abort            cancel the open exchange in this room',
-	'  /dismiss <n>      dismiss the say n that waits to return. The agent does not come back to it.',
-	'  /stop             stop the room. /resume starts it again.',
-	'  /steps [n]        show the steps of the newest activation of exchange n, oldest first.',
-	'                    Without n, the latest exchange. /steps off hides them.',
-	'  /expand           open every discussion. /collapse closes them.',
-	'  /quit             leave the terminal. The rooms stop with it.',
+/** What `/help` says about the keys. The lines about the commands come from `COMMANDS`. */
+const KEY_HELP = [
 	'Keys',
 	'  Enter sends. Ctrl+J, Alt+Enter, and Shift+Enter add a line.',
 	'  Tab browses the discussions. Up and Down choose, Enter opens or closes,',
@@ -27,7 +13,11 @@ export const HELP = [
 	'  r, while browsing, chooses a ref of a shown message. Enter opens a file or a table',
 	'  in the files panel, or jumps to a message. Esc goes back.',
 	'  PageUp and PageDown scroll. Start a message with // to send a leading slash.',
-].join('\n');
+];
+
+export const HELP = ['Commands', ...COMMANDS.flatMap((command) => command.help), ...KEY_HELP].join(
+	'\n',
+);
 
 export const DONE: Record<RoomAction, (room: string) => string> = {
 	abort: (room) => `Aborted the open exchange in ${room}.`,
