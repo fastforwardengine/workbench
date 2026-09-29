@@ -86,10 +86,10 @@ Every activity feeds it, and every activity reads it.
   stored. The microphone keeps a clip only as the evidence of a claim.
 
 **Ambion:** observation entries in the journal (source, time, confidence,
-media refs), wake sources that activate a seat on an external event (the
-host already wakes a seat with `room.post` since 0.4.0), a
+media refs), wake sources that activate a seat on an external event, a
 shared state resource of the room, and reminders that give each seat what
-changed since it last looked.
+changed since it last looked. Since 0.4.0, the host wakes a seat with
+`room.post`.
 
 **Workbench:** the bench model and its schema, a perception service on the
 GPUs of the workstation, and a bench panel in the terminal.

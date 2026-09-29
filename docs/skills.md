@@ -35,7 +35,7 @@ specialist. The assistant has no file or shell tool, so it has no folder.
 1. The host reads each folder once, when it opens the rooms. A skill that
    breaks a rule of agentskills.io stops the start with an error that names
    the file.
-2. At the start of each activation, the workspace makes `~/.skills` in the
+2. At the start of each respond activation, the workspace makes `~/.skills` in the
    home of the specialist hold the files of its skills.
 3. The specialist reads `~/.skills/<skill>/SKILL.md` with `read`, and runs a
    script of the skill with `bash`.
@@ -59,6 +59,7 @@ skills, and the skill names the template.
    `src/domain/definitions.ts`, when a rule must hold on every activation.
 5. Add the skill to the table above.
 
-**A skill holds text files.** The host reads the bytes of each file, so an
-asset can be binary, but each script runs in the shell of the specialist on
-the workstation. Write a script for the programs that the workstation has.
+**A script runs in the shell of the specialist.** On a workstation, it runs
+as the account of the specialist, with the programs of the server. Write
+each script for the programs that the workstation has. The host reads the
+bytes of each file, so an asset can be binary.

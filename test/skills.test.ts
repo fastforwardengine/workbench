@@ -1,4 +1,6 @@
-import { readdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createRuntime, startRoom } from '@ambionframework/ambion';
 import {
 	byAgent,
@@ -88,6 +90,22 @@ describe('the Workbench skills', () => {
 		} finally {
 			await room.stop();
 			await workspace.dispose();
+		}
+	});
+
+	it('skips a file that a tool writes beside the skills', async () => {
+		const directory = mkdtempSync(join(tmpdir(), 'workbench-skills-'));
+		try {
+			mkdirSync(join(directory, 'instruments', 'scan'), { recursive: true });
+			writeFileSync(join(directory, 'instruments', '.DS_Store'), 'x');
+			writeFileSync(
+				join(directory, 'instruments', 'scan', 'SKILL.md'),
+				'---\nname: scan\ndescription: Scan. Use it now.\n---\nSteps.\n',
+			);
+			const set = await agentSkills('instruments', directory);
+			expect(set.skills.map((skill) => skill.name)).toEqual(['scan']);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
 		}
 	});
 });
