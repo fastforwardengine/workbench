@@ -97,8 +97,14 @@ async function messagesOf(lab: Lab, room: string) {
 	return (await lab.read(room, 0)).messages;
 }
 
+/**
+ * The exchange runs several activations over real SQLite and directory I/O.
+ * Alone it takes about 300 ms, and a loaded run of the whole suite takes several
+ * times that. The wait allows 5 s and returns as soon as the summary lands.
+ */
 async function untilSummary(lab: Lab, room: string) {
-	for (let attempt = 0; attempt < 100; attempt += 1) {
+	const deadline = Date.now() + 5_000;
+	while (Date.now() < deadline) {
 		const messages = await messagesOf(lab, room);
 		if (messages.some((message) => message.kind === 'summary')) return messages;
 		await new Promise<void>((resolve) => setTimeout(resolve, 10));
