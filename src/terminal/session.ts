@@ -3,13 +3,14 @@ import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../host/host.
 import { MAX_GOAL, ROOM_NAME } from '../host/names.ts';
 import { holderOf, type Known, type RefItem, refItems, shows } from '../view/refs.ts';
 import { type ActivationSteps, activationLine, ended, stepsView } from '../view/steps.ts';
+import { errorText } from '../view/text.ts';
 import { type Block, buildTimeline } from '../view/timeline.ts';
 import { attentionOf, newest, pick } from './attention.ts';
 import { entryLoader, FileBrowser } from './browser.ts';
 import { type Choices, type Parsed, parse, type Suggestion, suggest } from './commands.ts';
 import { dismissCommand } from './dismiss.ts';
 import { RoomFeed } from './feed.ts';
-import { DONE, errorText, HELP, notesOf, refusal, workingAgents } from './session-text.ts';
+import { DONE, HELP, notesOf, refusal, workingAgents } from './session-text.ts';
 
 /** What the terminal does after a command, beyond what the session already changed. */
 export type Intent = { type: 'quit' | 'files' | 'processes' } | { type: 'compose'; text: string };

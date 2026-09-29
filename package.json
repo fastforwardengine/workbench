@@ -45,7 +45,7 @@
 		"format": "pnpm run format:lint && pnpm run format:style",
 		"format:lint": "biome check . --write",
 		"format:style": "prettier . --cache --write --list-different",
-		"test": "vitest run --exclude 'test/live/**'",
+		"test": "vitest run",
 		"test:live": "vitest run --config vitest.live.config.ts",
 		"prepack": "pnpm run build"
 	},

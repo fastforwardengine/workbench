@@ -35,9 +35,6 @@ export const DONE: Record<RoomAction, (room: string) => string> = {
 	resume: (room) => `Resumed ${room}.`,
 };
 
-export const errorText = (error: unknown): string =>
-	error instanceof Error ? error.message : String(error);
-
 /** The reason an action does not apply to the room, or undefined when it does. */
 export function refusal(action: RoomAction, view: RoomView | undefined): string | undefined {
 	if (!view) return 'No room is open.';

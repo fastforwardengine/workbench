@@ -1,5 +1,6 @@
 import { BoxRenderable, type CliRenderer, createCliRenderer, type KeyEvent } from '@opentui/core';
 import { type Lab, type OpenOptions, openLab, type Person } from '../host/host.ts';
+import { errorText } from '../view/text.ts';
 import { tui as palette } from './brand.ts';
 import { parse } from './commands.ts';
 import { Composer } from './composer.ts';
@@ -18,9 +19,6 @@ const SLOW_MS = 4_000;
 
 /** The cells between the terminal edge and the content, on each side. */
 const PADDING = 1;
-
-const errorText = (error: unknown): string =>
-	error instanceof Error ? error.message : String(error);
 
 /**
  * The terminal. It builds the widgets, the session, and the input, and wires

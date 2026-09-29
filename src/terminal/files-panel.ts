@@ -1,10 +1,8 @@
 import {
-	BoxRenderable,
 	bg,
 	type CliRenderer,
 	fg,
 	MarkdownRenderable,
-	ScrollBoxRenderable,
 	StyledText,
 	SyntaxStyle,
 	TextRenderable,
@@ -12,8 +10,8 @@ import {
 import type { FileContent, TableView } from '../host/host.ts';
 import { tui as palette } from './brand.ts';
 import type { FileBrowser } from './browser.ts';
+import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
 
-export const LIST_ROWS = 8;
 const HINT = 'Type to search   Up/Down choose   PgUp/PgDn scroll   Ctrl+Y copy   Esc close';
 const TABLE_HINT = 'Left/Right table   ';
 const MAX_COLUMN = 40;
@@ -80,54 +78,23 @@ function tabsText(tables: readonly TableView[], shown: number): StyledText {
 const bytes = (size: number): string =>
 	size < 1024 ? `${size} B` : `${(size / 1024).toFixed(1)} KB`;
 
-/** The box of a side panel: beside the conversation, and hidden until it opens. */
-export function sidePanel(renderer: CliRenderer): BoxRenderable {
-	return new BoxRenderable(renderer, {
-		flexDirection: 'column',
-		width: '55%',
-		flexShrink: 0,
-		minWidth: 40,
-		border: true,
-		borderColor: palette.line,
-		backgroundColor: palette.panel,
-		paddingLeft: 1,
-		paddingRight: 1,
-		visible: false,
-	});
-}
-
-/** The rows to show: a window of the matches that keeps the chosen row in view. */
-export function windowStart(index: number, count: number): number {
-	return Math.max(0, Math.min(index - Math.floor(LIST_ROWS / 2), count - LIST_ROWS));
-}
-
 /** The files panel: a search box, the matching files, and the chosen file beside the conversation. */
-export class FilesPanel {
-	readonly root: BoxRenderable;
-	private readonly renderer: CliRenderer;
+export class FilesPanel extends SidePanel {
 	private readonly search: TextRenderable;
 	private readonly list: TextRenderable;
 	private readonly title: TextRenderable;
 	private readonly body: TextRenderable;
 	private readonly markdown: MarkdownRenderable;
 	private readonly tabs: TextRenderable;
-	private readonly scroll: ScrollBoxRenderable;
-	private readonly hint: TextRenderable;
 	private shown: string | undefined;
 	private tables = false;
 	private flashing: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(renderer: CliRenderer) {
-		this.renderer = renderer;
-		this.root = sidePanel(renderer);
-		this.search = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'none' });
-		this.list = new TextRenderable(renderer, {
-			content: '',
-			flexShrink: 0,
-			height: LIST_ROWS,
-			wrapMode: 'none',
-		});
-		this.title = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'none' });
+		super(renderer);
+		this.search = lineText(renderer);
+		this.list = listText(renderer);
+		this.title = lineText(renderer);
 		this.body = new TextRenderable(renderer, { content: '', wrapMode: 'word', width: '100%' });
 		this.markdown = new MarkdownRenderable(renderer, {
 			content: '',
@@ -137,33 +104,11 @@ export class FilesPanel {
 			width: '100%',
 			visible: false,
 		});
-		this.tabs = new TextRenderable(renderer, {
-			content: '',
-			flexShrink: 0,
-			wrapMode: 'none',
-			visible: false,
-		});
-		this.scroll = new ScrollBoxRenderable(renderer, {
-			flexGrow: 1,
-			scrollY: true,
-			backgroundColor: palette.panel,
-			scrollbarOptions: {
-				trackOptions: { backgroundColor: palette.bg, foregroundColor: palette.line },
-			},
-		});
-		// The padding keeps the text clear of the scrollbar.
-		const padded = new BoxRenderable(renderer, { paddingRight: 2, width: '100%' });
-		padded.add(this.body);
-		padded.add(this.markdown);
-		this.scroll.add(padded);
-		this.hint = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'word' });
+		this.tabs = lineText(renderer);
+		this.tabs.visible = false;
+		this.addBody(this.body, this.markdown);
 		for (const part of [this.search, this.list, this.title, this.tabs, this.scroll, this.hint])
 			this.root.add(part);
-	}
-
-	/** Give the panel the whole width, or a share of it beside the conversation. */
-	fill(whole: boolean): void {
-		this.root.width = whole ? '100%' : '55%';
 	}
 
 	/** Draw the browser's state. The preview scrolls back to the top when the file changes. */
@@ -255,18 +200,5 @@ export class FilesPanel {
 			this.flashing = undefined;
 			this.hint.content = new StyledText([fg(palette.dim)(this.hintText())]);
 		}, 1_800);
-	}
-
-	scrollBy(lines: number): void {
-		this.scroll.scrollBy(lines);
-	}
-
-	get page(): number {
-		return Math.max(4, this.scroll.height - 1);
-	}
-
-	/** Copy text to the clipboard through the terminal. Return false when it cannot. */
-	copy(text: string): boolean {
-		return this.renderer.isOsc52Supported() && this.renderer.copyToClipboardOSC52(text);
 	}
 }
