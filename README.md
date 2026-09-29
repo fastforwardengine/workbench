@@ -92,6 +92,11 @@ snapshot a file into a stable ref.
 The shell has `sqlite3`, so a specialist makes a database when a result
 needs one. A bench script comes from a template.
 
+**The host tells a specialist when its background command ends.** The
+message shows in the transcript as `posted → <seat>`. It names the process,
+the outcome, and the command, and it wakes the seat that started the
+command. A cancel by the seat itself posts nothing.
+
 ## The lab
 
 - **Room:** `led-sweep`. `/new` adds a room with the same three seats.
