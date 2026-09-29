@@ -1,6 +1,8 @@
 import { commitUri, snapshotUri } from '@ambionframework/ambion';
 import type { KeyEvent } from '@opentui/core';
 import { describe, expect, it, vi } from 'vitest';
+import type { FilesPanel } from '../src/terminal/files-panel.ts';
+import { FilesSurface } from '../src/terminal/files-surface.ts';
 import { type KeyParts, Keys } from '../src/terminal/keys.ts';
 import { type FakeHost, started, view } from './fake-host.ts';
 
@@ -75,7 +77,17 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 			revealMessage: (seq: number) => log.push(`reveal:${seq}`),
 			invalidate: () => {},
 		},
-		panel: { fill: () => {}, draw: () => {}, scrollBy: () => {}, page: 4 },
+		// The real surface over a panel that draws nothing: the keys of the files panel are the code under test.
+		surfaces: {
+			files: new FilesSurface(session.browser, {
+				root: {},
+				fill: () => {},
+				draw: () => {},
+				scrollBy: () => {},
+				page: 4,
+			} as unknown as FilesPanel),
+			processes: {} as never,
+		},
 		transcript: { root, scrollBy: () => {} },
 		render: () => {},
 	};
