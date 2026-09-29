@@ -6,7 +6,8 @@ server with one Unix account for each specialist
 Workbench runs the `bash` and file tools of each specialist on it over SSH,
 as that specialist's account. The git account of the workstation holds the
 templates and the forks. The journals of the rooms stay in the SQLite file
-of Workbench.
+of Workbench. A second container, an object store, keeps the bytes of the
+snapshots.
 
 ```mermaid
 flowchart LR
@@ -14,29 +15,34 @@ flowchart LR
     journals["rooms.db<br/>the journals"]
     bash["workstationBackend"]
     git["workstationGitBackend"]
+    s3["s3ObjectBackend"]
   end
   subgraph box["Container: sshd on 127.0.0.1:2222"]
     agents["datasheets, experiments,<br/>instruments, workbench-host"]
     repos["workbench-git<br/>~/repos"]
   end
+  subgraph store["Container: silo on 127.0.0.1:9000"]
+    bucket["bucket workbench-snapshots"]
+  end
   bash -- "SSH as each account" --> agents
   git -- "SSH as workbench-git" --> repos
   agents -- "git over SSH to 127.0.0.1:2222" --> repos
+  s3 -- "S3 API, as the host" --> bucket
 ```
 
 ## Start it
 
-**`make` does the three steps below, and starts Workbench.** Run it from
+**`make` does the four steps below, and starts Workbench.** Run it from
 the root of the repository. It skips each step that is done: the keys stay,
 and the image builds again only when a file of it changes.
 
 | Target                        | What it does                                                               |
 | ----------------------------- | -------------------------------------------------------------------------- |
 | `make`, `make workbench`      | The workstation up, then Workbench on it. `DATA=` names the data directory |
-| `make workstation`            | The workstation up and the USB devices attached                            |
+| `make workstation`            | The workstation and the object store up, and the USB devices attached      |
 | `make usb`, `make usb-detach` | Attach the USB devices to OrbStack's Linux, or give them back              |
 | `make stop`                   | Stop the workstation. The volumes keep every file                          |
-| `make logs`, `make shell`     | Follow the log of `sshd`, or open a root shell                             |
+| `make logs`, `make shell`     | Follow the logs of `sshd` and the object store, or open a root shell       |
 | `make ssh ACCOUNT=<name>`     | A shell as one account, over `ssh`                                         |
 | `make test-workstation`       | The workspace tier on the workstation, with no model                       |
 | `make reset`                  | Remove the workstation and its volumes, after a prompt                     |
@@ -50,14 +56,22 @@ The steps, by hand:
    bash workstation/setup.sh
    ```
 
-2. Build and start the container. `sshd` listens on `127.0.0.1:2222`
-   only.
+2. Build and start the workstation and the object store. `sshd` listens on
+   `127.0.0.1:2222` only, and the S3 API on `127.0.0.1:9000` only.
 
    ```sh
-   docker compose -f workstation/compose.yaml up -d --build --wait
+   docker compose -f workstation/compose.yaml up -d --build --wait workstation objects
    ```
 
-3. Start Workbench on it.
+3. Make the bucket and its user. The job ends by itself, so `up --wait`
+   cannot include it. A second run changes nothing but the secret of the
+   user.
+
+   ```sh
+   docker compose -f workstation/compose.yaml run --rm objects-init
+   ```
+
+4. Start Workbench on it.
 
    ```sh
    WORKBENCH_WORKSTATION=.workstation/workstation.json pnpm start
@@ -66,6 +80,32 @@ The steps, by hand:
 **Without `WORKBENCH_WORKSTATION`, Workbench runs as before.** The bash
 backend is a just-bash directory under the data directory, and the git
 backend runs in the Workbench process.
+
+## The object store
+
+**The snapshots of the agents live in a bucket, not on the workstation
+disk.** The `objects` service runs
+[PGSTY Silo](https://github.com/pgsty/silo), the maintained fork of MinIO. The
+fork was `pgsty/minio` until 2026-08-06. The image is pinned to a release tag in
+`compose.yaml`. Workbench reaches the bucket with `s3ObjectBackend`, so a
+snapshot ref resolves to bytes that a later change to the file cannot alter.
+
+**Two credentials exist, both in `.workstation/objects.env`.** `setup.sh`
+writes the file with mode `0600` and keeps it on a second run.
+
+| Pair                                       | Held by            | Can do                                 |
+| ------------------------------------------ | ------------------ | -------------------------------------- |
+| `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`   | The store, the job | Everything. The job uses it once       |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Workbench          | Read and write the bucket, and list it |
+
+**No agent holds a credential.** The host account of Workbench writes and
+reads the objects. An agent asks for a snapshot with the `snapshot` tool and
+for its bytes with `restore`. The `objects` block of `workstation.json`
+names the endpoint, the bucket, and the key prefix. Delete the block, and the
+workstation keeps the snapshots in `/srv/workbench/snapshots` again.
+
+**`make reset` removes the snapshots with the other volumes.** A ref then
+resolves to no object.
 
 ## What the container holds
 

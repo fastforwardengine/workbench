@@ -2,8 +2,20 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { WorkspaceLayout } from '@ambionframework/workspace';
 import type { WorkspaceAgent } from '@ambionframework/workspace/resource';
+import { s3ObjectBackend } from '@ambionframework/workspace/s3';
 import { workstationBackend, workstationGitBackend } from '@ambionframework/workstation';
 import { templateRegistrations } from './repositories.ts';
+
+/** The object store for the snapshots: an S3 API, and the credential of the host. */
+interface ObjectsConfig {
+	readonly endpoint: string;
+	readonly region: string;
+	readonly bucket: string;
+	/** The key prefix of this workspace in the bucket. Empty means the bucket root. */
+	readonly prefix: string;
+	readonly accessKeyId: string;
+	readonly secretAccessKey: string;
+}
 
 /**
  * A workstation, as `workstation/setup.sh` writes it to `workstation.json`.
@@ -21,6 +33,8 @@ export interface WorkstationConfig {
 	readonly gitAccount: string;
 	/** The audit log and the room mirror on the server. */
 	readonly layout: WorkspaceLayout;
+	/** The object store for the snapshots. Without it, the workstation keeps them in `layout.snapshots`. */
+	readonly objects?: ObjectsConfig;
 	/** The folders that the files panel lists. Each home has mode 0700, so the panel lists none. */
 	readonly roots: readonly string[];
 }
@@ -43,6 +57,47 @@ function paths(value: unknown): string[] {
 	return value;
 }
 
+/** The value of one variable in the text of an env file, or undefined when it has none. */
+function variable(source: string, name: string): string | undefined {
+	for (const line of source.split('\n')) {
+		const [key, ...rest] = line.split('=');
+		if (key?.trim() === name) return rest.join('=').trim();
+	}
+	return undefined;
+}
+
+/**
+ * Read the `objects` block of `workstation.json`. `credentials` names an env
+ * file beside it, with `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`. The file
+ * stays out of `workstation.json`, which holds no secret.
+ */
+async function loadObjects(raw: unknown, folder: string): Promise<ObjectsConfig | undefined> {
+	if (raw === undefined) return undefined;
+	const block = (raw ?? {}) as Record<string, unknown>;
+	const path = resolve(folder, text(block.credentials, 'objects.credentials'));
+	const source = await readFile(path, 'utf8').catch(() => {
+		throw new Error(
+			`workstation.json: cannot read objects.credentials at ${path}. Run workstation/setup.sh.`,
+		);
+	});
+	const prefix = block.prefix ?? '';
+	if (typeof prefix !== 'string') throw new Error('workstation.json: set objects.prefix to text.');
+	return {
+		endpoint: text(block.endpoint, 'objects.endpoint'),
+		region: text(block.region ?? 'us-east-1', 'objects.region'),
+		bucket: text(block.bucket, 'objects.bucket'),
+		prefix,
+		accessKeyId: text(
+			variable(source, 'S3_ACCESS_KEY_ID'),
+			'S3_ACCESS_KEY_ID in objects.credentials',
+		),
+		secretAccessKey: text(
+			variable(source, 'S3_SECRET_ACCESS_KEY'),
+			'S3_SECRET_ACCESS_KEY in objects.credentials',
+		),
+	};
+}
+
 /**
  * Read `workstation.json`. The key folder resolves against the folder of the
  * file, so the whole state folder can move.
@@ -56,6 +111,7 @@ export async function loadWorkstation(path: string): Promise<WorkstationConfig> 
 	const gitAccount = text(raw.gitAccount, 'gitAccount');
 	if (!ACCOUNT.test(gitAccount))
 		throw new Error(`workstation.json: ${gitAccount} is not an account name.`);
+	const objects = await loadObjects(raw.objects, dirname(path));
 	return {
 		host: text(raw.host, 'host'),
 		port,
@@ -67,6 +123,7 @@ export async function loadWorkstation(path: string): Promise<WorkstationConfig> 
 			rooms: text(layout.rooms, 'layout.rooms'),
 			snapshots: text(layout.snapshots, 'layout.snapshots'),
 		},
+		...(objects ? { objects } : {}),
 		roots: paths(raw.roots),
 	};
 }
@@ -85,9 +142,11 @@ async function keyOf(config: WorkstationConfig, name: string): Promise<string> {
 }
 
 /**
- * The bash backend and the git backend over one workstation. Each agent logs
- * in with its own account and key. The git account holds the templates of
- * the lab, and each agent reaches it over SSH on the server itself.
+ * The bash backend and the git backend over one workstation, and the object
+ * backend when the config names an object store. Each agent logs in with its
+ * own account and key. The git account holds the templates of the lab, and
+ * each agent reaches it over SSH on the server itself. Only the host holds
+ * the credential of the object store.
  */
 export async function workstationBackends(config: WorkstationConfig) {
 	const server = { host: config.host, port: config.port, hostKey: config.hostKey };
@@ -101,6 +160,7 @@ export async function workstationBackends(config: WorkstationConfig) {
 				privateKey: await keyOf(config, agent.name),
 			}),
 		}),
+		...(config.objects ? { objects: s3ObjectBackend(config.objects) } : {}),
 		git: workstationGitBackend({
 			...server,
 			account: { username: config.gitAccount, privateKey: gitKey },

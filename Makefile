@@ -2,11 +2,11 @@
 #
 #   make workbench              the workstation up, then Workbench on it
 #   make workbench DATA=./bench another data directory
-#   make workstation            the workstation up and the USB devices attached, and nothing else
+#   make workstation            the workstation and the object store up, and the USB devices attached
 #   make usb                    attach the USB devices of this Mac to OrbStack's Linux
 #   make usb-detach             give them back to macOS
 #   make stop                   stop the workstation; the volumes keep every file
-#   make logs                   follow the log of sshd
+#   make logs                   follow the logs of sshd and the object store
 #   make shell                  a root shell in the workstation
 #   make ssh ACCOUNT=experiments   a shell as one account, over ssh
 #   make test-workstation       the workspace tier on the workstation, no model
@@ -35,10 +35,12 @@ $(CONFIG): workstation/setup.sh workstation/accounts
 	@touch $@
 
 ## The workstation up: build the image when a file of it changed, start the
-## container, and wait until sshd accepts a connection. Then attach the USB
-## devices, and the container makes their device files within 5 seconds.
+## workstation and the object store, and wait until sshd and the store are
+## healthy. The init job then makes the bucket and its user. Last, attach the
+## USB devices, and the container makes their device files within 5 seconds.
 workstation: $(CONFIG)
-	$(COMPOSE) up -d --build --wait
+	$(COMPOSE) up -d --build --wait workstation objects
+	$(COMPOSE) run --rm objects-init
 	@python3 workstation/usb.py attach
 
 ## Each USB device of this Mac goes to OrbStack's Linux, except keyboards,
@@ -71,7 +73,7 @@ test-workstation: workstation node_modules/.modules.yaml
 	WORKBENCH_WORKSTATION=$(CONFIG) pnpm exec vitest run test/workstation.test.ts
 
 ## The workstation and its volumes go: the homes, the repositories, /library,
-## and /shared. The keys in .workstation stay.
+## /shared, and the snapshots. The keys and the credentials in .workstation stay.
 reset:
 	@printf 'Remove the workstation and its volumes? Type yes: '; \
 	read answer; [ "$$answer" = yes ] || { echo 'Nothing removed.'; exit 1; }
