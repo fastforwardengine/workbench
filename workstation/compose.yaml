@@ -1,9 +1,14 @@
 # A local Workbench workstation. Run workstation/setup.sh first, then:
 #
-#   docker compose -f workstation/compose.yaml up -d --build
+#   docker compose -f workstation/compose.yaml up -d --build --wait workstation objects
+#   docker compose -f workstation/compose.yaml run --rm objects-init
 #
-# sshd listens on 127.0.0.1:2222 only. The named volumes keep the homes, the
-# repositories of the git account, the library, and /shared across a restart.
+# The second command makes the bucket and the user of the object store. It is
+# a job that ends, so `up --wait` cannot include it. `make workstation` runs both.
+#
+# sshd listens on 127.0.0.1:2222 only. The S3 API of the object store listens
+# on 127.0.0.1:9000 only. The named volumes keep the homes, the repositories of
+# the git account, the library, /shared, and the snapshots across a restart.
 services:
   workstation:
     build: .
@@ -37,8 +42,51 @@ services:
       timeout: 2s
       retries: 15
 
+  # The object store for the snapshots: PGSTY Silo, the maintained fork of
+  # MinIO (it was pgsty/minio before 2026-08-06). Workbench writes to it with
+  # s3ObjectBackend. Its credentials come from .workstation/objects.env.
+  objects:
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    command: server /data
+    ports:
+      - 127.0.0.1:9000:9000
+    env_file:
+      - ../.workstation/objects.env
+    volumes:
+      - objects:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://127.0.0.1:9000/minio/health/live']
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  # One job that runs after the server is healthy: it makes the bucket, and a
+  # user for Workbench that can read and write that bucket alone. A second run
+  # changes nothing but the secret of the user.
+  objects-init:
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    depends_on:
+      objects:
+        condition: service_healthy
+    env_file:
+      - ../.workstation/objects.env
+    volumes:
+      - ./objects-policy.json:/policy.json:ro
+    restart: 'no'
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        mcli alias set local http://objects:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" > /dev/null
+        mcli mb --ignore-existing local/workbench-snapshots
+        mcli admin policy create local workbench-objects /policy.json
+        mcli admin user add local "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY"
+        mcli admin policy attach local workbench-objects --user "$$S3_ACCESS_KEY_ID"
+
 volumes:
   home:
   srv:
   library:
   shared:
+  objects:
