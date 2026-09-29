@@ -167,7 +167,7 @@ describe('Session messages and control', () => {
 		expect(host.calls.some((call) => call.startsWith('control'))).toBe(false);
 		host.table.set(
 			'characterization',
-			view('characterization', { exchange: { owner: 'priya', from: 4, at: '' } }),
+			view('characterization', { exchange: { person: 'priya', from: 4, at: '' } }),
 		);
 		await session.refresh();
 		await session.submit('/abort');
@@ -262,7 +262,7 @@ describe('Session push updates', () => {
 		const before = host.readCount;
 		host.table.set(
 			'characterization',
-			view('characterization', { exchange: { owner: 'priya', from: 4, at: '' } }),
+			view('characterization', { exchange: { person: 'priya', from: 4, at: '' } }),
 		);
 		host.notify('characterization');
 		await vi.waitFor(() => expect(session.view?.exchange).toBeDefined());
@@ -325,7 +325,7 @@ const closedExchange = (from: number, extra: Record<string, unknown> = {}) => ({
 	from,
 	through: from + 1,
 	status: 'closed',
-	owner: 'priya',
+	person: 'priya',
 	at: AT,
 	outcome: { kind: 'complete' },
 	summary: { status: 'silent' },
@@ -442,14 +442,14 @@ describe('Session steps', () => {
 });
 
 describe('Session scheduled says', () => {
-	it('notes each say that waits to return, with its seat, its time, and its owner', async () => {
+	it('notes each say that waits to return, with its seat and its time', async () => {
 		const { host, session } = await started();
-		const say = { seq: 5, seat: 'design', owner: 'noor', due: 'soon', text: 'Check the build.' };
+		const say = { seq: 5, seat: 'design', due: 'soon', text: 'Check the build.' };
 		host.table.set('characterization', view('characterization', { scheduled: [say] }));
 		await session.refresh();
 		expect(session.blocks).toContainEqual({
 			type: 'note',
-			text: 'design comes back at soon for noor: Check the build. (/dismiss 5)',
+			text: 'design comes back at soon: Check the build. (/dismiss 5)',
 		});
 		expect(session.suggestions('/dismiss ').map((row) => row.insert)).toEqual(['/dismiss 5']);
 		host.table.set('characterization', view('characterization'));
@@ -459,7 +459,7 @@ describe('Session scheduled says', () => {
 
 	it('dismisses a say by the handle that the note shows, and refuses any other', async () => {
 		const { host, session } = await started();
-		const say = { seq: 5, seat: 'design', owner: 'noor', due: 'soon', text: 'Check the build.' };
+		const say = { seq: 5, seat: 'design', due: 'soon', text: 'Check the build.' };
 		host.table.set('characterization', view('characterization', { scheduled: [say] }));
 		await session.refresh();
 		for (const typed of ['/dismiss 6', '/dismiss']) {

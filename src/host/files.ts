@@ -14,6 +14,10 @@ export type { TableView };
 export interface FileEntry {
 	path: string;
 	size: number;
+	/** A snapshot or a commit that the panel lists for a ref. A file of the workspace has none. */
+	kind?: 'snapshot' | 'commit';
+	/** What the list shows in place of the path, for a snapshot or a commit. */
+	label?: string;
 }
 
 /** One file: its text, or for a SQLite database its tables, with a text copy in `text`. */
@@ -104,8 +108,8 @@ function checkFile(info: { kind: string; size: number }, database: boolean): voi
 	if (!database && info.size > MAX_TEXT) fail('Preview supports files up to 128 KiB.');
 }
 
-const MAX_TEXT = 131_072;
-const MAX_DATABASE = 8_388_608;
+export const MAX_TEXT = 131_072;
+export const MAX_DATABASE = 8_388_608;
 
 interface Reader {
 	readBinaryFile(

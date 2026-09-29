@@ -5,7 +5,7 @@ import { holderOf, type Known, type RefItem, refItems, shows } from '../view/ref
 import { type ActivationSteps, activationLine, ended, stepsView } from '../view/steps.ts';
 import { type Block, buildTimeline } from '../view/timeline.ts';
 import { attentionOf, newest, pick } from './attention.ts';
-import { FileBrowser } from './browser.ts';
+import { entryLoader, FileBrowser } from './browser.ts';
 import { type Choices, type Parsed, parse, type Suggestion, suggest } from './commands.ts';
 import { dismissCommand } from './dismiss.ts';
 import { RoomFeed } from './feed.ts';
@@ -57,7 +57,7 @@ export class Session {
 		this.identity = identity;
 		this.changed = changed;
 		this.feed = new RoomFeed<RoomView>(host);
-		this.browser = new FileBrowser((path) => host.file(path), changed);
+		this.browser = new FileBrowser(entryLoader(host), changed);
 	}
 
 	/** True once when the conversation should scroll to its end, as after a notice. */
@@ -439,14 +439,14 @@ export class Session {
 
 	// Files
 
-	private async openFiles(path?: string): Promise<Intent | undefined> {
+	private async openFiles(path?: string, extra?: FileEntry): Promise<Intent | undefined> {
 		try {
 			this.files = await this.host.files();
 		} catch (error) {
 			this.fail(error);
 			return undefined;
 		}
-		this.browser.show(this.files, path);
+		this.browser.show(this.files, path, extra);
 		return { type: 'files' };
 	}
 
@@ -467,8 +467,8 @@ export class Session {
 	}
 
 	/**
-	 * Open a ref. A file opens in the files panel, and the terminal
-	 * shows the panel when this returns the intent. A message ref moves the focus
+	 * Open a ref. A file, a snapshot, and a commit open in the files panel, and
+	 * the terminal shows the panel when this returns the intent. A message ref moves the focus
 	 * to that message. A ref that does not resolve opens nothing.
 	 */
 	async openRef(id: string): Promise<Intent | undefined> {
@@ -478,6 +478,13 @@ export class Session {
 			this.jump(target.seq);
 			return undefined;
 		}
+		if (target.kind === 'snapshot' || target.kind === 'commit')
+			return this.openFiles(target.ref, {
+				path: target.ref,
+				size: 0,
+				kind: target.kind,
+				label: target.label,
+			});
 		return this.openFiles(target.path);
 	}
 

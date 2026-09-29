@@ -124,6 +124,14 @@ export class FakeHost implements Lab {
 		this.reads.push(path);
 		return { path, text: `text of ${path}`, truncated: false };
 	}
+	async snapshot(ref: string): Promise<FileContent> {
+		this.reads.push(ref);
+		return { path: ref, text: `snapshot ${ref}`, truncated: false };
+	}
+	async commit(ref: string): Promise<FileContent> {
+		this.reads.push(ref);
+		return { path: ref, text: `commit ${ref}`, truncated: false };
+	}
 	/** The processes the host lists. A cancel moves one to `cancelled`. */
 	processTable: ProcessView[] = [];
 	readonly processWatchers = new Set<() => void>();

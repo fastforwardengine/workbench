@@ -38,7 +38,11 @@ cat >"$STATE/workstation.json" <<JSON
 	"hostKey": "$fingerprint",
 	"keys": "keys",
 	"gitAccount": "$GIT_ACCOUNT",
-	"layout": { "audit": "/srv/workbench/audit/audit.jsonl", "rooms": "/srv/workbench/rooms" },
+	"layout": {
+		"audit": "/srv/workbench/audit/audit.jsonl",
+		"rooms": "/srv/workbench/rooms",
+		"snapshots": "/srv/workbench/snapshots"
+	},
 	"roots": ["/library", "/shared"]
 }
 JSON

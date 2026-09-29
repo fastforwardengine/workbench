@@ -1,3 +1,4 @@
+import { commitUri, snapshotUri } from '@ambionframework/ambion';
 import type { KeyEvent } from '@opentui/core';
 import { describe, expect, it, vi } from 'vitest';
 import { type KeyParts, Keys } from '../src/terminal/keys.ts';
@@ -16,7 +17,7 @@ const exchange = {
 	from: 1,
 	through: 3,
 	status: 'closed',
-	owner: 'priya',
+	person: 'priya',
 	at: AT,
 	outcome: { kind: 'complete' },
 	summary: { status: 'silent' },
@@ -26,6 +27,8 @@ const exchange = {
 const FILE = 'file:///library/cell-18650.md';
 const MISSING = 'file:///library/missing.md';
 const HOST_FILE = 'file:///etc/passwd';
+const SNAPSHOT = snapshotUri('workbench', 'ab'.repeat(32), '/shared/readings.csv');
+const COMMIT = commitUri('workbench', 'experiments/plan', 'cd'.repeat(20), { branch: 'led' });
 
 /** A room with a closed exchange of two messages, then two messages that cite. */
 function room(host: FakeHost, cite = true): void {
@@ -111,6 +114,33 @@ describe('the refs of a message', () => {
 		expect(session.browser.open).toBe(true);
 		expect(session.browser.selected?.path).toBe('/library/cell-18650.md');
 		expect(host.reads).toContain('/library/cell-18650.md');
+	});
+
+	it('opens a snapshot ref and a commit ref in the panel, through their own host calls', async () => {
+		const { session, host } = await started();
+		host.fileList = [{ path: '/library/cell-18650.md', size: 797 }];
+		host.table.set(
+			'characterization',
+			view('characterization', {
+				participants: [{ name: 'priya', kind: 'human' }],
+				messages: [said(1, 'priya'), said(2, 'design', [SNAPSHOT, COMMIT])],
+			}),
+		);
+		await session.refresh();
+		expect(session.refItems.map((item) => item.resolved.kind)).toEqual(['snapshot', 'commit']);
+		expect(await session.openRef('2#0')).toEqual({ type: 'files' });
+		await vi.waitFor(() => expect(session.browser.file?.path).toBe(SNAPSHOT));
+		expect(session.browser.selected).toMatchObject({
+			kind: 'snapshot',
+			label: '/shared/readings.csv @abababab',
+		});
+		expect(session.browser.matches.map((entry) => entry.path)).toEqual([
+			SNAPSHOT,
+			'/library/cell-18650.md',
+		]);
+		await session.openRef('2#1');
+		await vi.waitFor(() => expect(session.browser.file?.path).toBe(COMMIT));
+		expect(host.reads).toEqual([SNAPSHOT, COMMIT]);
 	});
 
 	it('opens nothing for a ref that does not resolve, and reads nothing from the host', async () => {

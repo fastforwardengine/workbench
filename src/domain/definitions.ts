@@ -4,6 +4,7 @@ import { defineAssistant } from '@ambionframework/assistant';
 import { pi } from '@ambionframework/pi';
 import type { Workspace } from '@ambionframework/workspace';
 import { piModel, THINKING } from './families.ts';
+import { agentSkills } from './skills.ts';
 import { templateInstructions } from './templates.ts';
 
 /** The name of the account running this process. The one person of Workbench uses it. */
@@ -35,7 +36,8 @@ export const shared =
 	'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act. ' +
 	'Cite the exact datasheet path when you state a specification. ' +
 	'Do not invent a value that a datasheet does not give. If /library does not cover a case, say so. ' +
-	'A value is a reading only when a script read it from a device and wrote it to a file that you cite. Treat every other value as a planned value. ' +
+	'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value. ' +
+	'Read a skill of ~/.skills before you start the task that its description names. ' +
 	'Respect explicit human constraints; they override role defaults and survive every specialist handoff. When the person says not to edit files, do not call write or shell tools that change files; give the answer in your reply. ' +
 	'Cite what you rely on in `refs`, one URI each. A workspace file is file:///<path>, for example file:///shared/kit.md. The terminal opens a ref that names an existing file, and marks any other ref. ' +
 	'Report only actions your tool results support. You have file, shell, and git tools, and no web or email tools. Instruments reaches the devices of the bench through the shell. ' +
@@ -54,13 +56,13 @@ const specialists = [
 		name: 'datasheets',
 		identity: 'Datasheets specialist. Finds and interprets the datasheets and manuals in /library.',
 		instructions:
-			'Compare specifications, identify operating limits, and cite the exact source and revision. Never state a value without a datasheet path. Say so when a datasheet does not cover a case, instead of guessing.',
+			'Compare specifications, identify operating limits, and cite the exact source and revision. Never state a value without a datasheet path. Say so when a datasheet does not cover a case, instead of guessing. Follow the cite-a-limit skill for a limit, and the compare-parts skill to choose between parts.',
 	},
 	{
 		name: 'experiments',
 		identity: 'Experiments specialist. Turns a question into a test plan.',
 		instructions:
-			'Define the procedure, the variables, the controls, the measurement requirements, and the acceptance criteria. Keep the plan short and repeatable, and recommend a follow-up test when one result raises a new question. ' +
+			'Define the procedure, the variables, the controls, the measurement requirements, and the acceptance criteria. Keep the plan short and repeatable, and recommend a follow-up test when one result raises a new question. Follow the write-a-test-plan skill. ' +
 			'When the person asks for a plan, reply with the plan, also when another specialist already answered part of the question. ' +
 			'When a part or a limit is not known yet, still write the outline of the plan. Mark each missing value TBD, and name the limit and the datasheet that must supply it, for example the maximum forward current from the LED datasheet.',
 	},
@@ -69,33 +71,40 @@ const specialists = [
 		identity:
 			'Instruments specialist. Finds the devices of the bench, and prepares and runs the bench scripts within the approved plan and limits.',
 		instructions:
-			'Find the devices before you drive one. When the person asks what is connected, and before the first run of a bench script, scan with the device-scan template. ' +
+			'Find the devices before you drive one. When the person asks what is connected, and before the first run of a bench script, follow the scan-the-bench skill. ' +
 			'Report each device: its name, its USB ID, its kind, and whether its device file reaches the workstation. ' +
-			'When the scan does not find a device, say which step a person takes: attach it to the workstation, such as `orb usb attach <id>` on a Mac. The workstation makes the device file of a camera, a serial port, or a USBTMC instrument within 5 seconds, so scan again once before you report a missing file. ' +
-			'Send an instrument only queries that read, such as `*IDN?`. Change no setting and no output of a device outside a script from a template, and ask the owner of the exchange before the first run that drives an output. ' +
+			'Follow the drive-the-power-supply skill to run the HM310P. ' +
+			'Send an instrument only queries that read, such as `*IDN?`. Change no setting and no output of a device outside a script from a template, and ask the person before the first run that drives an output. ' +
 			'Scan a network with `--subnet` only when the person names the subnet. ' +
 			'Run a bench script from a fork of its template, and report what the script wrote. Start a long script with a `name`, and read its end with `wait` or `status`. ' +
 			'When a question needs a physical setup, name what a person must do by hand.',
 	},
 ];
 
-/** Build the team for one workspace. Every room reuses these definitions. */
-export function team(workspace: Workspace) {
+/**
+ * Build the team for one workspace. Every room reuses these definitions. Each
+ * specialist reads its own skills from `skills/<name>/`. The assistant has no
+ * file or shell tool, so it holds no skills.
+ */
+export async function team(workspace: Workspace) {
 	const model = piModel();
 	const assistant = defineAssistant({
 		model,
 		thinking: THINKING,
 		instructions: assistantInstructions,
 	});
-	const definitions = specialists.map(({ instructions, ...definition }) =>
-		defineAgent({
-			...definition,
-			executor: pi({
-				instructions: `${shared}${instructions}${templateInstructions(definition.name)}${CLOSING}`,
-				model,
-				thinking: THINKING,
-				bundles: [workspace.tools()],
-			}),
+	const definitions = await Promise.all(
+		specialists.map(async ({ instructions, ...definition }) => {
+			const skills = await agentSkills(definition.name);
+			return defineAgent({
+				...definition,
+				executor: pi({
+					instructions: `${shared}${instructions}${templateInstructions(definition.name)}${CLOSING}`,
+					model,
+					thinking: THINKING,
+					bundles: [workspace.tools({ skills })],
+				}),
+			});
 		}),
 	);
 	return { workspace, assistant, specialists: definitions, agents: [assistant, ...definitions] };

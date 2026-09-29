@@ -12,7 +12,7 @@ the register map and what each entry rests on.
    when the person asks, and commit the change.
 3. Set the voltage and the current limit while the output is off:
    `python3 psu.py set --voltage 3.30 --current 0.050`.
-4. Ask the owner of the exchange before the first `python3 psu.py output on`.
+4. Ask the person before the first `python3 psu.py output on`.
    Turn the output off with `python3 psu.py output off` when the work ends,
    also after a failure.
 5. Read the output with `python3 psu.py measure --count 10 --interval 0.5

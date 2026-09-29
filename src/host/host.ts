@@ -7,6 +7,7 @@ import { scenarios } from '../domain/scenarios.ts';
 import type { ActivationSteps } from '../view/steps.ts';
 import { type FileContent, type FileEntry, listFiles, readFile } from './files.ts';
 import { MAX_GOAL, ROOM_NAME } from './names.ts';
+import { readCommitFile, readSnapshotFile } from './previews.ts';
 import { byRecency, type ProcessOutput, type ProcessView, readOutput } from './processes.ts';
 import {
 	fail,
@@ -60,6 +61,10 @@ export interface Lab {
 	create(name: string, goal: string): Promise<RoomView>;
 	files(): Promise<FileEntry[]>;
 	file(path: string): Promise<FileContent>;
+	/** The bytes of a snapshot ref of the workspace, from its object store. */
+	snapshot(ref: string): Promise<FileContent>;
+	/** The commit that a commit ref of the workspace names, from its git server. */
+	commit(ref: string): Promise<FileContent>;
 	/**
 	 * The background processes of the agents that used the workspace in this
 	 * run: the running processes first, then the newest start first.
@@ -193,6 +198,8 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		},
 		files: () => rooms.withWorkspace(() => listFiles(rooms.workspace, rooms.roots)),
 		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path)),
+		snapshot: (ref) => rooms.withWorkspace(() => readSnapshotFile(rooms.workspace, ref)),
+		commit: (ref) => rooms.withWorkspace(() => readCommitFile(rooms.workspace, ref)),
 		processes: () =>
 			rooms.withWorkspace(async () => byRecency(await rooms.workspace.processes.list())),
 		processOutput: (handle, agent) =>

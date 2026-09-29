@@ -5,9 +5,10 @@ type ClosedView = Extract<ExchangeView, { status: 'closed' }>;
 
 /**
  * How a message reads in the conversation. A steer is a person's message
- * inside a thread. A returned say is the room giving an agent's say back to it.
+ * inside a thread. A post is a message of the system: the host posted it, or
+ * the room gave an agent's say back to it.
  */
-export type Role = 'question' | 'said' | 'summary' | 'steer' | 'returned';
+export type Role = 'question' | 'said' | 'summary' | 'steer' | 'posted';
 
 export interface MessageBlock {
 	type: 'message';
@@ -61,7 +62,7 @@ export type Block = MessageBlock | DiscussionBlock | NoteBlock | StepsBlock | Li
 export interface TimelineInput {
 	messages: readonly Message[];
 	exchanges: readonly ExchangeView[];
-	open?: { owner: string };
+	open?: { person?: string };
 	/** The latest work an agent reported in the open exchange. */
 	activity?: string;
 	humans: ReadonlySet<string>;
@@ -83,7 +84,7 @@ interface Group {
 }
 
 const spoken = (message: Message): boolean =>
-	message.kind === 'said' || message.kind === 'summary' || message.kind === 'returned';
+	message.kind === 'said' || message.kind === 'summary' || message.kind === 'posted';
 
 function waitingOn(exchange: ClosedView): string | undefined {
 	return exchange.outcome.kind === 'awaiting' ? `Waiting on ${exchange.outcome.person}` : undefined;
@@ -151,7 +152,7 @@ function groupsOf(input: TimelineInput): Group[] {
 		.map((exchange) => {
 			const source = input.messages.filter(
 				(message) =>
-					(message.kind === 'said' || message.kind === 'returned') &&
+					(message.kind === 'said' || message.kind === 'posted') &&
 					message.seq > exchange.from &&
 					message.seq <= exchange.through,
 			);
@@ -216,13 +217,13 @@ class Builder {
 		for (const group of this.groups) this.emit(group);
 		this.blocks.push(...(this.input.tail ?? []));
 		if (this.input.open)
-			this.blocks.push(liveBlock(this.input.open.owner, this.input.working, this.input.activity));
+			this.blocks.push(liveBlock(this.input.open.person, this.input.working, this.input.activity));
 		return this.blocks;
 	}
 
 	private roleOf = (message: Message, inThread: boolean): Role => {
 		if (message.kind === 'summary') return 'summary';
-		if (message.kind === 'returned') return 'returned';
+		if (message.kind === 'posted') return 'posted';
 		if (!this.input.humans.has(message.from ?? '')) return 'said';
 		return inThread ? 'steer' : 'question';
 	};
@@ -295,9 +296,14 @@ function groupBlocks(
 	return [discussion, ...summary];
 }
 
-function liveBlock(owner: string, working: readonly string[], activity?: string): LiveBlock {
+function liveBlock(
+	person: string | undefined,
+	working: readonly string[],
+	activity?: string,
+): LiveBlock {
 	const agents = working.length > 0 ? ` with ${working.join(', ')}` : '';
-	return { type: 'live', text: `Working on ${owner}’s question${agents}`, detail: activity };
+	const work = person === undefined ? 'the room’s work' : `${person}’s question`;
+	return { type: 'live', text: `Working on ${work}${agents}`, detail: activity };
 }
 
 /** The keys of the discussions in the blocks, top to bottom. */

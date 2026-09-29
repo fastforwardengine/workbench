@@ -65,6 +65,7 @@ export async function loadWorkstation(path: string): Promise<WorkstationConfig> 
 		layout: {
 			audit: text(layout.audit, 'layout.audit'),
 			rooms: text(layout.rooms, 'layout.rooms'),
+			snapshots: text(layout.snapshots, 'layout.snapshots'),
 		},
 		roots: paths(raw.roots),
 	};

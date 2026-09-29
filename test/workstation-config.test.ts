@@ -26,7 +26,11 @@ async function config(change: Record<string, unknown> = {}): Promise<string> {
 		hostKey: 'SHA256:abc',
 		keys: 'keys',
 		gitAccount: 'workbench-git',
-		layout: { audit: '/srv/workbench/audit/audit.jsonl', rooms: '/srv/workbench/rooms' },
+		layout: {
+			audit: '/srv/workbench/audit/audit.jsonl',
+			rooms: '/srv/workbench/rooms',
+			snapshots: '/srv/workbench/snapshots',
+		},
 		roots: ['/library', '/shared'],
 	};
 	await writeFile(path, JSON.stringify({ ...base, ...change }));
@@ -48,17 +52,18 @@ describe('the workstation config', () => {
 		[{ hostKey: undefined }, /set hostKey/],
 		[{ gitAccount: '../root' }, /not an account name/],
 		[{ layout: { audit: '/a' } }, /layout.rooms/],
+		[{ layout: { audit: '/a', rooms: '/r' } }, /layout.snapshots/],
 		[{ roots: [] }, /roots/],
 	])('refuses %o', async (change, error) => {
 		await expect(loadWorkstation(await config(change))).rejects.toThrow(error);
 	});
 
-	it('holds an account for each specialist and for the host, in workstation/accounts', () => {
+	it('holds an account for each specialist and for the host, in workstation/accounts', async () => {
 		const accounts = readFileSync(new URL('../workstation/accounts', import.meta.url), 'utf8')
 			.split('\n')
 			.filter((line) => line !== '' && !line.startsWith('#'));
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
-		const built = team(workspace);
+		const built = await team(workspace);
 		expect(accounts.sort()).toEqual(
 			[...built.specialists.map((seat) => seat.name), workspace.host.name].sort(),
 		);

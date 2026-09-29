@@ -8,6 +8,7 @@ import {
 	createAssistantMessageEventStream,
 	fauxAssistantMessage,
 	fauxToolCall,
+	getCurrentSystemPrompt,
 } from '@earendil-works/pi-ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { people } from '../src/domain/definitions.ts';
@@ -58,8 +59,9 @@ const scriptedStream = (respond: Respond): PiExecutionOptions['stream'] => {
 	const calls = new Map<string, number>();
 	return (_model, context, options) => {
 		const output = createAssistantMessageEventStream();
-		const closing = context.systemPrompt?.includes('The exchange is over.') ?? false;
-		const agent = context.systemPrompt?.match(/You are '([^']+)'/)?.[1] ?? 'assistant';
+		const system = getCurrentSystemPrompt(context.messages);
+		const closing = system.includes('The exchange is over.');
+		const agent = system.match(/You are '([^']+)'/)?.[1] ?? 'assistant';
 		const call = (calls.get(agent) ?? 0) + 1;
 		calls.set(agent, call);
 		const response = respond(agent, call, closing);
@@ -381,8 +383,8 @@ describe('Workbench host steps, says, and processes', () => {
 			scriptedStream((agent, call, closing) => {
 				if (closing || agent !== 'assistant' || call !== 1)
 					return fauxAssistantMessage('quiet', { stopReason: 'stop' });
-				const later = { to: 'assistant', text: 'Check the LED temperature.', after: 600 };
-				return fauxAssistantMessage([fauxToolCall('say', later)], { stopReason: 'toolUse' });
+				const later = { text: 'Check the LED temperature.', after: 600 };
+				return fauxAssistantMessage([fauxToolCall('schedule', later)], { stopReason: 'toolUse' });
 			}),
 		);
 		await lab.join('led-sweep', person);
@@ -392,7 +394,7 @@ describe('Workbench host steps, says, and processes', () => {
 			if (!say) throw new Error('No say waits yet.');
 			return say;
 		});
-		expect(waiting).toMatchObject({ seat: 'assistant', owner: person });
+		expect(waiting).toMatchObject({ seat: 'assistant' });
 		expect(await lab.dismiss('led-sweep', waiting.seq)).toBe(true);
 		expect(await lab.dismiss('led-sweep', waiting.seq)).toBe(false);
 		expect((await lab.read('led-sweep', 0)).scheduled).toEqual([]);

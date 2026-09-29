@@ -2,7 +2,7 @@
 
 **A shared lab workspace where people and specialists work on electrical
 engineering, hardware, and electrochemistry.** It runs on
-[Ambion](https://github.com/ambionframework/ambion) 0.3.0, the
+[Ambion](https://github.com/ambionframework/ambion) 0.4.0, the
 collaboration kernel, and follows
 [Ambion's example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
 **The objective now is an FM radio that the team helps build and then
@@ -51,6 +51,9 @@ pnpm start ./bench                # another directory
   person is the one person of Workbench.
 - **A new data directory gets the `led-sweep` room and the library.** An
   existing one resumes its rooms.
+- **Ambion 0.4.0 opens no journal of 0.3.0.** Move an older data directory
+  away, and start again. A workstation needs `workstation/setup.sh` again:
+  `workstation.json` names the `snapshots` folder now.
 
 ## Run on a local workstation
 
@@ -84,7 +87,8 @@ writes the closing summary.** Every seat runs on Pi.
 | Instruments | Prepares and runs the bench scripts, and reports a run | Workspace |
 
 **The workspace tools are the only tools.** They read and write files,
-run shell commands as background processes, and fork the git templates.
+run shell commands as background processes, fork the git templates, and
+snapshot a file into a stable ref.
 The shell has `sqlite3`, so a specialist makes a database when a result
 needs one. A bench script comes from a template.
 
@@ -95,6 +99,8 @@ needs one. A bench script comes from a template.
   `/shared`, and a home for each agent.
 - **Templates:** git repositories that an agent forks and pushes to. See
   [`docs/templates.md`](docs/templates.md).
+- **Skills:** a folder of skills for each specialist, in `skills/`. See
+  [`docs/skills.md`](docs/skills.md).
 
 The library holds no datasheet yet, and no real hardware is connected.
 Every measurement is a planned value.
@@ -113,7 +119,7 @@ Every measurement is a planned value.
 the rule.
 
 ```text
-domain/     the person, the specialists, the room, and the templates
+domain/     the person, the specialists, the room, the templates, and the skills
 view/       projections of the room record: steps, timeline, refs
 host/       rooms, files, processes, and the git backend
 terminal/   the OpenTUI terminal

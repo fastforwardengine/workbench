@@ -188,10 +188,10 @@ export class FilesPanel {
 		const matches = browser.matches;
 		if (matches.length === 0) return new StyledText([fg(palette.muted)('No file matches.')]);
 		const start = windowStart(browser.index, matches.length);
-		const width = Math.max(...matches.map((file) => file.path.length));
+		const width = Math.max(...matches.map((file) => (file.label ?? file.path).length));
 		const chunks = matches.slice(start, start + LIST_ROWS).flatMap((file, offset) => {
 			const chosen = start + offset === browser.index;
-			const line = `${chosen ? '▸ ' : '  '}${file.path.padEnd(width)}  ${bytes(file.size)}`;
+			const line = `${chosen ? '▸ ' : '  '}${(file.label ?? file.path).padEnd(width)}  ${file.kind ? file.kind : bytes(file.size)}`;
 			const tail = offset === LIST_ROWS - 1 ? '' : '\n';
 			return [
 				chosen ? bg(palette.selected)(fg(palette.accent)(line)) : fg(palette.muted)(line),

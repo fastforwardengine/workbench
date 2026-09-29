@@ -1,9 +1,21 @@
-import type { FileContent, FileEntry } from '../host/host.ts';
+import { parseCommitUri, parseSnapshotUri } from '@ambionframework/ambion';
+import type { FileContent, FileEntry, Lab } from '../host/host.ts';
+
+/** How the panel loads one entry: a snapshot ref, a commit ref, or a path of the workspace. */
+export function entryLoader(host: Lab): (path: string) => Promise<FileContent> {
+	return (path) => {
+		if (parseSnapshotUri(path) !== undefined) return host.snapshot(path);
+		if (parseCommitUri(path) !== undefined) return host.commit(path);
+		return host.file(path);
+	};
+}
 
 /** The files whose path holds every word of the query, in the order the host lists them. */
 function matchFiles(files: readonly FileEntry[], query: string): FileEntry[] {
 	const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-	return files.filter((file) => words.every((word) => file.path.toLowerCase().includes(word)));
+	return files.filter((file) =>
+		words.every((word) => `${file.label ?? ''} ${file.path}`.toLowerCase().includes(word)),
+	);
 }
 
 /**
@@ -42,13 +54,18 @@ export class FileBrowser {
 		return this.files.length;
 	}
 
-	/** Open the panel on these files, with one chosen when the path is known. */
-	show(files: readonly FileEntry[], path?: string): void {
-		this.files = files;
+	/**
+	 * Open the panel on these files, with one chosen when the path is known.
+	 * An `extra` entry, such as a snapshot, joins the list at its head when
+	 * the files do not hold its path.
+	 */
+	show(files: readonly FileEntry[], path?: string, extra?: FileEntry): void {
+		this.files =
+			extra && !files.some((file) => file.path === extra.path) ? [extra, ...files] : files;
 		this.query = '';
 		this.index = Math.max(
 			0,
-			files.findIndex((file) => file.path === path),
+			this.files.findIndex((file) => file.path === path),
 		);
 		this.open = true;
 		void this.preview();
