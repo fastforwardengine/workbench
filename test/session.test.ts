@@ -320,6 +320,15 @@ describe('Session push updates', () => {
 		host.notify('characterization');
 		await vi.waitFor(() => expect(session.offline).toBeUndefined());
 	});
+
+	it('tells the terminal to redraw when a read fails', async () => {
+		const { host, session, changes } = await started();
+		const before = changes();
+		host.table.delete('characterization');
+		host.notify('characterization');
+		await vi.waitFor(() => expect(session.offline).toMatch(/No room characterization/));
+		expect(changes()).toBeGreaterThan(before);
+	});
 });
 
 const AT = '2026-01-01T00:00:00Z';
@@ -636,7 +645,7 @@ describe('Session commands', () => {
 	it('runs every command of the list through a handler', async () => {
 		for (const { name } of COMMANDS) {
 			const { session } = await started();
-			await expect(session.submit(`/${name}`), name).resolves.not.toThrow();
+			await session.submit(`/${name}`);
 			expect(session.error, name).toBeUndefined();
 		}
 	});
