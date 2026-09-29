@@ -61,7 +61,7 @@ export const sweep = (() => {
 	return first;
 })();
 
-/** The tools of the workspace: files, processes, and the git server. */
+/** The tools of the workspace: files, processes, snapshots, and the git server. */
 export const WORKSPACE_TOOLS = [
 	'read',
 	'write',
@@ -71,6 +71,8 @@ export const WORKSPACE_TOOLS = [
 	'status',
 	'wait',
 	'cancel',
+	'snapshot',
+	'restore',
 	'repos',
 	'fork',
 ] as const;
