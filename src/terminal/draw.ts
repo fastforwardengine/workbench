@@ -2,25 +2,17 @@ import { fg, StyledText } from '@opentui/core';
 import type { RefItem } from '../view/refs.ts';
 import { tui as palette } from './brand.ts';
 import type { Composer } from './composer.ts';
-import type { FilesPanel } from './files-panel.ts';
 import type { Header } from './header.ts';
-import type { Mode } from './keys.ts';
-import type { ProcessBrowser } from './process-browser.ts';
-import type { ProcessesPanel } from './process-panel.ts';
+import { isPanel, type Mode, type PanelMode } from './mode.ts';
 import type { Session } from './session.ts';
 import { emptyText } from './session-text.ts';
+import type { Surface } from './surface.ts';
 import type { Marks, Transcript } from './transcript.ts';
 
 const HINTS: Partial<Record<Mode, string>> = {
 	compose: 'Enter sends   Ctrl+J newline   / commands   Ctrl+R rooms   Tab discussions',
 	browse: 'Up/Down choose   Enter open or close   e open all   c close all   r refs   Esc back',
 	refs: 'Up/Down choose a ref   Enter opens it   Esc back',
-};
-
-/** What the status line says while a side panel is open. */
-const PANEL_STATUS: Partial<Record<Mode, string>> = {
-	files: 'Browsing the workspace files. Esc closes the panel.',
-	processes: 'Watching the background processes. Esc closes the panel.',
 };
 
 /** At this width or wider, the composer shows its hint line. */
@@ -31,9 +23,8 @@ export interface DrawParts {
 	session: Session;
 	transcript: Transcript;
 	composer: Composer;
-	panel: FilesPanel;
-	processPanel: ProcessesPanel;
-	processes: ProcessBrowser;
+	/** The side panels, by mode. The painter draws the one that is open. */
+	surfaces: Readonly<Record<PanelMode, Surface>>;
 	header: Header;
 	/**
 	 * The width the conversation has when the files panel is closed. A widget gets
@@ -52,9 +43,7 @@ export class Painter {
 	private readonly session: Session;
 	private readonly transcript: Transcript;
 	private readonly composer: Composer;
-	private readonly panel: FilesPanel;
-	private readonly processPanel: ProcessesPanel;
-	private readonly processes: ProcessBrowser;
+	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
 	private readonly header: Header;
 	private readonly width: () => number;
 	private drawn = '';
@@ -64,9 +53,7 @@ export class Painter {
 		this.session = parts.session;
 		this.transcript = parts.transcript;
 		this.composer = parts.composer;
-		this.panel = parts.panel;
-		this.processPanel = parts.processPanel;
-		this.processes = parts.processes;
+		this.surfaces = parts.surfaces;
 		this.header = parts.header;
 		this.width = parts.width;
 	}
@@ -90,8 +77,7 @@ export class Painter {
 	render(mode: Mode, browsing: string | undefined, picking?: string): void {
 		this.drawTranscript(mode, browsing, picking);
 		this.drawChrome(mode, picking);
-		if (mode === 'files') this.panel.draw(this.session.browser);
-		if (mode === 'processes') this.processPanel.draw(this.processes);
+		if (isPanel(mode)) this.surfaces[mode].draw();
 	}
 
 	private marks(picking: string | undefined): Marks {
@@ -169,8 +155,7 @@ export class Painter {
 		const session = this.session;
 		if (session.error) return [fg(palette.red)(`Error: ${session.error}`)];
 		if (session.offline) return [fg(palette.red)(`Cannot read the rooms: ${session.offline}`)];
-		const panel = PANEL_STATUS[mode];
-		if (panel) return [fg(palette.muted)(panel)];
+		if (isPanel(mode)) return [fg(palette.muted)(this.surfaces[mode].status)];
 		if (mode === 'refs') return [fg(palette.muted)(this.refStatus(picking))];
 		if (session.awaitingGoal)
 			return [

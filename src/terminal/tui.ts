@@ -6,11 +6,13 @@ import { parse } from './commands.ts';
 import { Composer } from './composer.ts';
 import { Painter } from './draw.ts';
 import { FilesPanel } from './files-panel.ts';
+import { FilesSurface } from './files-surface.ts';
 import { Header } from './header.ts';
 import { Keys } from './keys.ts';
 import { Palette } from './palette.ts';
 import { ProcessBrowser } from './process-browser.ts';
 import { ProcessesPanel } from './process-panel.ts';
+import { ProcessesSurface } from './process-surface.ts';
 import { type Intent, Session } from './session.ts';
 import { Transcript } from './transcript.ts';
 
@@ -40,9 +42,13 @@ class EngineTui {
 		this.session = new Session(host, identity, () => this.render());
 		const header = new Header(renderer);
 		const transcript = new Transcript(renderer);
-		const panel = new FilesPanel(renderer);
-		const processPanel = new ProcessesPanel(renderer);
 		this.processes = new ProcessBrowser(host, () => this.render());
+		const surfaces = {
+			files: new FilesSurface(this.session.browser, new FilesPanel(renderer)),
+			processes: new ProcessesSurface(this.processes, new ProcessesPanel(renderer), () =>
+				this.render(),
+			),
+		};
 		const body = new BoxRenderable(renderer, {
 			flexDirection: 'row',
 			flexGrow: 1,
@@ -57,9 +63,7 @@ class EngineTui {
 			session: this.session,
 			transcript,
 			composer: this.composer,
-			panel,
-			processPanel,
-			processes: this.processes,
+			surfaces,
 			header,
 			width: () => renderer.width - 2 * PADDING,
 		});
@@ -70,9 +74,7 @@ class EngineTui {
 			composer: this.composer,
 			palette: this.palette,
 			painter: this.painter,
-			panel,
-			processPanel,
-			processes: this.processes,
+			surfaces,
 			transcript,
 			render: () => this.render(),
 		});
@@ -86,8 +88,8 @@ class EngineTui {
 		});
 		root.add(header.root);
 		body.add(transcript.root);
-		body.add(panel.root);
-		body.add(processPanel.root);
+		body.add(surfaces.files.root);
+		body.add(surfaces.processes.root);
 		root.add(body);
 		root.add(this.composer.root);
 		renderer.root.add(root);

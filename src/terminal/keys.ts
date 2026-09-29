@@ -2,17 +2,12 @@ import type { CliRenderer, KeyEvent } from '@opentui/core';
 import { discussionKeys } from '../view/timeline.ts';
 import type { Composer } from './composer.ts';
 import type { Painter } from './draw.ts';
-import type { FilesPanel } from './files-panel.ts';
+import { isPanel, type Mode, type PanelMode } from './mode.ts';
 import type { Palette } from './palette.ts';
-import type { ProcessBrowser } from './process-browser.ts';
-import type { ProcessesPanel } from './process-panel.ts';
 import type { Session } from './session.ts';
+import type { Surface } from './surface.ts';
 import type { Transcript } from './transcript.ts';
 
-/** Which surface takes the keys: the composer, the discussions, the refs, or a side panel. */
-export type Mode = 'compose' | 'browse' | 'refs' | 'files' | 'processes';
-
-/** How far each browse key moves the selection. */
 /** How far each browse key, and each refs key, moves the selection. */
 const BROWSE_STEP: Record<string, number> = { up: -1, k: -1, down: 1, j: 1 };
 
@@ -26,9 +21,8 @@ export interface KeyParts {
 	composer: Composer;
 	palette: Palette;
 	painter: Painter;
-	panel: FilesPanel;
-	processPanel: ProcessesPanel;
-	processes: ProcessBrowser;
+	/** The side panels, by mode. */
+	surfaces: Readonly<Record<PanelMode, Surface>>;
 	transcript: Transcript;
 	render: () => void;
 }
@@ -50,9 +44,7 @@ export class Keys {
 	private readonly composer: Composer;
 	private readonly palette: Palette;
 	private readonly painter: Painter;
-	private readonly panel: FilesPanel;
-	private readonly processPanel: ProcessesPanel;
-	private readonly processes: ProcessBrowser;
+	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
 	private readonly transcript: Transcript;
 	private readonly render: () => void;
 
@@ -62,9 +54,7 @@ export class Keys {
 		this.composer = parts.composer;
 		this.palette = parts.palette;
 		this.painter = parts.painter;
-		this.panel = parts.panel;
-		this.processPanel = parts.processPanel;
-		this.processes = parts.processes;
+		this.surfaces = parts.surfaces;
 		this.transcript = parts.transcript;
 		this.render = parts.render;
 	}
@@ -86,12 +76,8 @@ export class Keys {
 	// Routing
 
 	onKey(key: KeyEvent): void {
-		if (this.mode === 'files') {
-			this.filesKey(key);
-			return;
-		}
-		if (this.mode === 'processes') {
-			this.processKey(key);
+		if (isPanel(this.mode)) {
+			this.surfaces[this.mode].onKey(key, () => this.closePanel());
 			return;
 		}
 		if (key.name === 'pageup' || key.name === 'pagedown') {
@@ -104,7 +90,7 @@ export class Keys {
 		else this.composeKey(key);
 	}
 
-	// The files panel
+	// The side panels
 
 	/** Open the files panel. A narrow terminal gives it the whole width. */
 	openFiles(): void {
@@ -113,31 +99,26 @@ export class Keys {
 
 	/** Open the processes panel, and read the processes. A narrow terminal gives it the whole width. */
 	openProcesses(): void {
-		// The first part of `show` opens the browser, so the first draw shows the panel.
-		void this.processes.show();
 		this.openPanel('processes');
 	}
 
-	private openPanel(mode: 'files' | 'processes'): void {
-		if (this.mode !== 'files' && this.mode !== 'processes') this.origin = this.mode;
+	private openPanel(mode: PanelMode): void {
+		const surface = this.surfaces[mode];
+		// The surface opens first, so the first draw shows the panel.
+		surface.open();
+		if (!isPanel(this.mode)) this.origin = this.mode;
 		else if (this.mode !== mode) this.hidePanel();
 		this.mode = mode;
 		this.composer.blur();
 		const roomy = this.renderer.width >= NARROW;
 		this.transcript.root.visible = roomy;
-		(mode === 'files' ? this.panel : this.processPanel).fill(!roomy);
+		surface.fill(!roomy);
 		this.render();
 	}
 
 	/** Hide the open side panel. */
 	private hidePanel(): void {
-		if (this.mode === 'files') {
-			this.session.browser.hide();
-			this.panel.draw(this.session.browser);
-		} else {
-			this.processes.hide();
-			this.processPanel.draw(this.processes);
-		}
+		if (isPanel(this.mode)) this.surfaces[this.mode].hide();
 	}
 
 	private closePanel(): void {
@@ -146,77 +127,6 @@ export class Keys {
 		this.mode = this.origin;
 		if (this.mode === 'compose') this.composer.focus();
 		this.painter.invalidate();
-		this.render();
-	}
-
-	/** What each key does in the files panel. Any other printable key adds to the search. */
-	private readonly fileKeys: Record<string, () => void> = {
-		up: () => this.session.browser.move(-1),
-		down: () => this.session.browser.move(1),
-		left: () => this.session.browser.moveTable(-1),
-		right: () => this.session.browser.moveTable(1),
-		pageup: () => this.panel.scrollBy(-this.panel.page),
-		pagedown: () => this.panel.scrollBy(this.panel.page),
-		escape: () => this.escapeFiles(),
-		backspace: () => this.session.browser.backspace(),
-	};
-
-	private readonly controlKeys: Record<string, () => void> = {
-		y: () => this.copyFile(),
-		u: () => this.session.browser.clear(),
-	};
-
-	private filesKey(key: KeyEvent): void {
-		key.preventDefault();
-		const action = key.ctrl ? this.controlKeys[key.name] : this.fileKeys[key.name];
-		if (action) action();
-		else if (!key.ctrl && !key.meta && key.sequence.length === 1 && key.sequence >= ' ')
-			this.session.browser.type(key.sequence);
-	}
-
-	/** Esc clears the search first, then closes the panel. */
-	private escapeFiles(): void {
-		if (this.session.browser.query) this.session.browser.clear();
-		else this.closePanel();
-	}
-
-	private copyFile(): void {
-		const text = this.session.browser.file?.text;
-		if (text === undefined) return;
-		this.panel.flash(
-			this.panel.copy(text)
-				? 'Copied to the clipboard.'
-				: 'This terminal does not accept a clipboard copy.',
-		);
-	}
-
-	// The processes panel
-
-	/** What each key does in the processes panel. */
-	private readonly processKeys: Record<string, () => void> = {
-		up: () => this.processes.move(-1),
-		k: () => this.processes.move(-1),
-		down: () => this.processes.move(1),
-		j: () => this.processes.move(1),
-		pageup: () => this.processPanel.scrollBy(-this.processPanel.page),
-		pagedown: () => this.processPanel.scrollBy(this.processPanel.page),
-		x: () => void this.processes.cancel(),
-		escape: () => this.closePanel(),
-		q: () => this.closePanel(),
-	};
-
-	private processKey(key: KeyEvent): void {
-		key.preventDefault();
-		if (key.ctrl && key.name === 'y') this.copyOutput();
-		else if (!key.ctrl && !key.meta) this.processKeys[key.name]?.();
-	}
-
-	private copyOutput(): void {
-		const text = this.processes.output?.text;
-		if (!text) return;
-		this.processes.message = this.processPanel.copy(text)
-			? 'Copied the output to the clipboard.'
-			: 'This terminal does not accept a clipboard copy.';
 		this.render();
 	}
 
