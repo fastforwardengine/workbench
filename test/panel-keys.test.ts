@@ -4,7 +4,7 @@
  */
 import { BoxRenderable, type KeyEvent } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Composer } from '../src/terminal/composer.ts';
 import { Painter } from '../src/terminal/draw.ts';
 import { FilesPanel } from '../src/terminal/files-panel.ts';
@@ -49,12 +49,12 @@ async function build(width = 120) {
 	const renders = { count: 0 };
 	// Like `tui.ts`: the keys settle their selection, the painter draws, the palette follows.
 	let keys: Keys;
-	const render = () => {
+	const render = vi.fn(() => {
 		renders.count += 1;
 		keys.reconcile();
 		painter.render(keys.mode, keys.browsing, keys.picking);
 		keys.refreshPalette();
-	};
+	});
 	const transcript = new Transcript(renderer);
 	const panel = new FilesPanel(renderer);
 	const processPanel = new ProcessesPanel(renderer);
@@ -117,6 +117,14 @@ async function build(width = 120) {
 		processes,
 		composer,
 		renders,
+		render,
+		painter,
+		surfaces,
+		frame: async () => {
+			await setup.renderOnce();
+			await setup.renderOnce();
+			return setup.captureCharFrame();
+		},
 	};
 }
 
@@ -343,5 +351,155 @@ describe('moving between panels and modes', () => {
 		await openFiles(built);
 		expect(built.keys.mode).toBe('files');
 		expect(built.processes.open).toBe(false);
+	});
+});
+
+const rows = (count: number, word: string) =>
+	Array.from({ length: count }, (_, at) => `${word} ${at + 1}`).join('\n');
+
+describe('what opening and closing a panel do, in order', () => {
+	it('opens the surface before the first render, and fills the width before it', async () => {
+		const built = await build();
+		const open = vi.spyOn(built.surfaces.files, 'open');
+		const fill = vi.spyOn(built.surfaces.files, 'fill');
+		await built.session.submit('/files');
+		built.render.mockClear();
+		built.keys.openFiles();
+		const [opened] = open.mock.invocationCallOrder;
+		const [filled] = fill.mock.invocationCallOrder;
+		const [rendered] = built.render.mock.invocationCallOrder;
+		expect(opened).toBeLessThan(filled ?? 0);
+		expect(filled).toBeLessThan(rendered ?? 0);
+	});
+
+	it('hides the panel it leaves, then draws the panel it enters', async () => {
+		const built = await build();
+		await openFiles(built);
+		const hide = vi.spyOn(built.surfaces.files, 'hide');
+		const open = vi.spyOn(built.surfaces.processes, 'open');
+		built.keys.openProcesses();
+		expect(hide).toHaveBeenCalledTimes(1);
+		expect(open).toHaveBeenCalledTimes(1);
+		expect(built.panel.root.visible).toBe(false);
+		await wait(20);
+		expect(built.processPanel.root.visible).toBe(true);
+	});
+
+	it('gives the conversation back, redraws it, and renders once when a panel closes', async () => {
+		const built = await build(80);
+		await openFiles(built);
+		expect(built.transcript.root.visible).toBe(false);
+		const invalidate = vi.spyOn(built.painter, 'invalidate');
+		built.render.mockClear();
+		built.press('escape');
+		expect(built.transcript.root.visible).toBe(true);
+		expect(invalidate).toHaveBeenCalledTimes(1);
+		expect(built.render).toHaveBeenCalledTimes(1);
+	});
+
+	it('hides the processes panel when it closes', async () => {
+		const built = await build();
+		await openProcesses(built);
+		expect(built.processPanel.root.visible).toBe(true);
+		built.press('q');
+		expect(built.processPanel.root.visible).toBe(false);
+	});
+});
+
+describe('the status line while a panel is open', () => {
+	it('names the panel, and yields to an error', async () => {
+		const built = await build();
+		await openFiles(built);
+		expect(await built.frame()).toContain('Browsing the workspace files. Esc closes the panel.');
+		built.session.error = 'boom';
+		built.render();
+		const text = await built.frame();
+		expect(text).toContain('Error: boom');
+		expect(text).not.toContain('Browsing the workspace files.');
+		built.session.error = undefined;
+		built.keys.openProcesses();
+		await wait(20);
+		expect(await built.frame()).toContain('Watching the background processes.');
+	});
+});
+
+describe('the keys that scroll, copy, and swallow', () => {
+	it('scrolls the file preview with the page keys', async () => {
+		const built = await build();
+		// A text file, not markdown: the markdown widget draws a moment after the text one.
+		built.host.fileList = [{ path: '/shared/data.txt', size: 900 }];
+		built.host.file = async (path: string) => ({ path, text: rows(120, 'row'), truncated: false });
+		await openFiles(built);
+		await wait(20);
+		expect(await built.frame()).toMatch(/row 1\b/);
+		built.press('pagedown');
+		expect(await built.frame()).not.toMatch(/row 1\b/);
+		built.press('pageup');
+		expect(await built.frame()).toMatch(/row 1\b/);
+	});
+
+	it('switches the table of a database with Left and Right', async () => {
+		const built = await build();
+		const table = (name: string, cell: string) => ({
+			name,
+			columns: ['a'],
+			rows: [[cell]],
+			count: 1,
+		});
+		built.host.file = async (path: string) => ({
+			path,
+			text: 'tables',
+			truncated: false,
+			tables: [table('alpha', '1'), table('beta', '2')],
+		});
+		await openFiles(built);
+		await wait(20);
+		expect(built.session.browser.table).toBe(0);
+		built.press('right');
+		expect(built.session.browser.table).toBe(1);
+		built.press('left');
+		expect(built.session.browser.table).toBe(0);
+	});
+
+	it('tells the person whether the copy worked, on the hint line', async () => {
+		const built = await build();
+		await openFiles(built);
+		await wait(20);
+		built.press('y', { ctrl: true });
+		expect(await built.frame()).toMatch(/Copied to the clipboard|does not accept a clipboard copy/);
+	});
+
+	it('scrolls the output of a process with the page keys', async () => {
+		const built = await build();
+		built.host.processOutput = async (handle: string) => ({
+			handle,
+			text: rows(120, 'out'),
+			size: 900,
+			truncated: false,
+		});
+		await openProcesses(built);
+		await wait(20);
+		expect(await built.frame()).toMatch(/out 120\b/);
+		built.press('pageup');
+		expect(await built.frame()).not.toMatch(/out 120\b/);
+		built.press('pagedown');
+		expect(await built.frame()).toMatch(/out 120\b/);
+	});
+
+	it('redraws after a copy of the output', async () => {
+		const built = await build();
+		await openProcesses(built);
+		await wait(20);
+		built.render.mockClear();
+		built.press('y', { ctrl: true });
+		expect(built.render).toHaveBeenCalledTimes(1);
+	});
+
+	it('swallows every key that the processes panel gets, also one it does not know', async () => {
+		const built = await build();
+		await openProcesses(built);
+		built.prevented.count = 0;
+		for (const name of ['j', 'x', 'z', 'pagedown']) built.press(name);
+		expect(built.prevented.count).toBe(4);
 	});
 });
