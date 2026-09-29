@@ -19,7 +19,6 @@ import { type Environment, hasKey, keyVariable, unavailableSeats } from '../doma
 import { scenarios, seats } from '../domain/scenarios.ts';
 import { WORKSPACE } from '../view/refs.ts';
 import { stepLog } from '../view/steps.ts';
-import { endedPost } from './process-post.ts';
 import { labRepositories } from './repositories.ts';
 import { seedWorkspace } from './seed.ts';
 import { unavailable } from './unavailable.ts';
@@ -150,17 +149,6 @@ export async function openRooms(
 		await workspace.dispose().catch(() => {});
 		throw error;
 	}
-	// A background process that ends wakes the seat that started it, in the
-	// room that it started in. A room that is not running gets no post: the
-	// owner reads the end in the reminder of its next activation.
-	const stopWatchingProcesses = workspace.processes.subscribe((event) => {
-		const post = event.type === 'ended' ? endedPost(event.process) : undefined;
-		const lifecycle = entries.get(event.process.room ?? '')?.lifecycle;
-		if (post && lifecycle?.status === 'running')
-			// The room refuses a post to a seat it does not hold, or one that
-			// stopped in the meantime. The post is a courtesy, so a refusal is not an error.
-			void lifecycle.room.post(post).catch(() => {});
-	});
 	let workspaceTail = Promise.resolve();
 	function withWorkspace<T>(operation: () => Promise<T>): Promise<T> {
 		if (closing) fail('The host is stopping.');
@@ -309,7 +297,6 @@ export async function openRooms(
 		}
 	} catch (error) {
 		closing = true;
-		stopWatchingProcesses();
 		await closeEntries().catch(() => {});
 		await workspaceTail.catch(() => {});
 		await workspace.dispose().catch(() => {});
@@ -341,7 +328,6 @@ export async function openRooms(
 			),
 		async close() {
 			closing = true;
-			stopWatchingProcesses();
 			// Preserve hosting intent so process restart resumes previously running rooms.
 			// Each step keeps its resources when it fails, so a later close retries
 			// the retained room handles before disposing shared resources.
