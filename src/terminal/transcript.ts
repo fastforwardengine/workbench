@@ -19,6 +19,7 @@ import type {
 	StepsBlock,
 } from '../view/timeline.ts';
 import { tui as palette } from './brand.ts';
+import { planRows } from './row-diff.ts';
 
 /** The cells a chip loses to the padding, the rail, and the scrollbar. */
 const CHIP_MARGIN = 8;
@@ -119,11 +120,48 @@ const railOf: Record<Role, string> = {
 	posted: palette.green,
 };
 
-/** The conversation: the blocks of a room, with each discussion open or closed. */
+/** One row of the conversation: its node, and the signature of everything the node was built from. */
+interface Entry {
+	signature: string;
+	node: BoxRenderable | TextRenderable;
+}
+
+/** The seqs of the messages that a block draws, for the marks that fall on it. */
+function seqsOf(block: Block): number[] {
+	if (block.type === 'message') return [block.message.seq];
+	if (block.type === 'discussion' && block.expanded)
+		return block.items.map((item) => item.message.seq);
+	return [];
+}
+
+/**
+ * Everything a block's node is built from: the block, whether it is selected,
+ * the refs that fall on its messages, the chosen ref and the focus when they
+ * fall on it, and the width the chips were fitted to. Two equal signatures make
+ * two equal nodes, so the transcript keeps the node it has.
+ */
+function signatureOf(block: Block, selected: string | undefined, marks: Marks, width: number) {
+	const seqs = seqsOf(block);
+	const refs = seqs.flatMap((seq) => marks.refs.get(seq) ?? []);
+	const picked = refs.some((item) => item.id === marks.picked);
+	const focus = marks.focus !== undefined && seqs.includes(marks.focus);
+	const chosen = block.type === 'discussion' && block.key === selected;
+	return JSON.stringify([block, chosen, refs, picked, focus, refs.length > 0 ? width : 0]);
+}
+
+/**
+ * The conversation: the blocks of a room, with each discussion open or closed.
+ *
+ * It keeps one node for each block. A new state replaces only the rows between
+ * the rows that stay the same at the top and at the bottom, so a new message,
+ * a live block that changes, or a discussion that opens costs a few nodes and
+ * not the whole conversation.
+ */
 export class Transcript {
 	readonly root: ScrollBoxRenderable;
 	private readonly renderer: CliRenderer;
 	private readonly list: BoxRenderable;
+	private entries: Entry[] = [];
 
 	constructor(renderer: CliRenderer) {
 		this.renderer = renderer;
@@ -164,13 +202,64 @@ export class Transcript {
 	): void {
 		const stick = this.atBottom();
 		const top = this.root.scrollTop;
-		for (const child of this.list.getChildren()) {
-			this.list.remove(child);
-			child.destroyRecursively();
-		}
-		for (const block of blocks) this.list.add(this.blockNode(block, selected, marks));
-		if (notice) this.list.add(this.noticeNode(notice));
+		const width = this.root.width;
+		const wanted = blocks.map((block) => ({
+			signature: signatureOf(block, selected, marks, width),
+			build: () => this.blockNode(block, selected, marks),
+		}));
+		if (notice)
+			wanted.push({
+				signature: JSON.stringify(['notice', notice]),
+				build: () => this.noticeNode(notice),
+			});
+		this.replace(wanted);
 		setTimeout(() => this.settle(stick || bottom, top, reveal), SETTLE_MS);
+	}
+
+	/**
+	 * Make the rows match `wanted`. `planRows` decides which old rows stay: the
+	 * rows that are the same at the top and at the bottom, and the rows between
+	 * that have an old row of the same signature, in order. Every other old row
+	 * is destroyed and every other wanted row is built.
+	 */
+	private replace(wanted: readonly { signature: string; build: () => Entry['node'] }[]): void {
+		const old = this.entries;
+		const plan = planRows(
+			old.map((entry) => entry.signature),
+			wanted.map((row) => row.signature),
+		);
+		const staying = new Set(plan.kept.values());
+		for (let at = plan.start; at < plan.oldEnd; at += 1) {
+			const entry = old[at];
+			if (!entry || staying.has(at)) continue;
+			this.list.remove(entry.node);
+			entry.node.destroyRecursively();
+		}
+		// Go from the bottom, so each new node has the node below it to go before.
+		const middle: Entry[] = [];
+		let below = old[plan.oldEnd]?.node;
+		for (let at = plan.newEnd - 1; at >= plan.start; at -= 1) {
+			const entry = this.rowAt(old, plan.kept.get(at), wanted[at], below);
+			if (!entry) continue;
+			middle.unshift(entry);
+			below = entry.node;
+		}
+		this.entries = [...old.slice(0, plan.start), ...middle, ...old.slice(plan.oldEnd)];
+	}
+
+	/** The kept row, or a new row built and placed before `below`. */
+	private rowAt(
+		old: readonly Entry[],
+		keptAt: number | undefined,
+		row: { signature: string; build: () => Entry['node'] } | undefined,
+		below: Entry['node'] | undefined,
+	): Entry | undefined {
+		const kept = keptAt === undefined ? undefined : old[keptAt];
+		if (kept || !row) return kept;
+		const entry = { signature: row.signature, node: row.build() };
+		if (below) this.list.insertBefore(entry.node, below);
+		else this.list.add(entry.node);
+		return entry;
 	}
 
 	scrollBy(lines: number): void {
