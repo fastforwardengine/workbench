@@ -112,6 +112,34 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		});
 	}, 120_000);
 
+	it('copies the skills of a seat into its home, and runs a script of a skill as that seat', async () => {
+		const built = await build();
+		const script = byAgent({
+			assistant: (_step, _seat, call) =>
+				call === 1 ? speak('Read your skill.', 'instruments') : quiet(),
+			instruments: (step, _seat, call) => {
+				if (call === 1) return callTool('read', { path: '~/.skills/scan-the-bench/SKILL.md' });
+				if (call === 2)
+					return callTool('bash', {
+						command: 'ls -ld ~/.skills ~/.skills/.manifest; id -un',
+						wait: 30,
+					});
+				if (call === 3)
+					return speak(
+						`Skill: ${step.results.at(-2)?.text}\nShell: ${step.results.at(-1)?.text}`,
+						'assistant',
+					);
+				return quiet();
+			},
+		});
+		const room = await runRoom(built, script, 'Read a skill.');
+		const said = (await room.read()).messages.filter((message) => message.kind === 'said');
+		const report = said.find((message) => message.from === 'instruments')?.text ?? '';
+		expect(report).toContain('device-scan');
+		expect(report).toMatch(/\.skills/);
+		expect(report).toContain('instruments');
+	}, 120_000);
+
 	it('lets Experiments fork the test-plan template, and push a branch through the git account', async () => {
 		const built = await build();
 		const name = `plan-${token()}`;
