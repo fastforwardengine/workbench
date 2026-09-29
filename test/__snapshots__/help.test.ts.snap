@@ -1,0 +1,28 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the help text > lists every command and key, as the person reads them 1`] = `
+"Commands
+  /room <name>      switch to another room. Ctrl+R lists the rooms.
+  /new <name> [goal]  create a room. Without a goal, the next line is the goal.
+  /user <name>      switch to another person
+  /files            search the workspace files and read one in a side panel
+  /open <path>      open the files panel on one file
+  /ps               show the background processes of the agents, their output,
+                    and cancel one with x, twice
+  /try              fill the composer with the room’s suggested question
+  /abort            cancel the open exchange in this room
+  /dismiss <n>      dismiss the say n that waits to return. The agent does not come back to it.
+  /stop             stop the room. /resume starts it again.
+  /steps [n]        show the steps of the newest activation of exchange n, oldest first.
+                    Without n, the latest exchange. /steps off hides them.
+  /expand           open every discussion. /collapse closes them.
+  /quit             leave the terminal. The rooms stop with it.
+Keys
+  Enter sends. Ctrl+J, Alt+Enter, and Shift+Enter add a line.
+  Tab browses the discussions. Up and Down choose, Enter opens or closes,
+  e opens all, c closes all, s shows the steps of the exchange, and Esc goes back
+  to the composer.
+  r, while browsing, chooses a ref of a shown message. Enter opens a file or a table
+  in the files panel, or jumps to a message. Esc goes back.
+  PageUp and PageDown scroll. Start a message with // to send a leading slash."
+`;
