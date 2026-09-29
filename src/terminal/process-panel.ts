@@ -1,16 +1,8 @@
-import {
-	BoxRenderable,
-	bg,
-	type CliRenderer,
-	fg,
-	ScrollBoxRenderable,
-	StyledText,
-	TextRenderable,
-} from '@opentui/core';
+import { bg, type CliRenderer, fg, StyledText, TextRenderable } from '@opentui/core';
 import type { ProcessOutput, ProcessView } from '../host/host.ts';
 import { tui as palette } from './brand.ts';
-import { LIST_ROWS, sidePanel, windowStart } from './files-panel.ts';
 import { label, type ProcessBrowser, stateText } from './process-browser.ts';
+import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
 
 const HINT = 'Up/Down choose   PgUp/PgDn scroll   x x cancel   Ctrl+Y copy   Esc close';
 
@@ -40,51 +32,22 @@ function outputNote(output: ProcessOutput, process: ProcessView): string {
 }
 
 /** The processes panel: the background processes of the agents, and the output of the chosen one. */
-export class ProcessesPanel {
-	readonly root: BoxRenderable;
-	private readonly renderer: CliRenderer;
+export class ProcessesPanel extends SidePanel {
 	private readonly heading: TextRenderable;
 	private readonly list: TextRenderable;
 	private readonly title: TextRenderable;
 	private readonly body: TextRenderable;
-	private readonly scroll: ScrollBoxRenderable;
-	private readonly hint: TextRenderable;
 	private shown: string | undefined;
 
 	constructor(renderer: CliRenderer) {
-		this.renderer = renderer;
-		this.root = sidePanel(renderer);
-		this.heading = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'none' });
-		this.list = new TextRenderable(renderer, {
-			content: '',
-			flexShrink: 0,
-			height: LIST_ROWS,
-			wrapMode: 'none',
-		});
+		super(renderer, true);
+		this.heading = lineText(renderer);
+		this.list = listText(renderer);
 		this.title = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'word' });
 		this.body = new TextRenderable(renderer, { content: '', wrapMode: 'char', width: '100%' });
-		this.scroll = new ScrollBoxRenderable(renderer, {
-			flexGrow: 1,
-			scrollY: true,
-			stickyScroll: true,
-			stickyStart: 'bottom',
-			backgroundColor: palette.panel,
-			scrollbarOptions: {
-				trackOptions: { backgroundColor: palette.bg, foregroundColor: palette.line },
-			},
-		});
-		// The padding keeps the text clear of the scrollbar.
-		const padded = new BoxRenderable(renderer, { paddingRight: 2, width: '100%' });
-		padded.add(this.body);
-		this.scroll.add(padded);
-		this.hint = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'word' });
+		this.addBody(this.body);
 		for (const part of [this.heading, this.list, this.title, this.scroll, this.hint])
 			this.root.add(part);
-	}
-
-	/** Give the panel the whole width, or a share of it beside the conversation. */
-	fill(whole: boolean): void {
-		this.root.width = whole ? '100%' : '55%';
 	}
 
 	/** Draw the browser's state. The output scrolls to its end when the chosen process changes. */
@@ -150,18 +113,5 @@ export class ProcessesPanel {
 		this.body.content = new StyledText([fg(palette.text)(output?.text ?? '')]);
 		if (this.shown !== process.handle) this.scroll.scrollTop = this.scroll.scrollHeight;
 		this.shown = process.handle;
-	}
-
-	scrollBy(lines: number): void {
-		this.scroll.scrollBy(lines);
-	}
-
-	get page(): number {
-		return Math.max(4, this.scroll.height - 1);
-	}
-
-	/** Copy text to the clipboard through the terminal. Return false when it cannot. */
-	copy(text: string): boolean {
-		return this.renderer.isOsc52Supported() && this.renderer.copyToClipboardOSC52(text);
 	}
 }

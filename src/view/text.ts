@@ -16,3 +16,7 @@ export function ellipsize(text: string, width: number): string {
 	const edge = space > 0 && space >= cut.length - EDGE_REACH ? cut.slice(0, space) : cut;
 	return `${edge.trimEnd()}…`;
 }
+
+/** The message of an error, or the text of any other thrown value. */
+export const errorText = (error: unknown): string =>
+	error instanceof Error ? error.message : String(error);

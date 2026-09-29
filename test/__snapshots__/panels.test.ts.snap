@@ -1,0 +1,207 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the frames of the panels > draws the files panel in a short terminal 1`] = `
+"┌──────────────────────────────────────┐
+│ Files › ▌   3 of 3                   │
+│   /library/cell-18650.md  797 B      │
+│   /shared/notes.md        40 B       │
+│ ▸ /shared/plan.txt        400 B      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│ /shared/plan.txt   1.8 KB, 61 lines  │
+│ Type to searchd/pUp/Down choose      │
+│ PgUp/PgDn scroll   Ctrl+Y copy   Esc │
+└─close────────────────────────────────┘
+"
+`;
+
+exports[`the frames of the panels > draws the files panel over the whole width 1`] = `
+"┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Files › ▌   3 of 3                                                                               │
+│   /library/cell-18650.md  797 B                                                                  │
+│   /shared/notes.md        40 B                                                                   │
+│ ▸ /shared/plan.txt        400 B                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│ /shared/plan.txt   1.8 KB, 61 lines                                                              │
+│ line of /shared/plan.txt 1                                                                     ▀ │
+│ line of /shared/plan.txt 2                                                                       │
+│ line of /shared/plan.txt 3                                                                       │
+│ line of /shared/plan.txt 4                                                                       │
+│ line of /shared/plan.txt 5                                                                       │
+│ line of /shared/plan.txt 6                                                                       │
+│ line of /shared/plan.txt 7                                                                       │
+│ line of /shared/plan.txt 8                                                                       │
+│ line of /shared/plan.txt 9                                                                       │
+│ line of /shared/plan.txt 10                                                                      │
+│ line of /shared/plan.txt 11                                                                      │
+│ line of /shared/plan.txt 12                                                                      │
+│ line of /shared/plan.txt 13                                                                      │
+│ line of /shared/plan.txt 14                                                                      │
+│ line of /shared/plan.txt 15                                                                      │
+│ line of /shared/plan.txt 16                                                                      │
+│ line of /shared/plan.txt 17                                                                      │
+│ Type to search   Up/Down choose   PgUp/PgDn scroll   Ctrl+Y copy   Esc close                     │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`the frames of the panels > draws the files panel with a long text file 1`] = `
+"┌─────────────────────────────────────────────────────┐
+│ Files › ▌   3 of 3                                  │
+│   /library/cell-18650.md  797 B                     │
+│   /shared/notes.md        40 B                      │
+│ ▸ /shared/plan.txt        400 B                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│ /shared/plan.txt   1.8 KB, 61 lines                 │
+│ line of /shared/plan.txt 1                        ▀ │
+│ line of /shared/plan.txt 2                          │
+│ line of /shared/plan.txt 3                          │
+│ line of /shared/plan.txt 4                          │
+│ line of /shared/plan.txt 5                          │
+│ line of /shared/plan.txt 6                          │
+│ line of /shared/plan.txt 7                          │
+│ line of /shared/plan.txt 8                          │
+│ line of /shared/plan.txt 9                          │
+│ line of /shared/plan.txt 10                         │
+│ line of /shared/plan.txt 11                         │
+│ line of /shared/plan.txt 12                         │
+│ line of /shared/plan.txt 13                         │
+│ line of /shared/plan.txt 14                         │
+│ line of /shared/plan.txt 15                         │
+│ line of /shared/plan.txt 16                         │
+│ Type to search   Up/Down choose   PgUp/PgDn scroll  │
+│ Ctrl+Y copy   Esc close                             │
+└─────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`the frames of the panels > draws the files panel with a search and a flash 1`] = `
+"┌─────────────────────────────────────────────────────┐
+│ Files › plan▌   1 of 3                              │
+│ ▸ /shared/plan.txt  400 B                           │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│ /shared/plan.txt   1.8 KB, 61 lines                 │
+│ line of /shared/plan.txt 1                        █ │
+│ line of /shared/plan.txt 2                        █ │
+│ line of /shared/plan.txt 3                        █ │
+│ line of /shared/plan.txt 4                        █ │
+│ line of /shared/plan.txt 5                          │
+│ line of /shared/plan.txt 6                          │
+│ line of /shared/plan.txt 7                          │
+│ line of /shared/plan.txt 8                          │
+│ line of /shared/plan.txt 9                          │
+│ line of /shared/plan.txt 10                         │
+│ line of /shared/plan.txt 11                         │
+│ line of /shared/plan.txt 12                         │
+│ line of /shared/plan.txt 13                         │
+│ line of /shared/plan.txt 14                         │
+│ line of /shared/plan.txt 15                         │
+│ line of /shared/plan.txt 16                         │
+│ line of /shared/plan.txt 17                         │
+│ Copied to the clipboard.                            │
+└─────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`the frames of the panels > draws the processes panel in a short terminal 1`] = `
+"┌──────────────────────────────────────┐
+│ Processes   1 running, 2 in all      │
+│ ● ▸ scan         instruments  runnin │
+│ ●   bash-bbb222  experiments  exit 0 │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│ scan (bash-aaa111)   instruments, in │
+│ the room led-sweep, running 1m 5s    │
+│ $ python3 scan/scan.py               │
+└─second─line──────────────────────────┘
+"
+`;
+
+exports[`the frames of the panels > draws the processes panel with a long output at its end 1`] = `
+"┌─────────────────────────────────────────────────────┐
+│ Processes   1 running, 2 in all                     │
+│ ● ▸ scan         instruments  running 1m 5s         │
+│ ●   bash-bbb222  experiments  exit 0 after 4s       │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│ scan (bash-aaa111)   instruments, in the room led-  │
+│ sweep, running 1m 5s                                │
+│ $ python3 scan/scan.py                              │
+│ second line                                         │
+│ 900 B of output.                                    │
+│ output of bash-aaa111 54                            │
+│ output of bash-aaa111 55                            │
+│ output of bash-aaa111 56                            │
+│ output of bash-aaa111 57                            │
+│ output of bash-aaa111 58                            │
+│ output of bash-aaa111 59                            │
+│ output of bash-aaa111 60                            │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
+│ wwww                                              ▄ │
+│ Up/Down choose   PgUp/PgDn scroll   x x cancel      │
+│ Ctrl+Y copy   Esc close                             │
+└─────────────────────────────────────────────────────┘
+"
+`;
+
+exports[`the frames of the panels > draws the processes panel with the second process chosen 1`] = `
+"┌─────────────────────────────────────────────────────┐
+│ Processes   1 running, 2 in all                     │
+│ ●   scan         instruments  running 1m 5s         │
+│ ● ▸ bash-bbb222  experiments  exit 0 after 4s       │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│                                                     │
+│ bash-bbb222   experiments, exit 0 after 4s          │
+│ $ echo done                                         │
+│ 900 B of output.                                    │
+│ output of bash-bbb222 52                            │
+│ output of bash-bbb222 53                            │
+│ output of bash-bbb222 54                            │
+│ output of bash-bbb222 55                            │
+│ output of bash-bbb222 56                            │
+│ output of bash-bbb222 57                            │
+│ output of bash-bbb222 58                            │
+│ output of bash-bbb222 59                            │
+│ output of bash-bbb222 60                            │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww █ │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww █ │
+│ wwww                                              █ │
+│ Up/Down choose   PgUp/PgDn scroll   x x cancel      │
+│ Ctrl+Y copy   Esc close                             │
+└─────────────────────────────────────────────────────┘
+"
+`;
