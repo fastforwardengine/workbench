@@ -4,7 +4,7 @@
  */
 import { BoxRenderable } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FileBrowser } from '../src/terminal/browser.ts';
 import { FilesPanel } from '../src/terminal/files-panel.ts';
 import { ProcessBrowser } from '../src/terminal/process-browser.ts';
@@ -13,8 +13,13 @@ import { FakeHost } from './fake-host.ts';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
+	vi.useRealTimers();
 	for (const cleanup of cleanups.splice(0)) cleanup();
 });
+
+/** The page size that each panel reports at 100x30, with the frames below. */
+const PAGE_FILES = 15;
+const PAGE_PROCESSES = 11;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -36,8 +41,26 @@ async function mount(width = 100, height = 30) {
 	return { setup, body, frame };
 }
 
-const NOW = Date.now();
+/** The clock of the process tests: a fixed time, so the ages in the frames never change. */
+const NOW = Date.parse('2026-09-29T12:00:00Z');
 const iso = (ago: number) => new Date(NOW - ago).toISOString();
+
+/** Freeze `Date` and leave the timers alone, so the waits still run. */
+function freezeClock(): void {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(NOW);
+}
+
+/** The frame as the tests compare it: no trailing blanks on any line. */
+const trimmed = (frame: string): string =>
+	frame
+		.split('\n')
+		.map((line) => line.trimEnd())
+		.join('\n');
+
+/** `count` short lines, then one line wider than any panel, so the wrap and the padding show. */
+const lines = (count: number, word: string) =>
+	[...Array.from({ length: count }, (_, at) => `${word} ${at + 1}`), 'w'.repeat(200)].join('\n');
 
 function processes(): FakeHost {
 	const host = new FakeHost();
@@ -123,6 +146,7 @@ describe('the files panel', () => {
 
 describe('the processes panel', () => {
 	async function opened() {
+		freezeClock();
 		const { setup, body, frame } = await mount();
 		const host = processes();
 		const browser = new ProcessBrowser(host, () => {});
@@ -169,5 +193,94 @@ describe('both panels', () => {
 			expect(() => panel.scrollBy(1)).not.toThrow();
 			expect(typeof panel.copy('text')).toBe('boolean');
 		}
+	});
+});
+
+describe('the frames of the panels', () => {
+	async function files(width: number, height: number) {
+		const { setup, body, frame } = await mount(width, height);
+		const host = new FakeHost();
+		host.fileList = [...host.fileList, { path: '/shared/plan.txt', size: 400 }];
+		const browser = new FileBrowser(
+			async (path) => ({ path, text: lines(60, `line of ${path}`), truncated: false }),
+			() => {},
+		);
+		const panel = new FilesPanel(setup.renderer);
+		body.add(panel.root);
+		browser.show(host.fileList, '/shared/plan.txt');
+		await wait(30);
+		panel.draw(browser);
+		return { browser, panel, frame };
+	}
+
+	async function processList(width: number, height: number) {
+		freezeClock();
+		const { setup, body, frame } = await mount(width, height);
+		const host = processes();
+		host.processOutput = async (handle: string) => ({
+			handle,
+			text: lines(60, `output of ${handle}`),
+			size: 900,
+			truncated: false,
+		});
+		const browser = new ProcessBrowser(host, () => {});
+		const panel = new ProcessesPanel(setup.renderer);
+		body.add(panel.root);
+		await browser.show();
+		await wait(30);
+		panel.draw(browser);
+		return { browser, panel, frame };
+	}
+
+	it('draws the files panel with a long text file', async () => {
+		const { frame } = await files(100, 30);
+		expect(trimmed(await frame())).toMatchSnapshot();
+	});
+
+	it('draws the files panel with a search and a flash', async () => {
+		const { browser, panel, frame } = await files(100, 30);
+		browser.type('plan');
+		await wait(30);
+		panel.draw(browser);
+		panel.flash('Copied to the clipboard.');
+		expect(trimmed(await frame())).toMatchSnapshot();
+	});
+
+	it('draws the files panel over the whole width', async () => {
+		const { browser, panel, frame } = await files(100, 30);
+		panel.fill(true);
+		panel.draw(browser);
+		expect(trimmed(await frame())).toMatchSnapshot();
+	});
+
+	it('draws the files panel in a short terminal', async () => {
+		const { frame } = await files(60, 14);
+		expect(trimmed(await frame())).toMatchSnapshot();
+	});
+
+	it('draws the processes panel with a long output at its end', async () => {
+		const { frame } = await processList(100, 30);
+		expect(trimmed(await frame())).toMatchSnapshot();
+	});
+
+	it('draws the processes panel with the second process chosen', async () => {
+		const { browser, panel, frame } = await processList(100, 30);
+		browser.move(1);
+		await wait(30);
+		panel.draw(browser);
+		expect(trimmed(await frame())).toMatchSnapshot();
+	});
+
+	it('draws the processes panel in a short terminal', async () => {
+		const { frame } = await processList(60, 14);
+		expect(trimmed(await frame())).toMatchSnapshot();
+	});
+
+	it('gives the page size of the scroll area to the keys', async () => {
+		const opened = await files(100, 30);
+		await opened.frame();
+		const list = await processList(100, 30);
+		await list.frame();
+		expect([opened.panel.page, list.panel.page]).toEqual([PAGE_FILES, PAGE_PROCESSES]);
 	});
 });
