@@ -1,5 +1,5 @@
 /** The side panels, in the order the terminal lays them out. */
-export const PANELS = ['files', 'processes'] as const;
+const PANELS = ['files', 'processes'] as const;
 
 /** A side panel: the files of the workspace, or the background processes. */
 export type PanelMode = (typeof PANELS)[number];
