@@ -42,9 +42,9 @@ describe('Workbench executor families', () => {
 		);
 	});
 
-	it('gives every specialist the Pi executor, on the model WORKBENCH_MODEL selects', () => {
+	it('gives every specialist the Pi executor, on the model WORKBENCH_MODEL selects', async () => {
 		const workspace = { tools: () => ({ name: 'workspace', guidance: '', tools: [] }) } as never;
-		const built = team(workspace);
+		const built = await team(workspace);
 		expect(built.assistant.executor).toMatchObject({
 			kind: 'pi',
 			model: piModel(),

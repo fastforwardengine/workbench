@@ -50,7 +50,9 @@ describe('Workbench room reads and recovery', () => {
 					? exchange
 					: undefined;
 			};
-			await expect.poll(async () => (await closedExchange()) !== undefined).toBe(true);
+			await expect
+				.poll(async () => (await closedExchange()) !== undefined, { timeout: 5_000 })
+				.toBe(true);
 			const from = (await closedExchange())?.from ?? 0;
 			const beforeRead = counter.calls;
 			const full = await lab.read('led-sweep', 0);

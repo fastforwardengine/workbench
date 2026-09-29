@@ -90,7 +90,7 @@ export async function openRoom(
 		backend: { bash: directoryBackend(directory), git: labRepositories(':memory:') },
 	});
 	await seedWorkspace(workspace);
-	const built = team(workspace);
+	const built = await team(workspace);
 	const room = await startRoom({
 		name: `workbench-eval-${crypto.randomUUID()}`,
 		goal: sweep.goal,

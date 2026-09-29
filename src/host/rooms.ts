@@ -17,6 +17,7 @@ import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
 import { type Environment, hasKey, keyVariable, unavailableSeats } from '../domain/families.ts';
 import { scenarios, seats } from '../domain/scenarios.ts';
+import { WORKSPACE } from '../view/refs.ts';
 import { stepLog } from '../view/steps.ts';
 import { labRepositories } from './repositories.ts';
 import { seedWorkspace } from './seed.ts';
@@ -47,7 +48,7 @@ type HostLifecycle =
 	| { status: 'stopping'; room: Room; mirror?: RoomMirror };
 interface HostedRoom extends CatalogEntry {
 	lifecycle: HostLifecycle;
-	team: ReturnType<typeof team>;
+	team: Awaited<ReturnType<typeof team>>;
 	activity: Activity[];
 	/**
 	 * Why each failed activation failed, by activation id, from the `end` step
@@ -97,7 +98,7 @@ function familyExecutions(options: RoomsOptions = {}): Execution {
 	const { stream, env = process.env } = options;
 	if (stream !== undefined) return piExecution({ stream });
 	if (hasKey('pi', env)) return piExecution({});
-	return unavailable(`${keyVariable('pi', env)} is not set, and the pi family needs it.`);
+	return unavailable('pi', `${keyVariable('pi', env)} is not set, and the pi family needs it.`);
 }
 
 /** The catalog records hosting intent. Collaboration state stays in each room journal. */
@@ -135,17 +136,19 @@ export async function openRooms(
 	);
 	let closing = false;
 	const { backend, roots } = await workspaceBackends(directory, options.workstation);
-	const workspace = openWorkspace({ name: 'workbench', backend, audit: {} });
+	const workspace = openWorkspace({ name: WORKSPACE, backend, audit: {} });
+	let roomTeam: HostedRoom['team'];
 	try {
 		await seedWorkspace(workspace);
 		// Register the templates now, so a template that fails to register
 		// stops the start with an error that names it.
 		await workspace.git?.use(workspace.host, (env) => env.list());
+		// Load the skills now, so a skill that breaks a rule stops the start.
+		roomTeam = await team(workspace);
 	} catch (error) {
 		await workspace.dispose().catch(() => {});
 		throw error;
 	}
-	const roomTeam = team(workspace);
 	let workspaceTail = Promise.resolve();
 	function withWorkspace<T>(operation: () => Promise<T>): Promise<T> {
 		if (closing) fail('The host is stopping.');

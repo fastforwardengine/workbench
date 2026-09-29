@@ -1,4 +1,4 @@
-import type { Message } from '@ambionframework/ambion';
+import { commitUri, type Message, snapshotUri } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
 import { chipLine, type Known, refItems, resolveRef } from '../src/view/refs.ts';
 import type { Block } from '../src/view/timeline.ts';
@@ -8,6 +8,9 @@ const known: Known = {
 	files: ['/library/cell-18650.md', '/shared/my notes.md'],
 	seqs: new Set([1, 2, 3]),
 };
+
+const DIGEST = '0123456789abcdef'.repeat(4);
+const HASH = 'a1b2c3d4e5'.repeat(4);
 
 describe('resolveRef', () => {
 	it('resolves a file: URI to a workspace path in the file list', () => {
@@ -69,6 +72,34 @@ describe('resolveRef', () => {
 			/not read yet/,
 		);
 		expect(resolveRef('ambion://room/characterization', known).target).toBeUndefined();
+	});
+
+	it('resolves a snapshot ref of this workspace, and labels it with its path and digest', () => {
+		const ref = snapshotUri('workbench', DIGEST, '/shared/readings.csv');
+		expect(resolveRef(ref, known)).toMatchObject({
+			kind: 'snapshot',
+			label: '/shared/readings.csv @01234567',
+			target: { kind: 'snapshot', ref },
+		});
+	});
+
+	it('resolves a commit ref of this workspace, and labels it with its short hash', () => {
+		const ref = commitUri('workbench', 'experiments/plan', HASH, { branch: 'led' });
+		expect(resolveRef(ref, known)).toMatchObject({
+			kind: 'commit',
+			label: 'experiments/plan led a1b2c3d',
+			target: { kind: 'commit', ref },
+		});
+	});
+
+	it('marks a snapshot and a commit of another workspace, and opens neither', () => {
+		const snapshot = resolveRef(snapshotUri('elsewhere', DIGEST, '/a.csv'), known);
+		const commit = resolveRef(commitUri('elsewhere', 'a/r', HASH), known);
+		expect([snapshot.target, commit.target]).toEqual([undefined, undefined]);
+		expect([snapshot.problem, commit.problem]).toEqual([
+			'in workspace elsewhere',
+			'in workspace elsewhere',
+		]);
 	});
 
 	it('marks a scheme it does not know as unknown', () => {

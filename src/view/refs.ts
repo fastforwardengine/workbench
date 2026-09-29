@@ -1,5 +1,5 @@
 import type { Message } from '@ambionframework/ambion';
-import { parseRoomUri } from '@ambionframework/ambion';
+import { parseCommitUri, parseRoomUri, parseSnapshotUri } from '@ambionframework/ambion';
 import { ellipsize } from './text.ts';
 import type { Block } from './timeline.ts';
 
@@ -7,17 +7,28 @@ import type { Block } from './timeline.ts';
  * The refs of a message, as the terminal shows and opens them.
  *
  * A ref is untrusted text from an agent. The room stores it and never reads
- * behind it. The terminal chooses three forms and resolves each one against
+ * behind it. The terminal chooses four forms and resolves each one against
  * a list the host gives, so no ref reaches a host file:
  *
  * - `file:///<path>` names a file of the workspace.
+ * - `ambion://workspace/workbench/snapshot/<digest>/<path>` names the bytes
+ *   that a file held at a snapshot. The panel shows them.
+ * - `ambion://workspace/workbench/repo/<repository>/.../commit/<hash>` names
+ *   a commit of a lab repository. The panel shows it.
  * - `ambion://room/<room>/message/<seq>` names a message of the open room.
  */
+
+/** The name of the workspace of Workbench, the first part of each snapshot ref and commit ref. */
+export const WORKSPACE = 'workbench';
 
 const FILE_PREFIX = /^file:\/\/\/(.*)$/is;
 
 /** What opening a resolved ref does. */
-type RefTarget = { kind: 'file'; path: string } | { kind: 'message'; seq: number };
+type RefTarget =
+	| { kind: 'file'; path: string }
+	| { kind: 'snapshot'; ref: string; label: string }
+	| { kind: 'commit'; ref: string; label: string }
+	| { kind: 'message'; seq: number };
 
 /** What the terminal knows, to check a ref against. */
 export interface Known {
@@ -29,7 +40,7 @@ export interface Known {
 	seqs: ReadonlySet<number>;
 }
 
-type RefKind = 'file' | 'message' | 'unknown';
+type RefKind = 'file' | 'snapshot' | 'commit' | 'message' | 'unknown';
 
 /** One ref after resolution. `target` is absent when the ref does not resolve. */
 export interface ResolvedRef {
@@ -84,6 +95,32 @@ function resolveFile(ref: string, known: Known): ResolvedRef {
 	return { ref, kind: 'file', label: named.path, target: { kind: 'file', path: named.path } };
 }
 
+/**
+ * A snapshot of this workspace opens from the object store. The label is the
+ * path that the file had, and the first digits of the digest tell two
+ * snapshots apart.
+ */
+function resolveSnapshot(ref: string): ResolvedRef | undefined {
+	const uri = parseSnapshotUri(ref);
+	if (uri === undefined) return undefined;
+	const label = `${uri.path} @${uri.digest.slice(0, 8)}`;
+	if (uri.workspace !== WORKSPACE)
+		return { ...unresolved(ref, 'snapshot', `in workspace ${uri.workspace}`), label };
+	return { ref, kind: 'snapshot', label, target: { kind: 'snapshot', ref, label } };
+}
+
+/** A commit of this workspace opens in the panel. The label names the repository, the branch or the tag, and the short hash. */
+function resolveCommit(ref: string): ResolvedRef | undefined {
+	const uri = parseCommitUri(ref);
+	if (uri === undefined) return undefined;
+	const label = [uri.repository, uri.branch ?? uri.tag, uri.commit.slice(0, 7)]
+		.filter(Boolean)
+		.join(' ');
+	if (uri.workspace !== WORKSPACE)
+		return { ...unresolved(ref, 'commit', `in workspace ${uri.workspace}`), label };
+	return { ref, kind: 'commit', label, target: { kind: 'commit', ref, label } };
+}
+
 function resolveMessage(ref: string, known: Known): ResolvedRef {
 	const uri = parseRoomUri(ref);
 	if (uri?.message === undefined) return unresolved(ref, 'unknown', 'names a room, not a message');
@@ -102,7 +139,8 @@ function resolveMessage(ref: string, known: Known): ResolvedRef {
 export function resolveRef(ref: string, known: Known): ResolvedRef {
 	const scheme = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(ref)?.[1]?.toLowerCase();
 	if (scheme === 'file') return resolveFile(ref, known);
-	if (scheme === 'ambion') return resolveMessage(ref, known);
+	if (scheme === 'ambion')
+		return resolveSnapshot(ref) ?? resolveCommit(ref) ?? resolveMessage(ref, known);
 	return unresolved(ref, 'unknown', 'this scheme opens nothing');
 }
 

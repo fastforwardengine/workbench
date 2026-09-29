@@ -75,12 +75,13 @@ backend runs in the Workbench process.
 | `workbench-host` | `workbench` | The host account: it writes the seed and the room mirror |
 | `workbench-git`  | none        | Every repository, in `~/repos`. Agents reach it over SSH |
 
-| Path                   | Writer                 | Readers                    |
-| ---------------------- | ---------------------- | -------------------------- |
-| `/library`             | `workbench-host`       | Every account of the group |
-| `/shared`              | Every account of group | Every account of the group |
-| `/srv/workbench/audit` | Every account of group | Every account of the group |
-| `/srv/workbench/rooms` | `workbench-host`       | Every account of the group |
+| Path                       | Writer                 | Readers                    |
+| -------------------------- | ---------------------- | -------------------------- |
+| `/library`                 | `workbench-host`       | Every account of the group |
+| `/shared`                  | Every account of group | Every account of the group |
+| `/srv/workbench/audit`     | Every account of group | Every account of the group |
+| `/srv/workbench/rooms`     | `workbench-host`       | Every account of the group |
+| `/srv/workbench/snapshots` | `workbench-host`       | Every account of the group |
 
 **The entrypoint sets the layout at each start.** A named volume drops the
 ACLs of the image, so the script makes each folder and sets its default

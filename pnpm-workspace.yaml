@@ -7,11 +7,11 @@ allowBuilds:
   protobufjs: true
   ssh2: false
 minimumReleaseAgeExclude:
-  - '@ambionframework/ambion@0.3.0'
-  - '@ambionframework/journal@0.3.0'
-  - '@ambionframework/just-bash@0.3.0'
-  - '@ambionframework/pi@0.3.0'
-  - '@ambionframework/workspace@0.3.0'
-  - '@ambionframework/assistant@0.3.0'
-  - '@ambionframework/simulator@0.3.0'
-  - '@ambionframework/workstation@0.3.0'
+  - '@ambionframework/ambion@0.4.0'
+  - '@ambionframework/journal@0.4.0'
+  - '@ambionframework/just-bash@0.4.0'
+  - '@ambionframework/pi@0.4.0'
+  - '@ambionframework/workspace@0.4.0'
+  - '@ambionframework/assistant@0.4.0'
+  - '@ambionframework/simulator@0.4.0'
+  - '@ambionframework/workstation@0.4.0'

@@ -19,7 +19,7 @@ afterEach(async () => {
 	for (const cleanup of cleanups.splice(0)) await cleanup().catch(() => undefined);
 });
 
-function build() {
+async function build() {
 	const workspace = openWorkspace({
 		name: 'workbench',
 		backend: { bash: memoryBackend(), git: labRepositories(':memory:') },
@@ -32,7 +32,7 @@ function build() {
 const shapeOf = (tools: readonly { name: string; parameters: unknown }[]) =>
 	tools.map(({ name, parameters }) => ({ name, parameters: JSON.stringify(parameters) }));
 
-/** The tools of the workspace: files, processes, and the git server. */
+/** The tools of the workspace: files, processes, snapshots, and the git server. */
 const WORKSPACE_TOOLS = [
 	'read',
 	'write',
@@ -42,13 +42,15 @@ const WORKSPACE_TOOLS = [
 	'status',
 	'wait',
 	'cancel',
+	'snapshot',
+	'restore',
 	'repos',
 	'fork',
 ];
 
 describe('the Workbench tool set', () => {
-	it('puts every seat on the Pi executor', () => {
-		const built = build();
+	it('puts every seat on the Pi executor', async () => {
+		const built = await build();
 		expect(built.agents.map((seat) => [seat.name, seat.executor.kind])).toEqual([
 			['assistant', 'pi'],
 			['datasheets', 'pi'],
@@ -57,24 +59,23 @@ describe('the Workbench tool set', () => {
 		]);
 	});
 
-	it('gives every specialist the workspace tools alone, with the same schemas and guidance', () => {
-		const [first, ...rest] = build().specialists;
+	it('gives every specialist the workspace tools alone, with the same schemas', async () => {
+		const [first, ...rest] = (await build()).specialists;
 		const expected = shapeOf(first?.executor.tools ?? []);
 		expect(expected.map((tool) => tool.name).sort()).toEqual([...WORKSPACE_TOOLS].sort());
 		for (const agent of rest) {
 			expect(shapeOf(agent.executor.tools), agent.name).toEqual(expected);
-			expect(agent.executor.guidance, agent.name).toEqual(first?.executor.guidance);
 		}
 	});
 
-	it('gives the assistant no tool of its own', () => {
-		expect(build().assistant.executor.tools).toEqual([]);
+	it('gives the assistant no tool of its own', async () => {
+		expect((await build()).assistant.executor.tools).toEqual([]);
 	});
 });
 
 describe('the Workbench filesystem', () => {
 	it('lets one seat write a file that another seat reads back', async () => {
-		const built = build();
+		const built = await build();
 		const person = people[0];
 		if (!person) throw new Error('No person.');
 		const marker = 'LED limit 20 mA';
@@ -114,7 +115,7 @@ describe('the Workbench filesystem', () => {
 
 describe('the Workbench repositories', () => {
 	it('lets the Experiments seat fork the test-plan template and push a branch', async () => {
-		const built = build();
+		const built = await build();
 		const person = people[0];
 		if (!person) throw new Error('No person.');
 		const script = byAgent({

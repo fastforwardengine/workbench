@@ -72,7 +72,7 @@ const closed: ExchangeView = {
 	status: 'closed',
 	activations: [],
 	outcome: { kind: 'complete' },
-	owner: 'noor',
+	person: 'noor',
 	at: AT,
 	summary: { status: 'published', summary: summaryOf(145, 'noor') },
 };
@@ -111,7 +111,7 @@ describe('buildTimeline', () => {
 			status: 'closed',
 			activations: [],
 			outcome: { kind: 'complete' },
-			owner: 'priya',
+			person: 'priya',
 			at: AT,
 			summary: { status: 'published', summary: summaryOf(66, 'priya') },
 		};
@@ -122,10 +122,9 @@ describe('buildTimeline', () => {
 		const scheduled = { ...said(61, 'agent', 'agent'), after: 600 } as Message;
 		const returned = {
 			seq: 70,
-			kind: 'returned',
+			kind: 'posted',
 			to: 'agent',
-			message: 61,
-			owner: 'noor',
+			returns: 61,
 			text: 'Check the build.',
 			at: AT,
 		} as Message;
@@ -134,7 +133,7 @@ describe('buildTimeline', () => {
 		expect(shape(build(messages, exchanges))).toEqual([
 			'question:59',
 			'said:61',
-			'returned:70',
+			'posted:70',
 			'said:72',
 		]);
 	});
@@ -159,10 +158,9 @@ describe('buildTimeline', () => {
 	it('keeps a returned say that lands in an open exchange inside its discussion', () => {
 		const returned = {
 			seq: 70,
-			kind: 'returned',
+			kind: 'posted',
 			to: 'agent',
-			message: 61,
-			owner: 'noor',
+			returns: 61,
 			text: 'Check the build.',
 			at: AT,
 		} as Message;
@@ -182,7 +180,7 @@ describe('buildTimeline', () => {
 			status: 'closed',
 			activations: [],
 			outcome: { kind: 'complete' },
-			owner: 'priya',
+			person: 'priya',
 			at: AT,
 			summary: { status: 'silent' },
 		};
@@ -198,7 +196,7 @@ describe('buildTimeline', () => {
 			status: 'closed',
 			activations: [],
 			outcome: { kind: 'complete' },
-			owner: 'noor',
+			person: 'noor',
 			at: AT,
 			summary: { status: 'silent' },
 		};
@@ -282,9 +280,15 @@ describe('buildTimeline', () => {
 
 	it('keeps the open exchange in the open, and ends with a live block', () => {
 		const messages = [said(4, 'priya'), said(6, 'assistant', 'design'), said(9, 'priya')];
-		const open: ExchangeView = { from: 4, status: 'open', owner: 'priya', at: AT, activations: [] };
+		const open: ExchangeView = {
+			from: 4,
+			status: 'open',
+			person: 'priya',
+			at: AT,
+			activations: [],
+		};
 		const blocks = build(messages, [open], {
-			open: { owner: 'priya' },
+			open: { person: 'priya' },
 			working: ['assistant', 'design'],
 		});
 		expect(shape(blocks)).toEqual(['question:4', 'said:6', 'question:9', 'live']);
@@ -301,12 +305,12 @@ describe('buildTimeline', () => {
 		const later: ExchangeView = {
 			from: 150,
 			status: 'open',
-			owner: 'priya',
+			person: 'priya',
 			at: AT,
 			activations: [],
 		};
 		const blocks = build([...thread, said(150, 'priya')], [closed, later], {
-			open: { owner: 'priya' },
+			open: { person: 'priya' },
 		});
 		expect(shape(blocks)).toEqual([
 			'question:98',
@@ -355,12 +359,12 @@ describe('cost and awaiting', () => {
 		const later: ExchangeView = {
 			from: 150,
 			status: 'open',
-			owner: 'priya',
+			person: 'priya',
 			at: AT,
 			activations: [],
 		};
 		const blocks = build([...thread, said(150, 'priya')], [closed, later], {
-			open: { owner: 'priya' },
+			open: { person: 'priya' },
 			tail: [{ type: 'note', text: 'Waiting.' }],
 		});
 		expect(shape(blocks).slice(-2)).toEqual(['note', 'live']);
