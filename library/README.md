@@ -23,7 +23,8 @@ The figures are JPEG files in `images/`. A specialist reads a figure with
 ## Rules for these files
 
 - **A file states its source and its conversion date.** A value that comes
-  from a secondary page, or from a picture that is read by eye, says so.
+  from a secondary page, or from a picture that a person read by eye, says
+  so.
 - **A conflict between two sources stays in the file.** Each file has a
   conflicts or an open points section. Do not remove a conflict until a
   reading or a photo settles it.

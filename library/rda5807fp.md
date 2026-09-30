@@ -9,7 +9,7 @@ RDA5807FP-M.
   radio tuner", Rev. 1.2, April 2012, 23 pages. Mirror used:
   <https://opendevices.ru/wp-content/uploads/2015/10/RDA5807FP.pdf>.
 - **Converted:** 2026-09-29, by hand, from the text and figures of the PDF.
-  Wording is shortened. The numbers are the datasheet's numbers.
+  The wording is shorter. The numbers are the datasheet's numbers.
 - **Rights:** the datasheet carries this notice: "The information contained
   herein is the exclusive property of RDA and shall not be distributed,
   reproduced, or disclosed in whole or in part without prior written
@@ -36,9 +36,9 @@ Figure file: `/library/images/rda5807fp-p01.jpg`.
 | Reference clock    | 32.768 kHz crystal, or an external clock (RCLK)               | 1    |
 | Control bus        | I²C only, up to 400 kHz                                       | 5, 8 |
 | I²C address        | `0010000b` (0x10) 7-bit                                       | 5    |
-| Audio output       | Line level, 360 mV typical at volume 15, into 32 Ω or more    | 7    |
+| Audio output       | Line level, 360 mV typical at volume 15. Load 32 Ω or more    | 7    |
 | Sensitivity        | 1.2 to 1.5 µV EMF at S/N 26 dB (65 to 108 MHz)                | 7    |
-| Signal-to-noise    | 55 dB mono, 53 dB stereo (typical, max signal)                | 7    |
+| Signal-to-noise    | 57 dB mono, 55 dB stereo typical (55 and 53 dB minimum)       | 7    |
 | Stereo separation  | 35 dB minimum                                                 | 7    |
 | Absolute maximum   | Input voltage −0.3 V to VDD + 0.3 V. Ambient −40 to +90 °C    | 6    |
 | Operating ambient  | −20 to +75 °C                                                 | 6    |
@@ -50,22 +50,23 @@ Raspberry Pi Pico drives 3.3 V, so it matches.
 
 ## Pins (SOP16)
 
-| Pin             | Name                  | Function                                                                               |
-| --------------- | --------------------- | -------------------------------------------------------------------------------------- |
-| 1, 16, 15       | GPIO1, 2, 3           | General purpose. GPIO2 is the seek/tune interrupt (low). GPIO3 is the stereo indicator |
-| 2, 5, 6, 11, 14 | GND                   | Ground                                                                                 |
-| 3               | RF GND                | RF ground                                                                              |
-| 4               | FMIN                  | FM antenna input                                                                       |
-| 7               | SCLK                  | I²C clock                                                                              |
-| 8               | SDA (SDIO)            | I²C data                                                                               |
-| 9               | RCLK                  | 32.768 kHz reference clock                                                             |
-| 10              | VDD                   | Supply, 2.7 to 3.3 V. Bypass with 22 nF close to the pin                               |
-| 13, 12          | ROUT, LOUT (top view) | Audio outputs. The pin table lists "LOUT, ROUT 13, 12"                                 |
+| Pin             | Name        | Function                                                                               |
+| --------------- | ----------- | -------------------------------------------------------------------------------------- |
+| 1, 16, 15       | GPIO1, 2, 3 | General purpose. GPIO2 is the seek/tune interrupt (low). GPIO3 is the stereo indicator |
+| 2, 5, 6, 11, 14 | GND         | Ground                                                                                 |
+| 3               | RF GND      | RF ground                                                                              |
+| 4               | FMIN        | FM antenna input                                                                       |
+| 7               | SCLK        | I²C clock                                                                              |
+| 8               | SDA (SDIO)  | I²C data                                                                               |
+| 9               | RCLK        | 32.768 kHz reference clock                                                             |
+| 10              | VDD         | Supply, 2.7 to 3.3 V. Bypass with 22 nF close to the pin                               |
+| 13              | LOUT        | Left audio output                                                                      |
+| 12              | ROUT        | Right audio output                                                                     |
 
-**The datasheet is not consistent about pins 12 and 13.** The top view
-puts ROUT on pin 13 and LOUT on pin 12. The pin table reads "LOUT,ROUT
-13,12" and calls them "Right/Left". The kit schematic puts Lout on pin 13.
-Measure with an audio test signal before you rely on left and right.
+**Pin 13 is LOUT and pin 12 is ROUT.** The top view on page 1 shows this, and
+the kit schematic agrees. The pin table on page 15 lists "13, 12" in the same
+order, but its text calls the two outputs "Right/Left", which is the reverse.
+The top view and the schematic decide.
 
 ## The I²C interface (pages 5 and 8)
 
@@ -127,12 +128,13 @@ reading. Register 0x00 holds the chip ID (0x58 in the high byte).
 | 15:6 | CHAN[9:0]   | Channel number                                                                                                 | 0       |
 | 5    | DIRECT MODE | Test only                                                                                                      | 0       |
 | 4    | TUNE        | Set 1 to tune. The chip clears it when STC becomes 1                                                           | 0       |
-| 3:2  | BAND[1:0]   | 00 = 87 to 108 MHz. 01 = 76 to 91 MHz. 10 = 76 to 108 MHz. 11 = 65 to 76 MHz, or 50 to 65 MHz (see 0x07 bit 9) | 00      |
+| 3:2  | BAND[1:0]   | 00 = 87 to 108 MHz. 01 = 76 to 91 MHz. 10 = 76 to 108 MHz. 11 = 65 to 76 MHz, or 50 to 76 MHz (see 0x07 bit 9) | 00      |
 | 1:0  | SPACE[1:0]  | 00 = 100 kHz. 01 = 200 kHz. 10 = 50 kHz. 11 = 25 kHz                                                           | 00      |
 
 **The frequency of a channel:** `f = spacing × CHAN + base`, where the base
 is 87.0 MHz for BAND 00, 76.0 MHz for BAND 01 and 10, and 65.0 MHz for
-BAND 11.
+BAND 11. The datasheet gives no other base for the 50 to 76 MHz mode of
+BAND 11, so a channel there needs a check on the bench.
 
 ### 0x04, 0x05, 0x06, 0x07
 

@@ -49,12 +49,12 @@ Figure file: `/library/images/stc8g1k17-p20.jpg`.
 | 2   | P1.1 | ADC1, TxD2, CCP0                       | Display line D6                              |
 | 3   | P1.6 | ADC6, XTALO, MCLKO_2, RxD_3            | Display line D7                              |
 | 4   | P1.7 | ADC7, XTALI, TxD_3                     | Display line S0                              |
-| 5   | P5.4 | MCLKO, RST                             | Unlabeled                                    |
+| 5   | P5.4 | MCLKO, RST                             | Button S3 (CH−)                              |
 | 6   | Vcc  | AVcc, ADC VRef+                        | Supply, the net 3V3                          |
-| 7   | P5.5 |                                        | A button line (unconfirmed)                  |
+| 7   | P5.5 |                                        | Button S4 (CH+)                              |
 | 8   | GND  | AGND                                   | Ground                                       |
-| 9   | P3.0 | ADC8, RxD, INT4                        | A button line (unconfirmed). UART for ISP    |
-| 10  | P3.1 | ADC9, TxD                              | A button line (unconfirmed). UART for ISP    |
+| 9   | P3.0 | ADC8, RxD, INT4                        | Button S2 (V+). UART RxD for ISP             |
+| 10  | P3.1 | ADC9, TxD                              | Button S1 (V−). UART TxD for ISP             |
 | 11  | P3.2 | ADC10, INT0, SCLK_4, **I2CSCL_4**      | I²C clock to the tuner                       |
 | 12  | P3.3 | ADC11, INT1, MISO_4, **I2CSDA_4**      | I²C data to the tuner                        |
 | 13  | P3.4 | ADC12, T0, T1CLKO, ECI_2, CMPO, MOSI_4 | Display line D1                              |
@@ -72,24 +72,30 @@ Vcc. In the 16-pin package it shares pin 6 with Vcc.
   choose the pins. The value `11` selects SCL on P3.2 and SDA on P3.3. That
   is the pair that the kit uses. The other values give P1.5/P1.4 (`00`) and
   P2.5/P2.4 (`01`) on larger packages.
-- **Extended registers:** P_SW2 bit 7 (EAXFR) must be 1 to reach the
-  extended register area (XFR). Check in the I²C chapter of the manual
-  whether the I²C registers of this family sit in that area.
+- **Extended registers:** the I²C registers sit in the extended register
+  area (XDATA, from address 0xFE80). P_SW2 bit 7 (EAXFR) must be 1 to
+  reach them.
 
 ## ISP: how the chip is programmed (section 2.1, page 7)
 
-- **Wiring:** a USB-to-UART tool connects to GND, Vcc, and the UART pins
-  **P3.0 (RxD)** and **P3.1 (TxD)**.
+- **Only the UART works for the STC8G1K17.** The selection table of the
+  manual (page 3) marks "software USB download" and "online debugging" with
+  a dash for this model. They are available on the STC8G1K04 and
+  STC8G1K08. A USB-to-UART tool is the way to program the kit chip.
+- **Wiring:** the tool connects to GND and to the UART pins **P3.0 (RxD of
+  the chip)** and **P3.1 (TxD of the chip)**. Cross them: tool TX to P3.0,
+  tool RX from P3.1.
+- **Voltage:** use a 3.3 V tool. The chip and the tuner chip on the same
+  net run at 3.3 V at most. A 5 V level on P3.0 or on Vcc overdrives them.
+  When the kit powers itself, do not connect the Vcc of the tool. Share
+  the ground only.
 - **Steps:** connect the tool, confirm that the target is powered off,
   click "Download/Program" in the STC-ISP software, then power the target
   on. The download starts at power-on.
 - **Supply:** a thin USB cable drops too much voltage. The manual asks for
   a good cable.
-- **Reset condition:** if USB download is not needed, P3.0, P3.1, and P3.2
-  must not all be low at reset.
-- **USB download of this family is software-simulated on the pins.** About
-  0.2 % of chips cannot download through USB. Use a serial tool for
-  repeated work.
+- **Reset condition:** the manual says that P3.0, P3.1, and P3.2 must not
+  all be low at reset when USB download is not needed.
 - **Reading back:** the manual excerpt does not say that the stock firmware
   can be read back. Keep a spare chip with the stock firmware before path C
   overwrites the kit chip.
@@ -123,6 +129,5 @@ must use 3.3 V levels.
 
 - **Which package of the family.** The photo shows a DIP16 chip. The manual
   lists DIP16 as "not recommended". A spare must match the DIP16 package.
-- **The stock firmware.** Nobody has dumped it. Its display drive and
-  button map come from tracing the board.
-- **Which pins the four buttons use.** See the schematic file.
+- **The stock firmware.** Nobody has dumped it. Its display drive comes
+  from tracing the board. The button pins are in the pin table.

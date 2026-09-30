@@ -83,4 +83,31 @@ describe('the library', () => {
 			await workspace.dispose();
 		}
 	});
+
+	it('rewrites a stale library file at each start, and keeps an edit outside the library', async () => {
+		const workspace = openWorkspace({ name: 'library', backend: { bash: memoryBackend() } });
+		try {
+			await workspace.use(workspace.host, async (env) => {
+				await env.writeFile(
+					'/library/README.md',
+					'The directory has no summary yet.',
+					BACKGROUND_CONTEXT,
+				);
+				await env.writeFile('/shared/kit.md', 'an edit of the person', BACKGROUND_CONTEXT);
+			});
+			await seedWorkspace(workspace);
+			await workspace.use(workspace.host, async (env) => {
+				const index = await env.readTextFile('/library/README.md', BACKGROUND_CONTEXT);
+				expect(index.ok && index.value).toContain('rda5807fp.md');
+				const kit = await env.readTextFile('/shared/kit.md', BACKGROUND_CONTEXT);
+				expect(kit.ok && kit.value).toBe('an edit of the person');
+			});
+		} finally {
+			await workspace.dispose();
+		}
+	});
+
+	it('leaves a dot file out of the seed', () => {
+		for (const path of Object.keys(seedFiles())) expect(path, path).not.toMatch(/\/\.[^/]+$/);
+	});
 });

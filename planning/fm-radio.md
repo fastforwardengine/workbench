@@ -9,9 +9,9 @@ display. [`next.md`](next.md) holds the milestone that builds on it.
 ## What the photo shows
 
 **The parts below come from the product photo, the manual, and the
-schematic.** The datasheets and the circuit are in [`library/`](../library/README.md).
-Each part needs a check against the kit when it arrives. Activity 2 of [`next.md`](next.md) settles
-them.
+schematic.** The datasheets and the circuit are in
+[`library/`](../library/README.md). Each part needs a check against the
+kit when it arrives. Activity 2 of [`next.md`](next.md) settles them.
 
 | Part                                              | Marking in the photo         | Role                                                                         |
 | ------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
@@ -89,12 +89,19 @@ bus.
 
 ## Facts to settle
 
+**The documents in [`library/`](../library/README.md) settle these
+facts.** The schematic picture and the datasheets give the type of the
+microcontroller (STC8G1K17, DIP16), the button pins (P3.1, P3.0, P5.4, and
+P5.5 for V−, V+, CH−, and CH+), the pins of the tuner outputs, and the
+supply. The micro-USB port only charges the lithium cell. A 3.3 V regulator
+on the tuner module feeds the tuner chip and the microcontroller.
+
+These facts stay open:
+
 - Whether the programming pins P3.0 and P3.1 of the STC8G1K17 reach a
-  header. The type is settled: STC8G1K17, DIP16.
-- Which microcontroller pins the four buttons use. The schematic picture
-  does not settle P5.4 and P5.5.
-- How the display is wired. The schematic shows eight drive lines for a
-  4-digit display.
+  header.
+- How the display is wired. The schematic shows eight drive lines, and a
+  plain 4-digit display needs twelve.
 - Whether the RDA5807FP decodes RDS in the stock firmware. The chip
   supports it. RDS gives the name of a station, which the team can check
   against its tuning.
@@ -102,11 +109,7 @@ bus.
   picture shows none.
 - Which band the stock firmware sets. The product page says 50 to 108 MHz,
   and the chip defaults to 87 to 108 MHz.
-- Which pin of the tuner is left and which is right (a conflict between
-  the schematic and the datasheet).
-- Whether the micro-USB port powers the radio. The manual says yes. The
-  product page says the cable only charges the lithium cell.
-- The supply limit: the manual says 3 V, and the batteries give 4.5 V or
-  3.7 V. Read the supply and the net 3V3 before the first power-on.
-- The current of the radio at 5 V, idle and at full volume, for the first
-  power-on.
+- The marking of the charging module, and the datasheet of the 662K
+  regulator.
+- The readings of the first power-on: VDD, the net 3V3, and the current of
+  the radio at idle and at full volume.

@@ -209,12 +209,13 @@ export type SeedContent = string | Uint8Array;
 /**
  * The files of `library/`, at any depth, by workspace path such as
  * `/library/images/kit-schematic.jpg`. A Markdown file is text. Every other
- * file, such as a figure, is bytes.
+ * file, such as a figure, is bytes. A file whose name starts with a dot,
+ * such as `.DS_Store`, stays out.
  */
 function libraryFiles(): Record<string, SeedContent> {
 	const files: Record<string, SeedContent> = {};
 	for (const entry of readdirSync(libraryDirectory, { recursive: true, withFileTypes: true })) {
-		if (!entry.isFile()) continue;
+		if (!entry.isFile() || entry.name.startsWith('.')) continue;
 		const path = join(entry.parentPath, entry.name);
 		const name = relative(libraryDirectory, path).split(sep).join('/');
 		files[`/library/${name}`] = name.endsWith('.md')
@@ -227,8 +228,9 @@ function libraryFiles(): Record<string, SeedContent> {
 /**
  * The seed of a workspace: each file by its workspace path, such as
  * `/shared/kit.md`. The library comes from `library/` of the package. The
- * host writes each file that the workspace does not hold yet, so an edit
- * always remains. `overrides` replaces files of the seed by path, as an eval
+ * host writes each file of `/library` at every start, because the package
+ * owns them. It writes every other file only when the workspace does not
+ * hold it, so an edit always remains. `overrides` replaces files of the seed by path, as an eval
  * of another project does.
  */
 export function seedFiles(overrides: Record<string, string> = {}): Record<string, SeedContent> {

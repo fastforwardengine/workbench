@@ -8,7 +8,7 @@ image, so the Builder can compare a photo of the board with the manual.
 - **Source:** the manual PDF of the kit, file `A1KLFMlAjbL.pdf` (15
   pages, file date 2025-05-13). The file does not name the seller.
 - **Converted:** 2026-09-29, by hand, from the text and pages of the PDF.
-  The wording is shortened. Page numbers match the PDF.
+  The wording is shorter. Page numbers match the PDF.
 - **Product data:** see `fm-radio-kit-product.md`. The circuit is in
   `fm-radio-kit-schematic.md`.
 
@@ -64,7 +64,7 @@ for 3 AAA cells, the 3 W speaker, and the antenna.
 | Step | Action                                                     | Orientation or risk                                                   |
 | ---- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
 | 1    | Install seven 47 Ω resistors                               | No polarity                                                           |
-| 2    | Install the micro-USB female socket                        | Fits one way only                                                     |
+| 2    | Install the micro-USB female socket                        | Follow the footprint on the board                                     |
 | 3    | Install the 16-pin IC socket                               | **The notch matches the notch on the silkscreen**                     |
 | 4    | Install the toggle switch                                  | Keep heat low on the middle 3 pins. Heat melts the handle             |
 | 5    | Install the audio jack                                     | Do not melt the plastic. Too much solder at the arrow shorts pins     |
@@ -144,19 +144,21 @@ board with the manual before the person solders.
 
 ## Conflicts and open points
 
-- **Supply voltage.** The manual says the voltage cannot exceed 3 V
-  (page 6, item 7). The battery is 3 AAA (4.5 V) or 3.7 V. The tuner
-  module carries a 3.3 V regulator (see `xc6206-662k.md`), so the 3 V line
-  may describe the tuner supply. This is a guess. **Settle it by a reading
-  before the first power-on.**
+The schematic (`fm-radio-kit-schematic.md`) settles the first two points.
+
+- **Supply voltage: the 3 V line is not a limit of VDD.** The manual says
+  the voltage cannot exceed 3 V (page 6, item 7). The tuner chip and the
+  microcontroller run from the regulated net 3V3 (3.3 V). The regulator
+  input VDD (3.7 to 4.8 V) also feeds the 8002, which allows 6.0 V. The
+  circuit has no reverse-polarity protection. Read VDD and 3V3 at the
+  first power-on.
+- **Micro-USB power: the product page is right.** The picture connects
+  USB only to the charging module socket. The switch down selects the
+  charging-module output. Without a charging module, USB powers nothing.
 - **Search range.** The manual gives 50 to 108 MHz. The tuner datasheet
   gives 50 to 115 MHz, and its default band is 87 to 108 MHz. The band
   bits that the firmware sets decide the range (`rda5807fp.md`).
 - **Controller name.** The manual writes STC81K17. The board photo shows
   STC8G1K17.
-- **Micro-USB power.** Page 15 says the switch down connects the micro-USB
-  supply. The product page says the cable only charges a lithium battery
-  and does not power the radio (`fm-radio-kit-product.md`). Test it with a
-  reading of the supply pin.
 - **Which battery.** The parameter table says "3 No. 7 batteries", which
   means AAA cells.

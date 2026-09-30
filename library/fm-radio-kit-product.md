@@ -54,6 +54,7 @@ Figure file: `/library/images/kit-product-detail.jpg`.
 
 - **Micro-USB power.** The manual says the switch down connects micro-USB
   power. The page says the cable charges the lithium battery and does not
-  power the radio.
+  power the radio. The schematic agrees with the page: USB reaches only the
+  charging module socket.
 - **Charging module.** The manual and the page do not name the charging
   chip. Its red and green charge LEDs match a TP4056 module (`tp4056.md`). This is a guess until someone reads the chip marking.
