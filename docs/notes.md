@@ -24,8 +24,10 @@ state in `/shared/bench.md` and `/shared/notes.md`.
 | Templates | The starting files of a task                                 | The package, at each start   |
 | Snapshots | The bytes of a file, such as a reading, a frame, or a clip   | Any seat, with `snapshot`    |
 
-- **The library is read-only for the seats.** The host rewrites `/library`
-  at each start, and a seat has no write access to it. A conclusion from a
+- **The library is read-only.** On a workstation, the mode of `/library`
+  (2750, owned by the host account) keeps a seat from writing there. On the
+  local directory backend nothing stops a write, and the host rewrites
+  `/library` at each start, so an edit does not last. A conclusion from a
   datasheet goes into the notes, with the library file as its source.
 - **A note cites the library, and the library never cites a note.** A
   library file states its own conflicts and open points. The notes settle
@@ -41,14 +43,14 @@ state in `/shared/bench.md` and `/shared/notes.md`.
 3. The seat works with `git` in `bash`, and with `read`, `write`, and `edit`.
 4. A push persists the work. A seat pushes before it finishes.
 
-A specialist reads a skill, `keep-notes`, that states the loop below. No
+A skill, `keep-notes`, will state the loop below. It does not exist yet. No
 tool and no check enforces the layout. The conventions live in the notes
 themselves, in `README.md`, and every seat reads that file first.
 
 ## The layout
 
-**The folders follow the subject, not the author.** A note has one home,
-and every seat edits it there.
+**The folders follow the subject.** A note has one home, and every seat
+edits it there.
 
 ```text
 notes/
@@ -62,9 +64,10 @@ notes/
   questions/          one file for each open question
 ```
 
-**Each folder has a steward.** Anyone writes anywhere. The steward tidies
-the folder, keeps its files short, and settles the disputes of its area
-when evidence exists.
+**Each folder has a steward.** Anyone writes anywhere. The steward keeps
+the format of the folder, splits a file that grows long, and merges
+duplicate claims with their sources intact. The steward settles the
+disputes of its area when evidence exists.
 
 | Folder                     | Steward     |
 | -------------------------- | ----------- |
@@ -80,7 +83,9 @@ branches of the notes in its summaries.
 
 **A note file has a title and a list of claims.** One claim is one bullet.
 The bullet holds the statement, its source, and its confidence. Git holds
-the author and the time.
+the time. The commit author is the seat, and the seat sets it: a seat runs
+`git config user.name <its name>` in its clone. On a workstation the git
+account names the agent only in the reflog.
 
 ```markdown
 # STC8G1K17
@@ -88,7 +93,7 @@ the author and the time.
 - **The four buttons sit on P3.1, P3.0, P5.4, and P5.5** (V−, V+, CH−, CH+).
   Source: library/fm-radio-kit-schematic.md. Confidence: medium.
 - **P5.4 is also the reset pin, when a download enables it.**
-  Source: library/stc8g1k17.md. Confidence: high.
+  Source: library/stc8g1k17.md. Confidence: medium.
 ```
 
 | Field      | Rule                                                                                                  |
@@ -126,31 +131,39 @@ for what the person remembers.
 fact: a datasheet against a reading, or the camera against the person. The
 notes keep both until evidence settles it.
 
-- **Never edit or delete the claim of another seat on `main`.** `main`
-  keeps the claim that stands.
+- **Never rewrite or delete the claim of another seat on `main` to settle a
+  disagreement.** `main` keeps the claim that stands. Only a resolution
+  merge replaces it.
 - **A seat that disagrees pushes a branch** named `dispute/<topic>`, such
   as `dispute/i2c-address`. The branch holds the seat's own claim, its
   source, and the claim it disputes, cited by path. It stops at this claim.
 - **Any seat adds evidence** by committing to the branch. The branch is the
   thread of the dispute.
 - **The open disputes are the unmerged branches.**
-  `git branch -r --no-merged origin/main` lists them. A seat reads the list
-  before it acts on a topic.
+  A seat lists them after `git fetch`: `git branch -r` shows every
+  `origin/dispute/*` branch, and `git log origin/main..origin/dispute/<topic>`
+  prints the commits that `main` lacks. An empty result means the dispute
+  is resolved. A seat reads the list before it acts on a topic. The
+  `repos` tool shows only the first five branches, so use `git`.
 - **A dispute stays open** until evidence or the person settles it.
   The steward of the area does not settle it by preference.
+- **A branch stays.** The shared repository refuses a force push and the
+  deletion of a branch, so the history of every dispute remains (see
+  [`ambion_notes_project.md`](../ambion_notes_project.md)).
 
 **A resolution is a merge.** The merge commit names the winner and its
-evidence in its message.
+evidence in its message. The commands below work in the shell of every seat,
+including the just-bash `git`, which lacks `merge -s` and `--no-commit`.
 
-| Outcome                    | The commit                                                             |
-| -------------------------- | ---------------------------------------------------------------------- |
-| The branch is right        | `git merge --no-ff dispute/<topic>`, with the claim on `main` replaced |
-| `main` is right            | `git merge -s ours dispute/<topic>`, which marks the branch as merged  |
-| Both hold, in two contexts | A merge that keeps both claims and states the context of each          |
+| Outcome                    | The commits                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| The branch is right        | `git merge --no-ff origin/dispute/<topic>`. Keep the claim of the branch when the merge conflicts |
+| `main` is right            | The same merge, then a second commit that removes the claim of the branch and cites the evidence  |
+| Both hold, in two contexts | The same merge, with both claims kept and the context of each stated                              |
 
-The message begins `resolved:` and cites the evidence, such as a snapshot
-ref of a reading or the room message in which the person decided. A
-resolution that rests on preference is invalid.
+The message of the resolving commit begins `resolved:` and cites the
+evidence, such as a snapshot ref of a reading or the room message in which
+the person decided. A resolution that rests on preference is invalid.
 
 **The person decides what evidence cannot.** A choice of limit, a risk to
 accept, or a preference is the person's. The person says so in the room.
@@ -168,8 +181,8 @@ The steward records the message ref in the merge commit.
 ## The first content
 
 **The notes start from what the team already knows.** The migration reads
-`/shared/bench.md`, `/shared/kit.md`, and the open points of the library
-files.
+`/shared/bench.md`, `/shared/kit.md`, `/shared/notes.md`, and the open points
+of the library files.
 
 | Today                                | In the notes                                                |
 | ------------------------------------ | ----------------------------------------------------------- |
@@ -179,6 +192,7 @@ files.
 | The radio facts table                | Files in `radio/`                                           |
 | The open points of the library files | One file for each in `questions/`                           |
 | The house rules of `kit.md`          | `README.md` of the notes, and the instructions of the seats |
+| The lab notes of `/shared/notes.md`  | One file for each decision in `decisions/`                  |
 
 `bench.md` has no open conflict today. The notes start with no dispute
 branch.

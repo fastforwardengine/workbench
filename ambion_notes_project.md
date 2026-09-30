@@ -2,80 +2,96 @@
 
 **This page briefs one change to Ambion: a repository that every agent of a
 workspace can push to.** Workbench needs it for its team notes
-([`docs/notes.md`](docs/notes.md)). The change is small in code and touches
-one design decision, so this page states the finding, the design, the work,
-and the questions that the owner of Ambion decides.
+([`docs/notes.md`](docs/notes.md)). The change is small in code and reverses
+one design decision. The page states the finding, the design, the work, and
+the questions that the owner of Ambion decides.
 
-- **Reviewed:** `../ambion` at commit `c0f4711f` on `main` (one commit behind
-  `origin/main`), on 2026-09-30. The 0.5.0 scope is the sensor lifecycle.
-  This change is not in it.
+- **Reviewed:** the `ambion` checkout next to this repository, at commit
+  `5846ef9e`, which equals `origin/main`, on 2026-09-29. The 0.5.0 scope is
+  the sensor lifecycle. This change is not in it.
 - **Status:** a proposal. No code exists.
-- **Rule for the code:** Ambion promises no compatibility before 1.0.0, so
-  the change adds no alias and no migration, and the changelog names it.
+- **Rule for the code:** Ambion promises no compatibility before 1.0.0. The
+  change adds no alias and no migration, and the changelog names it.
 
 ## The need
 
 **Workbench wants one place where all specialists keep what they conclude.**
 Each specialist reads and writes it, and a disagreement stays visible until
-evidence settles it. Git already gives the pieces: an author and a time for
-each change, a rejected push for a lost race, and a branch for a dispute.
-Today the team keeps this state in two Markdown files that it rewrites as a
-whole, so two seats that write at once lose one edit.
+evidence settles it. Git gives the pieces: an author and a time for each
+change, a rejected push for a lost race, and a branch for a dispute. Today
+the team keeps this state in Markdown files that it rewrites as a whole, so
+two seats that write at once lose one edit.
 
 ## What the review found
 
-**The git backend has one pusher for each repository, by decision.**
-[`docs/git.md`](../ambion/docs/git.md#decisions-taken) states it: "One agent
-pushes to a repository: its owner. A peer reads the repository and forks it.
-Two agents work on one task through two forks." A shared repository reverses
-that decision for one namespace.
+**The git backend has one pusher for each repository, by decision.** The
+page `docs/git.md` of Ambion states it under "Decisions taken": "One agent
+pushes to a repository: its owner. A peer reads the repository and forks
+it. Two agents work on one task through two forks." A shared repository
+reverses that decision for one namespace.
 
-**The rule lives in six places.** A change touches each of them.
+**The rule lives in these places.** A change touches each of them.
 
-| Place                                                   | What it does today                                                                                  |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `packages/workspace/src/git-names.ts` (13, 37, 47)      | `TEMPLATES` is the one reserved name. `assertAgent` refuses it. `readOnly` marks a template         |
-| `packages/just-bash/src/git/backend.ts` (145)           | `scope` is `write` when the namespace of the repository equals the agent name, and `read` otherwise |
-| `packages/just-bash/src/git/server.ts` (73 to 81)       | `preReceive` refuses a push to a template, and a push with a read token                             |
-| `packages/workstation/src/git-prepare.ts` (47)          | The `serve` script refuses `git-receive-pack` when `$namespace` differs from `$agent`               |
-| `packages/workspace/src/git-tools.ts` (66, 67, 81, 117) | The guidance and the `repos` text: "You push only to `<your name>/<name>`"                          |
-| `packages/*/src/git-*registration*.ts`                  | Registration creates and updates templates. Nothing creates any other repository except `fork`      |
+| Place                                                     | What it does today                                                                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `packages/workspace/src/git-names.ts` (13, 37, 47)        | `TEMPLATES` is the one reserved name. `assertAgent` refuses it. `readOnly` marks a template               |
+| `packages/just-bash/src/git/backend.ts` (145)             | `scope` is `write` when the namespace of the repository equals the agent name, and `read` otherwise       |
+| `packages/just-bash/src/git/server.ts` (73 to 81)         | `preReceive` refuses a push to a template, and a push with a read token                                   |
+| `packages/workstation/src/git-prepare.ts` (47)            | The `serve` script refuses `git-receive-pack` when `$namespace` differs from `$agent`                     |
+| `packages/workspace/src/git-tools.ts` (66 to 70, 81, 117) | The guidance and the `repos` text: "You push only to `<your name>/<name>`"                                |
+| `packages/just-bash/src/git/registration.ts`              | Registration creates and updates templates. Nothing else creates a repository except `fork`               |
+| `packages/workstation/src/git-registration.ts`            | The same, with a staging folder and one rename                                                            |
+| `packages/workspace/src/sensors.ts` (19 to 22)            | The sensor source pattern `^(?!templates/)…` calls the rest "an agent-owned Git repository"               |
+| Conformance plumbing                                      | `GitConformanceOptions` (`git-conformance.ts`, 37 to 42) has `templates` alone; the two harnesses pass it |
+| The docs and the comments                                 | See the list below                                                                                        |
+
+**Docs and comments that state the rule.** `docs/git.md` (65, 71, 232,
+330, 534, 564, 793), `docs/workstation-git.md` (266, 276, 574),
+`docs/trust.md` (62), `packages/just-bash/README.md` (68), and the header
+comments of `git-names.ts`, `backend.ts`, and `server.ts`.
 
 **Ambion has the tools for a shared repository already.**
 
-- `fork` accepts any repository as its source, so an agent can fork a shared
-  repository.
+- `fork` accepts any readable repository as its source, so an agent can fork
+  a shared repository.
 - `clone` gives a working copy whose `origin` keeps the push rights of the
-  source. That is the tool a seat uses for a shared repository.
+  source. A seat uses `clone` for a shared repository.
 - The commit ref form (`ambion://workspace/<workspace>/repo/<repository>/…`)
   holds any ID of the form `<namespace>/<name>`, so `shared/notes` needs no
   change there.
-- The author of a commit is the agent on both backends. The just-bash `git`
-  locks the author. The `serve` script of the workstation sets the committer,
-  and the reflog names the agent.
 - `just-git` 1.8.2 has what the server needs. `ServerPolicy` holds
-  `protectedBranches`, `denyNonFastForward`, and `denyDeletes`, and the hooks
-  hold `postReceive` (`dist/server/index.d.ts`, lines 300 to 302 and 654).
-  The workstation gets the same rules from `receive.denyNonFastForwards` and
-  `receive.denyDeletes` in the repository config.
-- The server orders pushes already. Each ref update compares the old commit,
-  and a push that lost the race fails. Two seats that push to one branch
+  `protectedBranches`, `denyNonFastForward`, and `denyDeletes`, all
+  server-wide (`dist/server/index.d.ts`, lines 298 to 302). The hooks hold
+  `update` for a rule on one ref, and `postReceive` (lines 644 to 654).
+- The server orders pushes. Each ref update compares the old commit, and a
+  push that lost the race fails. Two seats that push to one branch
   therefore rebase and push again.
+
+**Two facts differ between the backends.**
+
+- **The author.** The just-bash `git` locks the author of a commit to the
+  agent. On the workstation, `serve` sets only the committer, and that
+  reaches the reflog alone. The seat sets its own author, or its commit
+  fails for lack of an identity.
+- **The shell.** The just-bash `git` lacks `merge -s`, `merge --no-commit`,
+  `branch --no-merged`, `rev-list`, `for-each-ref`, and `cat-file`. The
+  workflow of the notes uses only commands that both shells have.
 
 **Limits to keep in view.**
 
-- **Global server policy.** `ServerPolicy` applies to every repository of
-  the server. A protected `main` also protects the forks of the agents.
 - **No push notification for the host.** Neither backend tells the host
   about a push. The workstation runs `git` in a separate account.
 - **File budget.** `scripts/file-budget.test.mjs` allows 600 lines for a
   source file. `git-conformance.ts` has 451 lines, so the new cases go in a
   new file.
+- **The `repos` tool** shows the first five branches of a repository and a
+  count of the rest. A seat lists the branches with `git`.
 
 ## The design
 
 **A new reserved namespace, `shared`, holds repositories that every agent
-pushes to.**
+pushes to.** A workspace with several rooms shares each of them across the
+rooms, because repositories belong to the workspace.
 
 | Namespace   | Holds                   | Who can push |
 | ----------- | ----------------------- | ------------ |
@@ -85,7 +101,7 @@ pushes to.**
 
 1. **Reserve the name.** `SHARED = 'shared'` joins `TEMPLATES`. `assertAgent`
    refuses an agent with that name, in `connect` and in each credential call.
-   A backend can still reserve more names.
+   A helper `writableBy(id, agent)` replaces the namespace tests.
 2. **Register a shared repository.** Both backends take a new option next to
    `templates`:
 
@@ -98,50 +114,85 @@ pushes to.**
    },
    ```
 
-   Registration **creates** the repository when it is absent, with the
-   source as the first commit on the default branch, as `ambion`. When the
-   repository exists, registration writes nothing to its files or refs,
+   Registration **creates** the repository when it does not exist yet. The
+   source becomes the first commit on the default branch, as `ambion`. When
+   the repository exists, registration writes no file and moves no ref,
    because the agents own the content. It updates the description when the
-   description differs. A later change of the source has no effect, and the
-   page says so.
+   description differs. A later change of the source has no effect.
 
-3. **Grant the write.** In `justGitBackend`, `credential` returns `write`
-   when the namespace is `shared`. The `preReceive` hook allows the push for
-   a write token. In `workstationGitBackend`, the `serve` script accepts
-   `git-receive-pack` when `$namespace` is `$agent` or `shared`. The
-   preparation rewrites `serve` when its text differs, so an existing
-   account picks the change up at the next start.
-4. **Keep the history.** A push to a shared repository cannot delete the
-   default branch or move it backward. `justGitBackend` refuses it in
-   `preReceive`. The workstation sets `receive.denyNonFastForwards` and
-   `receive.denyDeletes` when it creates the repository. Any other branch
-   accepts a push, so a dispute can live on a branch. The reflog names the
-   agent on the workstation.
-5. **Say it in the guidance.** The git note gains one line: `shared/<name>
+3. **Define "exists" for a crash.** On `justGitBackend`, `settledRow` marks a
+   row `ready` whenever the repository exists, so a crash between
+   `createRepo` and the first commit would leave an empty `shared/<name>`
+   that counts as existing. The rule is: a repository exists when its
+   default branch has a commit. Registration of a row without that commit
+   writes the seed commit again. On the workstation, registration builds the
+   repository in `.staging` and lands it with one `mv -T`, the pattern of
+   the template build. Three details differ from a template: it installs no
+   `pre-receive` hook that refuses every push; it sets
+   `core.logAllRefUpdates always` and the push rules before the rename; and
+   it skips the post-check of the tree (`sameFiles`) for a repository that
+   already holds pushes.
+4. **Grant the write.** In `justGitBackend`, `credential` returns `write`
+   when the namespace is `shared`, and `preReceive` accepts a write token.
+   In `workstationGitBackend`, `serve` accepts `git-receive-pack` when
+   `$namespace` is `$agent` or `shared`. The preparation rewrites `serve`
+   when its text differs, so an existing account picks the change up at the
+   next start.
+5. **Keep the history.** No ref of a shared repository moves backward or is
+   deleted. Any agent can create a branch and add commits to it. A branch
+   therefore keeps the record of a dispute for good. `justGitBackend`
+   enforces the rule for `shared/*` alone, in the `update` hook, so the
+   forks of the agents keep their freedom. The workstation sets
+   `receive.denyNonFastForwards` and `receive.denyDeletes` in the config of
+   each shared repository, and the two rules match.
+6. **Give the seat an author on the workstation.** The agent files that
+   `connect` writes into the home (`git-agent.ts`) also set
+   `user.name` and `user.email` for `git`, so a commit names the seat on
+   both backends. The reflog keeps naming the agent.
+7. **Say it in the guidance.** The git note gains one line: `shared/<name>
 takes pushes from every agent. Pull and rebase before you push.` The
-   sentence "You push only to `<your name>/<name>`" changes to "You push to
-   `<your name>/<name>` and to `shared/<name>`". The `repos` text lists the
-   shared repositories, and the `namespace` parameter accepts `shared`.
-6. **Write the trust rows.** Any agent can push junk to a shared
+   sentence "You push only to `<your name>/<name>`" becomes "You push to
+   `<your name>/<name>` and to `shared/<name>`", and the sentence about
+   forking a template to get something you can push changes to match. The
+   `repos` text lists the shared repositories, and its `namespace`
+   parameter accepts `shared`.
+8. **Decide the sensor pattern.** A sensor source may not come from a
+   template. Whether it may come from `shared/*` is a decision below.
+9. **Write the trust rows.** Any agent can push junk to a shared
    repository. The rows in `docs/trust.md` and `docs/workstation-git.md`
-   say what the design refuses (force push, deletion of the default branch)
-   and what it allows (any commit, any branch).
+   say what the design refuses (a force push, a deletion) and what it
+   allows (any commit, any new branch).
 
 **The tools stay three: `repos`, `clone`, and `fork`.** A shared repository
-needs no new tool. A seat uses `clone`, then `git` in `bash`.
+needs no new tool.
+
+**A leftover repository stays writable.** The grant rests on the namespace,
+and registration tracks no members. A repository in `shared/` whose
+registration the host removes stays writable by every agent. A fork that an
+older agent named `shared` made becomes a shared repository with no push
+rules. The changelog says so.
+
+**Registration stays lazy.** `openWorkspace` checks the transport at once.
+Registration runs at the first `connect`, `credentialFor`, or `identityFor`,
+so a bad `shared` option fails at the first seat connect, as a bad template
+does today.
 
 ## The work
 
-| Step | Change                                                                                                        | Where                                                                   |
-| ---- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 1    | `SHARED`, `assertAgent`, a helper `writableBy(id, agent)` in place of the namespace test                      | `packages/workspace/src/git-names.ts`, `git-entry.ts`                   |
-| 2    | The option `shared` and its type; one type for both registrations                                             | `packages/workspace/src/git-templates.ts`, both backends                |
-| 3    | Create-once registration on `justGitBackend`; the credential scope; the `preReceive` rule and the branch rule | `packages/just-bash/src/git/registration.ts`, `backend.ts`, `server.ts` |
-| 4    | Create-once registration on the git account; the `serve` rule; the repository config                          | `packages/workstation/src/git-registration.ts`, `git-prepare.ts`        |
-| 5    | The guidance and the `repos` text                                                                             | `packages/workspace/src/git-tools.ts`                                   |
-| 6    | The conformance cases, in a new file                                                                          | `packages/workspace/src/git-conformance-shared.ts`                      |
-| 7    | The docs, the changelog, and the export snapshot                                                              | `docs/git.md`, `workstation-git.md`, `trust.md`, `CHANGELOG.md`         |
-| 8    | A room test: two scripted seats push to one shared repository                                                 | `packages/workspace` room test                                          |
+| Step | Change                                                                                   | Where                                                                                        |
+| ---- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 1    | `SHARED`, `assertAgent`, `writableBy`                                                    | `packages/workspace/src/git-names.ts`, `git-entry.ts`                                        |
+| 2    | The option `shared` and its type                                                         | `packages/workspace/src/git-templates.ts`, both backends                                     |
+| 3    | Create-once registration, the credential scope, `preReceive`, and the `update` hook      | `packages/just-bash/src/git/registration.ts`, `backend.ts`, `server.ts`                      |
+| 4    | Create-once registration on the git account, the `serve` rule, and the repository config | `packages/workstation/src/git-registration.ts`, `git-prepare.ts`                             |
+| 5    | The author identity in the agent's home                                                  | `packages/workstation/src/git-agent.ts`                                                      |
+| 6    | The guidance and the `repos` text                                                        | `packages/workspace/src/git-tools.ts`                                                        |
+| 7    | The sensor pattern                                                                       | `packages/workspace/src/sensors.ts`, `docs/sensors.md`                                       |
+| 8    | The conformance cases in a new file, and the option in `GitConformanceOptions`           | `packages/workspace/src/git-conformance-shared.ts`, `git-conformance.ts`                     |
+| 9    | The harnesses pass `shared` through                                                      | `packages/just-bash/test/support/git-harness.ts`, `packages/workstation/test/support/git.ts` |
+| 10   | The existing case that expects a refused push outside the namespace                      | `git-conformance.ts` (`pushesOutsideTheNamespaceAreRefused`)                                 |
+| 11   | The docs, the comments, the changelog, and the export snapshot                           | The docs listed above, `CHANGELOG.md`                                                        |
+| 12   | A room test: two scripted seats push to one shared repository                            | `packages/workspace` room test                                                               |
 
 **The conformance cases** (`gitConformance`, then the OpenSSH tier):
 
@@ -150,18 +201,21 @@ needs no new tool. A seat uses `clone`, then `git` in `bash`.
 - Registration creates the repository once. A second registration with a
   changed source writes no commit and moves no ref.
 - A registration after a push keeps the pushed commits.
-- Two agents each push a commit to `main` one after the other, and the
-  second push rebases and lands. Two pushes at once give one success and one
-  rejection.
-- A force push to `main`, and the deletion of `main`, are refused.
+- A registration that stops after the empty repository exists finishes the
+  seed at the next start.
+- Two agents each push a commit to `main`, the second from a clone made
+  before the first push. The second push is rejected, and after a pull with
+  rebase it lands. The case is phrased by outcome, because a push holds the
+  bash owner on the just-bash backends and the race may show on the client.
+- A force push and a deletion are refused on `main` and on another branch.
 - A push of a new branch is accepted, and a peer reads it.
 - A push to a template, and a push to another agent's fork, stay refused.
 - An agent named `shared` is refused, and gets no credential.
 - `fork` of a shared repository gives a fork in the caller's namespace.
 - A commit ref for a commit of `shared/<name>` builds and parses.
+- A commit on the workstation names the seat as its author.
 
-**The guidance and `repos` texts** each get one case, in the same file as
-today's cases.
+**The guidance and `repos` texts** each get one case.
 
 **Acceptance.**
 
@@ -186,9 +240,9 @@ today's cases.
 - **Write control by seat.** Every agent of the workspace writes a shared
   repository. A per-seat grant needs a policy on the workspace, and no
   application asks for it yet.
-- **A per-room repository.** Repositories belong to the workspace. A
-  workspace with several rooms shares each shared repository across the
-  rooms. That is what Workbench wants.
+- **More git commands in just-git.** `merge -s ours`, `merge --no-commit`,
+  and `branch --no-merged` would shorten the workflow of the notes. The
+  workflow does not wait for them.
 
 ## Decisions for the owner
 
@@ -196,15 +250,18 @@ today's cases.
    as well. The name is reserved for every workspace.
 2. **One type for both registrations.** The plan replaces
    `TemplateRegistration` with a `RepositoryRegistration` that both options
-   use. The other way keeps both types with the same fields.
-3. **Global branch protection.** `justGitBackend` sets `protectedBranches`
-   for the whole server, so the fork of an agent also protects its own
-   `main`. The alternative is a check in `preReceive` that applies to
-   `shared/*` alone. The plan takes the check.
+   use. The other way keeps two types with the same fields.
+3. **The history rule.** The plan applies it to every ref of `shared/*`,
+   through the `update` hook. The server-wide `ServerPolicy` would also bind
+   the forks of the agents. The plan avoids that.
 4. **Create-once registration.** A change of the source of an existing
-   shared repository has no effect. The alternative merges the new source
-   into the tip, and it can conflict with the agents' work.
-5. **The backlog entry.** The backlog ends at D22. This page can become D23
+   shared repository has no effect. The other way merges the new source
+   into the tip, and it can conflict with the work of the agents.
+5. **Sensors from a shared repository.** The plan keeps the sensor pattern
+   as it is for `templates/` and allows `shared/*`, as it allows an agent
+   namespace. The other way refuses `shared/*`, so a sensor definition
+   always has one owner.
+6. **The backlog entry.** The backlog ends at D22. This page can become D23
    with the condition "an application needs several agents to write one
    repository", and Workbench is that application.
 
@@ -214,10 +271,11 @@ After Ambion releases the change, Workbench does four things:
 
 1. It updates the dependency, and adds the option
    `shared: { notes: { description, source: fromDirectory('notes/') } }` to
-   `labRepositories` in `src/host/repositories.ts`.
+   both git backends: `labRepositories` in `src/host/repositories.ts` and
+   the `workstationGitBackend` call in `src/host/workstation.ts`.
 2. It adds the seed of the notes to the package. The seed holds the
    `README.md` and the folders of [`docs/notes.md`](docs/notes.md).
 3. It adds the skill `keep-notes` to each specialist, and one line about the
    notes to the shared rules.
-4. It moves the content of `/shared/bench.md` into the notes, and drops that
-   file. The library stays read-only.
+4. It moves the content of `/shared/bench.md`, `/shared/kit.md`, and
+   `/shared/notes.md` into the notes. The library stays read-only.
