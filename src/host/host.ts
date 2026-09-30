@@ -1,6 +1,7 @@
 import { access, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import type { Room } from '@ambionframework/ambion';
 import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
 import { scenarios } from '../domain/scenarios.ts';
@@ -32,6 +33,12 @@ export type { Attachment, FileContent, FileEntry, ImageContent, TableView } from
 export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
 
+/** An assistant or a specialist that a message can address, seated in the room or not. */
+interface Addressable {
+	name: string;
+	identity: string;
+}
+
 /**
  * The Workbench host, as the terminal sees it. It runs in the same
  * process as the terminal. Opening it hosts the rooms, and closing it stops
@@ -40,6 +47,8 @@ export type { RoomAction, RoomView } from './rooms.ts';
  */
 export interface Lab {
 	readonly people: readonly Person[];
+	/** The seats a person can address with `@name`: the assistant and every specialist. */
+	readonly agents: readonly Addressable[];
 	rooms(): Promise<RoomView[]>;
 	/** Read one room. Messages come back only after `since`, an exclusive position. */
 	read(room: string, since: number): Promise<RoomView>;
@@ -56,9 +65,18 @@ export interface Lab {
 	leave(room: string, person: string): Promise<void>;
 	/**
 	 * Send a message, with the refs it cites. The same key and text return the
-	 * first exchange and add no message.
+	 * first exchange and add no message. `to` names one seat that the message
+	 * wakes. The host seats it at `named` first when the room has not seated
+	 * it. A seat at `none` wakes for nothing, so the host refuses the message.
 	 */
-	send(room: string, person: string, key: string, text: string, refs?: string[]): Promise<void>;
+	send(
+		room: string,
+		person: string,
+		key: string,
+		text: string,
+		refs?: string[],
+		to?: string,
+	): Promise<void>;
 	control(room: string, action: RoomAction): Promise<RoomView>;
 	/** Dismiss a say of a room that waits to return, by its handle. False when it no longer waits. */
 	dismiss(room: string, handle: number): Promise<boolean>;
@@ -167,12 +185,46 @@ function present(
 	);
 }
 
+/** The attention of the seat named `name`, or undefined when the room has not seated it. */
+function attentionOf(
+	snapshot: { participants: readonly { name: string; kind: string; attention?: string }[] },
+	name: string,
+): string | undefined {
+	return snapshot.participants.find((seat) => seat.kind === 'agent' && seat.name === name)
+		?.attention;
+}
+
+/** What a person sends: the token, the text, the refs it cites, and the seat it addresses. */
+interface Delivery {
+	key: string;
+	text: string;
+	refs: string[];
+	to?: string;
+}
+
+/** Send the message of a person who is in the room. Seat the addressed seat first when the room has not. */
+async function deliver(live: Room, who: Person, { key, text, refs, to }: Delivery): Promise<void> {
+	const snapshot = await live.read({ messages: false });
+	if (!present(snapshot, who.name)) fail('Enter this room before sending.');
+	const attention = to === undefined ? undefined : attentionOf(snapshot, to);
+	if (attention === 'none') fail(`'${to}' listens at none, so no message wakes it.`);
+	if (to !== undefined && attention === undefined) await live.seat(to, { attention: 'named' });
+	const visit = await live.visit(who);
+	await visit.send({
+		key,
+		text,
+		...(to === undefined ? {} : { to }),
+		...(refs.length > 0 ? { refs } : {}),
+	});
+}
+
 function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 	let closing: Promise<void> | undefined;
 	const inRoom = <T>(name: string, operation: (room: ReturnType<typeof liveRoom>) => Promise<T>) =>
 		rooms.withRoom(name, (entry) => operation(liveRoom(entry)));
 	return {
 		people,
+		agents: rooms.agents,
 		rooms: () => rooms.list(),
 		read: (room, since) => rooms.read(room, since),
 		watch: (room, changed) => rooms.watch(room, changed),
@@ -187,13 +239,13 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 				if (present(snapshot, who.name)) await (await live.visit(who)).leave();
 			});
 		},
-		async send(room, person, key, text, refs = []) {
+		async send(room, person, key, text, refs = [], to) {
 			const who = personNamed(person);
 			if (!key || !text.trim()) fail('Supply a nonempty key and message.');
+			if (to !== undefined && !rooms.agents.some((agent) => agent.name === to))
+				fail(`No seat or specialist named '${to}'.`);
 			await inRoom(room, async (live) => {
-				const snapshot = await live.read({ messages: false });
-				if (!present(snapshot, who.name)) fail('Enter this room before sending.');
-				await (await live.visit(who)).send({ key, text, ...(refs.length > 0 ? { refs } : {}) });
+				await deliver(live, who, { key, text, refs, to });
 			});
 		},
 		control: (room, action) => rooms.lifecycle(room, action),

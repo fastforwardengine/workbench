@@ -115,17 +115,25 @@ const LISTED: readonly Command[] = COMMANDS;
 
 /** What the person typed, once read. */
 export type Parsed =
-	| { kind: 'message'; text: string }
+	| { kind: 'message'; text: string; to?: string }
 	| { kind: 'command'; name: CommandName; argument: string }
 	| { kind: 'unknown'; name: string };
 
+/** A leading `@name`. Punctuation or a space ends the name, so `@builder, check` addresses the Builder. */
+const MENTION = /^@([a-z][a-z0-9-]*)(?![a-z0-9-])/i;
+
 /**
  * Read one composer submission. A leading `//` sends a message that starts with
- * one slash, so a person can still write a path such as `/shared/kit.md`.
+ * one slash, so a person can still write a path such as `/shared/kit.md`. A
+ * leading `@name` addresses one seat, and the text keeps the mention. A leading
+ * `@@` sends a message that starts with one at sign.
  */
 export function parse(input: string): Parsed {
 	const text = input.trim();
-	if (text.startsWith('//')) return { kind: 'message', text: text.slice(1) };
+	if (text.startsWith('//') || text.startsWith('@@'))
+		return { kind: 'message', text: text.slice(1) };
+	const mention = MENTION.exec(text);
+	if (mention?.[1]) return { kind: 'message', text, to: mention[1].toLowerCase() };
 	if (!text.startsWith('/') || text.includes('\n')) return { kind: 'message', text };
 	const [head = '', ...rest] = text.slice(1).split(/\s+/);
 	const name = head.toLowerCase();
@@ -153,8 +161,16 @@ interface FileChoice {
 	size: number;
 }
 
+/** A seat that a message can address. `state` is its attention in the open room, or `not seated`. */
+interface AgentChoice {
+	name: string;
+	state: string;
+}
+
 /** Everything a command argument can complete to. */
 export interface Choices {
+	/** The seats that `@` completes to. */
+	agents: readonly AgentChoice[];
 	rooms: readonly RoomChoice[];
 	people: readonly PersonChoice[];
 	files: readonly FileChoice[];
@@ -163,7 +179,7 @@ export interface Choices {
 }
 
 /** What a palette row completes to. It names the palette. */
-type Kind = 'command' | 'room' | 'person' | 'file' | 'say';
+type Kind = 'command' | 'room' | 'person' | 'file' | 'say' | 'agent';
 
 /** The palette of each command that takes a choice. `/room` lists the rooms, and any other command completes to nothing. */
 const KINDS: Readonly<Record<string, Kind>> = { user: 'person', open: 'file', dismiss: 'say' };
@@ -192,6 +208,18 @@ function commandSuggestions(prefix: string): Suggestion[] {
 			run: command.argument === undefined,
 		}),
 	);
+}
+
+function agentSuggestions(prefix: string, choices: Choices): Suggestion[] {
+	return choices.agents
+		.filter((agent) => agent.name.startsWith(prefix.toLowerCase()))
+		.map((agent) => ({
+			kind: 'agent' as const,
+			label: `@${agent.name}`,
+			detail: agent.state,
+			insert: `@${agent.name} `,
+			run: false,
+		}));
 }
 
 function argumentSuggestions(name: string, wanted: string, choices: Choices): Suggestion[] {
@@ -225,10 +253,11 @@ function argumentSuggestions(name: string, wanted: string, choices: Choices): Su
 
 /**
  * The rows the palette shows for what the person has typed so far. Only a single
- * line that starts with a slash opens the palette. `/room `, `/user `, `/open `,
+ * line that starts with a slash or with `@name` opens the palette. `/room `, `/user `, `/open `,
  * and `/dismiss ` list what they can take.
  */
 export function suggest(input: string, choices: Choices): Suggestion[] {
+	if (/^@[a-z0-9-]*$/i.test(input)) return agentSuggestions(input.slice(1), choices);
 	if (!input.startsWith('/') || input.startsWith('//') || input.includes('\n')) return [];
 	const space = input.indexOf(' ');
 	if (space === -1) return commandSuggestions(input.slice(1));

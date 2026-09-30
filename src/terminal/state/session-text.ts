@@ -13,6 +13,8 @@ const KEY_HELP = [
 	'  r, while browsing, chooses a ref of a shown message. Enter opens a file or a table',
 	'  in the files panel, or jumps to a message. Esc goes back.',
 	'  PageUp and PageDown scroll. Start a message with // to send a leading slash.',
+	'  Start a message with @name to address one seat. The seat wakes, and the host',
+	'  seats it first when it is not seated. Start with @@ to send a leading at sign.',
 ];
 
 export const HELP = ['Commands', ...COMMANDS.flatMap((command) => command.help), ...KEY_HELP].join(
@@ -67,4 +69,29 @@ function pendingLine(say: PendingSay): string {
 				minute: '2-digit',
 			});
 	return `${say.seat} comes back at ${time}: ${say.text} (/dismiss ${say.seq})`;
+}
+
+/** The seats that `@` completes to, each with its attention in the open room. */
+export function agentChoices(
+	agents: readonly { name: string }[],
+	view: RoomView | undefined,
+): { name: string; state: string }[] {
+	return agents.map(({ name }) => {
+		const seat = (view?.participants ?? []).find(
+			(participant) => participant.kind === 'agent' && participant.name === name,
+		);
+		return { name, state: seat?.kind === 'agent' ? seat.attention : 'not seated' };
+	});
+}
+
+/** The reason a mention cannot go out, or undefined when it can. */
+export function mentionRefusal(
+	message: { text: string; to?: string },
+	agents: readonly { name: string }[],
+): string | undefined {
+	const known = agents.map((agent) => agent.name);
+	if (!message.to || !known.includes(message.to))
+		return `No seat or specialist named @${message.to}. Type @ to list them, or @@ to send an at sign.`;
+	const rest = message.text.replace(/^@\S+/, '').trim();
+	return rest ? undefined : `Say what to ask @${message.to}.`;
 }
