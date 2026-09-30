@@ -1,3 +1,4 @@
+import { posix } from 'node:path';
 import { REF_LIMITS } from '@ambionframework/ambion';
 import { isImagePath } from '../../host/files.ts';
 import type { Attachment, Lab } from '../../host/host.ts';
@@ -34,6 +35,29 @@ export function pastedImagePath(text: string): string | undefined {
 	if (line === '' || /\s/.test(line)) return undefined;
 	if (!line.startsWith('/') && !line.startsWith('~/')) return undefined;
 	return isImagePath(line) ? line : undefined;
+}
+
+const NAME_WIDTH = 24;
+const SHOWN_NAMES = 2;
+
+/** The file name without the time prefix that `attachFile` adds, cut to fit the cue. */
+const nameOf = ({ path }: StagedAttachment): string => {
+	const name = posix.basename(path).replace(/^\d+-/, '');
+	return name.length > NAME_WIDTH ? `${name.slice(0, NAME_WIDTH - 1)}…` : name;
+};
+
+/** What the row above the composer says about the staged files, or undefined when none is staged. */
+export function stagedCue(staged: readonly StagedAttachment[]): string | undefined {
+	if (staged.length === 0) return undefined;
+	const names = staged.slice(0, SHOWN_NAMES).map(nameOf).join(', ');
+	const more = staged.length > SHOWN_NAMES ? ` +${staged.length - SHOWN_NAMES}` : '';
+	return `${staged.length} attached: ${names}${more}`;
+}
+
+/** The text of a message that carries only its attachments: the person pressed Enter on an empty composer. */
+export function attachmentNote(staged: readonly StagedAttachment[]): string {
+	if (staged.length === 0) return '';
+	return `Attached ${staged.map((one) => posix.basename(one.path)).join(', ')}.`;
 }
 
 /** Run `/attach`: copy a local file into the workspace, and stage it as a ref of the next message. */

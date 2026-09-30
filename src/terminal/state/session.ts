@@ -5,7 +5,7 @@ import { holderOf, type Known, type RefItem, refItems, shows } from '../../view/
 import { type ActivationSteps, activationLine, ended, stepsView } from '../../view/steps.ts';
 import { errorText } from '../../view/text.ts';
 import { type Block, buildTimeline } from '../../view/timeline.ts';
-import { attachCommand, type StagedAttachment } from './attachments.ts';
+import { attachCommand, attachmentNote, type StagedAttachment } from './attachments.ts';
 import { attentionOf, newest, pick } from './attention.ts';
 import { entryLoader, FileBrowser } from './browser.ts';
 import {
@@ -417,7 +417,8 @@ export class Session {
 	// Messages and room control
 
 	private async send(text: string, to?: string): Promise<void> {
-		if (!text || this.sending) return;
+		const body = text || attachmentNote(this.pendingRefs);
+		if (!body || this.sending) return;
 		if (!this.identity) return this.say('Pick a person first: /user <name>.');
 		if (!this.room) return this.say('Open a room first: /room <name>.');
 		if (this.view && this.view.status !== 'running')
@@ -429,7 +430,7 @@ export class Session {
 		const refs = staged.map((one) => one.ref);
 		try {
 			if (!this.entered) await this.join();
-			await this.host.send(this.room, this.identity.name, crypto.randomUUID(), text, refs, to);
+			await this.host.send(this.room, this.identity.name, crypto.randomUUID(), body, refs, to);
 			staged.splice(0, refs.length);
 			this.wantBottom = true;
 			await this.refresh();

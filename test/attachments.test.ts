@@ -9,8 +9,10 @@ import { attachFile, imageMimeType, isImagePath } from '../src/host/files.ts';
 import { readSnapshotFile } from '../src/host/previews.ts';
 import {
 	attachCommand,
+	attachmentNote,
 	pastedImagePath,
 	type StagedAttachment,
+	stagedCue,
 } from '../src/terminal/state/attachments.ts';
 import { FakeHost, started } from './fake-host.ts';
 import { PNG } from './png.ts';
@@ -329,7 +331,66 @@ describe('attachCommand, at the limit of a message', () => {
 	});
 });
 
+const stagedOf = (...names: string[]): StagedAttachment[] =>
+	names.map((name) => ({ path: `/attachments/${name}`, ref: `ambion://x/${name}` }));
+
+describe('stagedCue', () => {
+	it('says nothing when no file is staged', () => {
+		expect(stagedCue([])).toBeUndefined();
+	});
+
+	it('names one file, and two, by their file names', () => {
+		expect(stagedCue(stagedOf('1790741386233-board.png'))).toBe('1 attached: board.png');
+		expect(stagedCue(stagedOf('a.png', 'b.jpg'))).toBe('2 attached: a.png, b.jpg');
+	});
+
+	it('names the first two and counts the rest', () => {
+		expect(stagedCue(stagedOf('a.png', 'b.png', 'c.png', 'd.png'))).toBe(
+			'4 attached: a.png, b.png +2',
+		);
+	});
+
+	it('cuts a long file name to 24 cells', () => {
+		const cue = stagedCue(stagedOf(`${'x'.repeat(40)}.png`)) ?? '';
+		expect(cue).toBe(`1 attached: ${'x'.repeat(23)}…`);
+	});
+});
+
+describe('attachmentNote', () => {
+	it('names every staged file in one sentence, and is empty for none', () => {
+		expect(attachmentNote(stagedOf('a.png', 'b.jpg'))).toBe('Attached a.png, b.jpg.');
+		expect(attachmentNote([])).toBe('');
+	});
+});
+
 describe('Session, with attachments', () => {
+	it('sends the attachments alone on an empty composer, and clears them', async () => {
+		const { host, session } = await started();
+		await session.submit('/attach /tmp/one.png');
+		host.calls.length = 0;
+		await session.submit('');
+		expect(host.calls).toEqual(['send:characterization:priya:Attached 1-one.png.']);
+		expect(host.sentRefs).toHaveLength(1);
+		expect(host.sentRefs[0]).toHaveLength(1);
+		expect(session.pendingRefs).toEqual([]);
+	});
+
+	it('keeps the attachments staged when the send fails', async () => {
+		const { host, session } = await started();
+		await session.submit('/attach /tmp/one.png');
+		host.failNext = 'offline';
+		await session.submit('   ');
+		expect(session.error).toBe('offline');
+		expect(session.pendingRefs).toHaveLength(1);
+	});
+
+	it('sends nothing on an empty composer when nothing is staged', async () => {
+		const { host, session } = await started();
+		host.calls.length = 0;
+		await session.submit('');
+		expect(host.calls).toEqual([]);
+	});
+
 	it('sends the staged refs with the next message, once, and only when the send worked', async () => {
 		const { host, session } = await started();
 		await session.submit('/attach /tmp/one.png');

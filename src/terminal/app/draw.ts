@@ -1,5 +1,6 @@
 import { fg, StyledText } from '@opentui/core';
 import type { RefItem } from '../../view/refs.ts';
+import { stagedCue } from '../state/attachments.ts';
 import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
 import type { Session } from '../state/session.ts';
 import { emptyText } from '../state/session-text.ts';
@@ -123,6 +124,7 @@ export class Painter {
 		);
 		this.composer.setPlaceholder(this.placeholder());
 		this.composer.setStatus(new StyledText(this.statusChunks(mode, picking)));
+		this.composer.setCue(mode === 'compose' ? stagedCue(session.pendingRefs) : undefined);
 		const roomy = this.width() >= ROOMY;
 		// A side panel draws its own hints, so its mode has none here.
 		const quiet = session.error || session.offline || !roomy;
@@ -144,6 +146,8 @@ export class Painter {
 		const session = this.session;
 		if (session.awaitingGoal) return `What is ${session.awaitingGoal} for?`;
 		if (!session.identity) return 'Pick a person: type /user <name>';
+		if (session.pendingRefs.length > 0)
+			return 'Add a message, or press Enter to send the attachments alone';
 		return 'Message the room, or type / for commands';
 	}
 
