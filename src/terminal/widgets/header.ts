@@ -7,8 +7,8 @@ import {
 	StyledText,
 	TextRenderable,
 } from '@opentui/core';
-import { seatFamilies } from '../domain/families.ts';
-import type { Person, RoomView } from '../host/host.ts';
+import { seatFamilies } from '../../domain/families.ts';
+import type { Person, RoomView } from '../../host/host.ts';
 import { brand, tui as palette } from './brand.ts';
 import { fitHeader, GAP } from './header-fit.ts';
 

@@ -1,6 +1,6 @@
 import type { ParticipantInfo, PendingSay } from '@ambionframework/ambion';
-import type { RoomAction, RoomView } from '../host/host.ts';
-import type { Block } from '../view/timeline.ts';
+import type { RoomAction, RoomView } from '../../host/host.ts';
+import type { Block } from '../../view/timeline.ts';
 import { COMMANDS } from './commands.ts';
 
 /** What `/help` says about the keys. The lines about the commands come from `COMMANDS`. */

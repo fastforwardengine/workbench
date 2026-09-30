@@ -5,10 +5,10 @@
 import { BoxRenderable } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FileBrowser } from '../src/terminal/browser.ts';
-import { FilesPanel } from '../src/terminal/files-panel.ts';
-import { ProcessBrowser } from '../src/terminal/process-browser.ts';
-import { ProcessesPanel } from '../src/terminal/process-panel.ts';
+import { FileBrowser } from '../src/terminal/state/browser.ts';
+import { ProcessBrowser } from '../src/terminal/state/process-browser.ts';
+import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
+import { ProcessesPanel } from '../src/terminal/widgets/process-panel.ts';
 import { FakeHost } from './fake-host.ts';
 
 const cleanups: (() => void)[] = [];

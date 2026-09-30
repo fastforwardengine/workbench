@@ -1,4 +1,4 @@
-import { ellipsize } from '../view/text.ts';
+import { ellipsize } from '../../view/text.ts';
 
 /** The cells between the left text and the right text of one row. */
 export const GAP = 2;

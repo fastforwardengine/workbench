@@ -1,9 +1,9 @@
 import { commitUri, snapshotUri } from '@ambionframework/ambion';
 import type { KeyEvent } from '@opentui/core';
 import { describe, expect, it, vi } from 'vitest';
-import type { FilesPanel } from '../src/terminal/files-panel.ts';
-import { FilesSurface } from '../src/terminal/files-surface.ts';
-import { type KeyParts, Keys } from '../src/terminal/keys.ts';
+import { FilesSurface } from '../src/terminal/app/files-surface.ts';
+import { type KeyParts, Keys } from '../src/terminal/app/keys.ts';
+import type { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { type FakeHost, started, view } from './fake-host.ts';
 
 const AT = '2026-01-01T00:00:00Z';

@@ -8,8 +8,8 @@ import {
 	TextareaRenderable,
 	TextRenderable,
 } from '@opentui/core';
+import type { Suggestion } from '../state/commands.ts';
 import { tui as palette } from './brand.ts';
-import type { Suggestion } from './commands.ts';
 
 /** The palette's title, by what its rows complete to. */
 const TITLES = {

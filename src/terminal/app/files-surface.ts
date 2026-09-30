@@ -1,6 +1,6 @@
 import type { KeyEvent } from '@opentui/core';
-import type { FileBrowser } from './browser.ts';
-import type { FilesPanel } from './files-panel.ts';
+import type { FileBrowser } from '../state/browser.ts';
+import type { FilesPanel } from '../widgets/files-panel.ts';
 import type { Surface } from './surface.ts';
 
 /** What one key does in the files panel. `close` shuts the panel. */

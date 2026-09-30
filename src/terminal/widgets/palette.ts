@@ -1,4 +1,4 @@
-import type { Suggestion } from './commands.ts';
+import type { Suggestion } from '../state/commands.ts';
 import type { Composer } from './composer.ts';
 
 /**

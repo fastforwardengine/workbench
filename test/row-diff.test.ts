@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planRows } from '../src/terminal/row-diff.ts';
+import { planRows } from '../src/terminal/widgets/row-diff.ts';
 
 const rows = (text: string) => [...text];
 

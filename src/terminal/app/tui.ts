@@ -1,20 +1,20 @@
 import { BoxRenderable, type CliRenderer, createCliRenderer, type KeyEvent } from '@opentui/core';
-import { type Lab, type OpenOptions, openLab, type Person } from '../host/host.ts';
-import { errorText } from '../view/text.ts';
-import { tui as palette } from './brand.ts';
-import { parse } from './commands.ts';
-import { Composer } from './composer.ts';
+import { type Lab, type OpenOptions, openLab, type Person } from '../../host/host.ts';
+import { errorText } from '../../view/text.ts';
+import { parse } from '../state/commands.ts';
+import { ProcessBrowser } from '../state/process-browser.ts';
+import { type Intent, Session } from '../state/session.ts';
+import { tui as palette } from '../widgets/brand.ts';
+import { Composer } from '../widgets/composer.ts';
+import { FilesPanel } from '../widgets/files-panel.ts';
+import { Header } from '../widgets/header.ts';
+import { Palette } from '../widgets/palette.ts';
+import { ProcessesPanel } from '../widgets/process-panel.ts';
+import { Transcript } from '../widgets/transcript.ts';
 import { Painter } from './draw.ts';
-import { FilesPanel } from './files-panel.ts';
 import { FilesSurface } from './files-surface.ts';
-import { Header } from './header.ts';
 import { Keys } from './keys.ts';
-import { Palette } from './palette.ts';
-import { ProcessBrowser } from './process-browser.ts';
-import { ProcessesPanel } from './process-panel.ts';
 import { ProcessesSurface } from './process-surface.ts';
-import { type Intent, Session } from './session.ts';
-import { Transcript } from './transcript.ts';
 
 /** How often the slow fallback reads the room list and a stopped room. */
 const SLOW_MS = 4_000;

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { parseArgs } from 'node:util';
 import { describeUnavailable } from './domain/families.ts';
-import { runEngine } from './terminal/tui.ts';
+import { runEngine } from './terminal/app/tui.ts';
 
 const USAGE = 'Usage: workbench [directory]';
 

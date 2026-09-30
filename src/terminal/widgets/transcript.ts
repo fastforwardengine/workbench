@@ -9,7 +9,7 @@ import {
 	StyledText,
 	TextRenderable,
 } from '@opentui/core';
-import { chipLine, type RefItem } from '../view/refs.ts';
+import { chipLine, type RefItem } from '../../view/refs.ts';
 import type {
 	Block,
 	DiscussionBlock,
@@ -17,7 +17,7 @@ import type {
 	MessageBlock,
 	Role,
 	StepsBlock,
-} from '../view/timeline.ts';
+} from '../../view/timeline.ts';
 import { tui as palette } from './brand.ts';
 import { planRows } from './row-diff.ts';
 

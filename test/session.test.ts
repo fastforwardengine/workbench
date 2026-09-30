@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ActivationSteps, ProcessView } from '../src/host/host.ts';
 import { lastPart } from '../src/host/processes.ts';
-import { COMMANDS } from '../src/terminal/commands.ts';
-import { ProcessBrowser, stateText } from '../src/terminal/process-browser.ts';
-import type { Session } from '../src/terminal/session.ts';
-import { HELP } from '../src/terminal/session-text.ts';
+import { COMMANDS } from '../src/terminal/state/commands.ts';
+import { ProcessBrowser, stateText } from '../src/terminal/state/process-browser.ts';
+import type { Session } from '../src/terminal/state/session.ts';
+import { HELP } from '../src/terminal/state/session-text.ts';
 import { started, view } from './fake-host.ts';
 
 describe('Session start', () => {
