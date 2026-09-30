@@ -13,7 +13,7 @@ const KEY_HELP = [
 	'  r, while browsing, chooses a ref of a shown message. Enter opens a file or a table',
 	'  in the files panel, or jumps to a message. Esc goes back.',
 	'  PageUp and PageDown scroll. Start a message with // to send a leading slash.',
-	'  Start a message with @name to address one seat. The seat wakes, and the room',
+	'  Start a message with @name to address one seat. The seat wakes, and the host',
 	'  seats it first when it is not seated. Start with @@ to send a leading at sign.',
 ];
 
@@ -91,7 +91,7 @@ export function mentionRefusal(
 ): string | undefined {
 	const known = agents.map((agent) => agent.name);
 	if (!message.to || !known.includes(message.to))
-		return `No seat named @${message.to}. Type @ to list them, or @@ to send an at sign.`;
+		return `No seat or specialist named @${message.to}. Type @ to list them, or @@ to send an at sign.`;
 	const rest = message.text.replace(/^@\S+/, '').trim();
 	return rest ? undefined : `Say what to ask @${message.to}.`;
 }

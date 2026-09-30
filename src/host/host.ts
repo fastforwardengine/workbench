@@ -33,18 +33,18 @@ export type { Attachment, FileContent, FileEntry, ImageContent, TableView } from
 export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
 
-/**
- * The Workbench host, as the terminal sees it. It runs in the same
- * process as the terminal. Opening it hosts the rooms, and closing it stops
- * them. Nothing in this interface is a network call, so a caller may treat
- * every method as a direct one.
- */
 /** An assistant or a specialist that a message can address, seated in the room or not. */
 interface Addressable {
 	name: string;
 	identity: string;
 }
 
+/**
+ * The Workbench host, as the terminal sees it. It runs in the same
+ * process as the terminal. Opening it hosts the rooms, and closing it stops
+ * them. Nothing in this interface is a network call, so a caller may treat
+ * every method as a direct one.
+ */
 export interface Lab {
 	readonly people: readonly Person[];
 	/** The seats a person can address with `@name`: the assistant and every specialist. */
@@ -66,8 +66,8 @@ export interface Lab {
 	/**
 	 * Send a message, with the refs it cites. The same key and text return the
 	 * first exchange and add no message. `to` names one seat that the message
-	 * wakes, whatever its attention. The host seats it at `named` first when
-	 * the room has not seated it yet.
+	 * wakes. The host seats it at `named` first when the room has not seated
+	 * it. A seat at `none` wakes for nothing, so the host refuses the message.
 	 */
 	send(
 		room: string,
@@ -185,11 +185,13 @@ function present(
 	);
 }
 
-function seated(
-	snapshot: { participants: readonly { name: string; kind: string }[] },
+/** The attention of the seat named `name`, or undefined when the room has not seated it. */
+function attentionOf(
+	snapshot: { participants: readonly { name: string; kind: string; attention?: string }[] },
 	name: string,
-) {
-	return snapshot.participants.some((seat) => seat.kind === 'agent' && seat.name === name);
+): string | undefined {
+	return snapshot.participants.find((seat) => seat.kind === 'agent' && seat.name === name)
+		?.attention;
 }
 
 /** What a person sends: the token, the text, the refs it cites, and the seat it addresses. */
@@ -204,7 +206,9 @@ interface Delivery {
 async function deliver(live: Room, who: Person, { key, text, refs, to }: Delivery): Promise<void> {
 	const snapshot = await live.read({ messages: false });
 	if (!present(snapshot, who.name)) fail('Enter this room before sending.');
-	if (to !== undefined && !seated(snapshot, to)) await live.seat(to, { attention: 'named' });
+	const attention = to === undefined ? undefined : attentionOf(snapshot, to);
+	if (attention === 'none') fail(`'${to}' listens at none, so no message wakes it.`);
+	if (to !== undefined && attention === undefined) await live.seat(to, { attention: 'named' });
 	const visit = await live.visit(who);
 	await visit.send({
 		key,

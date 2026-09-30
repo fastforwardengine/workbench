@@ -119,8 +119,8 @@ export type Parsed =
 	| { kind: 'command'; name: CommandName; argument: string }
 	| { kind: 'unknown'; name: string };
 
-/** A leading `@name` that ends at a space or at the end of the text. */
-const MENTION = /^@([a-z][a-z0-9-]*)(?:\s|$)/i;
+/** A leading `@name`. Punctuation or a space ends the name, so `@builder, check` addresses the Builder. */
+const MENTION = /^@([a-z][a-z0-9-]*)(?![a-z0-9-])/i;
 
 /**
  * Read one composer submission. A leading `//` sends a message that starts with

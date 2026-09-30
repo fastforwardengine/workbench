@@ -118,9 +118,10 @@ needs one. A bench script comes from a template.
   `/shared`, `/attachments`, and a home for each agent.
 - **Addressing:** start a message with `@name` to wake one seat: the
   assistant or a specialist. Type `@` to list them with their attention in
-  the room. The seat wakes whatever its attention. The host seats a
-  specialist at `named` first when the room has not seated it. Start with
-  `@@` to send a leading at sign. A message takes one mention.
+  the room. The host seats a specialist at `named` first when the room has not
+  seated it. Start with `@@` to send a
+  leading at sign. A message takes one mention, and a second one stays
+  in the text.
 - **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into
   `/attachments`, snapshots it, and cites the snapshot in your next
   message. Paste the path of a picture into an empty composer, and it fills

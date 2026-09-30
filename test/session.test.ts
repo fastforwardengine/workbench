@@ -61,7 +61,7 @@ describe('Session mentions', () => {
 		const { host, session } = await started();
 		host.calls.length = 0;
 		await session.submit('@nobody hello');
-		expect(session.error).toContain('No seat named @nobody');
+		expect(session.error).toContain('No seat or specialist named @nobody');
 		await session.submit('@builder');
 		expect(session.error).toBe('Say what to ask @builder.');
 		expect(host.calls).toEqual([]);

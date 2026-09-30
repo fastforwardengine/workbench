@@ -567,9 +567,34 @@ describe('Workbench host, a message to one seat', () => {
 		await lab.send('legacy', person, 'to-3', '@builder check the diode.', [], 'builder');
 		await whenHeard(heard, 'builder');
 		const after = await lab.read('legacy', 0);
+		expect(
+			after.messages.find((m) => m.kind === 'said' && m.text.startsWith('@builder')),
+		).toMatchObject({
+			to: 'builder',
+		});
 		expect(after.participants).toContainEqual(
 			expect.objectContaining({ name: 'builder', kind: 'agent', attention: 'named' }),
 		);
+	});
+
+	it('refuses a seat at none, and sends nothing', async () => {
+		const directory = await freshDirectory();
+		const database = new DatabaseSync(joinPath(directory, 'rooms.db'));
+		const rooms = await openRooms(database, directory, { stream: listeningStream(new Set()) });
+		await rooms.create('mute', 'A room with a seat that hears nothing.');
+		await rooms.withRoom('mute', async (entry) => {
+			const room = liveRoom(entry);
+			await room.unseat('builder');
+			await room.seat('builder', { attention: 'none' });
+		});
+		await rooms.close();
+		database.close();
+		const lab = await open(directory, listeningStream(new Set()));
+		await lab.join('mute', person);
+		await expect(lab.send('mute', person, 'to-4', '@builder hi', [], 'builder')).rejects.toThrow(
+			"'builder' listens at none",
+		);
+		expect((await lab.read('mute', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
 	});
 
 	it('lists the assistant and the specialists as the seats to address', async () => {

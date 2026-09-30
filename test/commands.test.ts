@@ -72,6 +72,9 @@ describe('parse', () => {
 			text: '@Builder check the diode',
 			to: 'builder',
 		});
+		expect(parse('@builder, check the diode')).toMatchObject({ to: 'builder' });
+		expect(parse('@builder: check')).toMatchObject({ to: 'builder' });
+		expect(parse("@Builder's step")).toMatchObject({ to: 'builder' });
 		expect(parse('@datasheets')).toEqual({
 			kind: 'message',
 			text: '@datasheets',
@@ -83,7 +86,6 @@ describe('parse', () => {
 	it('addresses a seat only at the start, and only for a name', () => {
 		expect(parse('ask @builder')).toEqual({ kind: 'message', text: 'ask @builder' });
 		expect(parse('@ 5 V')).toEqual({ kind: 'message', text: '@ 5 V' });
-		expect(parse('@builder,')).toEqual({ kind: 'message', text: '@builder,' });
 	});
 
 	it('lets a double at sign send a message that starts with one at sign', () => {
