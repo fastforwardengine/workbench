@@ -77,8 +77,9 @@ layout, and the tests.
 ## The team
 
 **Three specialists hear every message in a new room, at `broadcast`. The
-Builder listens at `named` and answers when a message names it. The
-assistant writes the closing summary.** Every seat runs on Pi.
+Builder listens at `named`: it wakes when the assistant or a specialist
+addresses it, and not for a message from you. The assistant writes the
+closing summary.** Every seat runs on Pi.
 
 | Seat        | Work                                                   | Tools     |
 | ----------- | ------------------------------------------------------ | --------- |

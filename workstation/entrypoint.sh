@@ -35,7 +35,9 @@ for name in "${ACCOUNTS[@]}" "$GIT_ACCOUNT"; do
 	install -d -m 0700 -o "$name" -g "$name" "$home" "$home/.ssh"
 	# A volume that an older image filled holds files of an older uid. Give them
 	# back to the account. Nothing runs when every file already belongs to it.
-	find "$home" ! -user "$name" -exec chown -h "$name:$name" {} +
+	# A file that cannot change owner is a warning: it must not stop the start.
+	find "$home" ! -user "$name" -exec chown -h "$name:$name" {} + ||
+		echo "workstation: could not give every file of $home back to $name." >&2
 	install -m 0600 -o "$name" -g "$name" "$key" "$home/.ssh/authorized_keys"
 done
 

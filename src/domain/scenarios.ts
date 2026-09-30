@@ -5,8 +5,9 @@ import { packageDirectory } from './package-root.ts';
 
 /**
  * The seats of a room with no seats of its own. Three specialists hear every
- * message, at `broadcast`. The Builder listens at `named`, and answers when a
- * message names it.
+ * message, at `broadcast`. The Builder listens at `named`. Only a directed say
+ * from the assistant or a specialist wakes it, because a message from a person
+ * names no seat.
  */
 export const seats: Record<string, Attention> = {
 	datasheets: 'broadcast',

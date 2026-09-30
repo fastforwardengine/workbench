@@ -47,8 +47,8 @@ COPY entrypoint.sh /usr/local/sbin/workbench-entrypoint
 #
 # Every account has a fixed uid. The group accounts count up from 1000 in the
 # order of the accounts file, and the git account has 1900. A home on a volume
-# keeps the owner of the first run, so a uid that shifts when an account is
-# added would leave a home to another account.
+# keeps the owner of the first run. A uid that shifts would leave the home to
+# another account. The gids follow the uids and are not fixed.
 RUN groupadd workbench \
 	&& uid=1000 \
 	&& for name in $(grep -v '^#' /etc/workbench-accounts); do \

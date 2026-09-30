@@ -16,6 +16,10 @@ description: Check the placement and the orientation of a part from a photo that
    `/library`. Cite both.
 5. Answer with one word first: pass, fail, or unclear. Then give the
    evidence, and cite the snapshot ref of the photo.
-6. Answer unclear, and ask for a new photo, when the mark is not visible or
-   the light hides it. Do not guess an orientation.
-7. Never answer pass for a part that the photo does not show.
+6. Answer unclear, and ask for a new photo, when the mark of the part or
+   the marking of the board is not visible, or when the light hides it. A
+   part can cover the marking of the board: ask the person to show it before
+   the part goes in, or from another angle. Do not guess an orientation.
+7. Never answer pass for a part that the photo does not show, or for a
+   part whose orientation you can compare with the text of the procedure
+   alone.

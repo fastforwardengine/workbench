@@ -8,7 +8,6 @@
  * The repositories, the homes, and /shared persist on the workstation, so
  * each run names its files and its fork with a token of its own.
  */
-import { readFileSync } from 'node:fs';
 import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -147,13 +146,17 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		expect(write.ok).toBe(false);
 	}, 120_000);
 
-	it('gives each account the uid of its place in the accounts file, and owns its home', async () => {
+	it('keeps the uid of each specialist, and gives each one the home with its uid', async () => {
 		const built = await build();
-		const accounts = readFileSync(new URL('../workstation/accounts', import.meta.url), 'utf8')
-			.split('\n')
-			.filter((line) => line !== '' && !line.startsWith('#'));
-		for (const seat of built.specialists.map((one) => one.name)) {
-			const uid = 1000 + accounts.indexOf(seat);
+		// A new account goes at the end of workstation/accounts, so none of these uids ever changes.
+		const uids: Record<string, number> = {
+			datasheets: 1000,
+			experiments: 1001,
+			instruments: 1002,
+			builder: 1004,
+		};
+		expect(built.specialists.map((seat) => seat.name).sort()).toEqual(Object.keys(uids).sort());
+		for (const [seat, uid] of Object.entries(uids)) {
 			const script = byAgent({
 				assistant: (_step, _seat, call) => (call === 1 ? speak('Report.', seat) : quiet()),
 				[seat]: (step, _seat, call) => {
