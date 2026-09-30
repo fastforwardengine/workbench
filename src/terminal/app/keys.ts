@@ -25,6 +25,8 @@ export interface KeyParts {
 	surfaces: Readonly<Record<PanelMode, Surface>>;
 	transcript: Transcript;
 	render: () => void;
+	/** Leave the terminal. */
+	quit: () => void;
 }
 
 /**
@@ -47,6 +49,7 @@ export class Keys {
 	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
 	private readonly transcript: Transcript;
 	private readonly render: () => void;
+	private readonly quit: () => void;
 
 	constructor(parts: KeyParts) {
 		this.renderer = parts.renderer;
@@ -57,6 +60,7 @@ export class Keys {
 		this.surfaces = parts.surfaces;
 		this.transcript = parts.transcript;
 		this.render = parts.render;
+		this.quit = parts.quit;
 	}
 
 	/** Recompute the palette rows. The palette closes outside compose mode. */
@@ -76,6 +80,7 @@ export class Keys {
 	// Routing
 
 	onKey(key: KeyEvent): void {
+		if (this.controlKey(key)) return;
 		if (isPanel(this.mode)) {
 			this.surfaces[this.mode].onKey(key, () => this.closePanel());
 			return;
@@ -88,6 +93,37 @@ export class Keys {
 		if (this.mode === 'browse') this.browseKey(key);
 		else if (this.mode === 'refs') this.refsKey(key);
 		else this.composeKey(key);
+	}
+
+	/**
+	 * Ctrl+C and Ctrl+D. True when the key is handled. Ctrl+D leaves only from
+	 * the composer, because a panel and the discussions use it to scroll.
+	 */
+	private controlKey(key: KeyEvent): boolean {
+		if (!key.ctrl || key.shift || key.meta) return false;
+		const leaves = key.name === 'd' && this.mode === 'compose' && this.composer.text === '';
+		if (key.name !== 'c' && !leaves) return false;
+		key.preventDefault();
+		if (leaves) this.quit();
+		else this.interrupt();
+		return true;
+	}
+
+	/**
+	 * Ctrl+C closes a side panel and keeps the draft. In the other modes it
+	 * clears the composer, and it cancels a new room that waits for its goal.
+	 * It does not quit.
+	 */
+	private interrupt(): void {
+		if (isPanel(this.mode)) {
+			this.closePanel();
+			return;
+		}
+		const hadText = this.composer.text !== '';
+		this.composer.setText('');
+		this.palette.revive();
+		this.session.interrupt(hadText);
+		this.render();
 	}
 
 	// The side panels
