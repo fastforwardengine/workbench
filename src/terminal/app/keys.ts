@@ -25,6 +25,8 @@ export interface KeyParts {
 	surfaces: Readonly<Record<PanelMode, Surface>>;
 	transcript: Transcript;
 	render: () => void;
+	/** Leave the terminal. */
+	quit: () => void;
 }
 
 /**
@@ -47,6 +49,7 @@ export class Keys {
 	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
 	private readonly transcript: Transcript;
 	private readonly render: () => void;
+	private readonly quit: () => void;
 
 	constructor(parts: KeyParts) {
 		this.renderer = parts.renderer;
@@ -57,6 +60,7 @@ export class Keys {
 		this.surfaces = parts.surfaces;
 		this.transcript = parts.transcript;
 		this.render = parts.render;
+		this.quit = parts.quit;
 	}
 
 	/** Recompute the palette rows. The palette closes outside compose mode. */
@@ -76,6 +80,7 @@ export class Keys {
 	// Routing
 
 	onKey(key: KeyEvent): void {
+		if (this.controlKey(key)) return;
 		if (isPanel(this.mode)) {
 			this.surfaces[this.mode].onKey(key, () => this.closePanel());
 			return;
@@ -88,6 +93,28 @@ export class Keys {
 		if (this.mode === 'browse') this.browseKey(key);
 		else if (this.mode === 'refs') this.refsKey(key);
 		else this.composeKey(key);
+	}
+
+	/** Ctrl+C and Ctrl+D, in every mode. True when the key is handled. */
+	private controlKey(key: KeyEvent): boolean {
+		if (!key.ctrl) return false;
+		if (key.name === 'c') this.interrupt(key);
+		else if (key.name === 'd' && this.composer.text === '') this.quit();
+		else return false;
+		return true;
+	}
+
+	/**
+	 * Ctrl+C resets the composer in every mode: it clears the text, and it
+	 * cancels a room goal that the composer waits for. It does not quit.
+	 */
+	private interrupt(key: KeyEvent): void {
+		key.preventDefault();
+		const hadText = this.composer.text !== '';
+		this.composer.setText('');
+		this.palette.revive();
+		this.session.interrupt(hadText);
+		this.render();
 	}
 
 	// The side panels

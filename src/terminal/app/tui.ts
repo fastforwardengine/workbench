@@ -77,6 +77,7 @@ class EngineTui {
 			surfaces,
 			transcript,
 			render: () => this.render(),
+			quit: () => this.renderer.destroy(),
 		});
 		const root = new BoxRenderable(renderer, {
 			flexDirection: 'column',
@@ -175,7 +176,7 @@ class EngineTui {
 /** OpenTUI draws through Node's FFI, which Node enables only with a flag. */
 async function openRenderer(): Promise<CliRenderer> {
 	try {
-		return await createCliRenderer({ exitOnCtrlC: true, targetFps: 30 });
+		return await createCliRenderer({ exitOnCtrlC: false, targetFps: 30 });
 	} catch (error) {
 		const detail = errorText(error);
 		if (!/FFI/i.test(detail)) throw error;
@@ -221,11 +222,13 @@ export async function runEngine(options: RunOptions): Promise<void> {
 		const stop = () => renderer.destroy();
 		process.once('SIGTERM', stop);
 		process.once('SIGHUP', stop);
+		process.once('SIGINT', stop);
 		try {
 			await app.run();
 		} finally {
 			process.off('SIGTERM', stop);
 			process.off('SIGHUP', stop);
+			process.off('SIGINT', stop);
 			await app.leave();
 		}
 	} finally {

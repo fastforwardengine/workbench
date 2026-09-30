@@ -127,11 +127,14 @@ needs one. A bench script comes from a template.
   message. Paste the path of a picture into an empty composer, and it fills
   `/attach` for you. A specialist reads the copy with `read` and receives the
   picture. The files panel shows a picture, also from a snapshot ref.
+- **Keys:** Ctrl+C clears the composer and cancels a room goal that it
+  waits for. Ctrl+D leaves the terminal when the composer is empty, and so
+  does `/quit`. The rooms stop with the terminal.
 - **Staged pictures:** a row above the composer names the files that wait
   for your next message. Press Enter on an empty composer to send them
   alone, with the text `Attached <names>`. A bare `@name` sends them to
-  that seat. A failed send keeps the files staged, and a switch to another
-  room drops them.
+  that seat. A failed send keeps the files staged. Ctrl+C on an empty
+  composer drops them, and so does a switch to another room.
 - **Templates:** git repositories that an agent forks and pushes to. See
   [`docs/templates.md`](docs/templates.md).
 - **Skills:** a folder of skills for each specialist, in `skills/`. See
