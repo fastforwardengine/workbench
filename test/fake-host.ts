@@ -33,7 +33,14 @@ export const view = (name: string, extra: Record<string, unknown> = {}) =>
 /** A host that records each call and answers from a table. */
 export class FakeHost implements Lab {
 	readonly people = [person('priya', 'Hardware lead'), person('noor', 'Electrochemistry lead')];
+	readonly agents = [
+		{ name: 'assistant', identity: 'Room assistant.' },
+		{ name: 'datasheets', identity: 'Datasheets.' },
+		{ name: 'builder', identity: 'Builder.' },
+	];
 	readonly calls: string[] = [];
+	/** The `to` of each directed send. */
+	readonly sentTo: string[] = [];
 	readonly table = new Map<string, RoomView>([
 		['characterization', view('characterization')],
 		['budget', view('budget')],
@@ -95,9 +102,17 @@ export class FakeHost implements Lab {
 	readonly sentRefs: string[][] = [];
 	/** While set, a send waits for it. A test uses it to hold a send in flight. */
 	sendGate: Promise<void> | undefined;
-	async send(room: string, who: string, _key: string, text: string, refs: string[] = []) {
+	async send(
+		room: string,
+		who: string,
+		_key: string,
+		text: string,
+		refs: string[] = [],
+		to?: string,
+	) {
 		if (this.sendGate) await this.sendGate;
 		this.record(`send:${room}:${who}:${text}`);
+		if (to !== undefined) this.sentTo.push(to);
 		this.sentRefs.push(refs);
 	}
 	/** The local paths that were attached, and the failure the next attach gives. */

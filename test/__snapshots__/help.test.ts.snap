@@ -25,5 +25,7 @@ Keys
   to the composer.
   r, while browsing, chooses a ref of a shown message. Enter opens a file or a table
   in the files panel, or jumps to a message. Esc goes back.
-  PageUp and PageDown scroll. Start a message with // to send a leading slash."
+  PageUp and PageDown scroll. Start a message with // to send a leading slash.
+  Start a message with @name to address one seat. The seat wakes, and the room
+  seats it first when it is not seated. Start with @@ to send a leading at sign."
 `;

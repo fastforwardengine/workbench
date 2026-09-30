@@ -46,6 +46,7 @@ const TITLES = {
 	person: 'People',
 	file: 'Files',
 	say: 'Says that wait',
+	agent: 'Seats',
 } as const;
 
 const MAX_INPUT_LINES = 6;

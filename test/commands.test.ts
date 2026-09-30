@@ -8,6 +8,11 @@ const rooms: RoomChoice[] = [
 ];
 
 const choices: Choices = {
+	agents: [
+		{ name: 'assistant', state: 'broadcast' },
+		{ name: 'builder', state: 'named' },
+		{ name: 'datasheets', state: 'not seated' },
+	],
 	rooms,
 	people: [
 		{ name: 'priya', role: 'Hardware lead' },
@@ -61,8 +66,53 @@ describe('parse', () => {
 		});
 	});
 
+	it('reads a leading @name as the seat that the message addresses, and keeps the text', () => {
+		expect(parse('@Builder check the diode')).toEqual({
+			kind: 'message',
+			text: '@Builder check the diode',
+			to: 'builder',
+		});
+		expect(parse('@datasheets')).toEqual({
+			kind: 'message',
+			text: '@datasheets',
+			to: 'datasheets',
+		});
+		expect(parse('@builder\nsecond line')).toMatchObject({ to: 'builder' });
+	});
+
+	it('addresses a seat only at the start, and only for a name', () => {
+		expect(parse('ask @builder')).toEqual({ kind: 'message', text: 'ask @builder' });
+		expect(parse('@ 5 V')).toEqual({ kind: 'message', text: '@ 5 V' });
+		expect(parse('@builder,')).toEqual({ kind: 'message', text: '@builder,' });
+	});
+
+	it('lets a double at sign send a message that starts with one at sign', () => {
+		expect(parse('@@builder is the name')).toEqual({
+			kind: 'message',
+			text: '@builder is the name',
+		});
+	});
+
 	it('sends a multi-line text as a message, even after a slash', () => {
 		expect(parse('/abort\nand then explain')).toMatchObject({ kind: 'message' });
+	});
+});
+
+describe('suggest a seat', () => {
+	it('lists every seat for a lone at sign, with its attention', () => {
+		expect(
+			suggest('@', choices).map((row) => [row.label, row.detail, row.insert, row.run]),
+		).toEqual([
+			['@assistant', 'broadcast', '@assistant ', false],
+			['@builder', 'named', '@builder ', false],
+			['@datasheets', 'not seated', '@datasheets ', false],
+		]);
+	});
+
+	it('narrows by prefix, and closes once the name has a space', () => {
+		expect(suggest('@b', choices).map((row) => row.label)).toEqual(['@builder']);
+		expect(suggest('@x', choices)).toEqual([]);
+		expect(suggest('@builder ', choices)).toEqual([]);
 	});
 });
 

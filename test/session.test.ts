@@ -29,6 +29,52 @@ describe('Session start', () => {
 	});
 });
 
+describe('Session mentions', () => {
+	it('sends a message with the seat it addresses, and keeps the mention in the text', async () => {
+		const { host, session } = await started();
+		await session.submit('@builder check the diode');
+		expect(host.calls.at(-1)).toBe('send:characterization:priya:@builder check the diode');
+		expect(host.sentTo).toEqual(['builder']);
+		await session.submit('no mention');
+		expect(host.sentTo).toEqual(['builder']);
+	});
+
+	it('lists the seats of the roster, with their attention in the open room', async () => {
+		const { host, session } = await started();
+		host.table.set(
+			'characterization',
+			view('characterization', {
+				participants: [
+					{ kind: 'agent', name: 'builder', identity: 'B', status: 'idle', attention: 'named' },
+				],
+			}),
+		);
+		await session.refresh();
+		expect(session.suggestions('@').map((row) => [row.label, row.detail])).toEqual([
+			['@assistant', 'not seated'],
+			['@datasheets', 'not seated'],
+			['@builder', 'named'],
+		]);
+	});
+
+	it('refuses an unknown seat and an empty question, and sends nothing', async () => {
+		const { host, session } = await started();
+		host.calls.length = 0;
+		await session.submit('@nobody hello');
+		expect(session.error).toContain('No seat named @nobody');
+		await session.submit('@builder');
+		expect(session.error).toBe('Say what to ask @builder.');
+		expect(host.calls).toEqual([]);
+	});
+
+	it('sends a leading at sign after a double at sign', async () => {
+		const { host, session } = await started();
+		await session.submit('@@nobody hello');
+		expect(host.calls.at(-1)).toBe('send:characterization:priya:@nobody hello');
+		expect(host.sentTo).toEqual([]);
+	});
+});
+
 describe('Session users', () => {
 	it('chooses the first person, then enters the first room', async () => {
 		const { host, session } = await started(null);

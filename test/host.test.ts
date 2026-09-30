@@ -13,6 +13,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { people } from '../src/domain/definitions.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
+import { liveRoom, openRooms } from '../src/host/rooms.ts';
 import { PNG } from './png.ts';
 
 const opened: { lab: Lab; directory: string }[] = [];
@@ -503,4 +504,82 @@ describe('Workbench host steps, says, and processes', () => {
 		await vi.waitFor(() => expect(events).toBe(4));
 		end();
 	}, 20_000);
+});
+
+/** A stream that only records which seats got a request. The exchange closes at once. */
+function listeningStream(heard: Set<string>) {
+	return scriptedStream((agent, _call, closing) => {
+		heard.add(agent);
+		if (closing)
+			return fauxAssistantMessage([fauxToolCall('say', { text: 'Summary: heard.' })], {
+				stopReason: 'toolUse',
+			});
+		return fauxAssistantMessage('quiet', { stopReason: 'stop' });
+	});
+}
+
+const whenHeard = (heard: Set<string>, agent: string) =>
+	vi.waitFor(() => expect(heard.has(agent)).toBe(true), { timeout: 5_000 });
+
+describe('Workbench host, a message to one seat', () => {
+	it('wakes a seat at named only when the message addresses it', async () => {
+		const heard = new Set<string>();
+		const lab = await open(await freshDirectory(), listeningStream(heard));
+		await lab.join('radio-tune', person);
+		await lab.send('radio-tune', person, 'plain-1', 'Plan the press.');
+		await untilSummary(lab, 'radio-tune');
+		expect(heard.has('experiments')).toBe(true);
+		expect(heard.has('datasheets')).toBe(false);
+		await lab.send('radio-tune', person, 'to-1', '@datasheets find the CH+ pin.', [], 'datasheets');
+		await whenHeard(heard, 'datasheets');
+		const sent = (await messagesOf(lab, 'radio-tune')).find(
+			(message) => message.kind === 'said' && message.text.startsWith('@datasheets'),
+		);
+		expect(sent).toMatchObject({ to: 'datasheets' });
+	});
+
+	it('refuses a name that is neither the assistant nor a specialist', async () => {
+		const lab = await open(await freshDirectory(), listeningStream(new Set()));
+		await lab.join('radio-kit', person);
+		await expect(lab.send('radio-kit', person, 'to-2', '@nobody hi', [], 'nobody')).rejects.toThrow(
+			"No seat or specialist named 'nobody'.",
+		);
+		expect((await lab.read('radio-kit', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
+	});
+
+	it('seats a specialist that the room has not seated, at named, and wakes it', async () => {
+		const directory = await freshDirectory();
+		const database = new DatabaseSync(joinPath(directory, 'rooms.db'));
+		const rooms = await openRooms(database, directory, {
+			stream: listeningStream(new Set()),
+		});
+		await rooms.create('legacy', 'A room from before the Builder.');
+		await rooms.withRoom('legacy', async (entry) => {
+			await liveRoom(entry).unseat('builder');
+		});
+		await rooms.close();
+		database.close();
+		const heard = new Set<string>();
+		const lab = await open(directory, listeningStream(heard));
+		const before = await lab.read('legacy', 0);
+		expect(before.participants.some((seat) => seat.name === 'builder')).toBe(false);
+		await lab.join('legacy', person);
+		await lab.send('legacy', person, 'to-3', '@builder check the diode.', [], 'builder');
+		await whenHeard(heard, 'builder');
+		const after = await lab.read('legacy', 0);
+		expect(after.participants).toContainEqual(
+			expect.objectContaining({ name: 'builder', kind: 'agent', attention: 'named' }),
+		);
+	});
+
+	it('lists the assistant and the specialists as the seats to address', async () => {
+		const lab = await open(await freshDirectory(), listeningStream(new Set()));
+		expect(lab.agents.map((agent) => agent.name)).toEqual([
+			'assistant',
+			'datasheets',
+			'experiments',
+			'instruments',
+			'builder',
+		]);
+	});
 });

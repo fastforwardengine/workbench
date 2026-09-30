@@ -18,7 +18,15 @@ import {
 } from './commands.ts';
 import { dismissCommand } from './dismiss.ts';
 import { RoomReader } from './room-reader.ts';
-import { DONE, HELP, notesOf, refusal, workingAgents } from './session-text.ts';
+import {
+	agentChoices,
+	DONE,
+	HELP,
+	mentionRefusal,
+	notesOf,
+	refusal,
+	workingAgents,
+} from './session-text.ts';
 
 /** What the terminal does after a command, beyond what the session already changed. */
 export type Intent = { type: 'quit' | 'files' | 'processes' } | { type: 'compose'; text: string };
@@ -203,6 +211,7 @@ export class Session {
 			people: this.host.people.map((person) => ({ name: person.name, role: person.role })),
 			files: this.files,
 			says: this.view?.scheduled ?? [],
+			agents: agentChoices(this.host.agents, this.view),
 		};
 	}
 
@@ -244,7 +253,9 @@ export class Session {
 
 	private async execute(parsed: Parsed): Promise<Intent | undefined> {
 		if (parsed.kind === 'message') {
-			await this.send(parsed.text);
+			const refusal = parsed.to ? mentionRefusal(parsed, this.host.agents) : undefined;
+			if (refusal) this.fail(new Error(refusal));
+			else await this.send(parsed.text, parsed.to);
 			return undefined;
 		}
 		if (parsed.kind === 'unknown') {
@@ -405,7 +416,7 @@ export class Session {
 
 	// Messages and room control
 
-	private async send(text: string): Promise<void> {
+	private async send(text: string, to?: string): Promise<void> {
 		if (!text || this.sending) return;
 		if (!this.identity) return this.say('Pick a person first: /user <name>.');
 		if (!this.room) return this.say('Open a room first: /room <name>.');
@@ -418,7 +429,7 @@ export class Session {
 		const refs = staged.map((one) => one.ref);
 		try {
 			if (!this.entered) await this.join();
-			await this.host.send(this.room, this.identity.name, crypto.randomUUID(), text, refs);
+			await this.host.send(this.room, this.identity.name, crypto.randomUUID(), text, refs, to);
 			staged.splice(0, refs.length);
 			this.wantBottom = true;
 			await this.refresh();
