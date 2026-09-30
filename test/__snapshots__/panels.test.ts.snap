@@ -132,7 +132,7 @@ exports[`the frames of the panels > draws the processes panel in a short termina
 │                                      │
 │                                      │
 │ scan (bash-aaa111)   instruments, in │
-│ the room led-sweep, running 1m 5s    │
+│ the room radio-kit, running 1m 5s    │
 │ $ python3 scan/scan.py               │
 └─second─line──────────────────────────┘
 "
@@ -149,8 +149,8 @@ exports[`the frames of the panels > draws the processes panel with a long output
 │                                                     │
 │                                                     │
 │                                                     │
-│ scan (bash-aaa111)   instruments, in the room led-  │
-│ sweep, running 1m 5s                                │
+│ scan (bash-aaa111)   instruments, in the room       │
+│ radio-kit, running 1m 5s                            │
 │ $ python3 scan/scan.py                              │
 │ second line                                         │
 │ 900 B of output.                                    │

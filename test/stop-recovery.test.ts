@@ -297,21 +297,21 @@ describe('Workbench host stop recovery', () => {
 		let lab: Awaited<ReturnType<typeof openLab>> | undefined;
 		try {
 			lab = await openLab({ directory: joinPath(directory, 'run'), stream });
-			await lab.join('led-sweep', person.name);
-			await expect(lab.control('led-sweep', 'stop')).rejects.toThrow(/write failure/);
-			await expect(lab.join('led-sweep', person.name)).rejects.toThrow(/Resume this room first/);
-			expect((await lab.rooms()).find((room) => room.name === 'led-sweep')?.status).toBe(
+			await lab.join('radio-kit', person.name);
+			await expect(lab.control('radio-kit', 'stop')).rejects.toThrow(/write failure/);
+			await expect(lab.join('radio-kit', person.name)).rejects.toThrow(/Resume this room first/);
+			expect((await lab.rooms()).find((room) => room.name === 'radio-kit')?.status).toBe(
 				'stopping',
 			);
 			failure.restore();
-			expect((await lab.control('led-sweep', 'stop')).status).toBe('stopped');
-			const messages = (await lab.read('led-sweep', 0)).messages;
+			expect((await lab.control('radio-kit', 'stop')).status).toBe('stopped');
+			const messages = (await lab.read('radio-kit', 0)).messages;
 			expect(messages.filter((message) => message.kind === 'left')).toHaveLength(1);
 			expect(failure.attempts()).toBe(1);
 			const shutdownFailure = failNextDeparture();
 			try {
-				expect((await lab.control('led-sweep', 'resume')).status).toBe('running');
-				await lab.join('led-sweep', person.name);
+				expect((await lab.control('radio-kit', 'resume')).status).toBe('running');
+				await lab.join('radio-kit', person.name);
 				await expect(lab.close()).rejects.toThrow(/write failure/);
 			} finally {
 				shutdownFailure.restore();

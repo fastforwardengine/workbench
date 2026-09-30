@@ -27,9 +27,9 @@ import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
 import { piModel, THINKING } from '../../src/domain/families.ts';
-import { scenarios, seats } from '../../src/domain/scenarios.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
+import { ledFiles, ledProject, ledSweepRoom } from './led-sweep.ts';
 
 const MODEL = piModel();
 export const JUDGE_MODEL = process.env.JUDGE_MODEL || MODEL;
@@ -54,12 +54,8 @@ export const person = (() => {
 	return first;
 })();
 
-/** The room of the project, as the host seeds it. */
-export const sweep = (() => {
-	const [first] = scenarios;
-	if (!first) throw new Error('Workbench has no room.');
-	return first;
-})();
+/** The room of the evals: the LED sweep, which the evals keep as their project. */
+export const sweep = ledSweepRoom;
 
 /** The tools of the workspace: files, processes, snapshots, and the git server. */
 export const WORKSPACE_TOOLS = [
@@ -79,9 +75,10 @@ export const WORKSPACE_TOOLS = [
 
 /**
  * A room with the team of Workbench over a seeded workspace, as the host
- * opens it: the library and `/shared` on disk, and the templates on the git
- * server. It stops, and its files go, when the test ends. The seats run on
- * the live model, or on `execution` for a test of this support.
+ * opens it but with the LED sweep as its project: the library and `/shared`
+ * on disk, and the templates on the git server. It stops, and its files go,
+ * when the test ends. The seats run on the live model, or on `execution` for
+ * a test of this support.
  */
 export async function openRoom(
 	execution: Execution = piExecution(),
@@ -91,14 +88,14 @@ export async function openRoom(
 		name: 'workbench',
 		backend: { bash: directoryBackend(directory), git: labRepositories(':memory:') },
 	});
-	await seedWorkspace(workspace);
-	const built = await team(workspace);
+	await seedWorkspace(workspace, ledFiles);
+	const built = await team(workspace, ledProject);
 	const room = await startRoom({
 		name: `workbench-eval-${crypto.randomUUID()}`,
 		goal: sweep.goal,
 		assistant: built.assistant,
 		agents: built.specialists,
-		seats,
+		seats: sweep.seats,
 		runtime: createRuntime({ execution }),
 	});
 	onTestFinished(async () => {

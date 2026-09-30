@@ -12,7 +12,7 @@ describe('the team instructions', () => {
 	});
 
 	it('give examples that the terminal resolves', () => {
-		const known = { room: 'led-sweep', files: ['/shared/kit.md'], seqs: new Set<number>() };
+		const known = { room: 'radio-kit', files: ['/shared/kit.md'], seqs: new Set<number>() };
 		const examples = [...shared.matchAll(/file:\/\/\/[A-Za-z0-9_./-]+[A-Za-z0-9]/g)].map(
 			(match) => match[0],
 		);

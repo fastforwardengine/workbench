@@ -18,9 +18,12 @@ async function writeIfAbsent(env: Env, path: string, content: string): Promise<v
  * account. The seed goes through the workspace, so a local directory and a
  * workstation get it the same way. An existing file always remains.
  */
-export async function seedWorkspace(workspace: Workspace): Promise<void> {
+export async function seedWorkspace(
+	workspace: Workspace,
+	overrides: Record<string, string> = {},
+): Promise<void> {
 	await workspace.use(workspace.host, async (env) => {
-		for (const [path, content] of Object.entries(seedFiles()))
+		for (const [path, content] of Object.entries(seedFiles(overrides)))
 			await writeIfAbsent(env, path, content);
 	});
 }
