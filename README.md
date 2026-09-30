@@ -76,8 +76,10 @@ layout, and the tests.
 
 ## The team
 
-**Three specialists hear every message, at `broadcast`. The assistant
-writes the closing summary.** Every seat runs on Pi.
+**Three specialists hear every message in a new room, at `broadcast`. The
+Builder listens at `named`: it wakes when the assistant or a specialist
+addresses it, and not for a message from you. The assistant writes the
+closing summary.** Every seat runs on Pi.
 
 | Seat        | Work                                                   | Tools     |
 | ----------- | ------------------------------------------------------ | --------- |
@@ -85,6 +87,7 @@ writes the closing summary.** Every seat runs on Pi.
 | Datasheets  | States limits from `/library`, with the source         | Workspace |
 | Experiments | Writes a short, repeatable test plan                   | Workspace |
 | Instruments | Prepares and runs the bench scripts, and reports a run | Workspace |
+| Builder     | Guides an assembly, and checks each part from a photo  | Workspace |
 
 **The workspace tools are the only tools.** They read and write files,
 run shell commands as background processes, fork the git templates, and
@@ -94,7 +97,7 @@ needs one. A bench script comes from a template.
 
 ## The lab
 
-- **Room:** `led-sweep`. `/new` adds a room with the same three seats.
+- **Room:** `led-sweep`. `/new` adds a room with the same four seats.
 - **Workspace:** one directory for every room. It holds `/library`,
   `/shared`, `/attachments`, and a home for each agent.
 - **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into

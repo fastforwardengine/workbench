@@ -9,7 +9,7 @@ on electrical engineering, hardware, and electrochemistry. It runs on
 [Ambion](https://github.com/ambionframework/ambion), the collaboration
 kernel, and follows Ambion's own runnable example (`examples/workbench`)
 with a lab domain of its own: a bench with a programmable supply and a
-camera, three specialists, and an assistant that coordinates them. The
+camera, four specialists, and an assistant that coordinates them. The
 milestone is an FM radio that the team helps build and then controls.
 
 pnpm workspace, ESM only, TypeScript, Node 26.4 or newer (the OpenTUI

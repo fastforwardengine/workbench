@@ -20,6 +20,7 @@ export const seatFamilies: Readonly<Record<string, Family>> = {
 	datasheets: 'pi',
 	experiments: 'pi',
 	instruments: 'pi',
+	builder: 'pi',
 };
 
 /** The short names `WORKBENCH_MODEL` accepts, each for one Pi model id. */

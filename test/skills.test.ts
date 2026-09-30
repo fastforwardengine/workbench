@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
 import { agentSkills, skillsDirectory } from '../src/domain/skills.ts';
 
-const specialists = ['datasheets', 'experiments', 'instruments'];
+const specialists = ['datasheets', 'experiments', 'instruments', 'builder'];
 
 /** The names of the skill folders of one agent. */
 const skillNames = async (agent: string) =>
@@ -28,7 +28,7 @@ describe('the Workbench skills', () => {
 			.filter((entry) => entry.isDirectory())
 			.map((entry) => entry.name)
 			.sort();
-		expect(directories).toEqual(specialists);
+		expect(directories).toEqual([...specialists].sort());
 	});
 
 	it.each(specialists)('loads the skills of %s, each with a description', async (agent) => {

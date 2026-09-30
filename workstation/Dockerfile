@@ -44,13 +44,20 @@ COPY entrypoint.sh /usr/local/sbin/workbench-entrypoint
 # refuses a locked account for every method. Instruments also joins the
 # device groups: dialout for a serial port, video for a camera, and plugdev
 # for a USB device through libusb.
+#
+# Every account has a fixed uid. The group accounts count up from 1000 in the
+# order of the accounts file, and the git account has 1900. A home on a volume
+# keeps the owner of the first run. A uid that shifts would leave the home to
+# another account. The gids follow the uids and are not fixed.
 RUN groupadd workbench \
+	&& uid=1000 \
 	&& for name in $(grep -v '^#' /etc/workbench-accounts); do \
-		useradd --create-home --shell /bin/bash --groups workbench "$name"; \
+		useradd --uid "$uid" --create-home --shell /bin/bash --groups workbench "$name"; \
 		usermod --password '*' "$name"; \
 		chmod 0700 "/home/$name"; \
+		uid=$((uid + 1)); \
 	done \
-	&& useradd --create-home --shell /bin/bash workbench-git \
+	&& useradd --uid 1900 --create-home --shell /bin/bash workbench-git \
 	&& usermod --password '*' workbench-git \
 	&& chmod 0700 /home/workbench-git \
 	&& chmod 0755 /usr/local/sbin/workbench-entrypoint \

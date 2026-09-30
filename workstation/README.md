@@ -18,7 +18,7 @@ flowchart LR
     s3["s3ObjectBackend"]
   end
   subgraph box["Container: sshd on 127.0.0.1:2222"]
-    agents["datasheets, experiments,<br/>instruments, workbench-host"]
+    agents["datasheets, experiments, instruments,<br/>builder, workbench-host"]
     repos["workbench-git<br/>~/repos"]
   end
   subgraph store["Container: silo on 127.0.0.1:9000"]

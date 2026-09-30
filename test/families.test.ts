@@ -14,6 +14,7 @@ describe('Workbench executor families', () => {
 			datasheets: 'pi',
 			experiments: 'pi',
 			instruments: 'pi',
+			builder: 'pi',
 		});
 	});
 
@@ -36,7 +37,7 @@ describe('Workbench executor families', () => {
 	it('says which seat cannot run and why, and lists only the seats without a key', () => {
 		expect(describeUnavailable({ ANTHROPIC_API_KEY: 'k' })).toEqual([]);
 		expect(describeUnavailable({ WORKBENCH_MODEL: 'openai', OPENAI_API_KEY: 'k' })).toEqual([]);
-		expect(describeUnavailable({})).toHaveLength(4);
+		expect(describeUnavailable({})).toHaveLength(5);
 		expect(describeUnavailable({})[0]).toBe(
 			"Seat 'assistant' cannot run: ANTHROPIC_API_KEY is not set, and the pi family needs it.",
 		);
@@ -53,7 +54,7 @@ describe('Workbench executor families', () => {
 		const executors = Object.fromEntries(
 			built.specialists.map((seat) => [seat.name, seat.executor]),
 		);
-		for (const name of ['datasheets', 'experiments', 'instruments']) {
+		for (const name of ['datasheets', 'experiments', 'instruments', 'builder']) {
 			expect(executors[name], name).toMatchObject({
 				kind: 'pi',
 				model: piModel(),
@@ -83,6 +84,7 @@ describe('Workbench with no key', () => {
 			'datasheets',
 			'experiments',
 			'instruments',
+			'builder',
 		]);
 		await lab.join('led-sweep', person);
 		await lab.send('led-sweep', person, 'nokey-1', 'Plan a test.');

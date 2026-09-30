@@ -29,6 +29,8 @@ specialist. The assistant has no file or shell tool, so it has no folder.
 | Experiments | `write-a-test-plan`      | Fill the `test-plan` template, and push it                       |
 | Instruments | `scan-the-bench`         | Find the devices with the `device-scan` template                 |
 | Instruments | `drive-the-power-supply` | Run the HM310P with the `hm310p` template, within its limits     |
+| Builder     | `guide-a-build-step`     | Guide one step of a build, with the `build-procedure` template   |
+| Builder     | `check-a-photo`          | Check the placement and orientation of a part from a photo       |
 
 ## How a specialist reads a skill
 

@@ -37,6 +37,13 @@ export const templates: readonly Template[] = [
 		specialists: ['instruments'],
 	},
 	{
+		name: 'build-procedure',
+		description:
+			'A build procedure for a kit: each step with its parts, their places and orientation, the risk, the check, and the evidence, and the first power-on.',
+		use: 'a build procedure',
+		specialists: ['builder'],
+	},
+	{
 		name: 'hm310p',
 		description:
 			'psu.py, a command-line tool for the HANMATEK HM310P power supply over USB: the output, the setpoints, the readings, the protection limits, the presets, and the buzzer, within limits.json. A simulated supply runs with no hardware.',
