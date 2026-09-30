@@ -30,7 +30,12 @@ for name in "${ACCOUNTS[@]}" "$GIT_ACCOUNT"; do
 		exit 1
 	fi
 	home="$(getent passwd "$name" | cut -d: -f6)"
-	install -d -m 0700 -o "$name" -g "$name" "$home/.ssh"
+	# The home is on a named volume. It keeps the owner of the first run, so the
+	# script sets the owner and the mode of the home, and not only of .ssh.
+	install -d -m 0700 -o "$name" -g "$name" "$home" "$home/.ssh"
+	# A volume that an older image filled holds files of an older uid. Give them
+	# back to the account. Nothing runs when every file already belongs to it.
+	find "$home" ! -user "$name" -exec chown -h "$name:$name" {} +
 	install -m 0600 -o "$name" -g "$name" "$key" "$home/.ssh/authorized_keys"
 done
 

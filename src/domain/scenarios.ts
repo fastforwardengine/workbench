@@ -3,11 +3,16 @@ import { join } from 'node:path';
 import type { Attention } from '@ambionframework/ambion';
 import { packageDirectory } from './package-root.ts';
 
-/** The seats of every room. Every specialist hears every message, at `broadcast`. */
+/**
+ * The seats of a room with no seats of its own. Three specialists hear every
+ * message, at `broadcast`. The Builder listens at `named`, and answers when a
+ * message names it.
+ */
 export const seats: Record<string, Attention> = {
 	datasheets: 'broadcast',
 	experiments: 'broadcast',
 	instruments: 'broadcast',
+	builder: 'named',
 };
 
 /** The room of the project. */

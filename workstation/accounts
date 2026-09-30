@@ -2,7 +2,13 @@
 # on each line: each specialist, and the host account `<workspace>-host`.
 # The git account `workbench-git` is outside the group. The image, setup.sh,
 # and test/workstation-config.test.ts read this file.
+#
+# Add a new account at the end. The image gives the accounts the uids 1000 and
+# up in the order of this file, and the git account 1900. An account inserted
+# above another one changes the uid of that account, and its home keeps the old
+# owner until the next start of the container repairs it.
 datasheets
 experiments
 instruments
 workbench-host
+builder

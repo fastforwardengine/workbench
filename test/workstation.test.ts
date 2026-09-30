@@ -8,6 +8,7 @@
  * The repositories, the homes, and /shared persist on the workstation, so
  * each run names its files and its fork with a token of its own.
  */
+import { readFileSync } from 'node:fs';
 import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -65,7 +66,7 @@ async function runRoom(built: Awaited<ReturnType<typeof build>>, script: Script,
 		assistant: built.assistant,
 		runtime: createRuntime(),
 		execution: scripted(script),
-		seats: { datasheets: 'named', experiments: 'named', instruments: 'named' },
+		seats: { datasheets: 'named', experiments: 'named', instruments: 'named', builder: 'named' },
 	});
 	cleanups.push(() => room.stop());
 	await (await room.visit(person)).send({ text });
@@ -145,6 +146,29 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		);
 		expect(write.ok).toBe(false);
 	}, 120_000);
+
+	it('gives each account the uid of its place in the accounts file, and owns its home', async () => {
+		const built = await build();
+		const accounts = readFileSync(new URL('../workstation/accounts', import.meta.url), 'utf8')
+			.split('\n')
+			.filter((line) => line !== '' && !line.startsWith('#'));
+		for (const seat of built.specialists.map((one) => one.name)) {
+			const uid = 1000 + accounts.indexOf(seat);
+			const script = byAgent({
+				assistant: (_step, _seat, call) => (call === 1 ? speak('Report.', seat) : quiet()),
+				[seat]: (step, _seat, call) => {
+					if (call === 1)
+						return callTool('bash', { command: 'echo "$(id -u) $(stat -c %u ~)"', wait: 30 });
+					if (call === 2) return speak(`ids ${step.results.at(-1)?.text}`, 'assistant');
+					return quiet();
+				},
+			});
+			const room = await runRoom(built, script, `Report your ids, ${seat}.`);
+			const said = (await room.read()).messages.filter((message) => message.kind === 'said');
+			const report = said.find((message) => message.from === seat)?.text ?? '';
+			expect(report, seat).toContain(`ids ${uid} ${uid}`);
+		}
+	}, 240_000);
 
 	it('copies the skills of a seat into its home, and runs a script of a skill as that seat', async () => {
 		const built = await build();
