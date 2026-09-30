@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import type { Attention } from '@ambionframework/ambion';
 import { packageDirectory } from './package-root.ts';
 
@@ -120,12 +120,15 @@ in any room.
 
 ## Parts of the kit
 
-These come from the product photo. Check each one against the kit.
+These come from the product photo, the manual, and the schematic. Check each
+one against the kit. The datasheets, the manual, and the schematic are in
+/library. Start with /library/README.md.
 
 - The FM tuner module: RDA5807FP-M, controlled over I²C.
-- The microcontroller: STC8G1K, 16 pins, in a socket.
-- The amplifier module: 8002. The power module: CAI-222.
-- A 4-digit 7-segment display, and four buttons: V−, V+, CH−, CH+.
+- The microcontroller: STC8G1K17, 16 pins, in a DIP16 socket.
+- The amplifier module: 8002. The charging module: CAI-222 in the photo,
+  probably a TP4056 board.
+- A 4-digit 7-segment display (3641AS), and four buttons: V−, V+, CH−, CH+.
 - A speaker, a headphone jack, a telescopic antenna, and a case.
 
 ## On the bench
@@ -167,9 +170,9 @@ Confidence is \`high\` (a reading or a cited photo), \`medium\` (a datasheet), o
 | Part                         | Marking in the photo | Checked against the kit | Source        | Confidence |
 | ---------------------------- | -------------------- | ----------------------- | ------------- | ---------- |
 | FM tuner module              | RDA5807FP-M          | no                      | product photo | low        |
-| Microcontroller, 16 pins     | STC8G1K, in a socket | no                      | product photo | low        |
+| Microcontroller, 16 pins     | STC8G1K17, in a socket | no                    | manual, photo | medium     |
 | Amplifier module             | 8002                 | no                      | product photo | low        |
-| Power module                 | CAI-222              | no                      | product photo | low        |
+| Charging module              | CAI-222              | no                      | product photo | low        |
 | 4-digit 7-segment display    |                      | no                      | product photo | low        |
 | Buttons                      | V−, V+, CH−, CH+     | no                      | product photo | low        |
 
@@ -200,6 +203,27 @@ Status: empty. Record decisions and test plans here.
 `,
 };
 
+/** The content of a seed file: text for Markdown, bytes for a figure. */
+export type SeedContent = string | Uint8Array;
+
+/**
+ * The files of `library/`, at any depth, by workspace path such as
+ * `/library/images/kit-schematic.jpg`. A Markdown file is text. Every other
+ * file, such as a figure, is bytes.
+ */
+function libraryFiles(): Record<string, SeedContent> {
+	const files: Record<string, SeedContent> = {};
+	for (const entry of readdirSync(libraryDirectory, { recursive: true, withFileTypes: true })) {
+		if (!entry.isFile()) continue;
+		const path = join(entry.parentPath, entry.name);
+		const name = relative(libraryDirectory, path).split(sep).join('/');
+		files[`/library/${name}`] = name.endsWith('.md')
+			? readFileSync(path, 'utf8')
+			: readFileSync(path);
+	}
+	return files;
+}
+
 /**
  * The seed of a workspace: each file by its workspace path, such as
  * `/shared/kit.md`. The library comes from `library/` of the package. The
@@ -207,12 +231,8 @@ Status: empty. Record decisions and test plans here.
  * always remains. `overrides` replaces files of the seed by path, as an eval
  * of another project does.
  */
-export function seedFiles(overrides: Record<string, string> = {}): Record<string, string> {
-	const files: Record<string, string> = {};
-	for (const entry of readdirSync(libraryDirectory, { withFileTypes: true })) {
-		if (entry.isFile())
-			files[`/library/${entry.name}`] = readFileSync(join(libraryDirectory, entry.name), 'utf8');
-	}
+export function seedFiles(overrides: Record<string, string> = {}): Record<string, SeedContent> {
+	const files = libraryFiles();
 	for (const [name, content] of Object.entries(sharedFiles)) files[`/${name}`] = content;
 	return { ...files, ...overrides };
 }
