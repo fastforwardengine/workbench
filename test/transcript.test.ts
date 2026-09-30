@@ -4,6 +4,7 @@
  * every step and on a fresh one that sees this step alone, and the two frames
  * must be equal. The counts of built nodes show that the reuse happens.
  */
+import { TextRenderable } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type Marks, Transcript } from '../src/terminal/transcript.ts';
@@ -79,14 +80,14 @@ const blocksOf = (state: State): Block[] => {
 	} as never);
 };
 
-const ref = (seq: number): RefItem => ({
-	id: `${seq}#0`,
+const ref = (seq: number, index = 0): RefItem => ({
+	id: `${seq}#${index}`,
 	seq,
 	resolved: {
-		ref: 'file:///shared/kit.md',
+		ref: `file:///shared/file-${index}.md`,
 		kind: 'file',
-		label: '/shared/some/very/long/path/that/needs/to/be/cut/by/the/width/of/a/chip.md',
-		target: { kind: 'file', path: '/shared/kit.md' },
+		label: `/shared/some/very/long/path/that/needs/to/be/cut/by/the/width/of/a/chip-${index}.md`,
+		target: { kind: 'file', path: `/shared/file-${index}.md` },
 	},
 });
 
@@ -184,13 +185,17 @@ async function compare(
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
-async function draw(view: Awaited<ReturnType<typeof mount>>, state: State): Promise<string> {
+async function draw(
+	view: Awaited<ReturnType<typeof mount>>,
+	state: State,
+	where: { bottom?: boolean; reveal?: string } = {},
+): Promise<string> {
 	view.transcript.render(
 		blocksOf(state),
 		state.selected,
 		state.notice,
-		undefined,
-		true,
+		where.reveal,
+		where.bottom ?? true,
 		state.marks,
 	);
 	await settle();
@@ -241,13 +246,18 @@ function randomState(next: (below: number) => number): State {
 	const keys = Array.from({ length: exchanges }, (_, at) => String(1 + at * 5));
 	const expanded = keys.filter(() => next(3) === 0);
 	const seqs = Array.from({ length: exchanges * 5 }, (_, at) => at + 1);
+	// One to three refs on some messages, so the chosen ref can move inside one message.
 	const refs = new Map(
-		seqs.filter(() => next(9) === 0).map((seq) => [seq, [ref(seq)]] as [number, RefItem[]]),
+		seqs
+			.filter(() => next(5) === 0)
+			.map(
+				(seq) => [seq, Array.from({ length: 1 + next(3) }, (_, index) => ref(seq, index))] as const,
+			),
 	);
-	const [first] = [...refs.keys()];
+	const ids = [...refs.values()].flat().map((item) => item.id);
 	const state: State = { exchanges, expanded, marks: { refs } };
 	if (keys.length > 0 && next(2) === 0) state.selected = keys[next(keys.length)];
-	if (first !== undefined && next(2) === 0 && state.marks) state.marks.picked = `${first}#0`;
+	if (ids.length > 0 && next(2) === 0 && state.marks) state.marks.picked = ids[next(ids.length)];
 	if (seqs.length > 0 && next(3) === 0 && state.marks) state.marks.focus = seqs[next(seqs.length)];
 	const tails = [[], [live('a')], [live('b')], [steps(true)], [live('a'), steps(false)]];
 	state.tail = tails[next(tails.length)];
@@ -287,6 +297,103 @@ describe('the transcript after a resize', () => {
 		fresh.setup.resize(50, 40);
 		await fresh.setup.renderOnce();
 		expect(await compare(kept, fresh, state)).toBe('');
+	});
+});
+
+describe('the transcript when the chosen ref or the focus moves inside one block', () => {
+	const open: string[] = ['6'];
+	const refs = new Map([
+		[7, [ref(7, 0), ref(7, 1)]],
+		[8, [ref(8, 0)]],
+	]);
+	const at = (marks: Marks): State => ({ exchanges: 4, expanded: open, marks });
+
+	async function moves(states: State[]) {
+		const kept = await mount();
+		for (const state of states) {
+			const fresh = await mount();
+			expect(await compare(kept, fresh, state), JSON.stringify(state.marks?.picked)).toBe('');
+			fresh.setup.renderer.destroy();
+		}
+	}
+
+	it('moves the chosen ref between two refs of one message', async () => {
+		await moves([
+			at({ refs, picked: '7#0' }),
+			at({ refs, picked: '7#1' }),
+			at({ refs, picked: '7#0' }),
+		]);
+	});
+
+	it('moves the chosen ref between the refs of two messages of one open discussion', async () => {
+		await moves([
+			at({ refs, picked: '7#0' }),
+			at({ refs, picked: '8#0' }),
+			at({ refs, picked: '7#1' }),
+		]);
+	});
+
+	it('moves the focus between two messages of one open discussion', async () => {
+		await moves([at({ refs, focus: 7 }), at({ refs, focus: 8 }), at({ refs, focus: 7 })]);
+	});
+});
+
+describe('the scroll position after a change', () => {
+	const tall: State = { exchanges: 40 };
+
+	it('keeps the position of a reader who scrolled up, when rows in the middle change', async () => {
+		const view = await mount();
+		await draw(view, tall);
+		view.transcript.scrollBy(-100);
+		await view.setup.renderOnce();
+		const top = view.transcript.root.scrollTop;
+		expect(top).toBeGreaterThan(0);
+		await draw(view, { ...tall, expanded: ['6'] }, { bottom: false });
+		expect(view.transcript.root.scrollTop).toBe(top);
+	});
+
+	it('follows the end of the conversation for a reader who is at the end', async () => {
+		const view = await mount();
+		await draw(view, tall);
+		const before = view.transcript.root.scrollTop;
+		await draw(view, { exchanges: 41 }, { bottom: false });
+		expect(view.transcript.root.scrollTop).toBeGreaterThan(before);
+	});
+
+	it('reveals the same place as a fresh transcript does', async () => {
+		const kept = await mount();
+		await draw(kept, tall);
+		const fresh = await mount();
+		const target = { reveal: 'discussion-96', bottom: false };
+		await draw(kept, tall, target);
+		await draw(fresh, tall, target);
+		expect(kept.transcript.root.scrollTop).toBe(fresh.transcript.root.scrollTop);
+		expect(kept.transcript.root.scrollTop).toBeGreaterThan(0);
+	});
+});
+
+describe('the nodes of rows that leave', () => {
+	it('destroys each node that it removes, and only those', async () => {
+		let proto: object | null = Object.getPrototypeOf(TextRenderable.prototype);
+		while (proto && !Object.hasOwn(proto, 'destroyRecursively'))
+			proto = Object.getPrototypeOf(proto);
+		if (!proto) throw new Error('No destroyRecursively on the renderables.');
+		const destroyed = vi.spyOn(proto as { destroyRecursively: () => void }, 'destroyRecursively');
+		const view = await mount();
+		const note = (text: string): Block => ({ type: 'note', text });
+		const set = async (texts: string[]) => {
+			view.transcript.render(texts.map(note), undefined, undefined, undefined, true);
+			await settle();
+		};
+		await set(['a', 'b', 'c', 'd', 'e']);
+		destroyed.mockClear();
+		await set(['a', 'e']);
+		expect(destroyed).toHaveBeenCalledTimes(3);
+		destroyed.mockClear();
+		await set(['a', 'e']);
+		expect(destroyed).not.toHaveBeenCalled();
+		await set(['a', 'x', 'e']);
+		expect(destroyed).not.toHaveBeenCalled();
 	});
 });
 

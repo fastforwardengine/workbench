@@ -136,15 +136,16 @@ function seqsOf(block: Block): number[] {
 
 /**
  * Everything a block's node is built from: the block, whether it is selected,
- * the refs that fall on its messages, the chosen ref and the focus when they
- * fall on it, and the width the chips were fitted to. Two equal signatures make
+ * the refs that fall on its messages, which of them is chosen, which message
+ * has the focus, and the width the chips were fitted to. Two equal signatures make
  * two equal nodes, so the transcript keeps the node it has.
  */
 function signatureOf(block: Block, selected: string | undefined, marks: Marks, width: number) {
 	const seqs = seqsOf(block);
 	const refs = seqs.flatMap((seq) => marks.refs.get(seq) ?? []);
-	const picked = refs.some((item) => item.id === marks.picked);
-	const focus = marks.focus !== undefined && seqs.includes(marks.focus);
+	// The values, not whether they fall on the block: a mark that moves inside one block changes its nodes.
+	const picked = refs.find((item) => item.id === marks.picked)?.id ?? null;
+	const focus = marks.focus !== undefined && seqs.includes(marks.focus) ? marks.focus : null;
 	const chosen = block.type === 'discussion' && block.key === selected;
 	return JSON.stringify([block, chosen, refs, picked, focus, refs.length > 0 ? width : 0]);
 }

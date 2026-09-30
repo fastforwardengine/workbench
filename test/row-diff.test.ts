@@ -62,6 +62,32 @@ describe('planRows', () => {
 		expect(olds).toEqual([...olds].sort((a, b) => a - b));
 	});
 
+	it('does not let the top and the bottom overlap when a list repeats a row', () => {
+		for (const [from, to] of [
+			['a', 'aa'],
+			['aa', 'a'],
+			['aaa', 'a'],
+			['a', 'aaa'],
+			['aba', 'a'],
+			['ab', 'aba'],
+		] as const) {
+			const { plan, result } = apply(rows(from), rows(to));
+			expect(result, `${from} -> ${to}`).toEqual(rows(to));
+			expect(plan.start, `${from} -> ${to}`).toBeLessThanOrEqual(plan.oldEnd);
+			expect(plan.start, `${from} -> ${to}`).toBeLessThanOrEqual(plan.newEnd);
+		}
+	});
+
+	it('plans a long list of equal rows in linear time', () => {
+		const old = ['top', ...Array.from({ length: 20_000 }, () => 'same'), 'bottom'];
+		const wanted = ['TOP', ...Array.from({ length: 20_000 }, () => 'same'), 'BOTTOM'];
+		const began = performance.now();
+		const { built, result } = apply(old, wanted);
+		expect(performance.now() - began).toBeLessThan(150);
+		expect(result).toEqual(wanted);
+		expect(built).toBe(2);
+	});
+
 	it('plans an empty list from any list, and any list from an empty one', () => {
 		expect(apply(rows('abc'), []).result).toEqual([]);
 		expect(apply([], rows('abc')).built).toBe(3);
