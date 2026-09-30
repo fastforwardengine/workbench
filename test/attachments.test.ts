@@ -1,8 +1,9 @@
+import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { memoryBackend } from '@ambionframework/just-bash';
-import { openWorkspace } from '@ambionframework/workspace';
+import { BACKGROUND_CONTEXT, openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { attachFile, imageMimeType, isImagePath } from '../src/host/files.ts';
 import { readSnapshotFile } from '../src/host/previews.ts';
@@ -105,6 +106,7 @@ describe('attachFile', () => {
 			await writeFile(join(dir, 'a.png'), Buffer.from('second'));
 			const second = await attachFile(workspace, join(dir, 'a.png'));
 			expect(second.path).not.toBe(first.path);
+			expect(second.path).toMatch(/^\/attachments\/2-\d+-a\.png$/);
 			expect(new TextDecoder().decode(await workspace.readSnapshot(first.ref))).toBe('first');
 			expect(new TextDecoder().decode(await workspace.readSnapshot(second.ref))).toBe('second');
 		} finally {
@@ -138,7 +140,7 @@ describe('attachFile', () => {
 			await expect(attachFile(workspace, join(dir, 'missing.png'))).rejects.toThrow(
 				/^Cannot read .*missing\.png: /,
 			);
-			await expect(attachFile(workspace, dir)).rejects.toThrow(/^Cannot read /);
+			await expect(attachFile(workspace, dir)).rejects.toThrow(/it is not a regular file/);
 			await expect(attachFile(workspace, join(dir, 'big.png'))).rejects.toThrow(
 				'/attach takes files up to 8 MiB.',
 			);
@@ -147,7 +149,7 @@ describe('attachFile', () => {
 		}
 	});
 
-	it('gives the panel a picture for the snapshot of a picture, and a note when it is too large', async () => {
+	it('gives the panel a picture for the snapshot of a picture', async () => {
 		const dir = await folder();
 		await writeFile(join(dir, 'bench.png'), PNG);
 		const workspace = open2();
@@ -161,6 +163,109 @@ describe('attachFile', () => {
 			await workspace.dispose();
 		}
 	});
+});
+
+describe('attachFile, with files that it must refuse', () => {
+	const open3 = () => openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+
+	/** The names in /attachments, or none when the folder does not exist. */
+	async function attached(workspace: ReturnType<typeof open3>): Promise<string[]> {
+		return workspace.use(workspace.host, async (env) => {
+			const listed = await env.listDir('/attachments', BACKGROUND_CONTEXT);
+			return listed.ok ? listed.value.map((entry) => entry.path) : [];
+		});
+	}
+
+	it('refuses a pipe at once, and never waits for it to end', async () => {
+		const dir = await folder();
+		const pipe = join(dir, 'frame.png');
+		execFileSync('mkfifo', [pipe]);
+		const workspace = open3();
+		try {
+			await expect(attachFile(workspace, pipe)).rejects.toThrow(/it is not a regular file/);
+			await expect(attachFile(workspace, dir)).rejects.toThrow(/it is not a regular file/);
+			expect(await attached(workspace)).toEqual([]);
+		} finally {
+			await workspace.dispose();
+		}
+	}, 10_000);
+
+	it('refuses a name that a ref cannot hold, in one line, and writes nothing', async () => {
+		const dir = await folder();
+		const odd = join(dir, 'bench\nphoto.png');
+		await writeFile(odd, PNG);
+		const workspace = open3();
+		try {
+			await expect(attachFile(workspace, odd)).rejects.toThrow(
+				/^Cannot attach .*: its name is not one that a ref can hold\.$/,
+			);
+			expect(await attached(workspace)).toEqual([]);
+		} finally {
+			await workspace.dispose();
+		}
+	});
+
+	it('removes the copy when the snapshot fails, and says why', async () => {
+		const dir = await folder();
+		await writeFile(join(dir, 'a.png'), PNG);
+		const workspace = open3();
+		// The workspace is frozen, so a child that shadows `snapshot` stands in for a store that is down.
+		const failing = Object.create(workspace) as typeof workspace;
+		Object.defineProperty(failing, 'snapshot', {
+			value: async () => {
+				throw new Error('the store is down');
+			},
+		});
+		try {
+			await expect(attachFile(failing, join(dir, 'a.png'))).rejects.toThrow(
+				/^Cannot snapshot \/attachments\/\d+-a\.png: the store is down$/,
+			);
+			expect(await attached(workspace)).toEqual([]);
+		} finally {
+			await workspace.dispose();
+		}
+	});
+
+	it('tells the person what to do when the workspace has no attachments folder', async () => {
+		const dir = await folder();
+		await writeFile(join(dir, 'a.png'), PNG);
+		const workspace = open3();
+		await workspace.use(workspace.host, (env) =>
+			env.writeFile('/attachments', 'a file where the folder should be', BACKGROUND_CONTEXT),
+		);
+		try {
+			await expect(attachFile(workspace, join(dir, 'a.png'))).rejects.toThrow(
+				/no \/attachments folder to write to .*run make workstation again/,
+			);
+		} finally {
+			await workspace.dispose();
+		}
+	});
+
+	it('gives the panel a note, and no bytes, for a snapshot of a picture or a database over 8 MiB', async () => {
+		const workspace = open3();
+		try {
+			const over = 8 * 1_048_576 + 1;
+			const database = Buffer.alloc(over);
+			database.write('SQLite format 3\0');
+			await workspace.use(workspace.host, async (env) => {
+				await env.writeFile('/shared/big.png', Buffer.alloc(over, 1), BACKGROUND_CONTEXT);
+				await env.writeFile('/shared/big.db', database, BACKGROUND_CONTEXT);
+			});
+			const [picture, table] = await workspace.snapshot(['/shared/big.png', '/shared/big.db']);
+			const shownPicture = await readSnapshotFile(workspace, picture ?? '');
+			const shownTable = await readSnapshotFile(workspace, table ?? '');
+			expect(shownPicture.image).toBeUndefined();
+			expect(shownPicture.text).toMatch(
+				/^A picture of 8388609 bytes\. The preview shows one of up to 8 MiB/,
+			);
+			expect(shownTable.text).toMatch(
+				/^A database of 8388609 bytes\. The preview shows one of up to 8 MiB/,
+			);
+		} finally {
+			await workspace.dispose();
+		}
+	}, 20_000);
 });
 
 describe('attachCommand', () => {
@@ -208,6 +313,22 @@ describe('attachCommand', () => {
 	});
 });
 
+describe('attachCommand, at the limit of a message', () => {
+	it('stages 16 files, and refuses the 17th before it copies anything', async () => {
+		const host = new FakeHost();
+		const staged = { pendingRefs: [] as StagedAttachment[] };
+		for (let at = 0; at < 16; at += 1) await attachCommand(host, staged, `/tmp/pic-${at}.png`);
+		expect(staged.pendingRefs).toHaveLength(16);
+		const done = await attachCommand(host, staged, '/tmp/one-more.png');
+		expect(done).toEqual({
+			notice:
+				'A message holds up to 16 attachments. Send this message first, then attach the rest.',
+		});
+		expect(staged.pendingRefs).toHaveLength(16);
+		expect(host.attached).not.toContain('/tmp/one-more.png');
+	});
+});
+
 describe('Session, with attachments', () => {
 	it('sends the staged refs with the next message, once, and only when the send worked', async () => {
 		const { host, session } = await started();
@@ -241,5 +362,23 @@ describe('Session, with attachments', () => {
 		await session.submit('/attach /tmp/two.png');
 		expect(session.error).toMatch(/no such file/);
 		expect(session.pendingRefs).toHaveLength(1);
+	});
+
+	it('keeps the files staged in a new room when a send of the old room ends after the switch', async () => {
+		const { host, session } = await started();
+		await session.submit('/attach /tmp/for-a.png');
+		let release: () => void = () => {};
+		host.sendGate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const sending = session.submit('A question for room A.');
+		await vi.waitFor(() => expect(session.pendingRefs).toHaveLength(1));
+		await session.submit('/room budget');
+		await session.submit('/attach /tmp/for-b.png');
+		expect(session.pendingRefs.map((one) => one.path)).toEqual(['/attachments/1-for-b.png']);
+		release();
+		await sending;
+		expect(session.pendingRefs.map((one) => one.path)).toEqual(['/attachments/1-for-b.png']);
+		expect(host.sentRefs[0]).toHaveLength(1);
 	});
 });

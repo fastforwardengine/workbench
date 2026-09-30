@@ -3,9 +3,11 @@ import {
 	bg,
 	bold,
 	type CliRenderer,
+	decodePasteBytes,
 	fg,
 	type PasteEvent,
 	StyledText,
+	stripAnsiSequences,
 	type TextareaOptions,
 	TextareaRenderable,
 	TextRenderable,
@@ -31,7 +33,7 @@ class PasteAwareTextarea extends TextareaRenderable {
 	}
 
 	override handlePaste(event: PasteEvent): void {
-		const line = new TextDecoder().decode(event.bytes);
+		const line = stripAnsiSequences(decodePasteBytes(event.bytes));
 		if (this.onPastedLine?.(line)) return;
 		super.handlePaste(event);
 	}

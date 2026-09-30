@@ -1,3 +1,4 @@
+import { REF_LIMITS } from '@ambionframework/ambion';
 import { isImagePath } from '../../host/files.ts';
 import type { Attachment, Lab } from '../../host/host.ts';
 
@@ -42,6 +43,11 @@ export async function attachCommand(
 	localPath: string,
 ): Promise<AttachResult> {
 	if (!localPath.trim()) return { notice: 'Use /attach <local file path>.' };
+	// A message holds a fixed number of refs, and a send with more fails every time.
+	if (target.pendingRefs.length >= REF_LIMITS.count)
+		return {
+			notice: `A message holds up to ${REF_LIMITS.count} attachments. Send this message first, then attach the rest.`,
+		};
 	try {
 		const attached = staged(await host.attach(localPath.trim()));
 		target.pendingRefs.push(attached);

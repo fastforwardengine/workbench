@@ -47,6 +47,12 @@ describe('a paste into the composer', () => {
 		expect(made.text).toBe('/attach ~/Pictures/board.jpg');
 	});
 
+	it('strips a terminal escape from a pasted path, as the textarea does for any paste', async () => {
+		const { made } = await composer();
+		made.input.handlePaste(paste('/tmp/\u001b[31mbench.png'));
+		expect(made.text).toBe('/attach /tmp/bench.png');
+	});
+
 	it('lets the paste land as typed in a message that is already started', async () => {
 		const { made } = await composer();
 		made.setText('Look at ');

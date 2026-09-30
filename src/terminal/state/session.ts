@@ -412,11 +412,14 @@ export class Session {
 		if (this.view && this.view.status !== 'running')
 			return this.fail(new Error(`${this.view.name} is ${this.view.status}. Use /resume first.`));
 		this.sending = true;
-		const refs = this.pendingRefs.map((one) => one.ref);
+		// The array can be replaced while the send runs, by a switch to another room.
+		// Take the files off the array they came from, and no other.
+		const staged = this.pendingRefs;
+		const refs = staged.map((one) => one.ref);
 		try {
 			if (!this.entered) await this.join();
 			await this.host.send(this.room, this.identity.name, crypto.randomUUID(), text, refs);
-			this.pendingRefs.splice(0, refs.length);
+			staged.splice(0, refs.length);
 			this.wantBottom = true;
 			await this.refresh();
 		} catch (error) {

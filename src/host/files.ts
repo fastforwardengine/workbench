@@ -1,6 +1,7 @@
 import { readFile as readLocalFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
+import { snapshotUri } from '@ambionframework/ambion';
 import { BACKGROUND_CONTEXT, type Workspace } from '@ambionframework/workspace';
 import {
 	isDatabase,
@@ -9,6 +10,7 @@ import {
 	type TableView,
 	tablesText,
 } from '../view/database.ts';
+import { WORKSPACE } from '../view/refs.ts';
 import { fail } from './rooms.ts';
 
 export type { TableView };
@@ -205,13 +207,20 @@ export interface Attachment extends FileEntry {
 	ref: string;
 }
 
+/** A path as a message shows it: a control character, such as a newline in a name, becomes a `?`. */
+const printable = (path: string): string =>
+	Array.from(path, (char) => {
+		const code = char.charCodeAt(0);
+		return code < 32 || code === 127 ? '?' : char;
+	}).join('');
+
 /** A read of the person's own disk, with the failure said in one line. */
 async function readLocal<T>(read: () => Promise<T>, localPath: string): Promise<T> {
 	try {
 		return await read();
 	} catch (error) {
 		return fail(
-			`Cannot read ${localPath}: ${error instanceof Error ? error.message : String(error)}`,
+			`Cannot read ${printable(localPath)}: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 }
@@ -235,17 +244,57 @@ async function freeName(env: Env, name: string): Promise<string> {
  */
 export async function attachFile(workspace: Workspace, localPath: string): Promise<Attachment> {
 	const resolved = localPath.startsWith('~/') ? join(homedir(), localPath.slice(2)) : localPath;
-	const size = (await readLocal(() => stat(resolved), localPath)).size;
-	if (size > MAX_BYTES.image) fail(`/attach takes files up to ${MAX_BYTES.image / 1_048_576} MiB.`);
+	const info = await readLocal(() => stat(resolved), localPath);
+	// A pipe or a device reports a size of 0 and never ends, so only a regular file is read.
+	if (!info.isFile()) fail(`Cannot attach ${printable(localPath)}: it is not a regular file.`);
+	if (info.size > MAX_BYTES.image)
+		fail(`/attach takes files up to ${MAX_BYTES.image / 1_048_576} MiB.`);
+	const name = `${Date.now()}-${basename(resolved)}`;
+	checkCitable(`${ATTACHMENTS_DIR}/${name}`, localPath);
 	const bytes = await readLocal(() => readLocalFile(resolved), localPath);
+	// The file can grow between the stat and the read.
+	if (bytes.length > MAX_BYTES.image)
+		fail(`/attach takes files up to ${MAX_BYTES.image / 1_048_576} MiB.`);
 	const path = await workspace.use(workspace.host, async (env) => {
-		await env.createDir(ATTACHMENTS_DIR, { recursive: true }, BACKGROUND_CONTEXT);
-		const free = await freeName(env, `${Date.now()}-${basename(resolved)}`);
+		const made = await env.createDir(ATTACHMENTS_DIR, { recursive: true }, BACKGROUND_CONTEXT);
+		if (!made.ok)
+			fail(
+				`The workspace has no ${ATTACHMENTS_DIR} folder to write to (${made.error.message}). On a workstation, run make workstation again.`,
+			);
+		const free = await freeName(env, name);
 		const written = await env.writeFile(free, bytes, BACKGROUND_CONTEXT);
 		if (!written.ok) fail(written.error.message);
 		return free;
 	});
-	const [ref] = await workspace.snapshot([path]);
-	if (ref === undefined) return fail(`No snapshot of ${path}.`);
-	return { path, size: bytes.length, ref };
+	return snapshotCopy(workspace, path, bytes.length);
+}
+
+/** Refuse a name that a snapshot ref cannot hold, before anything is written. */
+function checkCitable(path: string, localPath: string): void {
+	try {
+		snapshotUri(WORKSPACE, '0'.repeat(64), path);
+	} catch {
+		fail(`Cannot attach ${printable(localPath)}: its name is not one that a ref can hold.`);
+	}
+}
+
+/** Snapshot the copy. When that fails, the copy goes, so no file stays in the folder unciteable. */
+async function snapshotCopy(workspace: Workspace, path: string, size: number): Promise<Attachment> {
+	try {
+		const [ref] = await workspace.snapshot([path]);
+		if (ref !== undefined) return { path, size, ref };
+	} catch (error) {
+		await removeCopy(workspace, path);
+		return fail(
+			`Cannot snapshot ${path}: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+	await removeCopy(workspace, path);
+	return fail(`No snapshot of ${path}.`);
+}
+
+async function removeCopy(workspace: Workspace, path: string): Promise<void> {
+	await workspace.use(workspace.host, (env) =>
+		env.remove(path, { recursive: false }, BACKGROUND_CONTEXT),
+	);
 }

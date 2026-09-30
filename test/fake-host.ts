@@ -93,7 +93,10 @@ export class FakeHost implements Lab {
 	}
 	/** The refs of each message sent, in order. */
 	readonly sentRefs: string[][] = [];
+	/** While set, a send waits for it. A test uses it to hold a send in flight. */
+	sendGate: Promise<void> | undefined;
 	async send(room: string, who: string, _key: string, text: string, refs: string[] = []) {
+		if (this.sendGate) await this.sendGate;
 		this.record(`send:${room}:${who}:${text}`);
 		this.sentRefs.push(refs);
 	}
