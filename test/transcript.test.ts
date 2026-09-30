@@ -465,6 +465,16 @@ describe('what the transcript builds', () => {
 		expect(spy).toHaveBeenCalledTimes(1);
 	});
 
+	it('builds nothing when a ref changes on a message that a closed discussion hides', async () => {
+		const marks = (picked?: string): Marks => ({
+			refs: new Map([[7, [ref(7, 0), ref(7, 1)]]]),
+			picked,
+		});
+		const { view, spy } = await built({ exchanges: 40, marks: marks('7#0') });
+		await draw(view, { exchanges: 40, marks: marks('7#1') });
+		expect(spy).not.toHaveBeenCalled();
+	});
+
 	it('builds one block when a discussion opens, and two when the selection moves', async () => {
 		const { view, spy } = await built({ exchanges: 40 });
 		await draw(view, { exchanges: 40, expanded: ['6'] });
