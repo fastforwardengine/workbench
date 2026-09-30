@@ -88,12 +88,14 @@ describe('suggest', () => {
 	});
 
 	it('filters commands by prefix', () => {
-		expect(suggest('/a', choices).map((row) => row.label)).toEqual(['/abort']);
+		expect(suggest('/a', choices).map((row) => row.label)).toEqual(['/attach', '/abort']);
+		expect(suggest('/ab', choices).map((row) => row.label)).toEqual(['/abort']);
 	});
 
 	it('runs a command that takes no argument, and only completes one that does', () => {
 		expect(suggest('/abo', choices)[0]).toMatchObject({ insert: '/abort', run: true });
 		expect(suggest('/ro', choices)[0]).toMatchObject({ insert: '/room ', run: false });
+		expect(suggest('/att', choices)[0]).toMatchObject({ insert: '/attach ', run: false });
 	});
 
 	it('lists the rooms after /room, with their state', () => {

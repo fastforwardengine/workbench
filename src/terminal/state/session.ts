@@ -5,6 +5,7 @@ import { holderOf, type Known, type RefItem, refItems, shows } from '../../view/
 import { type ActivationSteps, activationLine, ended, stepsView } from '../../view/steps.ts';
 import { errorText } from '../../view/text.ts';
 import { type Block, buildTimeline } from '../../view/timeline.ts';
+import { attachCommand, type StagedAttachment } from './attachments.ts';
 import { attentionOf, newest, pick } from './attention.ts';
 import { entryLoader, FileBrowser } from './browser.ts';
 import {
@@ -50,6 +51,8 @@ export class Session {
 	awaitingGoal: string | undefined;
 	/** The activation whose steps the terminal shows. It re-reads on each room change. */
 	steps: { id: string; read: ActivationSteps | undefined } | undefined;
+	/** The files that `/attach` copied in. They go, as refs, with the next message. */
+	pendingRefs: StagedAttachment[] = [];
 	private readonly reader: RoomReader<RoomView>;
 	private readonly changed: () => void;
 	private sending = false;
@@ -276,6 +279,12 @@ export class Session {
 		user: (argument) => this.finish(this.chooseUser(argument)),
 		files: () => this.openFiles(),
 		open: (argument) => this.openFile(argument),
+		attach: async (argument) => {
+			const done = await attachCommand(this.host, this, argument);
+			if ('error' in done) this.fail(done.error);
+			else this.say(done.notice);
+			return undefined;
+		},
 		ps: async () => ({ type: 'processes' }),
 		dismiss: async (argument) => {
 			const done = await dismissCommand(this.host, this.view, argument);
@@ -310,6 +319,7 @@ export class Session {
 		this.expanded.clear();
 		this.steps = undefined;
 		this.notice = undefined;
+		this.pendingRefs = [];
 		this.entered = false;
 		this.wantBottom = true;
 		this.reader.select(name);
@@ -402,9 +412,11 @@ export class Session {
 		if (this.view && this.view.status !== 'running')
 			return this.fail(new Error(`${this.view.name} is ${this.view.status}. Use /resume first.`));
 		this.sending = true;
+		const refs = this.pendingRefs.map((one) => one.ref);
 		try {
 			if (!this.entered) await this.join();
-			await this.host.send(this.room, this.identity.name, crypto.randomUUID(), text);
+			await this.host.send(this.room, this.identity.name, crypto.randomUUID(), text, refs);
+			this.pendingRefs.splice(0, refs.length);
 			this.wantBottom = true;
 			await this.refresh();
 		} catch (error) {

@@ -14,6 +14,7 @@ describe('the help text', () => {
 			'user',
 			'files',
 			'open',
+			'attach',
 			'ps',
 			'try',
 			'abort',
