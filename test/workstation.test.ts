@@ -79,12 +79,12 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		cleanups.push(() => rm(directory, { recursive: true, force: true }));
 		const lab = await openLab({ directory, workstation: CONFIG, env: {} });
 		cleanups.push(() => lab.close());
-		expect((await lab.rooms()).map((room) => room.name)).toEqual(['led-sweep']);
+		expect((await lab.rooms()).map((room) => room.name)).toEqual(['radio-kit']);
 		const paths = (await lab.files()).map((file) => file.path);
 		expect(paths).toEqual(expect.arrayContaining(['/library/README.md', '/shared/kit.md']));
 		// The panel lists the shared folders, and no home.
 		expect(paths.some((path) => path.startsWith('/home/'))).toBe(false);
-		expect((await lab.file('/shared/kit.md')).text).toContain('LED parameter sweep');
+		expect((await lab.file('/shared/kit.md')).text).toContain('FM radio kit');
 	}, 60_000);
 
 	it('lets one seat write a file in /shared that another seat reads back', async () => {

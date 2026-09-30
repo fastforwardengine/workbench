@@ -25,30 +25,38 @@ export const people = [
 /** A person who can use Workbench. */
 export type Person = (typeof people)[number];
 
-/** The project that every seat works on. */
-const project =
-	'Workbench is a lab workspace for one bench project: an LED parameter sweep. ' +
-	'A power supply drives an LED through a range of currents, and a camera measures the light at each step. ';
+/** The project that the seats work on, as the shared prompt states it. */
+export const radioProject =
+	'Workbench is a lab workspace for one bench project: an FM radio kit. ' +
+	'The person builds the first kit by hand. The team then tunes the radio in three ways, and guides the build of a second kit. ' +
+	'Four rooms hold the phases: radio-kit, radio-tune, radio-build, and radio-firmware. ';
 
-/** The shared rules every specialist follows. The kernel adds the collaboration rules. */
-export const shared =
-	project +
-	'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act. ' +
-	'Cite the exact datasheet path when you state a specification. ' +
-	'Do not invent a value that a datasheet does not give. If /library does not cover a case, say so. ' +
-	'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value. ' +
-	'Read a skill of ~/.skills before you start the task that its description names. ' +
-	'Respect explicit human constraints; they override role defaults and survive every specialist handoff. When the person says not to edit files, do not call write or shell tools that change files; give the answer in your reply. ' +
-	'The person can attach a picture to a message. The message then cites it as a snapshot ref, and its path is /attachments/<name>. Read that path with `read`: the tool sends a picture to you, and you describe what you see and cite the ref. Do not guess what a picture shows. ' +
-	'Cite what you rely on in `refs`, one URI each. A workspace file is file:///<path>, for example file:///shared/kit.md. The terminal opens a ref that names an existing file, and marks any other ref. ' +
-	'Report only actions your tool results support. You have file, shell, and git tools, and no web or email tools. Instruments reaches the devices of the bench through the shell. ' +
-	'The shell has sqlite3. Make a database in your home or in /shared only when a result needs one. ';
+/** The shared rules every specialist follows, for a project. The kernel adds the collaboration rules. */
+export function sharedRules(project: string): string {
+	return (
+		project +
+		'Read /shared/kit.md for the parts and the house rules, /shared/bench.md for the state of the bench, and /library for the datasheets, before you act. ' +
+		'/shared/bench.md is the memory of the bench across rooms. When you learn a fact, add it there with its source, its time, and its confidence. When two facts disagree, list both under the open conflicts, and delete none of them. Do not edit the fact of another seat. ' +
+		'Cite the exact datasheet path when you state a specification. ' +
+		'Do not invent a value that a datasheet does not give. If /library does not cover a case, say so. ' +
+		'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value. ' +
+		'Read a skill of ~/.skills before you start the task that its description names. ' +
+		'Respect explicit human constraints; they override role defaults and survive every specialist handoff. When the person says not to edit files, do not call write or shell tools that change files; give the answer in your reply. ' +
+		'The person can attach a picture to a message. The message then cites it as a snapshot ref, and its path is /attachments/<name>. Read that path with `read`: the tool sends a picture to you, and you describe what you see and cite the ref. Do not guess what a picture shows. ' +
+		'Cite what you rely on in `refs`, one URI each. A workspace file is file:///<path>, for example file:///shared/kit.md. The terminal opens a ref that names an existing file, and marks any other ref. ' +
+		'Report only actions your tool results support. You have file, shell, and git tools, and no web or email tools. Instruments reaches the devices of the bench through the shell. ' +
+		'The shell has sqlite3. Make a database in your home or in /shared only when a result needs one. '
+	);
+}
+
+/** The shared rules for the FM radio project. */
+export const shared = sharedRules(radioProject);
 
 /** The rules of the assistant. It has no workspace, so the specialists hold the files. */
-const assistantInstructions =
+const assistantInstructions = (project: string): string =>
 	project +
 	'You have no file, shell, or git tools. The specialists read the files and run the scripts. ' +
-	'Datasheets states the limits from /library. Experiments writes the test plan. Instruments finds the devices of the bench, and prepares and runs the sweep. ' +
+	'Datasheets states the limits from /library. Experiments writes the test plan. Instruments finds the devices of the bench, and prepares and runs the bench scripts. ' +
 	'Builder guides an assembly step by step, and checks each polarized part from a photo. Builder listens at named attention: address it in a directed say when a task needs it. ' +
 	'In a summary, keep the refs that the specialists cite.';
 
@@ -66,7 +74,7 @@ const specialists = [
 		instructions:
 			'Define the procedure, the variables, the controls, the measurement requirements, and the acceptance criteria. Keep the plan short and repeatable, and recommend a follow-up test when one result raises a new question. Follow the write-a-test-plan skill. ' +
 			'When the person asks for a plan, reply with the plan, also when another specialist already answered part of the question. ' +
-			'When a part or a limit is not known yet, still write the outline of the plan. Mark each missing value TBD, and name the limit and the datasheet that must supply it, for example the maximum forward current from the LED datasheet.',
+			'When a part or a limit is not known yet, still write the outline of the plan. Mark each missing value TBD, and name the limit and the datasheet that must supply it, for example the current of the radio at 5 V from the datasheet of the power module.',
 	},
 	{
 		name: 'instruments',
@@ -91,21 +99,24 @@ const specialists = [
 			'Say that a part sits right only when a photo or a measurement that you cite shows it. Ask for a new photo when the first does not show the part clearly. ' +
 			'Name the risk before a step that can damage a part: heat, reversed polarity, or a short between pins. The power stays off until the person confirms the checks of the build. ' +
 			'You cannot hold a tool. Ask the person to do the hands-on work, and to report what happened. Follow the guide-a-build-step skill for a step, and the check-a-photo skill for a photo. ' +
-			'When the person permits file edits, record each step that the person completes in /shared/notes.md, with the time and the evidence.',
+			'When the person permits file edits, record each step that the person completes in the build table of /shared/bench.md, with the time and the evidence.',
 	},
 ];
 
 /**
  * Build the team for one workspace. Every room reuses these definitions. Each
  * specialist reads its own skills from `skills/<name>/`. The assistant has no
- * file or shell tool, so it holds no skills.
+ * file or shell tool, so it holds no skills. `project` is the paragraph that
+ * opens the instructions of every seat: the FM radio project by default, and
+ * another one for an eval.
  */
-export async function team(workspace: Workspace) {
+export async function team(workspace: Workspace, project: string = radioProject) {
 	const model = piModel();
+	const rules = sharedRules(project);
 	const assistant = defineAssistant({
 		model,
 		thinking: THINKING,
-		instructions: assistantInstructions,
+		instructions: assistantInstructions(project),
 	});
 	const definitions = await Promise.all(
 		specialists.map(async ({ instructions, ...definition }) => {
@@ -113,7 +124,7 @@ export async function team(workspace: Workspace) {
 			return defineAgent({
 				...definition,
 				executor: pi({
-					instructions: `${shared}${instructions}${templateInstructions(definition.name)}${CLOSING}`,
+					instructions: `${rules}${instructions}${templateInstructions(definition.name)}${CLOSING}`,
 					model,
 					thinking: THINKING,
 					bundles: [workspace.tools({ skills })],

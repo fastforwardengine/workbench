@@ -49,8 +49,8 @@ pnpm start ./bench                # another directory
   `no key`, and the other seats keep running.
 - **The terminal opens as the person named for your OS account.** That
   person is the one person of Workbench.
-- **A new data directory gets the `led-sweep` room and the library.** An
-  existing one resumes its rooms.
+- **A new data directory gets the four radio rooms and the library.** An
+  existing one resumes its rooms, and keeps the rooms it has.
 - **Ambion 0.4.0 opens no journal of 0.3.0.** Move an older data directory
   away, and start again. A workstation needs `workstation/setup.sh` again:
   `workstation.json` names the `snapshots` folder now.
@@ -97,7 +97,22 @@ needs one. A bench script comes from a template.
 
 ## The lab
 
-- **Room:** `led-sweep`. `/new` adds a room with the same four seats.
+- **Rooms:** one for each phase of the FM radio. A room seats every
+  specialist. The owners of the phase hear every message, at `broadcast`.
+  The others listen at `named`, and wake when the assistant or an owner
+  addresses them. `/new` adds a room with the four default seats. The
+  Builder listens at `named` there.
+
+  | Room             | Phase                                          | Owners                   |
+  | ---------------- | ---------------------------------------------- | ------------------------ |
+  | `radio-kit`      | Know the kit, and support the first hand build | Builder, Datasheets      |
+  | `radio-tune`     | Hear the radio, tune it: path A and path B     | Instruments, Experiments |
+  | `radio-build`    | Guide the build of the second kit              | Builder, Instruments     |
+  | `radio-firmware` | Path C: new firmware                           | Instruments, Datasheets  |
+
+- **State of the bench:** `/shared/bench.md` holds the build, the parts,
+  the instruments, and the facts of the radio, each with a source, a time,
+  and a confidence. Every room reads it and updates it.
 - **Workspace:** one directory for every room. It holds `/library`,
   `/shared`, `/attachments`, and a home for each agent.
 - **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into

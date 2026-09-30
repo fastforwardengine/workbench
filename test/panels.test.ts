@@ -74,7 +74,7 @@ function processes(): FakeHost {
 			state: 'running',
 			output: '/x/out',
 			timeout: 600,
-			room: 'led-sweep',
+			room: 'radio-kit',
 			startedAt: iso(65_000),
 		},
 		{
