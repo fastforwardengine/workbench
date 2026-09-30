@@ -95,21 +95,30 @@ export class Keys {
 		else this.composeKey(key);
 	}
 
-	/** Ctrl+C and Ctrl+D, in every mode. True when the key is handled. */
+	/**
+	 * Ctrl+C and Ctrl+D. True when the key is handled. Ctrl+D leaves only from
+	 * the composer, because a panel and the discussions use it to scroll.
+	 */
 	private controlKey(key: KeyEvent): boolean {
-		if (!key.ctrl) return false;
-		if (key.name === 'c') this.interrupt(key);
-		else if (key.name === 'd' && this.composer.text === '') this.quit();
-		else return false;
+		if (!key.ctrl || key.shift || key.meta) return false;
+		const leaves = key.name === 'd' && this.mode === 'compose' && this.composer.text === '';
+		if (key.name !== 'c' && !leaves) return false;
+		key.preventDefault();
+		if (leaves) this.quit();
+		else this.interrupt();
 		return true;
 	}
 
 	/**
-	 * Ctrl+C resets the composer in every mode: it clears the text, and it
-	 * cancels a room goal that the composer waits for. It does not quit.
+	 * Ctrl+C closes a side panel and keeps the draft. In the other modes it
+	 * clears the composer, and it cancels a new room that waits for its goal.
+	 * It does not quit.
 	 */
-	private interrupt(key: KeyEvent): void {
-		key.preventDefault();
+	private interrupt(): void {
+		if (isPanel(this.mode)) {
+			this.closePanel();
+			return;
+		}
 		const hadText = this.composer.text !== '';
 		this.composer.setText('');
 		this.palette.revive();

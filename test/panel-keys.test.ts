@@ -61,6 +61,7 @@ async function build(width = 120) {
 	const processPanel = new ProcessesPanel(renderer);
 	const processes = new ProcessBrowser(host, render);
 	const composer = new Composer(renderer, { submit: () => {}, change: () => {} });
+	const palette = new Palette(composer);
 	const header = new Header(renderer);
 	const surfaces = {
 		files: new FilesSurface(session.browser, panel),
@@ -86,7 +87,7 @@ async function build(width = 120) {
 		renderer,
 		session,
 		composer,
-		palette: new Palette(composer),
+		palette,
 		painter,
 		surfaces,
 		transcript,
@@ -111,6 +112,7 @@ async function build(width = 120) {
 		host,
 		session,
 		keys,
+		palette,
 		quit,
 		press,
 		prevented,
@@ -562,13 +564,64 @@ describe('Ctrl+C and Ctrl+D', () => {
 		expect(built.composer.text).toBe('');
 	});
 
-	it('Ctrl+C clears the composer while a panel is open', async () => {
+	it('Ctrl+C closes an open panel and keeps the draft', async () => {
 		const built = await build();
 		built.composer.setText('draft');
 		built.keys.openFiles();
 		built.press('c', ctrl);
-		expect(built.composer.text).toBe('');
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.text).toBe('draft');
+		expect(built.quit).not.toHaveBeenCalled();
+	});
+
+	it('Ctrl+D does not leave from a panel', async () => {
+		const built = await build();
+		built.keys.openFiles();
+		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
 		expect(built.keys.mode).toBe('files');
+	});
+
+	it('ignores Ctrl+Shift and Ctrl+Meta combinations', async () => {
+		const built = await build();
+		built.composer.setText('draft');
+		built.press('c', { ctrl: true, shift: true, sequence: '' });
+		built.press('c', { ctrl: true, meta: true, sequence: '' });
+		expect(built.composer.text).toBe('draft');
+		built.composer.setText('');
+		built.press('d', { ctrl: true, shift: true, sequence: '' });
+		expect(built.quit).not.toHaveBeenCalled();
+	});
+
+	it('Ctrl+C redraws, and opens a dismissed palette again', async () => {
+		const built = await build();
+		built.composer.setText('/');
+		built.render();
+		built.press('escape');
+		built.render();
+		expect(built.palette.open).toBe(false);
+		const before = built.renders.count;
+		built.press('c', ctrl);
+		expect(built.renders.count).toBeGreaterThan(before);
+		built.composer.setText('/');
+		built.render();
+		expect(built.palette.open).toBe(true);
+	});
+
+	it('Ctrl+C keeps the staged attachments of a send that runs', async () => {
+		const built = await build();
+		await built.session.submit('/attach /tmp/one.png');
+		let release: () => void = () => {};
+		built.host.sendGate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const sending = built.session.submit('');
+		await vi.waitFor(() => expect(built.session.pendingRefs).toHaveLength(1));
+		built.press('c', ctrl);
+		expect(built.session.notice ?? '').not.toMatch(/Dropped/);
+		release();
+		await sending;
+		expect(built.host.sentRefs[0]).toHaveLength(1);
 	});
 
 	it('Ctrl+D leaves on an empty composer, and only then', async () => {

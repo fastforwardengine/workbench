@@ -246,8 +246,9 @@ export class Session {
 
 	/**
 	 * Ctrl+C. The terminal has cleared the composer; `hadText` says whether it
-	 * held text. A room that waits for its goal is dropped. An empty composer
-	 * drops the staged files, and with none staged it says how to leave.
+	 * held text. Ctrl+C drops a new room that waits for its goal. On an empty
+	 * composer it drops the staged attachments, and with none staged it says
+	 * how to leave.
 	 */
 	interrupt(hadText: boolean): void {
 		if (this.awaitingGoal) this.cancelWaiting();
@@ -255,6 +256,8 @@ export class Session {
 	}
 
 	private dropStaged(): void {
+		// A send in progress holds the staged attachments, so they go with the message.
+		if (this.sending) return;
 		const staged = this.pendingRefs.length;
 		this.pendingRefs = [];
 		this.say(

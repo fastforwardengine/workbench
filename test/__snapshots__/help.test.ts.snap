@@ -26,8 +26,9 @@ Keys
   r, while browsing, chooses a ref of a shown message. Enter opens a file or a table
   in the files panel, or jumps to a message. Esc goes back.
   PageUp and PageDown scroll. Start a message with // to send a leading slash.
-  Ctrl+C clears the composer. On an empty composer it drops the staged pictures.
-  Ctrl+D, on an empty composer, and /quit leave the terminal.
+  Ctrl+C clears the composer, cancels a new room that waits for its goal, and closes a
+  panel. On an empty composer it drops the staged attachments.
+  Ctrl+D on an empty composer leaves the terminal. /quit also leaves.
   Start a message with @name to address one seat. The seat wakes, and the host
   seats it first when it is not seated. Start with @@ to send a leading at sign."
 `;
