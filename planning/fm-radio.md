@@ -8,19 +8,20 @@ display. [`next.md`](next.md) holds the milestone that builds on it.
 
 ## What the photo shows
 
-**The parts below come from the product photo.** Each one needs a check
-against the kit when it arrives. Activity 2 of [`next.md`](next.md) settles
-them.
+**The parts below come from the product photo, the manual, and the
+schematic.** The datasheets and the circuit are in
+[`library/`](../library/README.md). Each part needs a check against the
+kit when it arrives. Activity 2 of [`next.md`](next.md) settles them.
 
-| Part                                              | Marking in the photo | Role                                                                         |
-| ------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------- |
-| FM tuner module                                   | RDA5807FP-M          | The receiver: tuning, demodulation, and signal strength, controlled over I²C |
-| Microcontroller, 16 pins                          | STC8G1K, in a socket | Reads the four buttons, drives the tuner and the display                     |
-| Amplifier module                                  | 8002                 | Audio to the speaker                                                         |
-| Power module                                      | CAI-222              | Power from the micro-USB port, probably a battery charger                    |
-| 4-digit 7-segment display                         |                      | The frequency, such as 103.8                                                 |
-| Buttons                                           | V−, V+, CH−, CH+     | Volume, and the previous or next station                                     |
-| Speaker, headphone jack, telescopic antenna, case |                      |                                                                              |
+| Part                                              | Marking in the photo         | Role                                                                         |
+| ------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| FM tuner module                                   | RDA5807FP-M                  | The receiver: tuning, demodulation, and signal strength, controlled over I²C |
+| Microcontroller, 16 pins                          | STC8G1K17, in a DIP16 socket | Reads the four buttons, drives the tuner and the display                     |
+| Amplifier module                                  | 8002                         | Audio to the speaker                                                         |
+| Charging module                                   | CAI-222                      | Charges a 3.7 V lithium cell from micro-USB. Probably a TP4056 board         |
+| 4-digit 7-segment display                         |                              | The frequency, such as 103.8                                                 |
+| Buttons                                           | V−, V+, CH−, CH+             | Volume, and the previous or next station                                     |
+| Speaker, headphone jack, telescopic antenna, case |                              |                                                                              |
 
 **The board brings the bus of the tuner to its silkscreen.** The photo
 shows FMIN, GPIO2, GPIO3, LOUT, ROUT, GND, 3V3, SCLK, and SDA beside the
@@ -88,11 +89,27 @@ bus.
 
 ## Facts to settle
 
-- The exact type of the STC8G1K, and whether its programming pins reach a
+**The documents in [`library/`](../library/README.md) settle these
+facts.** The schematic picture and the datasheets give the type of the
+microcontroller (STC8G1K17, DIP16), the button pins (P3.1, P3.0, P5.4, and
+P5.5 for V−, V+, CH−, and CH+), the pins of the tuner outputs, and the
+supply. The micro-USB port only charges the lithium cell. A 3.3 V regulator
+on the tuner module feeds the tuner chip and the microcontroller.
+
+These facts stay open:
+
+- Whether the programming pins P3.0 and P3.1 of the STC8G1K17 reach a
   header.
-- Whether the RDA5807FP decodes RDS. RDS gives the name of a station, which
-  the team can check against its tuning.
-- Whether the board has pull-up resistors on SCLK and SDA.
-- The schematic of the board, and the pins of each module.
-- The current of the radio at 5 V, idle and at full volume, for the first
-  power-on.
+- How the display is wired. The schematic shows eight drive lines, and a
+  plain 4-digit display needs twelve.
+- Whether the RDA5807FP decodes RDS in the stock firmware. The chip
+  supports it. RDS gives the name of a station, which the team can check
+  against its tuning.
+- Whether the board has pull-up resistors on SCLK and SDA. The schematic
+  picture shows none.
+- Which band the stock firmware sets. The product page says 50 to 108 MHz,
+  and the chip defaults to 87 to 108 MHz.
+- The marking of the charging module, and the datasheet of the 662K
+  regulator.
+- The readings of the first power-on: VDD, the net 3V3, and the current of
+  the radio at idle and at full volume.
