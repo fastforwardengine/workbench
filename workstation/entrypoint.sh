@@ -39,13 +39,14 @@ done
 # it writable for the group whatever umask a tool has. The default ACL gives
 # `rwx`: a new folder keeps the search bit, and a new file gets `rw`, because
 # its create mode has no execute bit. Only the host account writes the room
-# mirror, the snapshots, and /library, and every account reads them. Every
-# account writes /shared. A named volume drops the ACLs of the image, so the
-# script sets them at each start. `X` gives the search bit to folders alone.
+# mirror, the snapshots, /library, and /attachments, and every account reads
+# them. Every account writes /shared. A named volume drops the ACLs of the
+# image, so the script sets them at each start. `X` gives the search bit to
+# folders alone.
 install -d -m 2770 -o root -g workbench /srv/workbench/audit /shared
 setfacl -R -m g::rwX /srv/workbench/audit /shared
 setfacl -d -m g::rwx /srv/workbench/audit /shared
-install -d -m 2750 -o workbench-host -g workbench /srv/workbench/rooms /srv/workbench/snapshots /library
+install -d -m 2750 -o workbench-host -g workbench /srv/workbench/rooms /srv/workbench/snapshots /library /attachments
 
 # The USB devices of the machine, when compose.yaml mounts /dev/bus/usb. The
 # container runs no udev, so each device file comes in as root's. The group

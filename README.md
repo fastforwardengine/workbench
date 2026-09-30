@@ -96,7 +96,12 @@ needs one. A bench script comes from a template.
 
 - **Room:** `led-sweep`. `/new` adds a room with the same three seats.
 - **Workspace:** one directory for every room. It holds `/library`,
-  `/shared`, and a home for each agent.
+  `/shared`, `/attachments`, and a home for each agent.
+- **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into
+  `/attachments`, snapshots it, and cites the snapshot in your next
+  message. Paste the path of a picture into an empty composer, and it fills
+  `/attach` for you. A specialist reads the copy with `read` and receives the
+  picture. The files panel shows a picture, also from a snapshot ref.
 - **Templates:** git repositories that an agent forks and pushes to. See
   [`docs/templates.md`](docs/templates.md).
 - **Skills:** a folder of skills for each specialist, in `skills/`. See

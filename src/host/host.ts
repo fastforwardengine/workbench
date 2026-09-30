@@ -5,7 +5,14 @@ import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
 import { scenarios } from '../domain/scenarios.ts';
 import type { ActivationSteps } from '../view/steps.ts';
-import { type FileContent, type FileEntry, listFiles, readFile } from './files.ts';
+import {
+	type Attachment,
+	attachFile,
+	type FileContent,
+	type FileEntry,
+	listFiles,
+	readFile,
+} from './files.ts';
 import { MAX_GOAL, ROOM_NAME } from './names.ts';
 import { readCommitFile, readSnapshotFile } from './previews.ts';
 import { byRecency, type ProcessOutput, type ProcessView, readOutput } from './processes.ts';
@@ -21,7 +28,7 @@ import { loadWorkstation } from './workstation.ts';
 
 export type { Person } from '../domain/definitions.ts';
 export type { ActivationSteps } from '../view/steps.ts';
-export type { FileContent, FileEntry, TableView } from './files.ts';
+export type { Attachment, FileContent, FileEntry, ImageContent, TableView } from './files.ts';
 export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
 
@@ -47,8 +54,11 @@ export interface Lab {
 	join(room: string, person: string): Promise<void>;
 	/** Leave a room. A person who is not present has nothing to leave. */
 	leave(room: string, person: string): Promise<void>;
-	/** Send a message. The same key and text return the first exchange and add no message. */
-	send(room: string, person: string, key: string, text: string): Promise<void>;
+	/**
+	 * Send a message, with the refs it cites. The same key and text return the
+	 * first exchange and add no message.
+	 */
+	send(room: string, person: string, key: string, text: string, refs?: string[]): Promise<void>;
 	control(room: string, action: RoomAction): Promise<RoomView>;
 	/** Dismiss a say of a room that waits to return, by its handle. False when it no longer waits. */
 	dismiss(room: string, handle: number): Promise<boolean>;
@@ -65,6 +75,8 @@ export interface Lab {
 	snapshot(ref: string): Promise<FileContent>;
 	/** The commit that a commit ref of the workspace names, from its git server. */
 	commit(ref: string): Promise<FileContent>;
+	/** Copy a local file into the workspace and snapshot it, so a message can cite it as a ref. */
+	attach(localPath: string): Promise<Attachment>;
 	/**
 	 * The background processes of the agents that used the workspace in this
 	 * run: the running processes first, then the newest start first.
@@ -175,13 +187,13 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 				if (present(snapshot, who.name)) await (await live.visit(who)).leave();
 			});
 		},
-		async send(room, person, key, text) {
+		async send(room, person, key, text, refs = []) {
 			const who = personNamed(person);
 			if (!key || !text.trim()) fail('Supply a nonempty key and message.');
 			await inRoom(room, async (live) => {
 				const snapshot = await live.read({ messages: false });
 				if (!present(snapshot, who.name)) fail('Enter this room before sending.');
-				await (await live.visit(who)).send({ key, text });
+				await (await live.visit(who)).send({ key, text, ...(refs.length > 0 ? { refs } : {}) });
 			});
 		},
 		control: (room, action) => rooms.lifecycle(room, action),
@@ -200,6 +212,7 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path)),
 		snapshot: (ref) => rooms.withWorkspace(() => readSnapshotFile(rooms.workspace, ref)),
 		commit: (ref) => rooms.withWorkspace(() => readCommitFile(rooms.workspace, ref)),
+		attach: (localPath) => rooms.withWorkspace(() => attachFile(rooms.workspace, localPath)),
 		processes: () =>
 			rooms.withWorkspace(async () => byRecency(await rooms.workspace.processes.list())),
 		processOutput: (handle, agent) =>

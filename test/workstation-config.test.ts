@@ -31,7 +31,7 @@ async function config(change: Record<string, unknown> = {}): Promise<string> {
 			rooms: '/srv/workbench/rooms',
 			snapshots: '/srv/workbench/snapshots',
 		},
-		roots: ['/library', '/shared'],
+		roots: ['/library', '/shared', '/attachments'],
 	};
 	await writeFile(path, JSON.stringify({ ...base, ...change }));
 	return path;
@@ -50,7 +50,7 @@ describe('the workstation config', () => {
 		const loaded = await loadWorkstation(path);
 		expect(loaded).toMatchObject({ host: '127.0.0.1', port: 2222, gitAccount: 'workbench-git' });
 		expect(loaded.keys).toBe(join(path, '..', 'keys'));
-		expect(loaded.roots).toEqual(['/library', '/shared']);
+		expect(loaded.roots).toEqual(['/library', '/shared', '/attachments']);
 	});
 
 	it('reads no object store from a config without one', async () => {

@@ -1,5 +1,6 @@
 import type {
 	ActivationSteps,
+	Attachment,
 	FileContent,
 	FileEntry,
 	Lab,
@@ -90,8 +91,28 @@ export class FakeHost implements Lab {
 	async leave(room: string, who: string) {
 		this.record(`leave:${room}:${who}`);
 	}
-	async send(room: string, who: string, _key: string, text: string) {
+	/** The refs of each message sent, in order. */
+	readonly sentRefs: string[][] = [];
+	/** While set, a send waits for it. A test uses it to hold a send in flight. */
+	sendGate: Promise<void> | undefined;
+	async send(room: string, who: string, _key: string, text: string, refs: string[] = []) {
+		if (this.sendGate) await this.sendGate;
 		this.record(`send:${room}:${who}:${text}`);
+		this.sentRefs.push(refs);
+	}
+	/** The local paths that were attached, and the failure the next attach gives. */
+	readonly attached: string[] = [];
+	attachFailure: string | undefined;
+	async attach(localPath: string): Promise<Attachment> {
+		this.record(`attach:${localPath}`);
+		if (this.attachFailure) throw new Error(this.attachFailure);
+		this.attached.push(localPath);
+		const name = localPath.split('/').at(-1) ?? 'file';
+		return {
+			path: `/attachments/1-${name}`,
+			size: 10,
+			ref: `ambion://workspace/workbench/snapshot/${'ab'.repeat(32)}/attachments/1-${name}`,
+		};
 	}
 	async control(room: string, action: string) {
 		this.record(`control:${room}:${action}`);

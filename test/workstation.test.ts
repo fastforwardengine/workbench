@@ -8,7 +8,7 @@
  * The repositories, the homes, and /shared persist on the workstation, so
  * each run names its files and its fork with a token of its own.
  */
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRuntime, startRoom } from '@ambionframework/ambion';
@@ -24,9 +24,11 @@ import {
 import { BACKGROUND_CONTEXT, openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
+import { attachFile } from '../src/host/files.ts';
 import { openLab } from '../src/host/host.ts';
 import { seedWorkspace } from '../src/host/seed.ts';
 import { loadWorkstation, workstationBackends } from '../src/host/workstation.ts';
+import { PNG } from './png.ts';
 
 const CONFIG = process.env.WORKBENCH_WORKSTATION;
 const cleanups: (() => Promise<unknown>)[] = [];
@@ -110,6 +112,38 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		await built.workspace.use({ name: 'datasheets' }, async (env) => {
 			await env.remove(path, { recursive: false }, BACKGROUND_CONTEXT);
 		});
+	}, 120_000);
+
+	it('lets a seat read a picture that the person attached, with the host as the only writer', async () => {
+		const built = await build();
+		const directory = await mkdtemp(join(tmpdir(), 'workbench-attach-'));
+		cleanups.push(() => rm(directory, { recursive: true, force: true }));
+		await writeFile(join(directory, `bench-${token()}.png`), PNG);
+		const [name = ''] = await readdir(directory);
+		const attached = await attachFile(built.workspace, join(directory, name));
+		const script = byAgent({
+			assistant: (_step, _seat, call) =>
+				call === 1 ? speak('Look at the picture.', 'instruments') : quiet(),
+			instruments: (step, _seat, call) => {
+				if (call === 1) return callTool('read', { path: attached.path });
+				if (call === 2) return speak(`Saw: ${step.results.at(-1)?.text}`, 'assistant');
+				return quiet();
+			},
+		});
+		const room = await runRoom(built, script, 'What is on the bench?');
+		const said = (await room.read()).messages.filter((message) => message.kind === 'said');
+		expect(
+			said.some(
+				(message) =>
+					message.from === 'instruments' && message.text.includes('Read image file [image/png]'),
+			),
+		).toBe(true);
+		expect(Buffer.from(await built.workspace.readSnapshot(attached.ref))).toEqual(PNG);
+		// A seat cannot write there: the folder belongs to the host account.
+		const write = await built.workspace.use({ name: 'instruments' }, (env) =>
+			env.writeFile('/attachments/intruder.txt', 'x', BACKGROUND_CONTEXT),
+		);
+		expect(write.ok).toBe(false);
 	}, 120_000);
 
 	it('copies the skills of a seat into its home, and runs a script of a skill as that seat', async () => {

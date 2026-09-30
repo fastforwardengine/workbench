@@ -45,6 +45,14 @@ export const COMMANDS = [
 		help: ['  /open <path>      open the files panel on one file'],
 	},
 	{
+		name: 'attach',
+		summary: 'Attach a local file to your next message',
+		argument: 'text',
+		help: [
+			'  /attach <path>    copy a local file into the workspace and cite it in your next message',
+		],
+	},
+	{
 		name: 'ps',
 		summary: 'Show the background processes of the agents',
 		help: [

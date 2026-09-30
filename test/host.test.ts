@@ -13,6 +13,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { people } from '../src/domain/definitions.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
+import { PNG } from './png.ts';
 
 const opened: { lab: Lab; directory: string }[] = [];
 
@@ -92,6 +93,9 @@ async function open(directory: string, stream = scriptedStream(scriptedResponse)
 }
 
 const freshDirectory = () => mkdtemp(joinPath(tmpdir(), 'workbench-host-'));
+
+/** A model stream whose replies never end, so an exchange stays open. */
+const idleStream = () => createAssistantMessageEventStream();
 
 async function messagesOf(lab: Lab, room: string) {
 	return (await lab.read(room, 0)).messages;
@@ -259,6 +263,39 @@ describe('Workbench host', () => {
 		await lab.close();
 		lab = await open(directory);
 		expect((await lab.file(path)).text).toBe(PLAN);
+	}, 20_000);
+
+	it('attaches a local picture, cites it in a message, and previews the file and the snapshot', async () => {
+		const directory = await freshDirectory();
+		const lab = await open(joinPath(directory, 'run'), idleStream);
+		const local = joinPath(directory, 'bench.png');
+		await writeFile(local, PNG);
+		await lab.join('led-sweep', person);
+		const attached = await lab.attach(local);
+		expect(attached.path).toMatch(/^\/attachments\/\d+-bench\.png$/);
+		await lab.send('led-sweep', person, 'attach-1', 'What is on the bench?', [attached.ref]);
+		const sent = (await messagesOf(lab, 'led-sweep')).find(
+			(message) => message.kind === 'said' && message.text === 'What is on the bench?',
+		);
+		expect(sent && 'refs' in sent && sent.refs).toEqual([attached.ref]);
+		expect((await lab.files()).map((file) => file.path)).toContain(attached.path);
+		for (const shown of [await lab.file(attached.path), await lab.snapshot(attached.ref)]) {
+			expect(shown.image?.mimeType).toBe('image/png');
+			expect(Buffer.from(shown.image?.data ?? [])).toEqual(PNG);
+		}
+	}, 20_000);
+
+	it('keeps a message that cites a snapshot of another workspace, and refuses to read that snapshot', async () => {
+		const lab = await open(joinPath(await freshDirectory(), 'run'), idleStream);
+		await lab.join('led-sweep', person);
+		const foreign = `ambion://workspace/elsewhere/snapshot/${'ab'.repeat(32)}/attachments/1-x.png`;
+		// The room checks the form of a ref. The workspace checks whose it is, when it reads it.
+		await lab.send('led-sweep', person, 'foreign-1', 'See this.', [foreign]);
+		const cited = (await messagesOf(lab, 'led-sweep')).find(
+			(message) => message.kind === 'said' && message.text === 'See this.',
+		);
+		expect(cited && 'refs' in cited && cited.refs).toEqual([foreign]);
+		await expect(lab.snapshot(foreign)).rejects.toThrow();
 	}, 20_000);
 
 	it('previews a SQLite database as tables, and refuses a file that is not one', async () => {
