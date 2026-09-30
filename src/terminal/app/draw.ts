@@ -124,7 +124,7 @@ export class Painter {
 		);
 		this.composer.setPlaceholder(this.placeholder());
 		this.composer.setStatus(new StyledText(this.statusChunks(mode, picking)));
-		this.composer.setCue(mode === 'compose' ? stagedCue(session.pendingRefs) : undefined);
+		this.composer.setCue(stagedCue(session.pendingRefs));
 		const roomy = this.width() >= ROOMY;
 		// A side panel draws its own hints, so its mode has none here.
 		const quiet = session.error || session.offline || !roomy;
@@ -146,8 +146,7 @@ export class Painter {
 		const session = this.session;
 		if (session.awaitingGoal) return `What is ${session.awaitingGoal} for?`;
 		if (!session.identity) return 'Pick a person: type /user <name>';
-		if (session.pendingRefs.length > 0)
-			return 'Add a message, or press Enter to send the attachments alone';
+		if (session.pendingRefs.length > 0) return 'Enter sends the attachments alone';
 		return 'Message the room, or type / for commands';
 	}
 

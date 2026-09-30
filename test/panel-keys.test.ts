@@ -514,7 +514,7 @@ describe('the cue of the staged attachments', () => {
 		built.render();
 		const staged = await built.frame();
 		expect(staged).toContain('2 attached: one.png, two.png');
-		expect(staged).toContain('Add a message, or press Enter to send the attachments alone');
+		expect(staged).toContain('Enter sends the attachments alone');
 		await built.session.submit('');
 		built.render();
 		const sent = await built.frame();

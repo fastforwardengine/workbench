@@ -71,6 +71,7 @@ export class Composer {
 	private readonly paletteBox: BoxRenderable;
 	private readonly paletteText: TextRenderable;
 	private readonly cue: TextRenderable;
+	private readonly cueRow: BoxRenderable;
 	private readonly status: TextRenderable;
 	private readonly hints: TextRenderable;
 	private readonly events: ComposerEvents;
@@ -87,7 +88,9 @@ export class Composer {
 			visible: false,
 		});
 		this.paletteBox.add(this.paletteText);
-		this.cue = new TextRenderable(renderer, { content: '', paddingLeft: 1, visible: false });
+		this.cue = new TextRenderable(renderer, { content: '', wrapMode: 'none' });
+		this.cueRow = new BoxRenderable(renderer, { paddingLeft: 1, height: 1, visible: false });
+		this.cueRow.add(this.cue);
 		this.chip = new TextRenderable(renderer, { content: '', flexShrink: 0 });
 		this.input = new PasteAwareTextarea(renderer, {
 			flexGrow: 1,
@@ -129,7 +132,7 @@ export class Composer {
 		row.add(this.status);
 		row.add(this.hints);
 		this.root.add(this.paletteBox);
-		this.root.add(this.cue);
+		this.root.add(this.cueRow);
 		this.root.add(this.frame);
 		this.root.add(row);
 	}
@@ -181,7 +184,7 @@ export class Composer {
 
 	/** Show the staged attachments in a row above the input, or hide the row when there is no text. */
 	setCue(text: string | undefined): void {
-		this.cue.visible = text !== undefined;
+		this.cueRow.visible = text !== undefined;
 		this.cue.content = new StyledText(
 			text === undefined ? [] : [fg(palette.coral)('▪ '), fg(palette.muted)(text)],
 		);

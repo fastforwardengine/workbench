@@ -54,10 +54,29 @@ export function stagedCue(staged: readonly StagedAttachment[]): string | undefin
 	return `${staged.length} attached: ${names}${more}`;
 }
 
-/** The text of a message that carries only its attachments: the person pressed Enter on an empty composer. */
+/**
+ * The text of a message that carries only its attachments: the person pressed
+ * Enter on an empty composer. It keeps the workspace name of each file, the
+ * name that a specialist finds under /attachments.
+ */
 export function attachmentNote(staged: readonly StagedAttachment[]): string {
 	if (staged.length === 0) return '';
 	return `Attached ${staged.map((one) => posix.basename(one.path)).join(', ')}.`;
+}
+
+/**
+ * The text to send. A message with a question keeps its text. A message with
+ * no question, or a bare `@name`, gets the note of the staged files.
+ */
+export function bodyOf(
+	text: string,
+	to: string | undefined,
+	staged: readonly StagedAttachment[],
+): string {
+	const note = attachmentNote(staged);
+	const asked = (to ? text.replace(/^@\S+/, '') : text).trim();
+	if (asked || !note) return text;
+	return text ? `${text} ${note}` : note;
 }
 
 /** Run `/attach`: copy a local file into the workspace, and stage it as a ref of the next message. */

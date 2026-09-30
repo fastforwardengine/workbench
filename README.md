@@ -129,8 +129,9 @@ needs one. A bench script comes from a template.
   picture. The files panel shows a picture, also from a snapshot ref.
 - **Staged pictures:** a row above the composer names the files that wait
   for your next message. Press Enter on an empty composer to send them
-  alone, with the text `Attached <names>.`. A failed send keeps them
-  staged, and a switch to another room drops them.
+  alone, with the text `Attached <names>`. A bare `@name` sends them to
+  that seat. A failed send keeps the files staged, and a switch to another
+  room drops them.
 - **Templates:** git repositories that an agent forks and pushes to. See
   [`docs/templates.md`](docs/templates.md).
 - **Skills:** a folder of skills for each specialist, in `skills/`. See
