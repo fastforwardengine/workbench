@@ -155,9 +155,12 @@ class EngineTui {
 		}
 		const text = row ? row.insert : this.composer.text;
 		const isMessage = !this.session.awaitingGoal && parse(text).kind === 'message';
+		const typed = this.composer.text;
 		const intent = await this.session.submit(text);
 		// A message that failed to send stays in the box, so the person can send it again.
-		if (!(isMessage && this.session.error)) this.composer.setText('');
+		// Text typed while the send ran also stays.
+		if (!(isMessage && this.session.error) && this.composer.text === typed)
+			this.composer.setText('');
 		if (intent) this.apply(intent);
 	}
 

@@ -88,10 +88,11 @@ export function agentChoices(
 export function mentionRefusal(
 	message: { text: string; to?: string },
 	agents: readonly { name: string }[],
+	staged = 0,
 ): string | undefined {
 	const known = agents.map((agent) => agent.name);
 	if (!message.to || !known.includes(message.to))
 		return `No seat or specialist named @${message.to}. Type @ to list them, or @@ to send an at sign.`;
 	const rest = message.text.replace(/^@\S+/, '').trim();
-	return rest ? undefined : `Say what to ask @${message.to}.`;
+	return rest || staged > 0 ? undefined : `Say what to ask @${message.to}.`;
 }

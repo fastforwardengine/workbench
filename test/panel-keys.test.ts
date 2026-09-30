@@ -503,3 +503,22 @@ describe('the keys that scroll, copy, and swallow', () => {
 		expect(built.prevented.count).toBe(4);
 	});
 });
+
+describe('the cue of the staged attachments', () => {
+	it('shows the files in a row above the input, with a new placeholder, and drops both after the send', async () => {
+		const built = await build();
+		built.render();
+		expect(await built.frame()).not.toContain('attached');
+		await built.session.submit('/attach /tmp/one.png');
+		await built.session.submit('/attach /tmp/two.png');
+		built.render();
+		const staged = await built.frame();
+		expect(staged).toContain('2 attached: one.png, two.png');
+		expect(staged).toContain('Enter sends the attachments alone');
+		await built.session.submit('');
+		built.render();
+		const sent = await built.frame();
+		expect(sent).not.toContain('attached:');
+		expect(sent).toContain('Message the room, or type / for commands');
+	});
+});
