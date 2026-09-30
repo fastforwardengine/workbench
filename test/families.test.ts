@@ -96,7 +96,7 @@ describe('Workbench with no key', () => {
 			);
 			expect(view.status).toBe('running');
 		});
-		// The exchange closes on the failure. Every seat wakes at `broadcast`,
+		// The exchange closes on the failure. The seats of `radio-kit` that hold a key wake,
 		// and the note names the last seat that failed, with its reason.
 		await vi.waitFor(async () => {
 			const view = await lab.read('radio-kit', 0);

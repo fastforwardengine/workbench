@@ -42,7 +42,7 @@ export const scenarios: Scenario[] = [
 			'guide the person through the build. The first radio must play a station.',
 		pattern: 'Parts → datasheets → schematic → build',
 		prompt:
-			'List the parts of the kit from the photo, and name the facts we must settle before the build.',
+			'List the parts of the kit from /shared/bench.md, and name the facts we must settle before the build.',
 		seats: {
 			builder: 'broadcast',
 			datasheets: 'broadcast',
@@ -132,15 +132,16 @@ These come from the product photo. Check each one against the kit.
 
 - Two FM radio kits, the ELEGOO Electronics Fun Kit, and soldering equipment.
 - A HANMATEK HM310P power supply, a Logitech BRIO camera, and a USB microphone.
-- A Raspberry Pi Pico for paths A and B (to buy).
+- To buy: a Raspberry Pi Pico for paths A and B. For path C, a 3.3 V
+  USB-to-serial adapter and a spare STC8G1K of the exact type.
 
 ## House rules
 
 - Read the datasheet in /library before you state a limit. Cite the path.
 - A measurement counts only when a script read it from a device. Cite the
   file that the script wrote. Every other value is a planned value.
-- The first power-on of a kit goes through the HM310P, with a current limit.
-  Stop at once on an abnormal current.
+- The first power-on of the second kit goes through the HM310P, with a current
+  limit. Stop at once on an abnormal current.
 - The power stays off until the checks of the build pass.
 - Record a decision in /shared/notes.md when the person permits file edits.
 `,
@@ -156,10 +157,10 @@ Confidence is \`high\` (a reading or a cited photo), \`medium\` (a datasheet), o
 
 ## The build
 
-| Kit    | Step        | State       | Evidence |
-| ------ | ----------- | ----------- | -------- |
-| First  | not started |             |          |
-| Second | not started |             |          |
+| Kit    | Step | State       | Time | Evidence |
+| ------ | ---- | ----------- | ---- | -------- |
+| First  |      | not started |      |          |
+| Second |      | not started |      |          |
 
 ## The parts
 

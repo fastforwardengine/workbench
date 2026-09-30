@@ -16,7 +16,8 @@ description: Guide the person through one step of a build, with the parts, the p
    person says that the step is done.
 5. Run the check of the step. For a polarized part, apply `check-a-photo`:
    read `~/.skills/check-a-photo/SKILL.md`.
-6. Record the step in `/shared/notes.md`: the step, the time, and the
-   evidence, which is a snapshot ref or a reading.
+6. When the person permits file edits, record the step in the build table
+   of `/shared/bench.md`: the step, the state, the time, and the evidence,
+   which is a snapshot ref or a reading.
 7. When you changed the procedure, commit and push your branch. A push
    keeps the work.

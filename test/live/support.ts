@@ -75,9 +75,10 @@ export const WORKSPACE_TOOLS = [
 
 /**
  * A room with the team of Workbench over a seeded workspace, as the host
- * opens it but with the LED sweep as its project: the library and `/shared` on
- * disk, and the templates on the git server. It stops, and its files go, when the test ends. The seats run on
- * the live model, or on `execution` for a test of this support.
+ * opens it but with the LED sweep as its project: the library and `/shared`
+ * on disk, and the templates on the git server. It stops, and its files go,
+ * when the test ends. The seats run on the live model, or on `execution` for
+ * a test of this support.
  */
 export async function openRoom(
 	execution: Execution = piExecution(),

@@ -50,7 +50,8 @@ pnpm start ./bench                # another directory
 - **The terminal opens as the person named for your OS account.** That
   person is the one person of Workbench.
 - **A new data directory gets the four radio rooms and the library.** An
-  existing one resumes its rooms, and keeps the rooms it has.
+  existing one resumes its rooms and has no radio rooms. Move an older
+  data directory away, or add a room with `/new radio-kit`.
 - **Ambion 0.4.0 opens no journal of 0.3.0.** Move an older data directory
   away, and start again. A workstation needs `workstation/setup.sh` again:
   `workstation.json` names the `snapshots` folder now.

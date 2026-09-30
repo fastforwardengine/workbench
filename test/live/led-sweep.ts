@@ -1,10 +1,10 @@
 /**
  * The LED sweep, kept as the project of the live evals. It was the first
- * project of Workbench, and its question has a known good answer, so the evals
- * stay cheap and stable while the rooms of the product follow the FM radio.
+ * project of Workbench. Its question has a known good answer, so the evals
+ * stay cheap and stable. The rooms of the product follow the FM radio.
  * The evals give this project to `team` and this kit to `seedWorkspace`.
  */
-import type { Scenario } from '../../src/domain/scenarios.ts';
+import { type Scenario, seats } from '../../src/domain/scenarios.ts';
 
 /** The paragraph that opens the instructions of every seat. */
 export const ledProject =
@@ -51,10 +51,5 @@ export const ledSweepRoom: Scenario = {
 		'at each step with a camera. Keep the current within the limit of the LED datasheet.',
 	pattern: 'Datasheet limits → test plan → sweep',
 	prompt: 'Plan the LED current sweep, and name the limits that it must respect.',
-	seats: {
-		datasheets: 'broadcast',
-		experiments: 'broadcast',
-		instruments: 'broadcast',
-		builder: 'named',
-	},
+	seats,
 };

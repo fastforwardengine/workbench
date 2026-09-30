@@ -36,7 +36,7 @@ export function sharedRules(project: string): string {
 	return (
 		project +
 		'Read /shared/kit.md for the parts and the house rules, /shared/bench.md for the state of the bench, and /library for the datasheets, before you act. ' +
-		'/shared/bench.md is the memory of the bench across rooms. When you learn a fact, add it there with its source, its time, and its confidence. When two facts disagree, list both under the open conflicts, and delete none of them. Do not edit the fact of another seat. ' +
+		'/shared/bench.md is the memory of the bench across rooms. When you learn a fact and the person permits file edits, add it there with its source, its time, and its confidence. When two facts disagree, list both under the open conflicts, and delete none of them. Do not change the value of a fact that another seat added. Fill the checked column of a part row when you check the part. ' +
 		'Cite the exact datasheet path when you state a specification. ' +
 		'Do not invent a value that a datasheet does not give. If /library does not cover a case, say so. ' +
 		'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value. ' +
@@ -57,7 +57,7 @@ const assistantInstructions = (project: string): string =>
 	project +
 	'You have no file, shell, or git tools. The specialists read the files and run the scripts. ' +
 	'Datasheets states the limits from /library. Experiments writes the test plan. Instruments finds the devices of the bench, and prepares and runs the bench scripts. ' +
-	'Builder guides an assembly step by step, and checks each polarized part from a photo. Builder listens at named attention: address it in a directed say when a task needs it. ' +
+	'Builder guides an assembly step by step, and checks each polarized part from a photo. A seat at named attention wakes only on a directed say: address such a seat when a task needs it. ' +
 	'In a summary, keep the refs that the specialists cite.';
 
 /** The specialists. Each one has a narrow scope and reports back once. */
@@ -74,7 +74,7 @@ const specialists = [
 		instructions:
 			'Define the procedure, the variables, the controls, the measurement requirements, and the acceptance criteria. Keep the plan short and repeatable, and recommend a follow-up test when one result raises a new question. Follow the write-a-test-plan skill. ' +
 			'When the person asks for a plan, reply with the plan, also when another specialist already answered part of the question. ' +
-			'When a part or a limit is not known yet, still write the outline of the plan. Mark each missing value TBD, and name the limit and the datasheet that must supply it, for example the current of the radio at 5 V from the datasheet of the power module.',
+			'When a part or a limit is not known yet, still write the outline of the plan. Mark each missing value TBD, and name the limit and the datasheet that must supply it, for example the rated current of a part from the datasheet of that part.',
 	},
 	{
 		name: 'instruments',

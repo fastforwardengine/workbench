@@ -1,6 +1,6 @@
 /**
- * The `led-sweep` room of the evals, driven by the simulator. A scripted person asks the
- * suggested question of the room, and the live team answers. Checks in code
+ * The `led-sweep` room of the evals, driven by the simulator. A scripted
+ * person asks the suggested question of the room, and the live team answers. Checks in code
  * decide who spoke, which tools the assistant used, and the cost. A judge
  * grades what the summary claims.
  *
