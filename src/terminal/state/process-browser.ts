@@ -1,5 +1,5 @@
-import type { Lab, ProcessOutput, ProcessView } from '../host/host.ts';
-import { errorText } from '../view/text.ts';
+import type { Lab, ProcessOutput, ProcessView } from '../../host/host.ts';
+import { errorText } from '../../view/text.ts';
 
 type ProcessHost = Pick<Lab, 'processes' | 'processOutput' | 'cancelProcess' | 'watchProcesses'>;
 

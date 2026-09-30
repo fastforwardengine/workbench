@@ -1,5 +1,5 @@
 import { parseCommitUri, parseSnapshotUri } from '@ambionframework/ambion';
-import type { FileContent, FileEntry, Lab } from '../host/host.ts';
+import type { FileContent, FileEntry, Lab } from '../../host/host.ts';
 
 /** How the panel loads one entry: a snapshot ref, a commit ref, or a path of the workspace. */
 export function entryLoader(host: Lab): (path: string) => Promise<FileContent> {

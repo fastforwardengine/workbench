@@ -59,11 +59,15 @@
 		//   domain/     the vocabulary: people, specialists, rooms, the lab schema, the instruments
 		//   view/       formatting the record for display: text, steps, a timeline, refs, a database preview
 		//   host/       what a host owns: the room catalog, approvals, files, the Lab facade — over domain and view
-		//   terminal/   the OpenTUI terminal: session state and every widget — over host, domain, and view
+		//   terminal/   the OpenTUI terminal — over host, domain, and view — in three layers of its own:
+		//     state/      what the terminal knows and does: the session, the commands, the browsers. No OpenTUI.
+		//     widgets/    what it draws: the transcript, the composer, the panels. Over state.
+		//     app/        what wires and drives them: the keys, the painter, the surfaces, the entry. Over both.
 		//   main.ts     the entry point, which composes domain and terminal
 		//
-		// The README's "Files" table names each module. The overrides below
-		// refuse the imports a layer may not make.
+		// The overrides below refuse the imports a layer may not make. A pattern
+		// with `**` also refuses the same import written another way, such as
+		// `./../widgets/x` or `../../terminal/widgets/x`.
 		{
 			"includes": ["src/domain/**"],
 			"linter": {
@@ -74,7 +78,15 @@
 							"options": {
 								"patterns": [
 									{
-										"group": ["../view/*", "../host/*", "../terminal/*", "../main.ts"],
+										"group": [
+											"**/view/**",
+											"../view",
+											"**/host/**",
+											"../host",
+											"**/terminal/**",
+											"../terminal",
+											"**/main.ts"
+										],
 										"message": "The domain is the vocabulary: no view, no host, no terminal."
 									}
 								]
@@ -94,7 +106,15 @@
 							"options": {
 								"patterns": [
 									{
-										"group": ["../domain/*", "../host/*", "../terminal/*", "../main.ts"],
+										"group": [
+											"**/domain/**",
+											"../domain",
+											"**/host/**",
+											"../host",
+											"**/terminal/**",
+											"../terminal",
+											"**/main.ts"
+										],
 										"message": "The view formats the record for display: no domain, no host, no terminal."
 									}
 								]
@@ -114,7 +134,7 @@
 							"options": {
 								"patterns": [
 									{
-										"group": ["../terminal/*", "../main.ts"],
+										"group": ["**/terminal/**", "../terminal", "**/main.ts"],
 										"message": "A host owns the room catalog and the Lab facade; it runs no terminal."
 									}
 								]
@@ -134,7 +154,61 @@
 							"options": {
 								"patterns": [
 									{
-										"group": ["../main.ts"],
+										"group": ["**/main.ts"],
+										"message": "The terminal is composed by the entry point; it does not reach back into it."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		// An override replaces the rule for the files it matches, so each layer
+		// of the terminal repeats the entry-point pattern.
+		{
+			"includes": ["src/terminal/state/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["@opentui/**"],
+										"message": "The state of the terminal draws nothing: no OpenTUI. A widget or the app draws it."
+									},
+									{
+										"group": ["**/widgets/**", "../widgets", "**/app/**", "../app"],
+										"message": "State is the lowest layer of the terminal: it imports no widget and no app."
+									},
+									{
+										"group": ["**/main.ts"],
+										"message": "The terminal is composed by the entry point; it does not reach back into it."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["src/terminal/widgets/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["**/app/**", "../app"],
+										"message": "A widget draws state. The app wires widgets, so a widget does not import it."
+									},
+									{
+										"group": ["**/main.ts"],
 										"message": "The terminal is composed by the entry point; it does not reach back into it."
 									}
 								]

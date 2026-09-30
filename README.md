@@ -122,7 +122,10 @@ the rule.
 domain/     the person, the specialists, the room, the templates, and the skills
 view/       projections of the room record: steps, timeline, refs
 host/       rooms, files, processes, and the git backend
-terminal/   the OpenTUI terminal
+terminal/   the OpenTUI terminal, in three layers of its own
+  state/      what it knows and does: the session, the commands, the browsers. No OpenTUI.
+  widgets/    what it draws: the transcript, the composer, the panels
+  app/        what wires and drives them: the keys, the painter, the surfaces, the entry
 ```
 
 ## Release

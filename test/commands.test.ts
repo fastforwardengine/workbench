@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Choices, parse, type RoomChoice, suggest } from '../src/terminal/commands.ts';
+import { type Choices, parse, type RoomChoice, suggest } from '../src/terminal/state/commands.ts';
 
 const rooms: RoomChoice[] = [
 	{ name: 'characterization', status: 'running', working: false },

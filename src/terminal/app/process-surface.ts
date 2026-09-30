@@ -1,6 +1,6 @@
 import type { KeyEvent } from '@opentui/core';
-import type { ProcessBrowser } from './process-browser.ts';
-import type { ProcessesPanel } from './process-panel.ts';
+import type { ProcessBrowser } from '../state/process-browser.ts';
+import type { ProcessesPanel } from '../widgets/process-panel.ts';
 import type { Surface } from './surface.ts';
 
 /** The processes panel and its keys. */

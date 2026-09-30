@@ -1,10 +1,10 @@
 import type { ExchangeView } from '@ambionframework/ambion';
-import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../host/host.ts';
-import { MAX_GOAL, ROOM_NAME } from '../host/names.ts';
-import { holderOf, type Known, type RefItem, refItems, shows } from '../view/refs.ts';
-import { type ActivationSteps, activationLine, ended, stepsView } from '../view/steps.ts';
-import { errorText } from '../view/text.ts';
-import { type Block, buildTimeline } from '../view/timeline.ts';
+import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
+import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
+import { holderOf, type Known, type RefItem, refItems, shows } from '../../view/refs.ts';
+import { type ActivationSteps, activationLine, ended, stepsView } from '../../view/steps.ts';
+import { errorText } from '../../view/text.ts';
+import { type Block, buildTimeline } from '../../view/timeline.ts';
 import { attentionOf, newest, pick } from './attention.ts';
 import { entryLoader, FileBrowser } from './browser.ts';
 import {

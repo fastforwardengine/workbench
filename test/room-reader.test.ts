@@ -1,6 +1,6 @@
 import type { Message } from '@ambionframework/ambion';
 import { describe, expect, it, vi } from 'vitest';
-import { RoomReader } from '../src/terminal/room-reader.ts';
+import { RoomReader } from '../src/terminal/state/room-reader.ts';
 
 const said = (seq: number): Message =>
 	({ seq, kind: 'said', from: 'design', text: `m${seq}`, at: '' }) as Message;

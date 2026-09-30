@@ -1,6 +1,6 @@
 import type { Message } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
-import { type FeedSource, type FeedView, RoomFeed } from '../src/terminal/feed.ts';
+import { type FeedSource, type FeedView, RoomFeed } from '../src/terminal/state/feed.ts';
 
 const said = (seq: number): Message =>
 	({

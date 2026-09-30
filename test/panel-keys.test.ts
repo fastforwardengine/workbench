@@ -5,17 +5,17 @@
 import { BoxRenderable, type KeyEvent } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Composer } from '../src/terminal/composer.ts';
-import { Painter } from '../src/terminal/draw.ts';
-import { FilesPanel } from '../src/terminal/files-panel.ts';
-import { FilesSurface } from '../src/terminal/files-surface.ts';
-import { Header } from '../src/terminal/header.ts';
-import { Keys } from '../src/terminal/keys.ts';
-import { Palette } from '../src/terminal/palette.ts';
-import { ProcessBrowser } from '../src/terminal/process-browser.ts';
-import { ProcessesPanel } from '../src/terminal/process-panel.ts';
-import { ProcessesSurface } from '../src/terminal/process-surface.ts';
-import { Transcript } from '../src/terminal/transcript.ts';
+import { Painter } from '../src/terminal/app/draw.ts';
+import { FilesSurface } from '../src/terminal/app/files-surface.ts';
+import { Keys } from '../src/terminal/app/keys.ts';
+import { ProcessesSurface } from '../src/terminal/app/process-surface.ts';
+import { ProcessBrowser } from '../src/terminal/state/process-browser.ts';
+import { Composer } from '../src/terminal/widgets/composer.ts';
+import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
+import { Header } from '../src/terminal/widgets/header.ts';
+import { Palette } from '../src/terminal/widgets/palette.ts';
+import { ProcessesPanel } from '../src/terminal/widgets/process-panel.ts';
+import { Transcript } from '../src/terminal/widgets/transcript.ts';
 import { started, view } from './fake-host.ts';
 
 const cleanups: (() => void)[] = [];

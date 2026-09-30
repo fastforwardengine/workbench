@@ -1,5 +1,5 @@
 import type { ExchangeActivation, ExchangeView } from '@ambionframework/ambion';
-import type { RoomView } from '../host/host.ts';
+import type { RoomView } from '../../host/host.ts';
 
 /**
  * The newest activation of an exchange that ran, or undefined when it has

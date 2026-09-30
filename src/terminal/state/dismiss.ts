@@ -1,4 +1,4 @@
-import type { Lab, RoomView } from '../host/host.ts';
+import type { Lab, RoomView } from '../../host/host.ts';
 
 /**
  * Dismiss one say of the open room that waits to return. The handle must

@@ -7,9 +7,9 @@ import {
 	SyntaxStyle,
 	TextRenderable,
 } from '@opentui/core';
-import type { FileContent, TableView } from '../host/host.ts';
+import type { FileContent, TableView } from '../../host/host.ts';
+import type { FileBrowser } from '../state/browser.ts';
 import { tui as palette } from './brand.ts';
-import type { FileBrowser } from './browser.ts';
 import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
 
 const HINT = 'Type to search   Up/Down choose   PgUp/PgDn scroll   Ctrl+Y copy   Esc close';

@@ -1,12 +1,12 @@
 import type { CliRenderer, KeyEvent } from '@opentui/core';
-import { discussionKeys } from '../view/timeline.ts';
-import type { Composer } from './composer.ts';
+import { discussionKeys } from '../../view/timeline.ts';
+import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
+import type { Session } from '../state/session.ts';
+import type { Composer } from '../widgets/composer.ts';
+import type { Palette } from '../widgets/palette.ts';
+import type { Transcript } from '../widgets/transcript.ts';
 import type { Painter } from './draw.ts';
-import { isPanel, type Mode, type PanelMode } from './mode.ts';
-import type { Palette } from './palette.ts';
-import type { Session } from './session.ts';
 import type { Surface } from './surface.ts';
-import type { Transcript } from './transcript.ts';
 
 /** How far each browse key, and each refs key, moves the selection. */
 const BROWSE_STEP: Record<string, number> = { up: -1, k: -1, down: 1, j: 1 };

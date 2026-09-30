@@ -7,7 +7,7 @@
 import { TextRenderable } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { type Marks, Transcript } from '../src/terminal/transcript.ts';
+import { type Marks, Transcript } from '../src/terminal/widgets/transcript.ts';
 import type { RefItem } from '../src/view/refs.ts';
 import { type Block, buildTimeline } from '../src/view/timeline.ts';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitHeader, GAP } from '../src/terminal/header-fit.ts';
+import { fitHeader, GAP } from '../src/terminal/widgets/header-fit.ts';
 
 const GOAL =
 	'Discharge-test the 18650 cell through a load resistor. Choose a value and confirm it.';

@@ -1,13 +1,13 @@
 import { fg, StyledText } from '@opentui/core';
-import type { RefItem } from '../view/refs.ts';
-import { tui as palette } from './brand.ts';
-import type { Composer } from './composer.ts';
-import type { Header } from './header.ts';
-import { isPanel, type Mode, type PanelMode } from './mode.ts';
-import type { Session } from './session.ts';
-import { emptyText } from './session-text.ts';
+import type { RefItem } from '../../view/refs.ts';
+import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
+import type { Session } from '../state/session.ts';
+import { emptyText } from '../state/session-text.ts';
+import { tui as palette } from '../widgets/brand.ts';
+import type { Composer } from '../widgets/composer.ts';
+import type { Header } from '../widgets/header.ts';
+import type { Marks, Transcript } from '../widgets/transcript.ts';
 import type { Surface } from './surface.ts';
-import type { Marks, Transcript } from './transcript.ts';
 
 const HINTS: Partial<Record<Mode, string>> = {
 	compose: 'Enter sends   Ctrl+J newline   / commands   Ctrl+R rooms   Tab discussions',

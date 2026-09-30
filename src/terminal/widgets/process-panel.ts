@@ -1,7 +1,7 @@
 import { bg, type CliRenderer, fg, StyledText, TextRenderable } from '@opentui/core';
-import type { ProcessOutput, ProcessView } from '../host/host.ts';
+import type { ProcessOutput, ProcessView } from '../../host/host.ts';
+import { label, type ProcessBrowser, stateText } from '../state/process-browser.ts';
 import { tui as palette } from './brand.ts';
-import { label, type ProcessBrowser, stateText } from './process-browser.ts';
 import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
 
 const HINT = 'Up/Down choose   PgUp/PgDn scroll   x x cancel   Ctrl+Y copy   Esc close';

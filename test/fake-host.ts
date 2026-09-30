@@ -7,7 +7,7 @@ import type {
 	ProcessView,
 	RoomView,
 } from '../src/host/host.ts';
-import { Session } from '../src/terminal/session.ts';
+import { Session } from '../src/terminal/state/session.ts';
 
 const person = (name: string, role: string) =>
 	({ name, role, identity: name }) as unknown as Person;

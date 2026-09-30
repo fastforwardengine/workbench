@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parse } from '../src/terminal/commands.ts';
-import { HELP } from '../src/terminal/session-text.ts';
+import { parse } from '../src/terminal/state/commands.ts';
+import { HELP } from '../src/terminal/state/session-text.ts';
 
 describe('the help text', () => {
 	it('lists every command and key, as the person reads them', () => {
