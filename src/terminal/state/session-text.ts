@@ -1,4 +1,4 @@
-import type { ParticipantInfo, PendingSay } from '@ambionframework/ambion';
+import type { Participant, ScheduledSay } from '@ambionframework/ambion';
 import type { RoomAction, RoomView } from '../../host/host.ts';
 import type { Block } from '../../view/timeline.ts';
 import { COMMANDS } from './commands.ts';
@@ -44,7 +44,7 @@ export function refusal(action: RoomAction, view: RoomView | undefined): string 
 
 /** The agents that are at work in a room now. */
 export const workingAgents = (view: RoomView | undefined): string[] =>
-	(view?.participants ?? []).flatMap((participant: ParticipantInfo) =>
+	(view?.participants ?? []).flatMap((participant: Participant) =>
 		participant.kind === 'agent' && participant.status === 'active' ? [participant.name] : [],
 	);
 
@@ -61,7 +61,7 @@ export function notesOf(attention: readonly string[], view: RoomView): Block[] {
 }
 
 /** One say that waits to return, as the conversation notes it. */
-function pendingLine(say: PendingSay): string {
+function pendingLine(say: ScheduledSay): string {
 	const due = new Date(say.due);
 	const later = due.valueOf() - Date.now() > 86_400_000;
 	const time = Number.isNaN(due.valueOf())

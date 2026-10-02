@@ -179,7 +179,7 @@ function present(
 	return snapshot.participants.some(
 		(seat) =>
 			seat.name === name &&
-			seat.kind === 'human' &&
+			seat.kind === 'person' &&
 			'presence' in seat &&
 			seat.presence === 'present',
 	);

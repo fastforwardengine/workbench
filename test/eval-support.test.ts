@@ -7,11 +7,11 @@
 import {
 	byAgent,
 	callTool,
-	isClosing,
+	isSummarizing,
 	quiet,
 	type Script,
+	say,
 	scripted,
-	speak,
 } from '@ambionframework/ambion/testing';
 import { scriptedActor, simulate } from '@ambionframework/simulator';
 import { describe, expect, it } from 'vitest';
@@ -35,13 +35,13 @@ const once =
 
 const script = byAgent({
 	assistant: (step) =>
-		isClosing(step.view) && step.results.length === 0
-			? speak('Summary: /library holds no LED datasheet yet.')
+		isSummarizing(step.view) && step.results.length === 0
+			? say('Summary: /library holds no LED datasheet yet.')
 			: quiet(),
 	// One seat speaks, so no say of another seat makes its view stale.
 	datasheets: once([
 		() => callTool('read', { path: '/shared/kit.md' }),
-		(results) => speak(`/library holds no LED datasheet yet. ${results[0]?.text ?? ''}`),
+		(results) => say(`/library holds no LED datasheet yet. ${results[0]?.text ?? ''}`),
 	]),
 });
 
@@ -51,7 +51,7 @@ describe('the eval support', () => {
 		const run = await simulate(room, {
 			person,
 			actor: scriptedActor([sweep.prompt]),
-			exchanges: 1,
+			messages: 1,
 			exchangeMs: 10_000,
 		});
 		expectGradable(run);

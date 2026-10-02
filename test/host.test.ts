@@ -346,7 +346,7 @@ describe('Workbench host', () => {
 		expect(aborted.exchange).toBeUndefined();
 		expect(aborted.status).toBe('running');
 		expect(aborted.exchanges).toContainEqual(
-			expect.objectContaining({ status: 'closed', summary: { status: 'silent' } }),
+			expect.objectContaining({ status: 'closed', summary: { kind: 'silent' } }),
 		);
 	});
 });
@@ -436,7 +436,7 @@ describe('Workbench host steps, says, and processes', () => {
 			scriptedStream((agent, call, closing) => {
 				if (closing || agent !== 'assistant' || call !== 1)
 					return fauxAssistantMessage('quiet', { stopReason: 'stop' });
-				const later = { text: 'Check the LED temperature.', after: 600 };
+				const later = { text: 'Check the LED temperature.', delaySeconds: 600 };
 				return fauxAssistantMessage([fauxToolCall('schedule', later)], { stopReason: 'toolUse' });
 			}),
 		);

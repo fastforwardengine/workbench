@@ -43,6 +43,7 @@ async function build(width = 120) {
 			state: 'running',
 			output: '/x/out',
 			timeout: 600,
+			grace: 10,
 			startedAt: new Date().toISOString(),
 		},
 	];
@@ -308,7 +309,7 @@ describe('moving between panels and modes', () => {
 		built.host.table.set(
 			'characterization',
 			view('characterization', {
-				participants: [{ name: 'priya', kind: 'human' }],
+				participants: [{ name: 'priya', kind: 'person' }],
 				messages: [
 					{ seq: 1, kind: 'said', from: 'priya', text: 'one', at: AT },
 					{ seq: 2, kind: 'said', from: 'design', text: 'two', at: AT },
@@ -323,7 +324,7 @@ describe('moving between panels and modes', () => {
 						person: 'priya',
 						at: AT,
 						outcome: { kind: 'complete' },
-						summary: { status: 'silent' },
+						summary: { kind: 'silent' },
 						activations: [],
 					},
 				],

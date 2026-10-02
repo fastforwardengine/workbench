@@ -50,7 +50,7 @@ function room(count: number) {
 			person: 'priya',
 			at: AT,
 			outcome: { kind: 'complete' },
-			summary: { status: 'published', summary },
+			summary: { kind: 'published', summary },
 			activations: [],
 		});
 	}

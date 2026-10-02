@@ -1,7 +1,7 @@
-import { BACKGROUND_CONTEXT, type ProcessStatus, type Workspace } from '@ambionframework/workspace';
+import type { Process, Workspace } from '@ambionframework/workspace';
 
 /** One background process, as the workspace reports it. */
-export type ProcessView = ProcessStatus;
+export type ProcessView = Process;
 
 /** The end of one output file, as the processes panel shows it. */
 export interface ProcessOutput {
@@ -49,11 +49,11 @@ export async function readOutput(
 	process: ProcessView,
 ): Promise<ProcessOutput> {
 	return workspace.use({ name: process.agent }, async (env) => {
-		const info = await env.fileInfo(process.output, BACKGROUND_CONTEXT);
+		const info = await env.fileInfo(process.output);
 		const size = info.ok ? info.value.size : 0;
 		const empty = { handle: process.handle, text: '', size, truncated: size > 0 };
 		if (size === 0 || size > MAX_READ) return empty;
-		const read = await env.readTextFile(process.output, BACKGROUND_CONTEXT);
+		const read = await env.readTextFile(process.output);
 		if (!read.ok) return empty;
 		return { handle: process.handle, size, ...lastPart(read.value) };
 	});

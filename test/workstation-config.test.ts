@@ -102,7 +102,7 @@ describe('the workstation config', () => {
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
 		const built = await team(workspace);
 		expect(accounts.sort()).toEqual(
-			[...built.specialists.map((seat) => seat.name), workspace.host.name].sort(),
+			[...built.specialists.map((seat) => seat.name), workspace.mirrorAgent.name].sort(),
 		);
 	});
 });

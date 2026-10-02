@@ -385,14 +385,14 @@ const closedExchange = (from: number, extra: Record<string, unknown> = {}) => ({
 	person: 'priya',
 	at: AT,
 	outcome: { kind: 'complete' },
-	summary: { status: 'silent' },
+	summary: { kind: 'silent' },
 	activations: [
 		{
 			id: `act-${from}`,
 			seat: 'design',
 			purpose: 'respond',
 			attempt: 1,
-			outcome: { status: 'released' },
+			outcome: { kind: 'released' },
 		},
 	],
 	...extra,
@@ -484,7 +484,7 @@ describe('Session steps', () => {
 			seat: 'assistant',
 			purpose: 'respond',
 			attempt,
-			outcome: { status, cause: 'permanent' },
+			outcome: { kind: status, cause: 'permanent' },
 		});
 		const activations = [attempt('act-4', 'failed', 1), attempt('act-4b', 'abandoned', 2)];
 		host.table.set(
@@ -571,6 +571,7 @@ describe('Session /ps', () => {
 		state: 'running',
 		output: `/home/design/.processes/${handle}/out`,
 		timeout: 600,
+		grace: 10,
 		startedAt: at(0),
 		...extra,
 	});
@@ -715,7 +716,7 @@ describe('Session commands', () => {
 		host.table.set(
 			'characterization',
 			view('characterization', {
-				participants: [{ name: 'priya', kind: 'human' }],
+				participants: [{ name: 'priya', kind: 'person' }],
 				messages: [said(1, 'priya'), said(2, 'design'), said(3, 'datasheets'), said(4, 'priya')],
 				exchanges: [closedExchange(1, { through: 3 })],
 			}),

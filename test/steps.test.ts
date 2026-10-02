@@ -86,25 +86,25 @@ describe('stepsView', () => {
 		expect(stepsView({ activation: 'a', passes: [] })).toEqual([]);
 	});
 
-	it('shows the failure of an activation and the harness permission steps', () => {
+	it('shows the failure of an activation and session details and notices', () => {
 		const lines = stepsView(
 			read([
 				[
-					{ type: 'approval', call: 'c', name: 'bash' },
-					{ type: 'approval', call: 'c', name: 'bash', decision: 'deny' },
-					{ type: 'approval', call: 'd', name: 'edit', decision: 'allow' },
+					{ type: 'session', name: 'codex', model: 'test-model', tools: [], servers: [] },
+					{ type: 'notice', level: 'warning', text: 'Connection interrupted' },
+					{ type: 'notice', level: 'info', text: 'Connection restored' },
 					{
 						type: 'end',
-						stop: 'aborted',
+						stop: 'cut',
 						failure: { cause: 'error', message: 'provider down' },
 					},
 				],
 			]),
 		)[0]?.lines;
 		expect(lines?.map((line) => line.text)).toEqual([
-			'bash: waiting for the harness permission',
-			'bash: harness permission denied',
-			'edit: harness permission allowed',
+			'codex · test-model',
+			'warning: Connection interrupted',
+			'info: Connection restored',
 			'ended: provider down',
 		]);
 	});
@@ -127,11 +127,11 @@ describe('activationLine', () => {
 			seat: 'design',
 			attempt: 1,
 			purpose: 'respond',
-			outcome: { status: 'released' },
+			outcome: { kind: 'released' },
 			usage: usage({ cost: 0.0031 }),
 		};
 		expect(activationLine(base)).toBe('design · respond · attempt 1 · $0.0031');
-		expect(activationLine({ ...base, usage: undefined, outcome: { status: 'running' } })).toBe(
+		expect(activationLine({ ...base, usage: undefined, outcome: { kind: 'running' } })).toBe(
 			'design · respond · attempt 1 · running',
 		);
 	});

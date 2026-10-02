@@ -31,7 +31,7 @@ live('the led-sweep room, driven by the simulator', () => {
 		const run = await simulate(room, {
 			person,
 			actor: scriptedActor([sweep.prompt]),
-			exchanges: 1,
+			messages: 1,
 			exchangeMs: EXCHANGE_MS,
 		});
 		evidence.run = run;
