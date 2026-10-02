@@ -204,7 +204,7 @@ class Camera:
             seconds = self.seconds
             with tempfile.TemporaryDirectory(dir=self.data) as folder:
                 path = Path(folder) / "clip.wav"
-                started = utc()  # The series starts when arecord starts.
+                started = utc()  # The series starts when arecord is launched.
                 subprocess.run(["arecord", "-q", "-D", self.audio_device, "-f", "S16_LE", "-r", str(RATE),
                                 "-c", "1", "-d", str(seconds), "-t", "wav", str(path)],
                                check=True, capture_output=True, timeout=seconds + 15)
@@ -217,7 +217,7 @@ class Camera:
             label = f"SYNTHETIC DEMO: not a bench measurement. A 440 Hz tone pulsed at 10 Hz; {what}"
         else:
             label = (f"USB microphone {self.audio_device}; {what} "
-                     "The series starts when arecord starts; the timestamp is receipt time.")
+                     "The series starts when arecord is launched; the timestamp is receipt time.")
         parts = [{"kind": "text", "text": label},
                  {"kind": "file", "file": digest, "name": "clip.wav", "mediaType": "audio/wav"},
                  {"kind": "series", "channel": "level", "unit": "dBFS", "from": started,

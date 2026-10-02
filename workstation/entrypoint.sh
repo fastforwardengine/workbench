@@ -75,7 +75,7 @@ sound_files() {
 		[ -e "$entry/dev" ] || continue
 		name="$(basename "$entry")"
 		if ! [ -e "/dev/snd/$name" ]; then
-			numbers="$(cat "$entry/dev")"
+			numbers="$(cat "$entry/dev")" || continue
 			mknod "/dev/snd/$name" c "${numbers%%:*}" "${numbers##*:}" 2>/dev/null || continue
 		fi
 		chgrp audio "/dev/snd/$name" && chmod 0660 "/dev/snd/$name"
@@ -103,7 +103,7 @@ device_files() {
 		*) group=plugdev ;;
 		esac
 		if ! [ -e "/dev/$name" ]; then
-			numbers="$(cat "$entry/dev")"
+			numbers="$(cat "$entry/dev")" || continue
 			mknod "/dev/$name" c "${numbers%%:*}" "${numbers##*:}" 2>/dev/null || continue
 		fi
 		chgrp "$group" "/dev/$name" && chmod 0660 "/dev/$name"

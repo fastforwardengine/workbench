@@ -89,7 +89,8 @@ no captions.
    The observation holds three parts: a text with the peak and RMS level in
    dBFS, the WAV file `clip.wav`, and the series `level`. The series holds
    the RMS level in dBFS of each 10 ms window. It starts at the time that
-   `arecord` starts. The timestamp of the observation is the receipt time.
+   the server launches `arecord`. The timestamp of the observation is the
+   receipt time.
 10. Know where the server listens. It binds to `127.0.0.1` on the
     workstation. Ambion forwards the port through SSH. Do not publish the
     port in Docker and do not build a tunnel. The in-process just-bash
@@ -109,9 +110,10 @@ no captions.
     report a frequency. Report an unreadable digit as unclear.
 
     Read a clip through its level series. A tone that switches on and off
-    shows high and low levels in turn. Silence shows -120 dBFS. The WAV file
-    is an export in the home of the observer. Analyze it with `python3` and
-    numpy there. The series is a summary, and the file holds the sound.
+    shows high and low levels in turn. Silence shows -120 dBFS. `observe`
+    exports the WAV file to the home of the observer under a name such as
+    `file-001.bin`, and names that path. Analyze it there with `python3`
+    and numpy. The series is a summary, and the file holds the sound.
 13. Replace the server in this order:
     1. `cancel({ handle })` stops the server. `disconnect({ name: 'bench' })`
        only detaches the connection.
