@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
 import { agentSkills, skillsDirectory } from '../src/domain/skills.ts';
 
-const specialists = ['datasheets', 'experiments', 'instruments', 'builder'];
+const specialists = ['datasheets', 'experiments', 'engineer'];
 
 /** The names of the skill folders of one agent. */
 const skillNames = async (agent: string) =>
@@ -61,24 +61,22 @@ describe('the Workbench skills', () => {
 			execution: scripted(
 				byAgent({
 					assistant: (_step, _seat, call) =>
-						call === 1 ? say('Scan the bench.', 'instruments') : quiet(),
-					instruments: (step, _seat, call) => {
+						call === 1 ? say('Scan the bench.', 'engineer') : quiet(),
+					engineer: (step, _seat, call) => {
 						if (call === 1) return callTool('read', { path: '~/.skills/scan-the-bench/SKILL.md' });
 						if (call === 2) return say(`Read: ${step.results.at(-1)?.text}`, 'assistant');
 						return quiet();
 					},
 				}),
 			),
-			seats: { instruments: 'named' },
+			seats: { engineer: 'named' },
 		});
 		try {
 			await (await room.visit(person)).send({ text: 'What is connected?' });
 			await settled(room);
 			const said = (await room.read()).messages.filter((message) => message.kind === 'said');
 			expect(
-				said.some(
-					(message) => message.from === 'instruments' && message.text.includes('device-scan'),
-				),
+				said.some((message) => message.from === 'engineer' && message.text.includes('device-scan')),
 			).toBe(true);
 		} finally {
 			await room.stop();
@@ -89,13 +87,13 @@ describe('the Workbench skills', () => {
 	it('skips a file that a tool writes beside the skills', async () => {
 		const directory = mkdtempSync(join(tmpdir(), 'workbench-skills-'));
 		try {
-			mkdirSync(join(directory, 'instruments', 'scan'), { recursive: true });
-			writeFileSync(join(directory, 'instruments', '.DS_Store'), 'x');
+			mkdirSync(join(directory, 'engineer', 'scan'), { recursive: true });
+			writeFileSync(join(directory, 'engineer', '.DS_Store'), 'x');
 			writeFileSync(
-				join(directory, 'instruments', 'scan', 'SKILL.md'),
+				join(directory, 'engineer', 'scan', 'SKILL.md'),
 				'---\nname: scan\ndescription: Scan. Use it now.\n---\nSteps.\n',
 			);
-			const set = await agentSkills('instruments', directory);
+			const set = await agentSkills('engineer', directory);
 			expect(set.skills.map((skill) => skill.name)).toEqual(['scan']);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });

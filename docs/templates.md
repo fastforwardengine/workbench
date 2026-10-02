@@ -52,10 +52,10 @@ that a tool writes beside a template does not change it.
 | Template          | Use                                    | Specialists |
 | ----------------- | -------------------------------------- | ----------- |
 | `test-plan`       | A test plan                            | Experiments |
-| `device-scan`     | A scan of the connected devices        | Instruments |
-| `usb-camera`      | Images and sound from a USB camera     | Instruments |
-| `psu`             | Control of a programmable power supply | Instruments |
-| `build-procedure` | A build procedure for a kit            | Builder     |
+| `device-scan`     | A scan of the connected devices        | Engineer    |
+| `usb-camera`      | Images and sound from a USB camera     | Engineer    |
+| `psu`             | Control of a programmable power supply | Engineer    |
+| `build-procedure` | A build procedure for a kit            | Engineer    |
 
 `planning/next.md` names the next one: an `fm-radio` template that tunes
 the radio. The `build-procedure` template holds the shape of the build

@@ -23,8 +23,9 @@ describe('the Workbench templates', () => {
 
 	it('names each template in the instructions of its specialists alone', () => {
 		expect(templateInstructions('experiments')).toContain('the test-plan template');
-		expect(templateInstructions('instruments')).toContain('the usb-camera template');
-		expect(templateInstructions('builder')).not.toContain('the usb-camera template');
+		for (const name of ['usb-camera', 'device-scan', 'hm310p', 'build-procedure'])
+			expect(templateInstructions('engineer')).toContain(`the ${name} template`);
+		expect(templateInstructions('datasheets')).toBe('');
 		expect(templateInstructions('design')).toBe('');
 	});
 });

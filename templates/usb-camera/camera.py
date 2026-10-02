@@ -97,7 +97,7 @@ def clip_levels(wav):
 
 def launch_source(checkout, repository):
     if not re.fullmatch(r"(?!templates/)[a-z][a-z0-9-]*/[a-z0-9][a-z0-9._-]{0,63}", repository):
-        raise ValueError("Set AMBION_SENSOR_REPOSITORY to your fork ID, such as instruments/bench-camera.")
+        raise ValueError("Set AMBION_SENSOR_REPOSITORY to your fork ID, such as engineer/bench-camera.")
     def git(*args):
         return subprocess.check_output(["git", "-C", str(checkout), *args], text=True).strip()
     source = {"repository": repository, "commit": git("rev-parse", "HEAD"),

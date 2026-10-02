@@ -135,7 +135,7 @@ ACL again. It also installs the public key of each account from
 
 ## Devices
 
-**Instruments has the tools to find and drive the devices of the bench.**
+**The Engineer has the tools to find and drive the devices of the bench.**
 The `device-scan` template runs them all, and writes one report
 (`templates/device-scan`).
 
@@ -148,7 +148,7 @@ The `device-scan` template runs them all, and writes one report
 | `arecord`                              | USB microphones (ALSA sound cards)                 |
 | `nmap`                                 | The SCPI ports of the instruments on a subnet      |
 
-**Instruments is in the groups `dialout`, `video`, `audio`, and `plugdev`.** The
+**Engineer is in the groups `dialout`, `video`, `audio`, and `plugdev`.** The
 container mounts `/dev/bus/usb` with a rule for every USB device file, so
 libusb reaches a device that arrives after the start. The container runs no
 udev, so the entrypoint gives `plugdev` read and write on each USB device
@@ -159,12 +159,12 @@ USBTMC instrument, and sound device.** The container's own `/dev` holds no
 file for a device that arrives after the start. The entrypoint reads the
 major and minor numbers in `/sys` every 5 seconds, makes `/dev/video*`,
 `/dev/ttyUSB*`, `/dev/ttyACM*`, `/dev/usbtmc*`, and `/dev/snd/*` with the
-group of Instruments, and removes the file of a device that went away.
+group of Engineer, and removes the file of a device that went away.
 `compose.yaml` allows these device types. The ALSA rule is `c 116:* rmw`.
 Without it, opening `/dev/snd` fails with "Operation not permitted". No
 `devices:` entry is needed.
 
-**Capture a frame** as Instruments:
+**Capture a frame** as Engineer:
 
 ```sh
 v4l2-ctl --list-devices                          # the cameras
@@ -176,7 +176,7 @@ python3 -c "from PIL import Image; import numpy; print(numpy.asarray(Image.open(
 `-S 10` skips 10 frames, so the exposure settles. The last line prints the
 mean brightness of the frame.
 
-**Record a clip** as Instruments:
+**Record a clip** as Engineer:
 
 ```sh
 arecord -l                                       # the sound cards
@@ -190,14 +190,14 @@ converts to mono 48 kHz. The BRIO records 16-bit samples (`S16_LE`) in two
 channels, from 16000 to 48000 Hz. Docker hides `/proc/asound` in the
 container. `arecord -l` still works.
 
-To keep the frames and the clips as evidence, Instruments forks the
+To keep the frames and the clips as evidence, The Engineer forks the
 [`usb-camera` template](../templates/usb-camera/README.md). The template
 uses the Python, `fswebcam`, and `arecord` tools of the image, so the image
 needs no change. The server listens on the loopback address of the workstation.
 Ambion 0.5.0 carries the sensor API through SSH forwarding. Each
 `observe` saves the frame or clip and the manifest in the snapshot store. Docker
 publishes no sensor port. Other seats observe through the connection and
-need no access to the home of Instruments.
+need no access to the home of Engineer.
 
 **OrbStack's Linux has the drivers of the bench as modules:** `uvcvideo`
 for a UVC camera, `snd-usb-audio` for a USB microphone, `cdc-acm`,

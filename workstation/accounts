@@ -10,6 +10,5 @@
 # log keep the old uid.
 datasheets
 experiments
-instruments
+engineer
 workbench-host
-builder

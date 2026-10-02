@@ -57,7 +57,7 @@ install -d -m 2750 -o workbench-host -g workbench /srv/workbench/rooms /srv/work
 
 # The USB devices of the machine, when compose.yaml mounts /dev/bus/usb. The
 # container runs no udev, so each device file comes in as root's. The group
-# plugdev gets read and write, so Instruments reaches a device through
+# plugdev gets read and write, so Engineer reaches a device through
 # libusb.
 usb_access() {
 	[ -d /dev/bus/usb ] || return 0

@@ -34,28 +34,28 @@ export const templates: readonly Template[] = [
 		description:
 			'A scan of the devices that the workstation reaches: USB devices, serial ports, VISA instruments, cameras, and the SCPI ports of a subnet. Each scan writes a report, and inventory.md records the bench.',
 		use: 'a scan of the connected devices',
-		specialists: ['instruments'],
+		specialists: ['engineer'],
 	},
 	{
 		name: 'usb-camera',
 		description:
 			'A Linux USB camera and microphone sensor. An agent-owned foreground server captures a PNG frame from the camera and a WAV clip with a level series from the microphone for each observation. The snapshot store keeps each observed frame and clip. The demo mode makes synthetic data and labels it.',
 		use: 'retained images from a USB camera and sound clips from its microphone',
-		specialists: ['instruments'],
+		specialists: ['engineer'],
 	},
 	{
 		name: 'build-procedure',
 		description:
 			'A build procedure for a kit: each step with its parts, their places and orientation, the risk, the check, and the evidence, and the first power-on.',
 		use: 'a build procedure',
-		specialists: ['builder'],
+		specialists: ['engineer'],
 	},
 	{
 		name: 'psu',
 		description:
 			'psu.py, a command-line tool for a programmable power supply: the outputs, the setpoints, the readings, and the protection limits of each channel, within the limits of psu.json. A guard enforces the limits and the locks. A driver for the HANMATEK HM310P and a simulated supply with several channels come with it. A simulated supply runs with no hardware.',
 		use: 'control of a programmable power supply',
-		specialists: ['instruments'],
+		specialists: ['engineer'],
 	},
 ];
 

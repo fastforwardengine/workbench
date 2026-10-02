@@ -33,8 +33,8 @@ describe('a picture that the person attaches', () => {
 		const built = await team(workspace);
 		const script = byAgent({
 			assistant: (_step, _seat, call) =>
-				call === 1 ? say('Please look at the picture.', 'instruments') : quiet(),
-			instruments: (step, _seat, call) => {
+				call === 1 ? say('Please look at the picture.', 'engineer') : quiet(),
+			engineer: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: attached.path });
 				if (call === 2) return say(`Saw: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
@@ -47,7 +47,7 @@ describe('a picture that the person attaches', () => {
 			agents: built.specialists,
 			runtime: createRuntime(),
 			execution: scripted(script),
-			seats: { instruments: 'named' },
+			seats: { engineer: 'named' },
 		});
 		cleanups.push(() => room.stop());
 		await (
@@ -63,7 +63,7 @@ describe('a picture that the person attaches', () => {
 		);
 		expect(asked && 'refs' in asked && asked.refs).toEqual([attached.ref]);
 		const answer = messages.find(
-			(message) => message.kind === 'said' && message.from === 'instruments',
+			(message) => message.kind === 'said' && message.from === 'engineer',
 		);
 		expect(answer && 'text' in answer && answer.text).toContain('Read image file [image/png]');
 	}, 30_000);

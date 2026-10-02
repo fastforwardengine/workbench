@@ -42,7 +42,7 @@ COPY entrypoint.sh /usr/local/sbin/workbench-entrypoint
 # One group holds every account that writes the audit log. Each home has
 # mode 0700, so no account reads another account's files. The password `*`
 # sets no password and does not lock the account: an sshd without PAM
-# refuses a locked account for every method. Instruments also joins the
+# refuses a locked account for every method. Engineer also joins the
 # device groups: dialout for a serial port, video for a camera, audio for a microphone,
 # and plugdev for a USB device through libusb.
 #
@@ -62,7 +62,7 @@ RUN groupadd workbench \
 	&& usermod --password '*' workbench-git \
 	&& chmod 0700 /home/workbench-git \
 	&& chmod 0755 /usr/local/sbin/workbench-entrypoint \
-	&& usermod --append --groups dialout,video,plugdev,audio instruments
+	&& usermod --append --groups dialout,video,plugdev,audio engineer
 
 # The entrypoint makes the layout of the workspace at each start: a named
 # volume on /srv, /library, or /shared drops the default ACLs of the image.

@@ -38,7 +38,7 @@ async function build(width = 120) {
 			handle: 'bash-aaa111',
 			name: 'scan',
 			kind: 'bash',
-			agent: 'instruments',
+			agent: 'engineer',
 			command: 'python3 scan.py',
 			state: 'running',
 			output: '/x/out',

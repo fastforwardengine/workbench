@@ -19,14 +19,14 @@ no captions.
 2. Run `v4l2-ctl --list-devices` and
    `v4l2-ctl -d /dev/video0 --list-formats-ext`. Select a video capture
    node and a supported resolution. `/dev/video0` is an example. The
-   Instruments account has the `video` group. If no node exists, attach
+   Engineer account has the `video` group. If no node exists, attach
    the camera and scan again after five seconds.
    For the microphone, run `arecord -l`. A line such as
    `card 1: BRIO [Logitech BRIO]` names the card id `BRIO`. The card id
    stays the same after a reconnect. The card number can change. Give
    `--audio-device` the name `plughw:CARD=BRIO,DEV=0`, with your card id.
    Do not use a card number. The `plughw` plug-in converts the sound to
-   mono, 48 kHz, 16-bit samples. The Instruments account has the `audio`
+   mono, 48 kHz, 16-bit samples. The Engineer account has the `audio`
    group.
 3. Give `--device` the path of that node. The kernel can give a camera a
    different `/dev/videoN` number after a reconnect or a reboot. On a host
@@ -59,7 +59,7 @@ no captions.
 
    ```ts
    bash({
-     command: 'cd ~/bench-camera && AMBION_SENSOR_REPOSITORY=instruments/bench-camera AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-camera" python3 -u -B camera.py --device /dev/video0 --resolution 1280x720 --audio-device plughw:CARD=BRIO,DEV=0 --seconds 5',
+     command: 'cd ~/bench-camera && AMBION_SENSOR_REPOSITORY=engineer/bench-camera AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-camera" python3 -u -B camera.py --device /dev/video0 --resolution 1280x720 --audio-device plughw:CARD=BRIO,DEV=0 --seconds 5',
      name: 'bench-camera', wait: 0, timeout: 86400,
    });
    ```
@@ -101,7 +101,7 @@ no captions.
     verifies the frame digests. It saves the frame and the manifest in the
     snapshot store, so no manual snapshot is necessary. Other specialists
     observe through the same connection and receive exports in their own
-    homes. They need no access to the Instruments home. Export paths
+    homes. They need no access to the Engineer home. Export paths
     change, so cite the snapshot refs as evidence. After the server
     stops, use `restore` on the manifest ref and on the frame ref.
 12. Aim the camera at the bench before you capture. The server does not

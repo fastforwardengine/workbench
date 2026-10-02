@@ -15,7 +15,7 @@ const at = '2026-01-01T00:00:00.123Z';
 const launch = `
 import camera, sys
 camera.utc = lambda: '${at}'
-source = {'repository': 'instruments/bench-camera', 'commit': 'a' * 40, 'dirty': False}
+source = {'repository': 'engineer/bench-camera', 'commit': 'a' * 40, 'dirty': False}
 cam = camera.Camera(source, sys.argv[1], None, demo=True)
 cam.acquire()
 server = camera.open_server(cam)
@@ -168,7 +168,7 @@ describe.skipIf(!python)('the USB camera sensor API v1', () => {
 
 	it('works with the standard digest-verifying Ambion client', async () => {
 		const client = createSensorClient(root);
-		expect((await client.index()).source.repository).toBe('instruments/bench-camera');
+		expect((await client.index()).source.repository).toBe('engineer/bench-camera');
 		expect((await client.observe('camera')).observations[0]?.at).toBe(at);
 		expect(Buffer.from((await client.file(digest)).bytes)).toEqual(bytes);
 	});

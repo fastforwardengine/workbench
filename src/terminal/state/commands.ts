@@ -119,7 +119,7 @@ export type Parsed =
 	| { kind: 'command'; name: CommandName; argument: string }
 	| { kind: 'unknown'; name: string };
 
-/** A leading `@name`. Punctuation or a space ends the name, so `@builder, check` addresses the Builder. */
+/** A leading `@name`. Punctuation or a space ends the name, so `@engineer, check` addresses the Engineer. */
 const MENTION = /^@([a-z][a-z0-9-]*)(?![a-z0-9-])/i;
 
 /**

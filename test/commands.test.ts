@@ -10,7 +10,7 @@ const rooms: RoomChoice[] = [
 const choices: Choices = {
 	agents: [
 		{ name: 'assistant', state: 'broadcast' },
-		{ name: 'builder', state: 'named' },
+		{ name: 'engineer', state: 'named' },
 		{ name: 'datasheets', state: 'not seated' },
 	],
 	rooms,
@@ -67,31 +67,31 @@ describe('parse', () => {
 	});
 
 	it('reads a leading @name as the seat that the message addresses, and keeps the text', () => {
-		expect(parse('@Builder check the diode')).toEqual({
+		expect(parse('@Engineer check the diode')).toEqual({
 			kind: 'message',
-			text: '@Builder check the diode',
-			to: 'builder',
+			text: '@Engineer check the diode',
+			to: 'engineer',
 		});
-		expect(parse('@builder, check the diode')).toMatchObject({ to: 'builder' });
-		expect(parse('@builder: check')).toMatchObject({ to: 'builder' });
-		expect(parse("@Builder's step")).toMatchObject({ to: 'builder' });
+		expect(parse('@engineer, check the diode')).toMatchObject({ to: 'engineer' });
+		expect(parse('@engineer: check')).toMatchObject({ to: 'engineer' });
+		expect(parse("@Engineer's step")).toMatchObject({ to: 'engineer' });
 		expect(parse('@datasheets')).toEqual({
 			kind: 'message',
 			text: '@datasheets',
 			to: 'datasheets',
 		});
-		expect(parse('@builder\nsecond line')).toMatchObject({ to: 'builder' });
+		expect(parse('@engineer\nsecond line')).toMatchObject({ to: 'engineer' });
 	});
 
 	it('addresses a seat only at the start, and only for a name', () => {
-		expect(parse('ask @builder')).toEqual({ kind: 'message', text: 'ask @builder' });
+		expect(parse('ask @engineer')).toEqual({ kind: 'message', text: 'ask @engineer' });
 		expect(parse('@ 5 V')).toEqual({ kind: 'message', text: '@ 5 V' });
 	});
 
 	it('lets a double at sign send a message that starts with one at sign', () => {
-		expect(parse('@@builder is the name')).toEqual({
+		expect(parse('@@engineer is the name')).toEqual({
 			kind: 'message',
-			text: '@builder is the name',
+			text: '@engineer is the name',
 		});
 	});
 
@@ -106,15 +106,15 @@ describe('suggest a seat', () => {
 			suggest('@', choices).map((row) => [row.label, row.detail, row.insert, row.run]),
 		).toEqual([
 			['@assistant', 'broadcast', '@assistant ', false],
-			['@builder', 'named', '@builder ', false],
+			['@engineer', 'named', '@engineer ', false],
 			['@datasheets', 'not seated', '@datasheets ', false],
 		]);
 	});
 
 	it('narrows by prefix, and closes once the name has a space', () => {
-		expect(suggest('@b', choices).map((row) => row.label)).toEqual(['@builder']);
+		expect(suggest('@e', choices).map((row) => row.label)).toEqual(['@engineer']);
 		expect(suggest('@x', choices)).toEqual([]);
-		expect(suggest('@builder ', choices)).toEqual([]);
+		expect(suggest('@engineer ', choices)).toEqual([]);
 	});
 });
 

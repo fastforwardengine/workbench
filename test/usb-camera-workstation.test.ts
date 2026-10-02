@@ -16,7 +16,7 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 		const name = `camera-${token}`;
 		let handle: string | undefined;
 		let calls = 0;
-		const invoke = async (toolName: string, params: unknown, agent = 'instruments') => {
+		const invoke = async (toolName: string, params: unknown, agent = 'engineer') => {
 			const tool = workspace.tools().tools.find((one) => one.name === toolName);
 			if (!tool) throw new Error(`No ${toolName} tool`);
 			const context: ToolContext = {
@@ -37,7 +37,7 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 			});
 			expect(text(saved)).toContain('OK');
 			const started = await invoke('bash', {
-				command: `cd ~/${name} && AMBION_SENSOR_REPOSITORY=instruments/${name} AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/${name}" python3 -u -B camera.py --demo`,
+				command: `cd ~/${name} && AMBION_SENSOR_REPOSITORY=engineer/${name} AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/${name}" python3 -u -B camera.py --demo`,
 				name,
 				wait: 1,
 				timeout: 120,
@@ -61,7 +61,7 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 				command: `cd ~/${name} && git commit --allow-empty -m 'Advance branch after launch' && git push`,
 				wait: 30,
 			});
-			const observed = await invoke('observe', { sensor: `${name}/camera` }, 'builder');
+			const observed = await invoke('observe', { sensor: `${name}/camera` }, 'engineer');
 			expect(text(observed)).toContain('SYNTHETIC DEMO');
 			expect(observed.content.some((part) => part.type === 'image')).toBe(true);
 			const evidence = observed.details as {
@@ -79,10 +79,10 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 			const file = evidence.files[0];
 			if (!file) throw new Error('No retained camera frame');
 			// Alter the observer's mutable export. Snapshot restoration must still work.
-			await invoke('write', { path: file.path, content: 'changed export' }, 'builder');
+			await invoke('write', { path: file.path, content: 'changed export' }, 'engineer');
 			await invoke('cancel', { handle });
 			handle = undefined;
-			await expect(invoke('observe', { sensor: `${name}/camera` }, 'builder')).rejects.toThrow();
+			await expect(invoke('observe', { sensor: `${name}/camera` }, 'engineer')).rejects.toThrow();
 			await invoke(
 				'restore',
 				{ ref: evidence.manifestRef, path: `~/camera-manifest-${token}.json` },

@@ -39,7 +39,7 @@ live('the led-sweep room, driven by the simulator', () => {
 		expectGradable(run);
 		const [exchange] = run.exchanges;
 		expect(exchange?.summary).toMatchObject({ from: 'assistant', to: person.name });
-		const specialists = ['datasheets', 'experiments', 'instruments'];
+		const specialists = ['datasheets', 'experiments', 'engineer'];
 		expect(specialists.some((seat) => saidBy(exchange, seat).length > 0)).toBe(true);
 		// The assistant holds no workspace, so it calls no workspace tool.
 		for (const tool of WORKSPACE_TOOLS) expect(toolsOf(run, 'assistant')).not.toContain(tool);

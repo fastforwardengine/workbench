@@ -458,13 +458,13 @@ describe('Workbench host steps, says, and processes', () => {
 	});
 
 	it('lists the processes that an agent starts with bash, reads an output, and cancels a running one', async () => {
-		// Instruments starts a short process that ends in its window, then a long one that it leaves running.
+		// Engineer starts a short process that ends in its window, then a long one that it leaves running.
 		const stream = scriptedStream((agent, call, closing) => {
 			const start = (command: string, name: string, wait: number) =>
 				fauxAssistantMessage([fauxToolCall('bash', { command, name, wait })], {
 					stopReason: 'toolUse',
 				});
-			if (agent !== 'instruments' || closing) return fauxAssistantMessage('quiet');
+			if (agent !== 'engineer' || closing) return fauxAssistantMessage('quiet');
 			if (call === 1) return start('echo hello from the bench', 'greet', 5);
 			if (call === 2) return start('sleep 60', 'soak', 0);
 			return fauxAssistantMessage('quiet');
@@ -482,17 +482,15 @@ describe('Workbench host steps, says, and processes', () => {
 		});
 		// The running process comes first, then the newest start.
 		const [soak, greet] = await lab.processes();
-		expect(soak).toMatchObject({ name: 'soak', agent: 'instruments', state: 'running' });
+		expect(soak).toMatchObject({ name: 'soak', agent: 'engineer', state: 'running' });
 		expect(greet).toMatchObject({ name: 'greet', state: 'exited', exitCode: 0 });
-		expect(await lab.processOutput(greet?.handle ?? '', 'instruments')).toEqual({
+		expect(await lab.processOutput(greet?.handle ?? '', 'engineer')).toEqual({
 			handle: greet?.handle,
 			text: 'hello from the bench\n',
 			size: 21,
 			truncated: false,
 		});
-		await expect(lab.processOutput('bash-000000000000', 'instruments')).rejects.toThrow(
-			/No process/,
-		);
+		await expect(lab.processOutput('bash-000000000000', 'engineer')).rejects.toThrow(/No process/);
 
 		const cancelled = await lab.cancelProcess(soak?.handle ?? '');
 		expect(cancelled.state).toBe('cancelled');
@@ -553,27 +551,27 @@ describe('Workbench host, a message to one seat', () => {
 		const rooms = await openRooms(database, directory, {
 			stream: listeningStream(new Set()),
 		});
-		await rooms.create('legacy', 'A room from before the Builder.');
+		await rooms.create('legacy', 'A room from before the Experiments seat.');
 		await rooms.withRoom('legacy', async (entry) => {
-			await liveRoom(entry).unseat('builder');
+			await liveRoom(entry).unseat('experiments');
 		});
 		await rooms.close();
 		database.close();
 		const heard = new Set<string>();
 		const lab = await open(directory, listeningStream(heard));
 		const before = await lab.read('legacy', 0);
-		expect(before.participants.some((seat) => seat.name === 'builder')).toBe(false);
+		expect(before.participants.some((seat) => seat.name === 'experiments')).toBe(false);
 		await lab.join('legacy', person);
-		await lab.send('legacy', person, 'to-3', '@builder check the diode.', [], 'builder');
-		await whenHeard(heard, 'builder');
+		await lab.send('legacy', person, 'to-3', '@experiments check the diode.', [], 'experiments');
+		await whenHeard(heard, 'experiments');
 		const after = await lab.read('legacy', 0);
 		expect(
-			after.messages.find((m) => m.kind === 'said' && m.text.startsWith('@builder')),
+			after.messages.find((m) => m.kind === 'said' && m.text.startsWith('@experiments')),
 		).toMatchObject({
-			to: 'builder',
+			to: 'experiments',
 		});
 		expect(after.participants).toContainEqual(
-			expect.objectContaining({ name: 'builder', kind: 'agent', attention: 'named' }),
+			expect.objectContaining({ name: 'experiments', kind: 'agent', attention: 'named' }),
 		);
 	});
 
@@ -584,16 +582,16 @@ describe('Workbench host, a message to one seat', () => {
 		await rooms.create('mute', 'A room with a seat that hears nothing.');
 		await rooms.withRoom('mute', async (entry) => {
 			const room = liveRoom(entry);
-			await room.unseat('builder');
-			await room.seat('builder', { attention: 'none' });
+			await room.unseat('experiments');
+			await room.seat('experiments', { attention: 'none' });
 		});
 		await rooms.close();
 		database.close();
 		const lab = await open(directory, listeningStream(new Set()));
 		await lab.join('mute', person);
-		await expect(lab.send('mute', person, 'to-4', '@builder hi', [], 'builder')).rejects.toThrow(
-			"'builder' listens at none",
-		);
+		await expect(
+			lab.send('mute', person, 'to-4', '@experiments hi', [], 'experiments'),
+		).rejects.toThrow("'experiments' listens at none");
 		expect((await lab.read('mute', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
 	});
 
@@ -603,8 +601,7 @@ describe('Workbench host, a message to one seat', () => {
 			'assistant',
 			'datasheets',
 			'experiments',
-			'instruments',
-			'builder',
+			'engineer',
 		]);
 	});
 });
