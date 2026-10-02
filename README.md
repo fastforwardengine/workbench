@@ -24,7 +24,8 @@ Use Node 26.4 or newer, on macOS or Linux.
 
 ```sh
 npm install -g @fastforwardengine/workbench
-codex login                       # host ChatGPT login; or set CODEX_API_KEY
+workbench login                   # ChatGPT sign-in of the assistant (Pi)
+codex login                       # ChatGPT sign-in of the specialists (Codex)
                                   # (`npx @openai/codex login` if needed)
 workbench                         # data in ./.data
 workbench ./bench                 # another directory
@@ -37,26 +38,33 @@ variable that the environment already sets keeps its value.
 
 ```sh
 pnpm install
+pnpm start login                  # ChatGPT sign-in of the assistant (Pi)
 codex login                       # or codex login --device-auth
 cp .env.example .env              # optional model or API key override
 pnpm start                        # data in ./.data
 pnpm start ./bench                # another directory
 ```
 
-- **Every seat runs on Codex with `gpt-6-luna`.** `WORKBENCH_MODEL`
-  accepts a Codex model identifier without a provider prefix.
-  Light reasoning maps to `modelReasoningEffort: 'low'`.
+- **The assistant runs on Pi. The specialists run on Codex.** Both
+  families use `gpt-6-luna`. `WORKBENCH_MODEL` sets the Codex model
+  identifier, without a provider prefix. The assistant runs
+  `openai/<that identifier>` on Pi with thinking `low`. Codex uses
+  `modelReasoningEffort: 'low'`.
   [Ambion's Codex guide](https://github.com/ambionframework/ambion/blob/v0.5.0/docs/codex.md)
   states the supported options.
-- **The seats use the host login.** Run `codex login` (`npx @openai/codex login`
-  if needed), or set `CODEX_API_KEY` or `OPENAI_API_KEY`. A key takes
-  precedence over the login file. `CODEX_HOME` selects the host login
-  folder when set.
+- **Each family needs its own ChatGPT sign-in.** Run `workbench login` for
+  Pi. It stores the sign-in in `~/.ambion/pi/credentials.json`.
+  `WORKBENCH_PI_CREDENTIALS` selects another file. Run `codex login`
+  (`npx @openai/codex login` if needed) for Codex. `CODEX_HOME` selects
+  the Codex login folder when set.
+- **A key in the environment replaces the sign-in for Codex.** Codex bills
+  `CODEX_API_KEY` or `OPENAI_API_KEY` when either is set. Pi prefers its
+  stored sign-in, and reads `OPENAI_API_KEY` when no sign-in exists.
 - **Codex keeps seat state in `~/.ambion/codex`.** The Codex execution
   links the host login into that folder. Host tools, skills, and MCP
   settings stay outside the seats. Workspace tools reach the local or remote workstation.
 - **A seat without a login does not run.** The header marks it `no login`.
-  The failure states how to sign in. For a keyring login, set
+  The failure states how to sign in. For a Codex keyring login, set
   `cli_auth_credentials_store = "file"` in the host Codex configuration,
   then run `codex login` again. Codex validates the credential and
   model when an activation starts.
@@ -93,7 +101,8 @@ layout, and the tests.
 **Three specialists hear every message in a new room, at `broadcast`. The
 Builder listens at `named`: it wakes when the assistant or a specialist
 addresses it, and not for a message from you. The assistant writes the
-closing summary.** Every seat runs on Codex.
+closing summary.** The assistant runs on Pi. The specialists run on
+Codex.
 
 | Seat        | Work                                                   | Tools     |
 | ----------- | ------------------------------------------------------ | --------- |
@@ -165,7 +174,7 @@ Every measurement is a planned value.
 | `pnpm check`     | Format, types, lint, and the scripted tests. CI runs it.  |
 | `pnpm format`    | Writes the formatting and the lint fixes                  |
 | `pnpm test`      | The scripted tests: no key, no network                    |
-| `pnpm test:live` | The evals: needs a Codex login and judge key; costs money |
+| `pnpm test:live` | The evals: needs both logins and a judge key; costs money |
 | `pnpm build`     | Writes the bundle of the npm package, `dist/main.mjs`     |
 
 **`src/` has four layers, and an import points down only.** Biome holds

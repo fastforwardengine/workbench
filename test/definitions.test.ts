@@ -1,8 +1,7 @@
-import { defineAssistant } from '@ambionframework/assistant';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
-import { codexAssistant, shared, team } from '../src/domain/definitions.ts';
+import { shared, team } from '../src/domain/definitions.ts';
 import { seats } from '../src/domain/scenarios.ts';
 import { templateInstructions, templates } from '../src/domain/templates.ts';
 import { resolveRef } from '../src/view/refs.ts';
@@ -74,23 +73,5 @@ describe('the Builder', () => {
 		} finally {
 			await workspace.dispose();
 		}
-	});
-});
-
-describe('the assistant executor', () => {
-	it('keeps the instructions, tools, guidance, and reminders of defineAssistant', () => {
-		const remind = () => 'Check the bench.';
-		const maintained = defineAssistant({
-			model: 'gpt-6-luna',
-			instructions: 'Test rules.',
-			bundles: [{ tools: [], guidance: 'Test guidance.', remind }],
-		});
-		const { executor } = codexAssistant(maintained, 'gpt-6-luna');
-		expect(maintained.executor.reminders).toEqual([remind]);
-		expect(executor.kind).toBe('codex');
-		expect(executor.instructions).toBe(maintained.executor.instructions);
-		expect(executor.tools).toEqual(maintained.executor.tools);
-		expect(executor.guidance).toBe(maintained.executor.guidance);
-		expect(executor.reminders).toEqual(maintained.executor.reminders);
 	});
 });

@@ -43,10 +43,10 @@ const WORKSPACE_TOOLS = [
 ];
 
 describe('the Workbench tool set', () => {
-	it('puts every seat on the Codex executor', async () => {
+	it('puts the assistant on the Pi executor and the specialists on Codex', async () => {
 		const built = await build();
 		expect(built.agents.map((seat) => [seat.name, seat.executor.kind])).toEqual([
-			['assistant', 'codex'],
+			['assistant', 'pi'],
 			['datasheets', 'codex'],
 			['experiments', 'codex'],
 			['instruments', 'codex'],

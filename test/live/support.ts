@@ -4,7 +4,8 @@
  * line. The evals run on `@ambionframework/simulator`: a scripted person
  * asks, checks in code decide the facts, and a judge grades the meaning.
  *
- * `WORKBENCH_MODEL` names the model of every seat, as `pnpm start` reads it.
+ * `WORKBENCH_MODEL` names the Codex model of the specialists, as `pnpm start`
+ * reads it. The assistant runs the same model on Pi.
  * `JUDGE_MODEL` names the separate Pi judge, `openai/gpt-6-luna` by default.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -21,11 +22,17 @@ import {
 import type { Execution } from '@ambionframework/ambion/hosting';
 import { codexExecution } from '@ambionframework/codex';
 import { directoryBackend } from '@ambionframework/just-bash';
+import { fileCredentials, piExecution } from '@ambionframework/pi';
 import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
-import { codexModel, hasLogin, REASONING_EFFORT } from '../../src/domain/families.ts';
+import {
+	codexModel,
+	hasLogin,
+	piCredentialsPath,
+	REASONING_EFFORT,
+} from '../../src/domain/families.ts';
 import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
@@ -38,9 +45,9 @@ export const JUDGE_THINKING = REASONING_EFFORT;
 const keyOf = (model: string) =>
 	`${(model.split('/')[0] ?? '').toUpperCase().replace(/-/g, '_')}_API_KEY`;
 
-/** `describe` when Codex has a login and the judge has a key; otherwise skip. */
+/** `describe` when Pi and Codex have a login and the judge has a key; otherwise skip. */
 export const live: ReturnType<typeof describe.skipIf> = describe.skipIf(
-	!hasLogin() || !process.env[keyOf(JUDGE_MODEL)],
+	!hasLogin('pi') || !hasLogin('codex') || !process.env[keyOf(JUDGE_MODEL)],
 );
 
 /** Real milliseconds for one exchange and its summary. Three specialists hear every message. */
@@ -73,15 +80,21 @@ export const WORKSPACE_TOOLS = [
 	'fork',
 ] as const;
 
+/** Pi for the assistant, with the stored sign-in, and Codex for the specialists. */
+const liveExecutions = (): Execution[] => [
+	piExecution({ credentials: fileCredentials(piCredentialsPath()) }),
+	codexExecution(),
+];
+
 /**
  * A room with the team of Workbench over a seeded workspace, as the host
  * opens it but with the LED sweep as its project: the library and `/shared`
  * on disk, and the templates on the git server. It stops, and its files go,
- * when the test ends. The seats run on the live model, or on `execution` for
- * a test of this support.
+ * when the test ends. The assistant runs on Pi and the specialists run on
+ * Codex, or the seats run on `execution` for a test of this support.
  */
 export async function openRoom(
-	execution: Execution = codexExecution(),
+	execution: Execution | readonly Execution[] = liveExecutions(),
 ): Promise<{ room: Room; workspace: Workspace }> {
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-eval-'));
 	const workspace = openWorkspace({

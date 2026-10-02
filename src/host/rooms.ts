@@ -13,9 +13,16 @@ import type { Execution } from '@ambionframework/ambion/hosting';
 import { type CodexExecutionOptions, codexExecution } from '@ambionframework/codex';
 import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journal';
 import { directoryBackend } from '@ambionframework/just-bash';
+import { fileCredentials, piExecution } from '@ambionframework/pi';
 import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
-import { type Environment, hasLogin, LOGIN_HELP, unavailableSeats } from '../domain/families.ts';
+import {
+	type Environment,
+	hasLogin,
+	LOGIN_HELP,
+	piCredentialsPath,
+	unavailableSeats,
+} from '../domain/families.ts';
 import { sharedRegistrations } from '../domain/notes.ts';
 import { scenarios, seats } from '../domain/scenarios.ts';
 import { WORKSPACE } from '../view/refs.ts';
@@ -64,8 +71,8 @@ interface HostedRoom extends CatalogEntry {
 
 /** The execution and credentials of the rooms. */
 export interface RoomsOptions {
-	/** An execution for tests. It replaces live Codex execution. */
-	execution?: Execution;
+	/** An execution, or one for each family, for tests. It replaces the live executions. */
+	execution?: Execution | readonly Execution[];
 	/** Options for the host Codex binary, login, and private home. */
 	codex?: CodexExecutionOptions;
 	/** The environment that holds the key. The default is the environment of the process. */
@@ -95,11 +102,15 @@ async function workspaceBackends(directory: string, workstation?: WorkstationCon
 	};
 }
 
-/** An injected execution runs without credentials. Live seats use the host Codex login. */
-function familyExecutions(options: RoomsOptions = {}): Execution {
-	if (options.execution) return options.execution;
-	const env = options.env ?? process.env;
-	if (!hasLogin(env, options.codex)) return unavailable('codex', LOGIN_HELP);
+/** The Pi execution. It uses the stored ChatGPT sign-in, and `OPENAI_API_KEY` when no sign-in exists. */
+function piFamily(env: Environment): Execution {
+	if (!hasLogin('pi', env)) return unavailable('pi', LOGIN_HELP.pi);
+	return piExecution({ credentials: fileCredentials(piCredentialsPath(env)) });
+}
+
+/** The Codex execution. It links the host login into the private home of the seats. */
+function codexFamily(env: Environment, options: RoomsOptions): Execution {
+	if (!hasLogin('codex', env, options.codex)) return unavailable('codex', LOGIN_HELP.codex);
 	// An explicit environment is a snapshot. Remove inherited values that it omits.
 	const overlay = options.env
 		? Object.fromEntries(Object.keys(process.env).map((key) => [key, undefined]))
@@ -108,6 +119,17 @@ function familyExecutions(options: RoomsOptions = {}): Execution {
 		...options.codex,
 		env: options.env ? { ...overlay, ...options.env, ...options.codex?.env } : options.codex?.env,
 	});
+}
+
+/**
+ * The executions of the rooms: Pi for the assistant, and Codex for the
+ * specialists. A family with no login gets an execution that fails its seats
+ * with the help of the family. An injected execution runs without credentials.
+ */
+function familyExecutions(options: RoomsOptions = {}): Execution | readonly Execution[] {
+	if (options.execution) return options.execution;
+	const env = options.env ?? process.env;
+	return [piFamily(env), codexFamily(env, options)];
 }
 
 /** The catalog records hosting intent. Collaboration state stays in each room journal. */
@@ -359,7 +381,7 @@ function roomView(
 ) {
 	return {
 		...snapshot,
-		/** The seats that cannot run because Codex has no login. */
+		/** The seats that cannot run because their family has no login. */
 		unavailable,
 		goal: snapshot.initialized ? snapshot.goal : entry.goal,
 		status: entry.lifecycle.status,

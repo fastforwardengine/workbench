@@ -118,7 +118,7 @@ export interface Lab {
 export interface OpenOptions {
 	/** Where the journals and the workspace live. A directory with no journals starts fresh. */
 	directory: string;
-	/** An execution for tests. The default runs Codex. */
+	/** An execution for tests. The default runs Pi and Codex. */
 	execution?: RoomsOptions['execution'];
 	codex?: RoomsOptions['codex'];
 	/** The environment that holds the key. The default is the environment of the process. */

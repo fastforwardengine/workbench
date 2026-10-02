@@ -3,7 +3,7 @@ import { defineAgent, definePerson } from '@ambionframework/ambion';
 import { defineAssistant } from '@ambionframework/assistant';
 import { codex } from '@ambionframework/codex';
 import type { Workspace } from '@ambionframework/workspace';
-import { codexModel, type Environment, REASONING_EFFORT } from './families.ts';
+import { codexModel, type Environment, piModel, REASONING_EFFORT, THINKING } from './families.ts';
 import { agentSkills } from './skills.ts';
 import { templateInstructions } from './templates.ts';
 
@@ -104,7 +104,8 @@ const specialists = [
 ];
 
 /**
- * Build the team for one workspace. Every room reuses these definitions. Each
+ * Build the team for one workspace. Every room reuses these definitions. The
+ * assistant runs on Pi, and the specialists run on Codex. Each
  * specialist reads its own skills from `skills/<name>/`. The assistant has no
  * file or shell tool, so it holds no skills. `project` is the paragraph that
  * opens the instructions of every seat: the FM radio project by default, and
@@ -117,10 +118,11 @@ export async function team(
 ) {
 	const model = codexModel(env);
 	const rules = sharedRules(project);
-	const assistant = codexAssistant(
-		defineAssistant({ model, instructions: assistantInstructions(project) }),
-		model,
-	);
+	const assistant = defineAssistant({
+		model: piModel(env),
+		thinking: THINKING,
+		instructions: assistantInstructions(project),
+	});
 	const definitions = await Promise.all(
 		specialists.map(async ({ instructions, ...definition }) => {
 			const skills = await agentSkills(definition.name);
@@ -136,24 +138,6 @@ export async function team(
 		}),
 	);
 	return { workspace, assistant, specialists: definitions, agents: [assistant, ...definitions] };
-}
-
-/**
- * `defineAssistant` builds a Pi executor.
- * This function moves its instructions, tools, guidance, and reminders onto Codex.
- * A bundle holds one reminder, so each reminder gets a bundle.
- */
-export function codexAssistant(maintained: ReturnType<typeof defineAssistant>, model: string) {
-	const { guidance, reminders = [] } = maintained.executor;
-	return {
-		...maintained,
-		executor: codex({
-			...maintained.executor,
-			bundles: [{ tools: [], guidance }, ...reminders.map((remind) => ({ tools: [], remind }))],
-			model,
-			modelReasoningEffort: REASONING_EFFORT,
-		}),
-	};
 }
 
 const CLOSING =

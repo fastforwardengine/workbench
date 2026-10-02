@@ -3,14 +3,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
-import { codexModel, describeUnavailable, hasLogin, seatFamilies } from '../src/domain/families.ts';
+import {
+	codexModel,
+	describeUnavailable,
+	hasLogin,
+	piCredentialsPath,
+	piModel,
+	seatFamilies,
+	unavailableSeats,
+} from '../src/domain/families.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
 import { buildTimeline } from '../src/view/timeline.ts';
 
 describe('Workbench executor families', () => {
-	it('puts every seat on Codex', () => {
+	it('puts the assistant on Pi and the specialists on Codex', () => {
 		expect(seatFamilies).toEqual({
-			assistant: 'codex',
+			assistant: 'pi',
 			datasheets: 'codex',
 			experiments: 'codex',
 			instruments: 'codex',
@@ -20,23 +28,61 @@ describe('Workbench executor families', () => {
 
 	it('defaults to gpt-6-luna and accepts Codex model identifiers', () => {
 		expect(codexModel({})).toBe('gpt-6-luna');
+		expect(piModel({})).toBe('openai/gpt-6-luna');
+		expect(piModel({ WORKBENCH_MODEL: 'gpt-6-sol' })).toBe('openai/gpt-6-sol');
 		expect(codexModel({ WORKBENCH_MODEL: 'gpt-6-sol' })).toBe('gpt-6-sol');
 		expect(() => codexModel({ WORKBENCH_MODEL: 'openai/gpt-6-luna' })).toThrow(/provider prefix/);
 		expect(() => codexModel({ WORKBENCH_MODEL: 'anthropic' })).toThrow(/preset/);
 	});
 
 	it('accepts a Codex key and reports missing login files', () => {
-		expect(describeUnavailable({ CODEX_API_KEY: 'k' })).toEqual([]);
-		expect(describeUnavailable({ OPENAI_API_KEY: 'k' })).toEqual([]);
-		expect(hasLogin({ HOME: '/nonexistent-workbench-home', OPENAI_API_KEY: '  ' })).toBe(false);
-		expect(
-			hasLogin({ HOME: '/nonexistent-workbench-home' }, { env: { OPENAI_API_KEY: 'k' } }),
-		).toBe(true);
-		expect(hasLogin({ HOME: '/nonexistent-workbench-home' })).toBe(false);
-		expect(describeUnavailable({ HOME: '/nonexistent-workbench-home' })).toHaveLength(5);
-		expect(describeUnavailable({ HOME: '/nonexistent-workbench-home' })[0]).toContain(
-			'codex login',
-		);
+		const home = { HOME: '/nonexistent-workbench-home' };
+		expect(hasLogin('codex', { CODEX_API_KEY: 'k' })).toBe(true);
+		expect(hasLogin('codex', { OPENAI_API_KEY: 'k' })).toBe(true);
+		expect(hasLogin('codex', { ...home, OPENAI_API_KEY: '  ' })).toBe(false);
+		expect(hasLogin('codex', home, { env: { OPENAI_API_KEY: 'k' } })).toBe(true);
+		expect(hasLogin('codex', home)).toBe(false);
+	});
+
+	it('accepts an OpenAI key for Pi and reports a missing sign-in', () => {
+		const home = { HOME: '/nonexistent-workbench-home' };
+		expect(hasLogin('pi', { ...home, OPENAI_API_KEY: 'k' })).toBe(true);
+		expect(hasLogin('pi', { ...home, OPENAI_API_KEY: '  ' })).toBe(false);
+		expect(hasLogin('pi', { ...home, CODEX_API_KEY: 'k' })).toBe(false);
+		expect(hasLogin('pi', home)).toBe(false);
+	});
+
+	it('finds the stored Pi sign-in for the openai provider', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'workbench-pi-login-'));
+		try {
+			const path = join(directory, '.ambion', 'pi', 'credentials.json');
+			expect(piCredentialsPath({ HOME: directory })).toBe(path);
+			await mkdir(join(directory, '.ambion', 'pi'), { recursive: true });
+			await writeFile(path, '{}');
+			expect(hasLogin('pi', { HOME: directory })).toBe(false);
+			await writeFile(path, JSON.stringify({ anthropic: { type: 'oauth' } }));
+			expect(hasLogin('pi', { HOME: directory })).toBe(false);
+			await writeFile(path, 'not json');
+			expect(hasLogin('pi', { HOME: directory })).toBe(false);
+			await writeFile(path, JSON.stringify({ openai: { type: 'oauth', access: 'a' } }));
+			expect(hasLogin('pi', { HOME: directory })).toBe(true);
+			const other = join(directory, 'other.json');
+			expect(piCredentialsPath({ HOME: directory, WORKBENCH_PI_CREDENTIALS: other })).toBe(other);
+			expect(hasLogin('pi', { HOME: '/missing', WORKBENCH_PI_CREDENTIALS: path })).toBe(true);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('names the seats of each family that has no login', () => {
+		const home = { HOME: '/nonexistent-workbench-home' };
+		expect(unavailableSeats({ ...home, CODEX_API_KEY: 'k' }).map(({ seat }) => seat)).toEqual([
+			'assistant',
+		]);
+		expect(unavailableSeats({ ...home, OPENAI_API_KEY: 'k' })).toEqual([]);
+		expect(describeUnavailable(home)).toHaveLength(5);
+		expect(describeUnavailable(home)[0]).toContain('workbench login');
+		expect(describeUnavailable(home)[1]).toContain('codex login');
 	});
 
 	it('finds the host login and respects the execution login options', async () => {
@@ -45,37 +91,38 @@ describe('Workbench executor families', () => {
 			const login = join(directory, '.codex', 'auth.json');
 			await mkdir(join(directory, '.codex'));
 			await writeFile(login, '{}');
-			expect(hasLogin({ HOME: directory })).toBe(true);
-			expect(hasLogin({ HOME: directory }, { login: false })).toBe(false);
-			expect(hasLogin({ HOME: directory }, { login })).toBe(true);
-			expect(hasLogin({ HOME: '/missing' }, { env: { HOME: directory } })).toBe(true);
+			expect(hasLogin('codex', { HOME: directory })).toBe(true);
+			expect(hasLogin('codex', { HOME: directory }, { login: false })).toBe(false);
+			expect(hasLogin('codex', { HOME: directory }, { login })).toBe(true);
+			expect(hasLogin('codex', { HOME: '/missing' }, { env: { HOME: directory } })).toBe(true);
 			expect(
 				hasLogin(
+					'codex',
 					{ HOME: directory, CODEX_API_KEY: 'test' },
 					{ env: { CODEX_API_KEY: undefined }, login: false },
 				),
 			).toBe(false);
-			expect(hasLogin({ HOME: '/missing', CODEX_HOME: join(directory, '.codex') })).toBe(true);
-			expect(hasLogin({ HOME: directory }, { login: directory })).toBe(false);
+			expect(hasLogin('codex', { HOME: '/missing', CODEX_HOME: join(directory, '.codex') })).toBe(
+				true,
+			);
+			expect(hasLogin('codex', { HOME: directory }, { login: directory })).toBe(false);
 			const home = join(directory, 'seat-home');
 			await mkdir(home);
 			await writeFile(join(home, 'auth.json'), '{}');
-			expect(hasLogin({ HOME: '/missing' }, { home, login: false })).toBe(true);
+			expect(hasLogin('codex', { HOME: '/missing' }, { home, login: false })).toBe(true);
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}
 	});
 
-	it('gives every specialist the Codex executor, on the model WORKBENCH_MODEL selects', async () => {
+	it('gives the assistant the Pi executor and every specialist the Codex executor', async () => {
 		const workspace = { tools: () => ({ name: 'workspace', guidance: '', tools: [] }) } as never;
 		const built = await team(workspace, undefined, { WORKBENCH_MODEL: 'gpt-6-luna' });
 		expect(built.assistant.executor).toMatchObject({
-			kind: 'codex',
-			model: 'gpt-6-luna',
-			modelReasoningEffort: 'low',
+			kind: 'pi',
+			model: 'openai/gpt-6-luna',
+			thinking: 'low',
 		});
-		expect(built.assistant.executor.guidance).toContain('This is a respond activation.');
-		expect(built.assistant.executor.instructions).toContain('preserve evidence');
 		const executors = Object.fromEntries(
 			built.specialists.map((seat) => [seat.name, seat.executor]),
 		);
@@ -89,7 +136,7 @@ describe('Workbench executor families', () => {
 	});
 });
 
-describe('Workbench Codex login and failures', () => {
+describe('Workbench login and failures', () => {
 	const opened: { lab: Lab; directory: string }[] = [];
 	const person = people[0]?.name ?? '';
 
@@ -106,12 +153,15 @@ describe('Workbench Codex login and failures', () => {
 		async (environment) => {
 			vi.stubEnv('WORKBENCH_TEST_SECRET', 'host-only');
 			vi.stubEnv('WORKBENCH_MODEL', 'gpt-6-luna');
+			// Pi has no sign-in, so the assistant fails at once and makes no request.
+			vi.stubEnv('OPENAI_API_KEY', '');
 			const directory = await mkdtemp(join(tmpdir(), 'workbench-codex-offline-'));
 			const hostHome = join(directory, 'host');
 			const codexHome = join(directory, 'seats');
 			const login = join(hostHome, '.codex', 'auth.json');
 			const binary = join(directory, 'fake-codex.mjs');
 			const log = join(directory, 'catalog.json');
+			vi.stubEnv('WORKBENCH_PI_CREDENTIALS', join(directory, 'no-pi-login.json'));
 			await mkdir(join(hostHome, '.codex'), { recursive: true });
 			await writeFile(login, '{}');
 			// The executable has no network code. It only serves an empty model catalog.
@@ -143,9 +193,9 @@ process.stdout.write(JSON.stringify({ models: [] }));
 				},
 			});
 			opened.push({ lab, directory });
-			expect((await lab.read('radio-kit', 0)).unavailable).toEqual([]);
+			expect((await lab.read('radio-kit', 0)).unavailable).toEqual(['assistant']);
 			await lab.join('radio-kit', person);
-			await lab.send('radio-kit', person, 'catalog-1', 'Plan a test.');
+			await lab.send('radio-kit', person, 'catalog-1', 'Plan a test.', [], 'datasheets');
 			await vi.waitFor(async () => {
 				const view = await lab.read('radio-kit', 0);
 				expect(
@@ -183,7 +233,7 @@ process.stdout.write(JSON.stringify({ models: [] }));
 			const view = await lab.read('radio-kit', 0);
 			const errors = view.activity.filter((item) => item.type === 'error');
 			expect(errors.map((item) => item.text).join('\n')).toContain(
-				"Seat 'assistant' cannot run: Codex needs CODEX_API_KEY",
+				"Seat 'assistant' cannot run: Pi needs a ChatGPT sign-in",
 			);
 			expect(view.status).toBe('running');
 		});
@@ -203,7 +253,7 @@ process.stdout.write(JSON.stringify({ models: [] }));
 			expect(blocks).toContainEqual({
 				type: 'note',
 				text: expect.stringMatching(
-					/^Closed, (\S+) failed, the room does not retry this: Seat '\1' cannot run: Codex needs CODEX_API_KEY/,
+					/^Closed, (\S+) failed, the room does not retry this: Seat '\1' cannot run: (Pi|Codex) needs /,
 				),
 			});
 		});

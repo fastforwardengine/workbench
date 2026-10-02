@@ -1,24 +1,31 @@
-import { accessSync, constants, statSync } from 'node:fs';
+import { accessSync, constants, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { CodexExecutionOptions, CodexOptions } from '@ambionframework/codex';
+import type { PiOptions } from '@ambionframework/pi';
 
-/** The executor family of each seat. */
-export type Family = 'codex';
+/** The executor family of a seat. The assistant runs on Pi. The specialists run on Codex. */
+export type Family = 'pi' | 'codex';
 export type Environment = Readonly<Record<string, string | undefined>>;
 
 export const seatFamilies: Readonly<Record<string, Family>> = {
-	assistant: 'codex',
+	assistant: 'pi',
 	datasheets: 'codex',
 	experiments: 'codex',
 	instruments: 'codex',
 	builder: 'codex',
 };
 
+/** Pi calls light reasoning `low`. */
+export const THINKING = 'low' satisfies NonNullable<PiOptions['thinking']>;
+
 /** Codex calls light reasoning `low`. */
 export const REASONING_EFFORT = 'low' satisfies NonNullable<CodexOptions['modelReasoningEffort']>;
 
-/** The model of every seat. Codex uses a model identifier without a provider prefix. */
+/**
+ * The model of the specialists, as a Codex model identifier without a provider
+ * prefix. `WORKBENCH_MODEL` sets it. The assistant runs the same model on Pi.
+ */
 export function codexModel(env: Environment = process.env): string {
 	const model = env.WORKBENCH_MODEL?.trim() || 'gpt-6-luna';
 	if (model.includes('/') || ['anthropic', 'openai'].includes(model))
@@ -26,6 +33,20 @@ export function codexModel(env: Environment = process.env): string {
 			'WORKBENCH_MODEL must name a Codex model, such as gpt-6-luna. Remove the Pi provider prefix or preset.',
 		);
 	return model;
+}
+
+/** The model of the assistant: the Codex model on the `openai` provider of Pi. */
+export const piModel = (env: Environment = process.env): string => `openai/${codexModel(env)}`;
+
+/**
+ * The file that holds the Pi sign-in. Ambion documents no default path.
+ * `WORKBENCH_PI_CREDENTIALS` overrides this one.
+ */
+export function piCredentialsPath(env: Environment = process.env): string {
+	return resolve(
+		env.WORKBENCH_PI_CREDENTIALS?.trim() ||
+			join(env.HOME || homedir(), '.ambion', 'pi', 'credentials.json'),
+	);
 }
 
 /** Paths match the defaults of the Ambion Codex execution. */
@@ -55,14 +76,30 @@ function readableFile(path: string): boolean {
 	}
 }
 
+/** True when the Pi credential file holds a sign-in for the `openai` provider. */
+function hasPiSignIn(env: Environment): boolean {
+	try {
+		const stored: unknown = JSON.parse(readFileSync(piCredentialsPath(env), 'utf8'));
+		return typeof stored === 'object' && stored !== null && 'openai' in stored && !!stored.openai;
+	} catch {
+		return false;
+	}
+}
+
 /**
- * Check the presence of a credential. The Codex execution passes `OPENAI_*`
- * variables to Codex. Codex validates the credential when an activation starts.
+ * Check the presence of a credential for a family. No check makes a network
+ * request. The provider validates the credential when an activation starts.
+ *
+ * - Pi uses a stored ChatGPT sign-in, or `OPENAI_API_KEY`. Pi prefers the sign-in.
+ * - Codex uses `CODEX_API_KEY`, `OPENAI_API_KEY`, or the `auth.json` of `codex login`.
+ *   The Codex execution passes `OPENAI_*` variables to Codex, and a key bills the key.
  */
 export function hasLogin(
+	family: Family,
 	env: Environment = process.env,
 	options: CodexExecutionOptions = {},
 ): boolean {
+	if (family === 'pi') return Boolean(env.OPENAI_API_KEY?.trim()) || hasPiSignIn(env);
 	const effective = options.env ? { ...env, ...options.env } : env;
 	if (effective.CODEX_API_KEY?.trim() || effective.OPENAI_API_KEY?.trim()) return true;
 	const paths = codexPaths(env, options);
@@ -72,17 +109,28 @@ export function hasLogin(
 	);
 }
 
-export const LOGIN_HELP =
-	'Codex needs CODEX_API_KEY, OPENAI_API_KEY, or a readable auth.json. Run codex login (or codex login --device-auth). For a keyring login, set cli_auth_credentials_store = "file" and sign in again.';
+/** What a person does when a family has no login. */
+export const LOGIN_HELP: Readonly<Record<Family, string>> = {
+	pi: 'Pi needs a ChatGPT sign-in or OPENAI_API_KEY. Run workbench login to sign in with ChatGPT.',
+	codex:
+		'Codex needs CODEX_API_KEY, OPENAI_API_KEY, or a readable auth.json. Run codex login (or codex login --device-auth). For a keyring login, set cli_auth_credentials_store = "file" and sign in again.',
+};
 
+/** The seats whose family has no login. */
 export function unavailableSeats(
 	env: Environment = process.env,
 	options: CodexExecutionOptions = {},
 ): { seat: string; family: Family }[] {
-	return hasLogin(env, options)
-		? []
-		: Object.entries(seatFamilies).map(([seat, family]) => ({ seat, family }));
+	return Object.entries(seatFamilies)
+		.filter(([, family]) => !hasLogin(family, env, options))
+		.map(([seat, family]) => ({ seat, family }));
 }
 
-export const describeUnavailable = (env: Environment = process.env): string[] =>
-	unavailableSeats(env).map(({ seat }) => `Seat '${seat}' cannot run: ${LOGIN_HELP}`);
+/** One line for each seat that cannot run, with the help of its family. */
+export const describeUnavailable = (
+	env: Environment = process.env,
+	options: CodexExecutionOptions = {},
+): string[] =>
+	unavailableSeats(env, options).map(
+		({ seat, family }) => `Seat '${seat}' cannot run: ${LOGIN_HELP[family]}`,
+	);

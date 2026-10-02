@@ -1,11 +1,16 @@
 import type { Execution } from '@ambionframework/ambion/hosting';
 import { type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 
-/** Existing scripted replies run through Pi in memory. This execution makes no live request. */
-export function scriptedExecution(stream: PiExecutionOptions['stream']): Execution {
+/**
+ * Scripted replies run through Pi in memory. The result holds one execution
+ * for each family, so the script drives every seat. The assistant is a Pi
+ * seat. The specialists are Codex seats, and the second execution rewrites
+ * each of them to a Pi seat. This helper makes no live request.
+ */
+export function scriptedExecution(stream: PiExecutionOptions['stream']): Execution[] {
 	if (!stream) throw new Error('A scripted stream is required. Live model calls are forbidden.');
 	const execution = piExecution({ stream, sessions: 'memory' });
-	return {
+	const codexSeats: Execution = {
 		kind: 'codex',
 		connector(host) {
 			const connector = execution.connector(host);
@@ -25,4 +30,5 @@ export function scriptedExecution(stream: PiExecutionOptions['stream']): Executi
 			};
 		},
 	};
+	return [execution, codexSeats];
 }

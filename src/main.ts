@@ -2,13 +2,14 @@
 import { existsSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { parseArgs } from 'node:util';
-import { describeUnavailable } from './domain/families.ts';
+import { fileCredentials, loginPi } from '@ambionframework/pi';
+import { describeUnavailable, piCredentialsPath } from './domain/families.ts';
 import { runEngine } from './terminal/app/tui.ts';
 
-const USAGE = 'Usage: workbench [directory]';
+const USAGE = 'Usage: workbench [directory]\n       workbench login';
 
 /**
- * Say which seats cannot run without a Codex login. Workbench still
+ * Say which seats cannot run without a login. Workbench still
  * starts and runs the other seats. The terminal shows the same fact beside
  * each seat name.
  */
@@ -26,10 +27,24 @@ function loadEnvironment(): void {
 	if (existsSync('.env')) process.loadEnvFile('.env');
 }
 
+/**
+ * Sign in to Pi with ChatGPT and store the credential. The assistant uses it.
+ * The specialists use `codex login`.
+ */
+async function login(): Promise<void> {
+	const path = piCredentialsPath();
+	await loginPi('openai', fileCredentials(path));
+	console.log(`Signed in. The credential is in ${path}.`);
+}
+
 try {
 	loadEnvironment();
 	const { positionals } = parseArgs({ allowPositionals: true });
 	if (positionals.length > 1) throw new Error(USAGE);
+	if (positionals[0] === 'login') {
+		await login();
+		process.exit(0);
+	}
 	reportMissingKeys();
 	await runEngine({
 		directory: positionals[0] ?? '.data',
