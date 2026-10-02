@@ -56,8 +56,8 @@ class Hm310p:
         return {CHANNEL: Reading(volts / 100, amps / 1000, ((high << 16) | low) / 1000)}
 
     def settings(self):
-        on = self.bus.read(OUTPUT)[0]
-        bits = self.bus.read(PROTECT)[0]
+        # OUTPUT and PROTECT are neighbours, so one exchange reads both.
+        on, bits = self.bus.read(OUTPUT, 2)
         volts, amps = self.bus.read(SET_V, 2)
         ovp, ocp = self.bus.read(OVP, 2)
         return {
