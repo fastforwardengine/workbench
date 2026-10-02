@@ -173,6 +173,15 @@ python3 -c "from PIL import Image; import numpy; print(numpy.asarray(Image.open(
 `-S 10` skips 10 frames, so the exposure settles. The last line prints the
 mean brightness of the frame.
 
+To keep the frames as evidence, Instruments forks the
+[`usb-camera` template](../templates/usb-camera/README.md). The template
+uses the Python and `fswebcam` tools of the image, so the image needs no
+change. The server listens on the loopback address of the workstation.
+Ambion 0.5.0 carries the sensor API through SSH forwarding. Each
+`observe` saves the frame and the manifest in the snapshot store. Docker
+publishes no sensor port. Other seats observe through the connection and
+need no access to the home of Instruments.
+
 **OrbStack's Linux has the drivers of the bench as modules:** `uvcvideo`
 for a UVC camera, `cdc-acm`, `ftdi_sio`, `ch341`, `cp210x`, and `pl2303` for
 a serial port, and `usbtmc` for an instrument. A module loads when its

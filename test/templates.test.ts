@@ -23,6 +23,8 @@ describe('the Workbench templates', () => {
 
 	it('names each template in the instructions of its specialists alone', () => {
 		expect(templateInstructions('experiments')).toContain('the test-plan template');
+		expect(templateInstructions('instruments')).toContain('the usb-camera template');
+		expect(templateInstructions('builder')).not.toContain('the usb-camera template');
 		expect(templateInstructions('design')).toBe('');
 	});
 });
