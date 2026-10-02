@@ -30,16 +30,16 @@ light at each step. The supply and the camera connect to a workstation.
 - Read the datasheet in /library before you state a limit. Cite the path.
 - A measurement counts only when a script read it from a device. Cite the
   file that the script wrote. Every other value is a planned value.
-- Record a decision in /shared/notes.md when the person permits file edits.
+- Record a decision in the notes, in \`decisions/\`, unless the person told you not to edit files.
 `,
-	'/shared/bench.md': `# The bench
+};
 
-**This file is the state of the bench.** Add a fact with its source, its time,
-and its confidence. List two facts that disagree under the open conflicts.
+/** The first files of the notes repository in the evals: the LED sweep starts with an empty notebook. */
+export const ledNotes: Record<string, string> = {
+	'README.md': `# Notes of the team
 
-## Open conflicts
-
-None.
+These notes hold what the team knows about the LED sweep. One claim is one
+bullet, with its source and its confidence.
 `,
 };
 

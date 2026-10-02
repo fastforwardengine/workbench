@@ -66,7 +66,7 @@ describe('the Builder', () => {
 				'Say that a part sits right only when a photo or a measurement that you cite shows it.',
 				'The power stays off until the person confirms the checks of the build.',
 				'answer pass, fail, or unclear',
-				'When the person permits file edits',
+				'Record each step that the person completes in the build folder of the notes',
 				'a transistor, a voltage regulator',
 			])
 				expect(rules).toContain(rule);

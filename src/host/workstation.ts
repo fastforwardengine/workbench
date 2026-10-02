@@ -4,6 +4,7 @@ import type { WorkspaceLayout } from '@ambionframework/workspace';
 import type { WorkspaceAgent } from '@ambionframework/workspace/resource';
 import { s3ObjectBackend } from '@ambionframework/workspace/s3';
 import { workstationBackend, workstationGitBackend } from '@ambionframework/workstation';
+import { sharedRegistrations } from '../domain/notes.ts';
 import { templateRegistrations } from './repositories.ts';
 
 /** The object store for the snapshots: an S3 API, and the credential of the host. */
@@ -148,13 +149,17 @@ async function keyOf(config: WorkstationConfig, name: string): Promise<string> {
  * each agent reaches it over SSH on the server itself. Only the host holds
  * the credential of the object store.
  */
-export async function workstationBackends(config: WorkstationConfig) {
+export async function workstationBackends(
+	config: WorkstationConfig,
+	shared: ReturnType<typeof sharedRegistrations> = sharedRegistrations(),
+) {
 	const server = { server: config.host, port: config.port, hostKey: config.hostKey };
 	const gitKey = await keyOf(config, config.gitAccount);
 	const git = workstationGitBackend({
 		...server,
 		account: { username: config.gitAccount, privateKey: gitKey },
 		templates: templateRegistrations(),
+		shared,
 	});
 	return {
 		bash: workstationBackend({

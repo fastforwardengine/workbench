@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { justGitBackend, sqliteGitStorage } from '@ambionframework/just-bash/git';
+import { sharedRegistrations } from '../domain/notes.ts';
 import { templateFiles, templates } from '../domain/templates.ts';
 
 /**
@@ -21,10 +22,14 @@ export function templateRegistrations() {
  * `git` asks for a token at each request, so a new secret after a restart
  * loses nothing.
  */
-export function labRepositories(location: string) {
+export function labRepositories(
+	location: string,
+	shared: ReturnType<typeof sharedRegistrations> = sharedRegistrations(),
+) {
 	return justGitBackend({
 		storage: sqliteGitStorage(location),
 		secret: randomBytes(32).toString('hex'),
 		templates: templateRegistrations(),
+		shared,
 	});
 }

@@ -16,6 +16,7 @@ import { type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
 import { type Environment, hasKey, keyVariable, unavailableSeats } from '../domain/families.ts';
+import { sharedRegistrations } from '../domain/notes.ts';
 import { scenarios, seats } from '../domain/scenarios.ts';
 import { WORKSPACE } from '../view/refs.ts';
 import { stepLog } from '../view/steps.ts';
@@ -76,12 +77,16 @@ export interface RoomsOptions {
 
 /** The backends of the workspace, and the folders that the files panel lists. */
 async function workspaceBackends(directory: string, workstation?: WorkstationConfig) {
+	const notes = sharedRegistrations();
 	if (workstation)
-		return { backend: await workstationBackends(workstation), roots: workstation.roots };
+		return {
+			backend: await workstationBackends(workstation, notes),
+			roots: workstation.roots,
+		};
 	return {
 		backend: {
 			bash: directoryBackend(resolve(directory, 'workspace'), {
-				git: labRepositories(resolve(directory, 'git.db')),
+				git: labRepositories(resolve(directory, 'git.db'), notes),
 			}),
 		},
 		roots: ['/'],
@@ -141,7 +146,7 @@ export async function openRooms(
 	let roomTeam: HostedRoom['team'];
 	try {
 		await seedWorkspace(workspace);
-		// Register the templates now, so a template that fails to register
+		// Register the templates and notes now, so a template that fails to register
 		// stops the start with an error that names it.
 		await workspace.git?.use(workspace.mirrorAgent, (env) => env.list());
 		// Load the skills now, so a skill that breaks a rule stops the start.

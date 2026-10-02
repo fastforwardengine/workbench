@@ -1,6 +1,6 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join } from 'node:path';
 import { packageDirectory } from './package-root.ts';
+import { textFiles } from './text-files.ts';
 
 /** The directory that holds one directory for each template. */
 export const templatesDirectory = packageDirectory('templates');
@@ -52,22 +52,12 @@ export const templates: readonly Template[] = [
 	},
 ];
 
-/** Paths that a tool writes beside the files of a template. A template never holds them. */
-const IGNORED = new Set(['.git', '.DS_Store', '__pycache__']);
-
 /**
  * The files of one template, by path, as text. The host registers exactly
  * these files. A template holds text files only.
  */
 export function templateFiles(name: string): Record<string, string> {
-	const root = join(templatesDirectory, name);
-	const files: Record<string, string> = {};
-	for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
-		const path = relative(root, join(entry.parentPath, entry.name));
-		if (!entry.isFile() || path.split(sep).some((part) => IGNORED.has(part))) continue;
-		files[path] = readFileSync(join(root, path), 'utf8');
-	}
-	return Object.fromEntries(Object.entries(files).sort(([a], [b]) => (a < b ? -1 : 1)));
+	return textFiles(join(templatesDirectory, name));
 }
 
 /** The instruction lines that name the templates of one specialist. Empty when it has none. */

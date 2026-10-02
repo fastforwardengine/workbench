@@ -27,9 +27,10 @@ import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
 import { piModel, THINKING } from '../../src/domain/families.ts';
+import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
-import { ledFiles, ledProject, ledSweepRoom } from './led-sweep.ts';
+import { ledFiles, ledNotes, ledProject, ledSweepRoom } from './led-sweep.ts';
 
 const MODEL = piModel();
 export const JUDGE_MODEL = process.env.JUDGE_MODEL || MODEL;
@@ -70,6 +71,7 @@ export const WORKSPACE_TOOLS = [
 	'snapshot',
 	'restore',
 	'repos',
+	'clone',
 	'fork',
 ] as const;
 
@@ -86,7 +88,11 @@ export async function openRoom(
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-eval-'));
 	const workspace = openWorkspace({
 		name: 'workbench',
-		backend: { bash: directoryBackend(directory, { git: labRepositories(':memory:') }) },
+		backend: {
+			bash: directoryBackend(directory, {
+				git: labRepositories(':memory:', sharedRegistrations(ledNotes)),
+			}),
+		},
 	});
 	await seedWorkspace(workspace, ledFiles);
 	const built = await team(workspace, ledProject);
