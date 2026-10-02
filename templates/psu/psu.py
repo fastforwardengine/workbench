@@ -99,6 +99,8 @@ def info(guard):
 
 def measure(guard, args):
     names = [args.channel] if args.channel else guard.channels
+    for name in names:
+        guard.known(name)
     rows = []
     for n in range(args.count):
         readings = guard.measure()

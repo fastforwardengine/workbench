@@ -15,14 +15,15 @@ file in the lock directory.
   lock, so off always works.
 
 The lock directory is the PSU_LOCK_DIR variable, else /run/lock when the
-user can write there, else the system temporary directory.
+user can write there, else /tmp. Every account opens the same lock files,
+so each lock file is readable and writable by all accounts.
 """
 
 import fcntl
 import json
+import math
 import os
 import re
-import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import asdict
@@ -50,7 +51,9 @@ def load_config(path):
     if not isinstance(channels, dict) or not channels:
         raise SupplyError(f"{path} must list at least one channel in channels.")
     for channel, limits in channels.items():
-        for key in ("max_voltage", "max_current"):
+        for key in ("max_voltage", "max_current", "max_power"):
+            if key == "max_power" and key not in limits:
+                continue
             if not isinstance(limits.get(key), (int, float)):
                 raise SupplyError(f"The channel {channel} in {path} needs a number for {key}.")
     return config
@@ -62,7 +65,7 @@ def lock_directory():
     if chosen:
         os.makedirs(chosen, exist_ok=True)
         return chosen
-    return "/run/lock" if os.access("/run/lock", os.W_OK) else tempfile.gettempdir()
+    return "/run/lock" if os.access("/run/lock", os.W_OK) else "/tmp"
 
 
 def natural(channel):
@@ -71,7 +74,13 @@ def natural(channel):
 
 
 def _open_lock(path):
-    return os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
+    descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
+    try:
+        # The umask removes bits at creation. Another account must open the file too.
+        os.fchmod(descriptor, 0o666)
+    except OSError:
+        pass  # the file belongs to another account, which set its mode
+    return descriptor
 
 
 class DriveLocks:
@@ -174,8 +183,13 @@ class Guard:
     def _bus(self):
         """The bus lock. A nested use in one Guard keeps the lock it has."""
         if self._depth == 0:
-            self._descriptor = _open_lock(self.bus_path)
-            fcntl.flock(self._descriptor, fcntl.LOCK_EX)
+            descriptor = _open_lock(self.bus_path)
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+            except OSError:
+                os.close(descriptor)
+                raise
+            self._descriptor = descriptor
         self._depth += 1
         try:
             yield
@@ -188,7 +202,7 @@ class Guard:
         with self._bus():
             return function(*args, **kwargs)
 
-    def _known(self, channel):
+    def known(self, channel):
         if channel not in self.channels:
             raise SupplyError(f"There is no channel {channel} in psu.json. The channels are: {', '.join(self.channels)}.")
 
@@ -198,7 +212,7 @@ class Guard:
 
     def limit(self, channel, key):
         """The limit and its source: the smaller of psu.json and the rating."""
-        self._known(channel)
+        self.known(channel)
         rating = self.description.channels[channel]
         configured = self.config["channels"][channel]
         if key == "max_power":
@@ -213,10 +227,23 @@ class Guard:
 
     def _within(self, channel, value, key, name, unit, what):
         ceiling, source = self.limit(channel, key)
+        if not math.isfinite(value):
+            raise SupplyError(f"{what} of {channel}: the {name} must be a finite number.")
         if value < 0:
             raise SupplyError(f"{what} of {channel}: the {name} must not be negative.")
         if value > ceiling + EPSILON:
             raise SupplyError(f"{what} of {channel}: the {name} {value:g} {unit} is above the limit {ceiling:g} {unit} of {source}.")
+
+    def quantize(self, channel, value, step_key):
+        """The value that the supply will hold: the nearest step of its register.
+
+        The guard checks this value, so rounding cannot carry a setpoint one
+        step above its limit.
+        """
+        step = getattr(self.description.channels[channel], step_key)
+        if value is None or not step or not math.isfinite(value):
+            return value
+        return round(round(value / step) * step, 9)
 
     def _check_pair(self, channel, volts, amps, what):
         """Refuse a voltage, a current, or their product above the limits."""
@@ -248,7 +275,7 @@ class Guard:
             readings, settings = self.driver.measure(), self.driver.settings()
         found = {}
         for channel in channels or self.channels:
-            self._known(channel)
+            self.known(channel)
             setting, reading = settings[channel], readings[channel]
             found[channel] = {
                 "output": "on" if setting.on else "off",
@@ -264,7 +291,9 @@ class Guard:
 
     def set(self, channel, voltage=None, current=None):
         """Change the setpoints of one channel, within the limits, and return its settings."""
-        self._known(channel)
+        self.known(channel)
+        voltage = self.quantize(channel, voltage, "voltage_step")
+        current = self.quantize(channel, current, "current_step")
         with self.locks.hold([channel], f"{self.actuator} set"), self._bus():
             now = self.driver.settings()[channel]
             volts = now.voltage if voltage is None else voltage
@@ -283,7 +312,7 @@ class Guard:
 
     def output(self, channel, on):
         """Turn one output on or off. Turning on checks the present setpoints."""
-        self._known(channel)
+        self.known(channel)
         if not on:
             with self._bus():
                 self.driver.output(channel, False)
@@ -298,14 +327,16 @@ class Guard:
         """Turn the outputs off. It takes no drive lock: off always works."""
         names = channels or self.channels
         for channel in names:
-            self._known(channel)
+            self.known(channel)
         with self._bus():
             self.driver.off(names)
             return {channel: setting for channel, setting in self.driver.settings().items() if channel in names}
 
     def protect(self, channel, ovp=None, ocp=None):
         """Set the protection limits of the supply, at or below the limits of the channel."""
-        self._known(channel)
+        self.known(channel)
+        ovp = self.quantize(channel, ovp, "voltage_step")
+        ocp = self.quantize(channel, ocp, "current_step")
         if ovp is not None:
             self._need("ovp", "set an over-voltage limit")
             self._within(channel, ovp, "max_voltage", "OVP", "V", "The protection limit")

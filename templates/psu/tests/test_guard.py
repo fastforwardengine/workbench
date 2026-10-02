@@ -55,6 +55,20 @@ class Limits(Limited):
             guard.output("ch2", True)
         self.assertFalse(driver.settings()["ch2"].on)
 
+    def test_a_value_that_is_not_finite_is_refused(self):
+        guard = self.guard()
+        for value in (float("nan"), float("inf")):
+            with self.assertRaisesRegex(SupplyError, "must be a finite number"):
+                guard.set("ch1", voltage=value)
+        self.assertEqual(self.sim_writes(), [])
+
+    def test_rounding_to_the_register_step_cannot_pass_the_limit(self):
+        config = {"name": "psu", "channels": {"ch1": {"max_voltage": 3.335, "max_current": 0.5}}}
+        guard = self.guard(Hm310p(FakeBus()), config)
+        with self.assertRaisesRegex(SupplyError, "the voltage 3.34 V is above the limit 3.335 V"):
+            guard.set("ch1", voltage=3.335)
+        self.assertEqual(guard.set("ch1", voltage=3.33).voltage, 3.33)
+
     def test_an_unknown_channel_is_refused(self):
         with self.assertRaisesRegex(SupplyError, "There is no channel ch3"):
             self.guard().set("ch3", voltage=1)
