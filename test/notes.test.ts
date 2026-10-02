@@ -37,6 +37,23 @@ async function clone(workspace: Workspace, seat: string, path = '~/notes') {
 	);
 }
 
+async function refusesRewrite(workspace: Workspace, path: string) {
+	const tip = () =>
+		shell(
+			workspace,
+			'datasheets',
+			`cd ${path} && git fetch >/dev/null 2>&1 && git rev-parse origin/main`,
+		);
+	const before = (await tip()).trim();
+	await shell(
+		workspace,
+		'datasheets',
+		`cd ${path} && git switch main && git reset --hard HEAD~1 && echo 'diverged' > diverged.md && git add . && git commit -m 'questions: diverge' && git push --force origin main`,
+		1,
+	);
+	expect((await tip()).trim()).toBe(before);
+}
+
 async function collaboration(workspace: Workspace) {
 	const path = `~/notes-test-${crypto.randomUUID()}`;
 	await clone(workspace, 'datasheets', path);
@@ -77,6 +94,7 @@ async function collaboration(workspace: Workspace) {
 		`cd ${path} && git fetch && git switch -c ${branch} origin/${branch} && echo 'additional evidence' >> ${file} && git commit -am 'questions: add evidence' && git push origin ${branch}`,
 	);
 	await shell(workspace, 'experiments', `cd ${path} && git push origin --delete main`, 1);
+	await refusesRewrite(workspace, path);
 	return file;
 }
 
