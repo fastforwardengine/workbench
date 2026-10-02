@@ -19,8 +19,8 @@ import {
 	startRoom,
 } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
-import { directoryBackend } from '@ambionframework/just-bash';
 import { codexExecution } from '@ambionframework/codex';
+import { directoryBackend } from '@ambionframework/just-bash';
 import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
@@ -31,7 +31,6 @@ import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
 import { ledFiles, ledNotes, ledProject, ledSweepRoom } from './led-sweep.ts';
 
-const MODEL = codexModel();
 export const JUDGE_MODEL = process.env.JUDGE_MODEL || 'openai/gpt-6-luna';
 /** The judge thinks at the level of the seats. */
 export const JUDGE_THINKING = REASONING_EFFORT;
@@ -154,11 +153,11 @@ export function track(name: string): Evidence {
 		const cost = (usage: { cost?: number } | undefined) => (usage?.cost ?? 0).toFixed(4);
 		const { run, verdict } = evidence;
 		process.stdout.write(
-			`workbench eval · ${MODEL} · ${name}: room $${cost(run?.usage.room)}, judge $${cost(verdict?.usage)}\n`,
+			`workbench eval · ${codexModel()} · ${name}: room $${cost(run?.usage.room)}, judge $${cost(verdict?.usage)}\n`,
 		);
 	});
 	onTestFailed(() => {
-		const dir = new URL(`./runs/${MODEL.replace(/[^a-z0-9.-]+/gi, '-')}/`, import.meta.url);
+		const dir = new URL(`./runs/${codexModel().replace(/[^a-z0-9.-]+/gi, '-')}/`, import.meta.url);
 		mkdirSync(dir, { recursive: true });
 		const path = new URL(`${name.replace(/[^a-z0-9-]+/gi, '-')}.json`, dir);
 		const replacer = (_key: string, value: unknown) =>

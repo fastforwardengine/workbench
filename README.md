@@ -25,6 +25,7 @@ Use Node 26.4 or newer, on macOS or Linux.
 ```sh
 npm install -g @fastforwardengine/workbench
 codex login                       # host ChatGPT login; or set CODEX_API_KEY
+                                  # (`npx @openai/codex login` if needed)
 workbench                         # data in ./.data
 workbench ./bench                 # another directory
 ```
@@ -47,16 +48,17 @@ pnpm start ./bench                # another directory
   Light reasoning maps to `modelReasoningEffort: 'low'`.
   [Ambion's Codex guide](https://github.com/ambionframework/ambion/blob/v0.5.0/docs/codex.md)
   states the supported options.
-- **The seats use the host login.** Run `codex login` (`npx @openai/codex login` if needed), or set
-  `CODEX_API_KEY`. A key takes precedence over the login file.
-  `CODEX_HOME` selects the host login folder when set.
-- **Codex keeps seat state in `~/.ambion/codex`.** The adapter links the
-  host login into that folder. Host tools, skills, and MCP settings stay
-  outside the seats. Workspace tools reach the local or remote workstation.
+- **The seats use the host login.** Run `codex login` (`npx @openai/codex login`
+  if needed), or set `CODEX_API_KEY` or `OPENAI_API_KEY`. A key takes
+  precedence over the login file. `CODEX_HOME` selects the host login
+  folder when set.
+- **Codex keeps seat state in `~/.ambion/codex`.** The Codex execution
+  links the host login into that folder. Host tools, skills, and MCP
+  settings stay outside the seats. Workspace tools reach the local or remote workstation.
 - **A seat without a login does not run.** The header marks it `no login`.
   The failure states how to sign in. For a keyring login, set
   `cli_auth_credentials_store = "file"` in the host Codex configuration,
-  then run `codex login` again. The adapter validates the credential and
+  then run `codex login` again. Codex validates the credential and
   model when an activation starts.
 - **The terminal opens as the person named for your OS account.** That
   person is the one person of Workbench.

@@ -1,4 +1,3 @@
-import { scriptedExecution } from './scripted-execution.ts';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
@@ -16,6 +15,7 @@ import { people } from '../src/domain/definitions.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
 import { liveRoom, openRooms } from '../src/host/rooms.ts';
 import { PNG } from './png.ts';
+import { scriptedExecution } from './scripted-execution.ts';
 
 const opened: { lab: Lab; directory: string }[] = [];
 

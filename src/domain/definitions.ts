@@ -3,7 +3,7 @@ import { defineAgent, definePerson } from '@ambionframework/ambion';
 import { defineAssistant } from '@ambionframework/assistant';
 import { codex } from '@ambionframework/codex';
 import type { Workspace } from '@ambionframework/workspace';
-import { codexModel, REASONING_EFFORT, type Environment } from './families.ts';
+import { codexModel, type Environment, REASONING_EFFORT } from './families.ts';
 import { agentSkills } from './skills.ts';
 import { templateInstructions } from './templates.ts';
 
@@ -117,19 +117,10 @@ export async function team(
 ) {
 	const model = codexModel(env);
 	const rules = sharedRules(project);
-	const maintainedAssistant = defineAssistant({
+	const assistant = codexAssistant(
+		defineAssistant({ model, instructions: assistantInstructions(project) }),
 		model,
-		instructions: assistantInstructions(project),
-	});
-	const assistant = {
-		...maintainedAssistant,
-		executor: codex({
-			...maintainedAssistant.executor,
-			bundles: [{ tools: [], guidance: maintainedAssistant.executor.guidance }],
-			model,
-			modelReasoningEffort: REASONING_EFFORT,
-		}),
-	};
+	);
 	const definitions = await Promise.all(
 		specialists.map(async ({ instructions, ...definition }) => {
 			const skills = await agentSkills(definition.name);
@@ -145,6 +136,24 @@ export async function team(
 		}),
 	);
 	return { workspace, assistant, specialists: definitions, agents: [assistant, ...definitions] };
+}
+
+/**
+ * `defineAssistant` builds a Pi executor.
+ * This function moves its instructions, tools, guidance, and reminders onto Codex.
+ * A bundle holds one reminder, so each reminder gets a bundle.
+ */
+export function codexAssistant(maintained: ReturnType<typeof defineAssistant>, model: string) {
+	const { guidance, reminders = [] } = maintained.executor;
+	return {
+		...maintained,
+		executor: codex({
+			...maintained.executor,
+			bundles: [{ tools: [], guidance }, ...reminders.map((remind) => ({ tools: [], remind }))],
+			model,
+			modelReasoningEffort: REASONING_EFFORT,
+		}),
+	};
 }
 
 const CLOSING =

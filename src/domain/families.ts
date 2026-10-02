@@ -55,12 +55,16 @@ function readableFile(path: string): boolean {
 	}
 }
 
-/** Check the presence of a credential. Codex validates it when an activation starts. */
+/**
+ * Check the presence of a credential. The Codex execution passes `OPENAI_*`
+ * variables to Codex. Codex validates the credential when an activation starts.
+ */
 export function hasLogin(
 	env: Environment = process.env,
 	options: CodexExecutionOptions = {},
 ): boolean {
-	if ((options.env ? { ...env, ...options.env } : env).CODEX_API_KEY?.trim()) return true;
+	const effective = options.env ? { ...env, ...options.env } : env;
+	if (effective.CODEX_API_KEY?.trim() || effective.OPENAI_API_KEY?.trim()) return true;
 	const paths = codexPaths(env, options);
 	return (
 		readableFile(join(paths.home, 'auth.json')) ||
@@ -69,7 +73,7 @@ export function hasLogin(
 }
 
 export const LOGIN_HELP =
-	'Codex needs CODEX_API_KEY or a readable auth.json. Run codex login (or codex login --device-auth). For a keyring login, set cli_auth_credentials_store = "file" and sign in again.';
+	'Codex needs CODEX_API_KEY, OPENAI_API_KEY, or a readable auth.json. Run codex login (or codex login --device-auth). For a keyring login, set cli_auth_credentials_store = "file" and sign in again.';
 
 export function unavailableSeats(
 	env: Environment = process.env,

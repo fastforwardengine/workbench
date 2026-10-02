@@ -10,16 +10,16 @@ import {
 	type TraceStep,
 } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
+import { type CodexExecutionOptions, codexExecution } from '@ambionframework/codex';
 import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journal';
 import { directoryBackend } from '@ambionframework/just-bash';
-import { type CodexExecutionOptions, codexExecution } from '@ambionframework/codex';
 import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
 import { type Environment, hasLogin, LOGIN_HELP, unavailableSeats } from '../domain/families.ts';
+import { sharedRegistrations } from '../domain/notes.ts';
 import { scenarios, seats } from '../domain/scenarios.ts';
 import { WORKSPACE } from '../view/refs.ts';
 import { stepLog } from '../view/steps.ts';
-import { sharedRegistrations } from '../domain/notes.ts';
 import { labRepositories } from './repositories.ts';
 import { seedWorkspace } from './seed.ts';
 import { unavailable } from './unavailable.ts';

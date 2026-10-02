@@ -1,4 +1,3 @@
-import { scriptedExecution } from './scripted-execution.ts';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { people } from '../src/domain/definitions.ts';
 import { openLab } from '../src/host/host.ts';
 import { liveRoom, openRooms } from '../src/host/rooms.ts';
+import { scriptedExecution } from './scripted-execution.ts';
 
 const person = people.at(0);
 if (!person) throw new Error('The test team has no human.');

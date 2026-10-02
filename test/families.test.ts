@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
-import { describeUnavailable, hasLogin, codexModel, seatFamilies } from '../src/domain/families.ts';
+import { codexModel, describeUnavailable, hasLogin, seatFamilies } from '../src/domain/families.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
 import { buildTimeline } from '../src/view/timeline.ts';
 
@@ -27,6 +27,11 @@ describe('Workbench executor families', () => {
 
 	it('accepts a Codex key and reports missing login files', () => {
 		expect(describeUnavailable({ CODEX_API_KEY: 'k' })).toEqual([]);
+		expect(describeUnavailable({ OPENAI_API_KEY: 'k' })).toEqual([]);
+		expect(hasLogin({ HOME: '/nonexistent-workbench-home', OPENAI_API_KEY: '  ' })).toBe(false);
+		expect(
+			hasLogin({ HOME: '/nonexistent-workbench-home' }, { env: { OPENAI_API_KEY: 'k' } }),
+		).toBe(true);
 		expect(hasLogin({ HOME: '/nonexistent-workbench-home' })).toBe(false);
 		expect(describeUnavailable({ HOME: '/nonexistent-workbench-home' })).toHaveLength(5);
 		expect(describeUnavailable({ HOME: '/nonexistent-workbench-home' })[0]).toContain(

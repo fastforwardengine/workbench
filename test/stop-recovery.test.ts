@@ -1,4 +1,3 @@
-import { scriptedExecution } from './scripted-execution.ts';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
@@ -8,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { people } from '../src/domain/definitions.ts';
 import { openLab } from '../src/host/host.ts';
 import { liveRoom, openRooms } from '../src/host/rooms.ts';
+import { scriptedExecution } from './scripted-execution.ts';
 
 type StopFailure = false | 'before' | 'after';
 type WrappedDatabase = {
