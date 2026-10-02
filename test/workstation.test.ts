@@ -17,11 +17,11 @@ import {
 	callTool,
 	quiet,
 	type Script,
+	say,
 	scripted,
 	settled,
-	speak,
 } from '@ambionframework/ambion/testing';
-import { BACKGROUND_CONTEXT, openWorkspace } from '@ambionframework/workspace';
+import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
 import { attachFile } from '../src/host/files.ts';
@@ -97,15 +97,15 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const path = `/shared/handoff-${token()}.md`;
 		const marker = `LED limit ${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? speak('Write it.', 'datasheets') : quiet()),
+			assistant: (_step, _seat, call) => (call === 1 ? say('Write it.', 'datasheets') : quiet()),
 			datasheets: (_step, _seat, call) => {
 				if (call === 1) return callTool('write', { path, content: marker });
-				if (call === 2) return speak('Written.', 'experiments');
+				if (call === 2) return say('Written.', 'experiments');
 				return quiet();
 			},
 			experiments: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path });
-				if (call === 2) return speak(`Read back: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 2) return say(`Read back: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
 			},
 		});
@@ -115,7 +115,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 			said.some((message) => message.from === 'experiments' && message.text.includes(marker)),
 		).toBe(true);
 		await built.workspace.use({ name: 'datasheets' }, async (env) => {
-			await env.remove(path, { recursive: false }, BACKGROUND_CONTEXT);
+			await env.remove(path, { recursive: false });
 		});
 	}, 120_000);
 
@@ -128,10 +128,10 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const attached = await attachFile(built.workspace, join(directory, name));
 		const script = byAgent({
 			assistant: (_step, _seat, call) =>
-				call === 1 ? speak('Look at the picture.', 'instruments') : quiet(),
+				call === 1 ? say('Look at the picture.', 'instruments') : quiet(),
 			instruments: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: attached.path });
-				if (call === 2) return speak(`Saw: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 2) return say(`Saw: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
 			},
 		});
@@ -146,7 +146,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		expect(Buffer.from(await built.workspace.readSnapshot(attached.ref))).toEqual(PNG);
 		// A seat cannot write there: the folder belongs to the host account.
 		const write = await built.workspace.use({ name: 'instruments' }, (env) =>
-			env.writeFile('/attachments/intruder.txt', 'x', BACKGROUND_CONTEXT),
+			env.writeFile('/attachments/intruder.txt', 'x'),
 		);
 		expect(write.ok).toBe(false);
 	}, 120_000);
@@ -163,11 +163,11 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		expect(built.specialists.map((seat) => seat.name).sort()).toEqual(Object.keys(uids).sort());
 		for (const [seat, uid] of Object.entries(uids)) {
 			const script = byAgent({
-				assistant: (_step, _seat, call) => (call === 1 ? speak('Report.', seat) : quiet()),
+				assistant: (_step, _seat, call) => (call === 1 ? say('Report.', seat) : quiet()),
 				[seat]: (step, _seat, call) => {
 					if (call === 1)
 						return callTool('bash', { command: 'echo "$(id -u) $(stat -c %u ~)"', wait: 30 });
-					if (call === 2) return speak(`ids ${step.results.at(-1)?.text}`, 'assistant');
+					if (call === 2) return say(`ids ${step.results.at(-1)?.text}`, 'assistant');
 					return quiet();
 				},
 			});
@@ -182,7 +182,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const built = await build();
 		const script = byAgent({
 			assistant: (_step, _seat, call) =>
-				call === 1 ? speak('Read your skill.', 'instruments') : quiet(),
+				call === 1 ? say('Read your skill.', 'instruments') : quiet(),
 			instruments: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: '~/.skills/scan-the-bench/SKILL.md' });
 				if (call === 2)
@@ -191,7 +191,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 						wait: 30,
 					});
 				if (call === 3)
-					return speak(
+					return say(
 						`Skill: ${step.results.at(-2)?.text}\nShell: ${step.results.at(-1)?.text}`,
 						'assistant',
 					);
@@ -210,7 +210,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const built = await build();
 		const name = `plan-${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? speak('Plan it.', 'experiments') : quiet()),
+			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'experiments') : quiet()),
 			experiments: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', { source: 'templates/test-plan', name, clone: `~/${name}` });
@@ -219,7 +219,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git -c user.name=experiments -c user.email=experiments@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
 						wait: 60,
 					});
-				if (call === 3) return speak(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
 			},
 		});
@@ -242,7 +242,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		// The process table persists on the workstation, so each run names its process.
 		const name = `probe-${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? speak('Run it.', 'instruments') : quiet()),
+			assistant: (_step, _seat, call) => (call === 1 ? say('Run it.', 'instruments') : quiet()),
 			instruments: (_step, _seat, call) =>
 				call === 1
 					? callTool('bash', { command: `whoami; echo ${marker}`, name, wait: 30 })
@@ -254,7 +254,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		);
 		expect(probe).toMatchObject({ agent: 'instruments', state: 'exited', exitCode: 0 });
 		const output = await built.workspace.use({ name: 'instruments' }, async (env) => {
-			const read = await env.readTextFile(probe?.output ?? '', BACKGROUND_CONTEXT);
+			const read = await env.readTextFile(probe?.output ?? '');
 			return read.ok ? read.value : '';
 		});
 		expect(output).toBe(`instruments\n${marker}\n`);
@@ -264,7 +264,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const built = await build();
 		const name = `scan-${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? speak('Scan.', 'instruments') : quiet()),
+			assistant: (_step, _seat, call) => (call === 1 ? say('Scan.', 'instruments') : quiet()),
 			instruments: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', { source: 'templates/device-scan', name, clone: `~/${name}` });
@@ -273,7 +273,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 						command: `cd ~/${name} && git switch -qc scan && python3 scan/scan.py > /dev/null && git add scans && git -c user.name=instruments -c user.email=instruments@workbench commit -qm 'Scan the workstation' && git push -q origin scan && ls scans`,
 						wait: 60,
 					});
-				if (call === 3) return speak(`Scanned: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 3) return say(`Scanned: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
 			},
 		});

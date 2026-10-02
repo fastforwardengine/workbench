@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { memoryBackend } from '@ambionframework/just-bash';
-import { BACKGROUND_CONTEXT, openWorkspace } from '@ambionframework/workspace';
+import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { seedFiles } from '../src/domain/scenarios.ts';
 import { seedWorkspace } from '../src/host/seed.ts';
@@ -69,14 +69,11 @@ describe('the library', () => {
 		const workspace = openWorkspace({ name: 'library', backend: { bash: memoryBackend() } });
 		try {
 			await seedWorkspace(workspace);
-			await workspace.use(workspace.host, async (env) => {
-				const read = await env.readBinaryFile(
-					'/library/images/kit-schematic.jpg',
-					BACKGROUND_CONTEXT,
-				);
+			await workspace.use(workspace.mirrorAgent, async (env) => {
+				const read = await env.readBinaryFile('/library/images/kit-schematic.jpg');
 				const expected = readFileSync(join(library, 'images', 'kit-schematic.jpg'));
 				expect(read.ok && Buffer.from(read.value).equals(expected)).toBe(true);
-				const text = await env.readTextFile('/library/rda5807fp.md', BACKGROUND_CONTEXT);
+				const text = await env.readTextFile('/library/rda5807fp.md');
 				expect(text.ok && text.value).toContain('RDA5807FP');
 			});
 		} finally {
@@ -87,19 +84,15 @@ describe('the library', () => {
 	it('rewrites a stale library file at each start, and keeps an edit outside the library', async () => {
 		const workspace = openWorkspace({ name: 'library', backend: { bash: memoryBackend() } });
 		try {
-			await workspace.use(workspace.host, async (env) => {
-				await env.writeFile(
-					'/library/README.md',
-					'The directory has no summary yet.',
-					BACKGROUND_CONTEXT,
-				);
-				await env.writeFile('/shared/kit.md', 'an edit of the person', BACKGROUND_CONTEXT);
+			await workspace.use(workspace.mirrorAgent, async (env) => {
+				await env.writeFile('/library/README.md', 'The directory has no summary yet.');
+				await env.writeFile('/shared/kit.md', 'an edit of the person');
 			});
 			await seedWorkspace(workspace);
-			await workspace.use(workspace.host, async (env) => {
-				const index = await env.readTextFile('/library/README.md', BACKGROUND_CONTEXT);
+			await workspace.use(workspace.mirrorAgent, async (env) => {
+				const index = await env.readTextFile('/library/README.md');
 				expect(index.ok && index.value).toContain('rda5807fp.md');
-				const kit = await env.readTextFile('/shared/kit.md', BACKGROUND_CONTEXT);
+				const kit = await env.readTextFile('/shared/kit.md');
 				expect(kit.ok && kit.value).toBe('an edit of the person');
 			});
 		} finally {

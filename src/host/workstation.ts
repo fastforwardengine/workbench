@@ -149,10 +149,16 @@ async function keyOf(config: WorkstationConfig, name: string): Promise<string> {
  * the credential of the object store.
  */
 export async function workstationBackends(config: WorkstationConfig) {
-	const server = { host: config.host, port: config.port, hostKey: config.hostKey };
+	const server = { server: config.host, port: config.port, hostKey: config.hostKey };
 	const gitKey = await keyOf(config, config.gitAccount);
+	const git = workstationGitBackend({
+		...server,
+		account: { username: config.gitAccount, privateKey: gitKey },
+		templates: templateRegistrations(),
+	});
 	return {
 		bash: workstationBackend({
+			git,
 			...server,
 			layout: config.layout,
 			credentialFor: async (agent: WorkspaceAgent) => ({
@@ -161,10 +167,5 @@ export async function workstationBackends(config: WorkstationConfig) {
 			}),
 		}),
 		...(config.objects ? { objects: s3ObjectBackend(config.objects) } : {}),
-		git: workstationGitBackend({
-			...server,
-			account: { username: config.gitAccount, privateKey: gitKey },
-			templates: templateRegistrations(),
-		}),
 	};
 }

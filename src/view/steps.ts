@@ -67,15 +67,10 @@ export function activationLine(activation: ExchangeActivation): string {
 		activation.seat,
 		activation.purpose,
 		`attempt ${activation.attempt}`,
-		...(activation.outcome.status === 'running' ? ['running'] : []),
+		...(activation.outcome.kind === 'running' ? ['running'] : []),
 		...(cost ? [cost] : []),
 	];
 	return parts.join(' · ');
-}
-
-function decisionOf(step: Extract<TraceStep, { type: 'approval' }>): string {
-	if (step.decision === undefined) return 'waiting for the harness permission';
-	return step.decision === 'allow' ? 'harness permission allowed' : 'harness permission denied';
 }
 
 function lineOf(step: TraceStep): StepLine {
@@ -96,8 +91,10 @@ function lineOf(step: TraceStep): StepLine {
 			return { kind: 'room', text: `room ${step.result}${step.seq ? ` at ${step.seq}` : ''}` };
 		case 'steer':
 			return { kind: 'steer', text: `steer ${step.seq} ${step.consumed ? 'read' : 'queued'}` };
-		case 'approval':
-			return { kind: 'approval', text: `${step.name}: ${decisionOf(step)}` };
+		case 'notice':
+			return { kind: 'notice', text: `${step.level}: ${brief(step.text)}` };
+		case 'session':
+			return { kind: 'session', text: [step.name, step.model].filter(Boolean).join(' · ') };
 		case 'usage':
 			return { kind: 'usage', text: formatUsage(step) };
 		case 'end':

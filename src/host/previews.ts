@@ -88,7 +88,7 @@ async function nowLine(workspace: Workspace, named: CommitUri): Promise<string |
 	// An agent writes the ref, so its name can be one that git refuses. The commit still shows.
 	if (!validRefName(name))
 		return `${label} is not a name that git accepts. The ref keeps this commit.`;
-	const now = await git.use(workspace.host, (env) => env.resolve(named.repository, at));
+	const now = await git.use(workspace.mirrorAgent, (env) => env.resolve(named.repository, at));
 	if (now === undefined) return `${label} no longer exists. The ref keeps this commit.`;
 	return now === named.commit
 		? `${label} still names this commit.`

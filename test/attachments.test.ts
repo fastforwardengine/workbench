@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { memoryBackend } from '@ambionframework/just-bash';
-import { BACKGROUND_CONTEXT, openWorkspace } from '@ambionframework/workspace';
+import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { attachFile, imageMimeType, isImagePath } from '../src/host/files.ts';
 import { readSnapshotFile } from '../src/host/previews.ts';
@@ -173,8 +173,8 @@ describe('attachFile, with files that it must refuse', () => {
 
 	/** The names in /attachments, or none when the folder does not exist. */
 	async function attached(workspace: ReturnType<typeof open3>): Promise<string[]> {
-		return workspace.use(workspace.host, async (env) => {
-			const listed = await env.listDir('/attachments', BACKGROUND_CONTEXT);
+		return workspace.use(workspace.mirrorAgent, async (env) => {
+			const listed = await env.listDir('/attachments');
 			return listed.ok ? listed.value.map((entry) => entry.path) : [];
 		});
 	}
@@ -233,8 +233,8 @@ describe('attachFile, with files that it must refuse', () => {
 		const dir = await folder();
 		await writeFile(join(dir, 'a.png'), PNG);
 		const workspace = open3();
-		await workspace.use(workspace.host, (env) =>
-			env.writeFile('/attachments', 'a file where the folder should be', BACKGROUND_CONTEXT),
+		await workspace.use(workspace.mirrorAgent, (env) =>
+			env.writeFile('/attachments', 'a file where the folder should be'),
 		);
 		try {
 			await expect(attachFile(workspace, join(dir, 'a.png'))).rejects.toThrow(
@@ -251,9 +251,9 @@ describe('attachFile, with files that it must refuse', () => {
 			const over = 8 * 1_048_576 + 1;
 			const database = Buffer.alloc(over);
 			database.write('SQLite format 3\0');
-			await workspace.use(workspace.host, async (env) => {
-				await env.writeFile('/shared/big.png', Buffer.alloc(over, 1), BACKGROUND_CONTEXT);
-				await env.writeFile('/shared/big.db', database, BACKGROUND_CONTEXT);
+			await workspace.use(workspace.mirrorAgent, async (env) => {
+				await env.writeFile('/shared/big.png', Buffer.alloc(over, 1));
+				await env.writeFile('/shared/big.db', database);
 			});
 			const [picture, table] = await workspace.snapshot(['/shared/big.png', '/shared/big.db']);
 			const shownPicture = await readSnapshotFile(workspace, picture ?? '');

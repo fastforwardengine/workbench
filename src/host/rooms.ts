@@ -80,8 +80,9 @@ async function workspaceBackends(directory: string, workstation?: WorkstationCon
 		return { backend: await workstationBackends(workstation), roots: workstation.roots };
 	return {
 		backend: {
-			bash: directoryBackend(resolve(directory, 'workspace')),
-			git: labRepositories(resolve(directory, 'git.db')),
+			bash: directoryBackend(resolve(directory, 'workspace'), {
+				git: labRepositories(resolve(directory, 'git.db')),
+			}),
 		},
 		roots: ['/'],
 	};
@@ -142,7 +143,7 @@ export async function openRooms(
 		await seedWorkspace(workspace);
 		// Register the templates now, so a template that fails to register
 		// stops the start with an error that names it.
-		await workspace.git?.use(workspace.host, (env) => env.list());
+		await workspace.git?.use(workspace.mirrorAgent, (env) => env.list());
 		// Load the skills now, so a skill that breaks a rule stops the start.
 		roomTeam = await team(workspace);
 	} catch (error) {
@@ -257,7 +258,7 @@ export async function openRooms(
 					save(entry);
 					break;
 				case 'abort':
-					await liveRoom(entry).abort();
+					await liveRoom(entry).cancel();
 					break;
 			}
 			return status(entry);
@@ -323,7 +324,7 @@ export async function openRooms(
 					entry,
 					await readRoom(entry.name, {
 						runtime,
-						messages: since === undefined ? undefined : { since },
+						messages: since === undefined ? undefined : { after: since },
 					}),
 					missing,
 				),
@@ -394,16 +395,16 @@ function recordActivity(entry: HostedRoom, event: RoomNotification): void {
 function describeEvent(event: RoomNotification): Omit<Activity, 'at'> | undefined {
 	switch (event.type) {
 		case 'error':
-		case 'delivery_error':
-			return { type: event.type, agent: event.agent, text: event.error.message };
+		case 'port_error':
+			return { type: event.type, agent: event.seat, text: event.error.message };
 		case 'activation_start':
-			return { type: event.type, agent: event.agent, text: 'Reading and working' };
+			return { type: event.type, agent: event.seat, text: 'Reading and working' };
 		case 'activation_end':
-			return { type: event.type, agent: event.agent, text: 'Finished activation' };
-		case 'tool_execution_start':
-			return { type: event.type, agent: event.agent, text: `Using ${event.toolName}` };
+			return { type: event.type, agent: event.seat, text: 'Finished activation' };
+		case 'tool_call':
+			return { type: event.type, agent: event.seat, text: `Using ${event.name}` };
 		case 'abandoned':
-			return { type: event.type, agent: event.agent, text: 'Retry limit reached' };
+			return { type: event.type, agent: event.seat, text: 'Retry limit reached' };
 		default:
 			return undefined;
 	}
