@@ -74,6 +74,22 @@ class Camera:
         self.demo = demo
         (self.data / "blobs").mkdir(parents=True, exist_ok=True)
 
+    def store(self, digest, png):
+        """Write the blob through a temporary file, so a crash leaves no partial blob."""
+        blob = self.data / "blobs" / digest
+        if blob.exists() and blob.read_bytes() == png:
+            return
+        descriptor, name = tempfile.mkstemp(dir=self.data / "blobs", prefix=".tmp-")
+        try:
+            with os.fdopen(descriptor, "wb") as output:
+                output.write(png)
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(name, blob)
+        except BaseException:
+            Path(name).unlink(missing_ok=True)
+            raise
+
     def acquire(self):
         if self.demo:
             png = demo_png()
@@ -82,20 +98,14 @@ class Camera:
             with tempfile.TemporaryDirectory(dir=self.data) as folder:
                 path = Path(folder) / "frame.png"
                 subprocess.run(["fswebcam", "-d", self.device, "-r", self.resolution,
-                                "-S", "10", "--no-banner", "--png", "0", str(path)],
+                                "-S", "10", "--no-banner", "--png", "6", str(path)],
                                check=True, capture_output=True, timeout=30)
                 png = path.read_bytes()
                 if not png.startswith(b"\x89PNG\r\n\x1a\n"):
                     raise ValueError("Capture did not produce a PNG.")
         at = utc()  # Receipt time, not a camera hardware clock.
         digest = hashlib.sha256(png).hexdigest()
-        blob = self.data / "blobs" / digest
-        if blob.exists():
-            if blob.read_bytes() != png:
-                raise ValueError("Stored frame digest mismatch.")
-        else:
-            with blob.open("xb") as output:
-                output.write(png)
+        self.store(digest, png)
         label = "SYNTHETIC DEMO: not a bench measurement." if self.demo else f"USB camera {self.device}; timestamp is capture receipt time."
         observation = {"at": at, "parts": [{"kind": "text", "text": label},
                        {"kind": "frame", "file": digest, "mediaType": "image/png"}]}
@@ -104,7 +114,7 @@ class Camera:
         return observation
 
 
-def open_server(camera, port=0):
+def open_server(camera, port=0, timeout=10):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
             pass
@@ -145,7 +155,6 @@ def open_server(camera, port=0):
                 length = int(self.headers.get("Content-Length", "0"))
                 if not 0 < length <= 4096 or self.headers.get("Transfer-Encoding"):
                     raise ValueError("Invalid body length.")
-                self.connection.settimeout(5)
                 body = json.loads(self.rfile.read(length))
                 if not valid_request(body):
                     raise ValueError("Invalid request.")
@@ -159,6 +168,8 @@ def open_server(camera, port=0):
                 return self.error(503, "unavailable", "Camera capture failed; check device access and status.")
             self.json(200, {"api": 1, "observations": [observation]})
 
+    # StreamRequestHandler applies this timeout to the socket before it reads the headers.
+    Handler.timeout = timeout
     # Single request at a time: no overlapping capture of the same device.
     return HTTPServer(("127.0.0.1", port), Handler)
 

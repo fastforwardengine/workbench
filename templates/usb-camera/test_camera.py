@@ -2,8 +2,12 @@
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
+import signal
+import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -20,13 +24,21 @@ class CameraTests(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.source = {"repository": "instruments/bench-camera", "commit": "a" * 40, "dirty": False}
         self.camera = camera.Camera(copy.deepcopy(self.source), self.folder.name, None, demo=True)
-        self.server = camera.open_server(self.camera)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.running = False
+        self.start_server()
+        self.addCleanup(self.stop_server)
+
+    def start_server(self, served=None, timeout=10):
+        self.server = camera.open_server(served or self.camera, timeout=timeout)
+        self.thread = threading.Thread(target=self.server.serve_forever, args=(0.01,), daemon=True)
         self.thread.start()
-        self.addCleanup(self.stop)
+        self.running = True
         self.root = f"http://127.0.0.1:{self.server.server_port}"
 
-    def stop(self):
+    def stop_server(self):
+        if not self.running:
+            return
+        self.running = False
         self.server.shutdown()
         self.server.server_close()
         self.thread.join()
@@ -80,13 +92,47 @@ class CameraTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 400)
         error.exception.close()
 
-    def test_capture_failure_does_not_return_previous_frame(self):
-        self.camera.acquire()
-        with patch.object(self.camera, "acquire", side_effect=subprocess.TimeoutExpired("fswebcam", 30)):
+    def test_truncated_blob_is_replaced_atomically(self):
+        digest = hashlib.sha256(camera.demo_png()).hexdigest()
+        blobs = Path(self.folder.name) / "blobs"
+        (blobs / digest).write_bytes(camera.demo_png()[:10])
+        self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 200)
+        self.assertEqual((blobs / digest).read_bytes(), camera.demo_png())
+        self.assertEqual([path.name for path in blobs.iterdir()], [digest])
+
+    def test_idle_connection_does_not_block_observe(self):
+        self.stop_server()
+        self.start_server(timeout=0.5)
+        with socket.create_connection(("127.0.0.1", self.server.server_port)):
+            self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 200)
+
+    def check_capture_failure(self, run):
+        live = camera.Camera(self.source, self.folder.name, "/dev/video4")
+        self.stop_server()
+        self.start_server(live)
+        log = Path(self.folder.name) / "observations.jsonl"
+        before = log.read_text() if log.exists() else ""
+        with patch("camera.subprocess.run", side_effect=run):
             status, body = self.request("/camera/observe", {"api": 1})
         self.assertEqual(status, 503)
         self.assertEqual(body["code"], "unavailable")
         self.assertNotIn("observations", body)
+        self.assertEqual(log.read_text() if log.exists() else "", before)
+        self.assertEqual([path.name for path in Path(self.folder.name).iterdir() if path.is_dir()], ["blobs"])
+
+    def test_capture_timeout_gives_503(self):
+        self.check_capture_failure(subprocess.TimeoutExpired("fswebcam", 30))
+
+    def test_capture_error_gives_503(self):
+        self.check_capture_failure(subprocess.CalledProcessError(1, "fswebcam"))
+
+    def test_capture_without_file_gives_503(self):
+        self.check_capture_failure(lambda *_args, **_kwargs: None)
+
+    def test_capture_of_other_bytes_gives_503(self):
+        def capture(command, **_kwargs):
+            Path(command[-1]).write_bytes(b"not a png")
+        self.check_capture_failure(capture)
 
     def test_v4l2_capture_arguments_and_receipt_timestamp(self):
         live = camera.Camera(self.source, self.folder.name, "/dev/video4", "640x480")
@@ -122,6 +168,45 @@ class CameraTests(unittest.TestCase):
             self.assertNotIn("branch", camera.launch_source(folder, "instruments/bench-camera"))
             with self.assertRaises(ValueError):
                 camera.launch_source(folder, "templates/usb-camera")
+
+
+TEMPLATE = Path(__file__).resolve().parent
+
+
+class MainTests(unittest.TestCase):
+    def run_main(self, *args, data, wait=10):
+        env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "instruments/bench-camera",
+               "AMBION_SENSOR_DATA_DIR": data}
+        return subprocess.Popen([sys.executable, "-u", "-B", "camera.py", *args], cwd=TEMPLATE, env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    def test_demo_prints_ready_serves_and_stops_on_sigterm(self):
+        with tempfile.TemporaryDirectory() as data:
+            process = self.run_main("--demo", data=data)
+            self.addCleanup(process.kill)
+            self.addCleanup(process.communicate)
+            line = process.stdout.readline()
+            self.assertTrue(line.startswith("READY "))
+            ready = json.loads(line[6:])
+            self.assertEqual(ready["source"]["repository"], "instruments/bench-camera")
+            with urllib.request.urlopen(f"http://127.0.0.1:{ready['port']}/", timeout=5) as response:
+                self.assertEqual(json.load(response)["source"], ready["source"])
+            process.send_signal(signal.SIGTERM)
+            self.assertEqual(process.wait(timeout=10), 0)
+
+    def test_data_directory_inside_checkout_exits_with_2(self):
+        process = self.run_main("--demo", data=str(TEMPLATE / "inside-data"))
+        out, _err = process.communicate(timeout=10)
+        self.assertEqual(process.returncode, 2)
+        self.assertNotIn("READY", out)
+        self.assertFalse((TEMPLATE / "inside-data").exists())
+
+    def test_no_device_and_no_demo_exits_with_2(self):
+        with tempfile.TemporaryDirectory() as data:
+            process = self.run_main(data=data)
+            out, _err = process.communicate(timeout=10)
+            self.assertEqual(process.returncode, 2)
+            self.assertNotIn("READY", out)
 
 
 if __name__ == "__main__":

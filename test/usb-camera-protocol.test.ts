@@ -1,4 +1,5 @@
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -21,17 +22,28 @@ server = camera.open_server(cam)
 print(server.server_port, flush=True)
 server.serve_forever()
 `;
-const bytes = execFileSync(
-	'python3',
-	['-B', '-c', 'import camera,sys; sys.stdout.buffer.write(camera.demo_png())'],
-	{ cwd: directory },
-);
-const digest = (await import('node:crypto')).createHash('sha256').update(bytes).digest('hex');
+const python = (() => {
+	try {
+		execFileSync('python3', ['--version']);
+		return true;
+	} catch {
+		return false;
+	}
+})();
+// The conformance cases need the expected bytes at collection time.
+const bytes = python
+	? execFileSync(
+			'python3',
+			['-B', '-c', 'import camera,sys; sys.stdout.buffer.write(camera.demo_png())'],
+			{ cwd: directory },
+		)
+	: Buffer.alloc(0);
+const digest = createHash('sha256').update(bytes).digest('hex');
 let root: string;
 let child: ChildProcess;
 let data: string;
 
-beforeAll(async () => {
+async function startServer() {
 	data = await mkdtemp(join(tmpdir(), 'workbench-camera-protocol-'));
 	child = spawn('python3', ['-u', '-B', '-c', launch, data], {
 		cwd: directory,
@@ -50,9 +62,9 @@ beforeAll(async () => {
 			resolve(`http://127.0.0.1:${port}`);
 		});
 	});
-});
+}
 
-afterAll(async () => {
+async function stopServer() {
 	if (child && child.exitCode === null && child.signalCode === null) {
 		await new Promise<void>((resolve) => {
 			child.once('exit', () => resolve());
@@ -60,9 +72,12 @@ afterAll(async () => {
 		});
 	}
 	if (data) await rm(data, { recursive: true, force: true });
-});
+}
 
-describe('the USB camera sensor API v1', () => {
+describe.skipIf(!python)('the USB camera sensor API v1', () => {
+	beforeAll(startServer);
+	afterAll(stopServer);
+
 	const cases = sensorConformance(
 		{
 			name: 'USB camera',
