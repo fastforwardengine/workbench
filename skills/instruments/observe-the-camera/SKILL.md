@@ -12,9 +12,11 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
    `BRIO`. The card number changes after a reconnect.
 2. Fork `usb-camera` with `fork`, and clone it into your home. Follow the
    README of the clone for the offline tests, the push, and the start of
-   the foreground server. One process owns one USB device and serves its camera and its microphone.
-   Keep the data
-   outside the checkout.
+   the foreground server. One process owns one USB device and serves its
+   camera and its microphone. Keep the data outside the checkout. A fork
+   from before the microphone has no `--audio-device` option. Check with
+   `python3 camera.py --help` in the clone. If the option is missing, fork
+   the template again under a new name.
 3. Wait for READY with `status`. Then `connect` with your process handle
    and the printed port. Only the workstation backend has endpoints.
 4. `observe` the qualified sensor, such as `bench/camera` or
@@ -26,10 +28,12 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
    unclear when you cannot read a marking or a digit. For FM radio path A,
    the camera must show every digit of the display. No tool reads the
    digits for you.
-   Read a clip through its `level` series: it holds the RMS level in dBFS
-   of each 10 ms window, so a pulsed tone shows high and low levels in
-   turn. Analyze the exported WAV file with `python3` and numpy in your
-   home. Tell the people at the bench before you record.
+   Read a clip through its `level` series. It holds the RMS level in dBFS
+   of each 10 ms window. A pulsed tone that is louder than the room shows
+   high and low levels in turn. Room sound can hide that pattern. Then
+   analyze the exported WAV file in the band around the tone, with
+   `python3` and numpy in your home. Tell the people at the bench before
+   you record.
 6. A synthetic demo observation proves the workflow. It is no reading of a
    device. When a capture fails, check the device and observe again.
    Do not use an earlier image or clip in its place.

@@ -54,7 +54,8 @@ no captions.
 
 6. Start one foreground server with the process tools. Use your fork ID,
    node, resolution, and card id. Give `--device`, `--audio-device`, or
-   both. The server serves a sensor for each option you give. Do not add `&`, `nohup`, or a supervisor.
+   both. The server serves a sensor for each option you give. Do not add
+   `&`, `nohup`, or a supervisor.
 
    ```ts
    bash({
@@ -64,11 +65,12 @@ no captions.
    ```
 
 7. Read `status({ handle })` until `READY {"port": ...}` appears. The
-   server saves the first frame and the first clip before it prints READY.
-   A frame capture takes up to 30 seconds. A clip takes `--seconds` seconds. A failed start prints no READY, so read the process
-   output. The launch metadata holds the repository, the commit, the
-   branch, and the dirty flag. The server reads them once at start. A
-   later commit leaves the earlier evidence unchanged.
+   server saves the first frame and the first clip before it prints READY. A
+   frame capture takes up to 30 seconds. A clip takes `--seconds` seconds. A
+   failed start prints no READY, so read the process output. The launch
+   metadata holds the repository, the commit, the branch, and the dirty
+   flag. The server reads them once at start. A later commit leaves the
+   earlier evidence unchanged.
 8. Connect with the process handle and the printed port:
 
    ```ts
@@ -109,11 +111,13 @@ no captions.
     frame the display and check that you can read every digit before you
     report a frequency. Report an unreadable digit as unclear.
 
-    Read a clip through its level series. A tone that switches on and off
-    shows high and low levels in turn. Silence shows -120 dBFS. `observe`
-    exports the WAV file to the home of the observer under a name such as
-    `file-001.bin`, and names that path. Analyze it there with `python3`
-    and numpy. The series is a summary, and the file holds the sound.
+    Read a clip through its level series first. A pulsed tone that is
+    louder than the room shows high and low levels in turn. Room sound,
+    such as speech or a fan, can hide that pattern, because the series
+    measures all frequencies. Then analyze the WAV file in the band around
+    the tone. `observe` exports the WAV file to the home of the observer
+    under a name such as `file-001.bin`, and names that path. Analyze it
+    there with `python3` and numpy.
 13. Replace the server in this order:
     1. `cancel({ handle })` stops the server. `disconnect({ name: 'bench' })`
        only detaches the connection.
@@ -125,24 +129,24 @@ no captions.
 
 The data directory holds two kinds of file:
 
-- `blobs/<sha256>` holds one PNG or one WAV file for each digest. The server writes each
-  blob through a temporary file and renames it, so a crash leaves no
-  partial blob. The server replaces a stored blob whose bytes do not match
-  its digest.
+- `blobs/<sha256>` holds one PNG or one WAV file for each digest. The
+  server writes each blob through a temporary file and renames it, so a
+  crash leaves no partial blob. The server replaces a stored blob whose
+  bytes do not match its digest.
 - `observations.jsonl` holds one line for each observation, with the
   original source metadata and the sensor name. The server only appends to
   it.
 
 Nothing reads `observations.jsonl` as sensor history. A span read gets
 status 422. A restart or a Git rollback keeps both files. No migration,
-retention rule, or pruning runs. Choose a new directory when the format changes.
-The workspace object store keeps the frames and clips that `observe`
-returned. The owner of the server manages the other files.
+retention rule, or pruning runs. Choose a new directory when the format
+changes. The workspace object store keeps the frames and clips that
+`observe` returned. The owner of the server manages the other files.
 
-`--demo` serves both sensors with fixed synthetic data: a PNG, and a 1 s
-WAV clip of a 440 Hz tone that switches on and off 10 times each second.
-The discovery text and each observation say that the data is synthetic. `--demo` still
-needs a fork ID and an absolute data directory outside the checkout. Use it
-to test the workflow when no camera is present.
+`--demo` serves both sensors with fixed synthetic data: a PNG, and a 1 s WAV
+clip of a 440 Hz tone that switches on and off 10 times each second. The
+discovery text and each observation say that the data is synthetic. `--demo`
+still needs a fork ID and an absolute data directory outside the checkout.
+Use it to test the workflow when no camera is present.
 
 Commit, and push your branch. A push keeps the work.
