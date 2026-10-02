@@ -170,6 +170,14 @@ fswebcam -d /dev/video0 -r 1280x720 -S 10 --no-banner frame.jpg
 python3 -c "from PIL import Image; import numpy; print(numpy.asarray(Image.open('frame.jpg').convert('L')).mean())"
 ```
 
+For retained camera evidence, Instruments forks the
+[`usb-camera` template](../templates/usb-camera/README.md). It uses the
+existing Python and fswebcam tools, so no image rebuild is required. The
+foreground server binds to workstation loopback; Ambion 0.5.0 carries its
+sensor API through SSH forwarding, then `observe` retains each frame and
+manifest in the snapshot store. No Docker sensor port is published. Other
+seats observe through the connection without accessing Instruments' home.
+
 `-S 10` skips 10 frames, so the exposure settles. The last line prints the
 mean brightness of the frame.
 

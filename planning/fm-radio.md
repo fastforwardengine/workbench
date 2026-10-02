@@ -41,6 +41,14 @@ through a PN2222 or the 4N35 of the ELEGOO kit. The team knows the
 frequency only from the display, so the camera and its digit reading
 carry path A.
 
+The [`usb-camera` template](../templates/usb-camera/README.md) supplies
+retained still frames for this check. Instruments owns its foreground
+server; each specialist can `observe` its connection and cite the returned
+manifest snapshot ref. Aim it at the bench and make the display legible.
+The template provides no digit recognition, change detection, audio, or
+automatic cropping and face blurring; those remain work in the perception
+plan. An unreadable digit stays unclear.
+
 **Path B makes the Pico the only master of the bus.** The STC8G1K comes out
 of its socket, and the Pico drives the RDA5807 directly. Both run at 3.3 V.
 The display and the buttons go dark. The STC8G1K goes back in its socket to

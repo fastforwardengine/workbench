@@ -37,6 +37,13 @@ export const templates: readonly Template[] = [
 		specialists: ['instruments'],
 	},
 	{
+		name: 'usb-camera',
+		description:
+			'A Linux USB camera sensor: an agent-owned foreground server, fresh PNG captures, connect and observe, and retained snapshot evidence. Offline demo frames are labelled synthetic.',
+		use: 'retained images from a USB camera',
+		specialists: ['instruments'],
+	},
+	{
 		name: 'build-procedure',
 		description:
 			'A build procedure for a kit: each step with its parts, their places and orientation, the risk, the check, and the evidence, and the first power-on.',

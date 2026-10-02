@@ -53,9 +53,18 @@ that a tool writes beside a template does not change it.
 | ----------------- | ---------------------------------- | ----------- |
 | `test-plan`       | A test plan                        | Experiments |
 | `device-scan`     | A scan of the connected devices    | Instruments |
+| `usb-camera`      | Retained images from a USB camera  | Instruments |
 | `hm310p`          | Control of the HM310P power supply | Instruments |
 | `build-procedure` | A build procedure for a kit        | Builder     |
 
 `planning/next.md` names the next one: an `fm-radio` template that tunes
 the radio. The `build-procedure` template holds the shape of the build
 procedure for the FM radio kit.
+
+The `usb-camera` template follows the [Ambion 0.5.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.5.0/examples/camera-chat),
+with Python and V4L2 capture on the workstation. Instruments forks and saves
+the server, launches it through `bash`, waits for READY, and uses `connect`
+and `observe`. Every successful observation retains a manifest and frame
+through the existing snapshot store. The in-process just-bash backend has
+no sensor endpoints. See [the camera lifecycle](../templates/usb-camera/README.md)
+for replacement, rollback, restoration, and synthetic validation.
