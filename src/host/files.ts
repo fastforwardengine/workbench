@@ -2,7 +2,7 @@ import { readFile as readLocalFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { snapshotUri } from '@ambionframework/ambion';
-import { BACKGROUND_CONTEXT, type Workspace } from '@ambionframework/workspace';
+import type { Workspace } from '@ambionframework/workspace';
 import {
 	isDatabase,
 	isDatabasePath,
@@ -70,7 +70,7 @@ type Env = Parameters<Parameters<Workspace['use']>[1]>[0];
  * a workstation, gives nothing.
  */
 async function listFolder(env: Env, folder: string, root: boolean) {
-	const result = await env.listDir(folder, BACKGROUND_CONTEXT);
+	const result = await env.listDir(folder);
 	if (!result.ok && root) throw result.error;
 	return result.ok ? result.value : [];
 }
@@ -84,7 +84,7 @@ export async function listFiles(
 	workspace: Workspace,
 	roots: readonly string[],
 ): Promise<FileEntry[]> {
-	return workspace.use(workspace.host, async (env) => {
+	return workspace.use(workspace.mirrorAgent, async (env) => {
 		const files: FileEntry[] = [];
 		const pending = [...roots];
 		let visited = 0;
@@ -138,7 +138,7 @@ export async function readFile(workspace: Workspace, path: string): Promise<File
 		fail('Use an absolute workspace file path.');
 	}
 	const kind = kindOf(path);
-	return workspace.use(workspace.host, async (env) => {
+	return workspace.use(workspace.mirrorAgent, async (env) => {
 		await checkAncestors(env, parts, kind);
 		return readAs(env, path, kind);
 	});
@@ -149,7 +149,7 @@ async function checkAncestors(env: Env, parts: readonly string[], kind: Kind): P
 	let prefix = '';
 	for (const part of parts) {
 		prefix += `/${part}`;
-		const info = await env.fileInfo(prefix, BACKGROUND_CONTEXT);
+		const info = await env.fileInfo(prefix);
 		if (!info.ok) fail('File not found.');
 		checkFile(info.value, kind);
 	}
@@ -159,7 +159,7 @@ async function checkAncestors(env: Env, parts: readonly string[], kind: Kind): P
 async function readAs(env: Env, path: string, kind: Kind): Promise<FileContent> {
 	if (kind === 'database') return readDatabase(env, path);
 	if (kind === 'image') return readImage(env, path);
-	const result = await env.readTextFile(path, BACKGROUND_CONTEXT);
+	const result = await env.readTextFile(path);
 	if (!result.ok) fail(result.error.message);
 	return { path, text: result.value, truncated: false };
 }
@@ -173,12 +173,11 @@ function checkFile(info: { kind: string; size: number }, kind: Kind): void {
 interface Reader {
 	readBinaryFile(
 		path: string,
-		context: typeof BACKGROUND_CONTEXT,
 	): Promise<{ ok: true; value: Uint8Array } | { ok: false; error: { message: string } }>;
 }
 
 async function readDatabase(env: Reader, path: string): Promise<FileContent> {
-	const result = await env.readBinaryFile(path, BACKGROUND_CONTEXT);
+	const result = await env.readBinaryFile(path);
 	if (!result.ok) return fail(result.error.message);
 	if (!isDatabase(result.value)) return fail('This file is not a SQLite database.');
 	try {
@@ -192,7 +191,7 @@ async function readDatabase(env: Reader, path: string): Promise<FileContent> {
 }
 
 async function readImage(env: Reader, path: string): Promise<FileContent> {
-	const result = await env.readBinaryFile(path, BACKGROUND_CONTEXT);
+	const result = await env.readBinaryFile(path);
 	if (!result.ok) return fail(result.error.message);
 	return {
 		path,
@@ -229,7 +228,7 @@ async function readLocal<T>(read: () => Promise<T>, localPath: string): Promise<
 async function freeName(env: Env, name: string): Promise<string> {
 	for (let taken = 0; ; taken += 1) {
 		const path = `${ATTACHMENTS_DIR}/${taken === 0 ? name : `${taken + 1}-${name}`}`;
-		const found = await env.exists(path, BACKGROUND_CONTEXT);
+		const found = await env.exists(path);
 		if (found.ok && !found.value) return path;
 		if (!found.ok) fail(found.error.message);
 	}
@@ -255,14 +254,14 @@ export async function attachFile(workspace: Workspace, localPath: string): Promi
 	// The file can grow between the stat and the read.
 	if (bytes.length > MAX_BYTES.image)
 		fail(`/attach takes files up to ${MAX_BYTES.image / 1_048_576} MiB.`);
-	const path = await workspace.use(workspace.host, async (env) => {
-		const made = await env.createDir(ATTACHMENTS_DIR, { recursive: true }, BACKGROUND_CONTEXT);
+	const path = await workspace.use(workspace.mirrorAgent, async (env) => {
+		const made = await env.createDir(ATTACHMENTS_DIR, { recursive: true });
 		if (!made.ok)
 			fail(
 				`The workspace has no ${ATTACHMENTS_DIR} folder to write to (${made.error.message}). On a workstation, run make workstation again.`,
 			);
 		const free = await freeName(env, name);
-		const written = await env.writeFile(free, bytes, BACKGROUND_CONTEXT);
+		const written = await env.writeFile(free, bytes);
 		if (!written.ok) fail(written.error.message);
 		return free;
 	});
@@ -294,7 +293,5 @@ async function snapshotCopy(workspace: Workspace, path: string, size: number): P
 }
 
 async function removeCopy(workspace: Workspace, path: string): Promise<void> {
-	await workspace.use(workspace.host, (env) =>
-		env.remove(path, { recursive: false }, BACKGROUND_CONTEXT),
-	);
+	await workspace.use(workspace.mirrorAgent, (env) => env.remove(path, { recursive: false }));
 }

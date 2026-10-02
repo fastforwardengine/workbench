@@ -7,14 +7,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRuntime, startRoom } from '@ambionframework/ambion';
-import {
-	byAgent,
-	callTool,
-	quiet,
-	scripted,
-	settled,
-	speak,
-} from '@ambionframework/ambion/testing';
+import { byAgent, callTool, quiet, say, scripted, settled } from '@ambionframework/ambion/testing';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -40,10 +33,10 @@ describe('a picture that the person attaches', () => {
 		const built = await team(workspace);
 		const script = byAgent({
 			assistant: (_step, _seat, call) =>
-				call === 1 ? speak('Please look at the picture.', 'instruments') : quiet(),
+				call === 1 ? say('Please look at the picture.', 'instruments') : quiet(),
 			instruments: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: attached.path });
-				if (call === 2) return speak(`Saw: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 2) return say(`Saw: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
 			},
 		});

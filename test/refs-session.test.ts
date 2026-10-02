@@ -22,7 +22,7 @@ const exchange = {
 	person: 'priya',
 	at: AT,
 	outcome: { kind: 'complete' },
-	summary: { status: 'silent' },
+	summary: { kind: 'silent' },
 	activations: [],
 };
 
@@ -37,7 +37,7 @@ function room(host: FakeHost, cite = true): void {
 	host.table.set(
 		'characterization',
 		view('characterization', {
-			participants: [{ name: 'priya', kind: 'human' }],
+			participants: [{ name: 'priya', kind: 'person' }],
 			messages: [
 				said(1, 'priya'),
 				said(2, 'design', cite ? [FILE, 'ambion://room/characterization/message/1'] : undefined),
@@ -134,7 +134,7 @@ describe('the refs of a message', () => {
 		host.table.set(
 			'characterization',
 			view('characterization', {
-				participants: [{ name: 'priya', kind: 'human' }],
+				participants: [{ name: 'priya', kind: 'person' }],
 				messages: [said(1, 'priya'), said(2, 'design', [SNAPSHOT, COMMIT])],
 			}),
 		);

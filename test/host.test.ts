@@ -170,8 +170,8 @@ describe('Workbench host', () => {
 	it('attributes deliveries, retries by key, and keeps rooms independent', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
 		await lab.create('second', 'A second room.');
-		await lab.join('radio-kit', person);
-		await lab.join('second', person);
+		await lab.visit('radio-kit', person);
+		await lab.visit('second', person);
 		await lab.send('radio-kit', person, 'sweep-1', 'Which current range?');
 		await lab.send('radio-kit', person, 'sweep-1', 'Which current range?');
 		await lab.send('second', person, 'second-1', 'Which camera?');
@@ -196,13 +196,13 @@ describe('Workbench host', () => {
 	it('requires a person to be present before sending, also after leaving', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
 		await expect(lab.send('radio-kit', person, 'k0', 'Hello?')).rejects.toThrow(/Enter this room/);
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await lab.send('radio-kit', person, 'k1', 'Keep this delivery.');
 		await lab.leave('radio-kit', person);
 		await expect(lab.send('radio-kit', person, 'k1', 'Keep this delivery.')).rejects.toThrow(
 			/Enter this room/,
 		);
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await lab.send('radio-kit', person, 'k1', 'Keep this delivery.');
 		const messages = await messagesOf(lab, 'radio-kit');
 		expect(messages.filter((message) => 'key' in message && message.key === 'k1')).toHaveLength(1);
@@ -214,8 +214,8 @@ describe('Workbench host', () => {
 		const before = await messagesOf(lab, 'radio-kit');
 		await lab.leave('radio-kit', person);
 		expect(await messagesOf(lab, 'radio-kit')).toEqual(before);
-		await expect(lab.join('radio-kit', 'nobody')).rejects.toThrow(/Unknown person/);
-		await expect(lab.join('nowhere', person)).rejects.toThrow(/Unknown room/);
+		await expect(lab.visit('radio-kit', 'nobody')).rejects.toThrow(/Unknown person/);
+		await expect(lab.visit('nowhere', person)).rejects.toThrow(/Unknown room/);
 	});
 
 	it('stops, keeps its history, and stays stopped across a restart until resumed', async () => {
@@ -223,7 +223,7 @@ describe('Workbench host', () => {
 		const directory = joinPath(parent, 'run');
 		let lab = await open(directory);
 		await lab.create('second', 'A second room.');
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await lab.send('radio-kit', person, 'stop-1', 'Persist this.');
 		const before = await messagesOf(lab, 'radio-kit');
 		const stopped = await lab.control('radio-kit', 'stop');
@@ -264,7 +264,7 @@ describe('Workbench host', () => {
 		const parent = await freshDirectory();
 		const directory = joinPath(parent, 'run');
 		let lab = await open(directory);
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await lab.send('radio-kit', person, 'summary-1', 'Plan the sweep.');
 		const messages = await untilSummary(lab, 'radio-kit');
 		expect(messages.some((message) => message.kind === 'summary')).toBe(true);
@@ -280,7 +280,7 @@ describe('Workbench host', () => {
 		const lab = await open(joinPath(directory, 'run'), idleStream);
 		const local = joinPath(directory, 'bench.png');
 		await writeFile(local, PNG);
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		const attached = await lab.attach(local);
 		expect(attached.path).toMatch(/^\/attachments\/\d+-bench\.png$/);
 		await lab.send('radio-kit', person, 'attach-1', 'What is on the bench?', [attached.ref]);
@@ -297,7 +297,7 @@ describe('Workbench host', () => {
 
 	it('keeps a message that cites a snapshot of another workspace, and refuses to read that snapshot', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'), idleStream);
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		const foreign = `ambion://workspace/elsewhere/snapshot/${'ab'.repeat(32)}/attachments/1-x.png`;
 		// The room checks the form of a ref. The workspace checks whose it is, when it reads it.
 		await lab.send('radio-kit', person, 'foreign-1', 'See this.', [foreign]);
@@ -335,18 +335,18 @@ describe('Workbench host', () => {
 		await expect(lab.file('/shared/fake.db')).rejects.toThrow(/not a SQLite database/);
 	});
 
-	it('aborts an open exchange and keeps the room available', async () => {
+	it('cancels an open exchange and keeps the room available', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'), () =>
 			createAssistantMessageEventStream(),
 		);
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await lab.send('radio-kit', person, 'pending-1', 'Wait for work.');
 		expect((await lab.read('radio-kit', 0)).exchange).toBeDefined();
-		const aborted = await lab.control('radio-kit', 'abort');
-		expect(aborted.exchange).toBeUndefined();
-		expect(aborted.status).toBe('running');
-		expect(aborted.exchanges).toContainEqual(
-			expect.objectContaining({ status: 'closed', summary: { status: 'silent' } }),
+		const cancelled = await lab.control('radio-kit', 'cancel');
+		expect(cancelled.exchange).toBeUndefined();
+		expect(cancelled.status).toBe('running');
+		expect(cancelled.exchanges).toContainEqual(
+			expect.objectContaining({ status: 'closed', summary: { kind: 'silent' } }),
 		);
 	});
 });
@@ -362,7 +362,7 @@ describe('Workbench host watch', () => {
 		lab.watch('radio-kit', () => {
 			control += 1;
 		});
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await vi.waitFor(() => expect(changes).toBeGreaterThan(0));
 		stop();
 		const seen = changes;
@@ -383,7 +383,7 @@ describe('Workbench host watch', () => {
 		lab.watch('second', () => {
 			second += 1;
 		});
-		await lab.join('second', person);
+		await lab.visit('second', person);
 		await vi.waitFor(() => expect(second).toBeGreaterThan(0));
 		expect(sweep).toBe(0);
 	});
@@ -403,7 +403,7 @@ describe('Workbench host watch', () => {
 		await lab.control('radio-kit', 'resume');
 		await new Promise<void>((resolve) => setTimeout(resolve, 50));
 		const settled = changes;
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await vi.waitFor(() => expect(changes).toBeGreaterThan(settled));
 	}, 20_000);
 });
@@ -411,7 +411,7 @@ describe('Workbench host watch', () => {
 describe('Workbench host steps, says, and processes', () => {
 	it('reads the trace of an activation the room ran', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await lab.send('radio-kit', person, 'trace-1', 'Plan the sweep.');
 		await untilSummary(lab, 'radio-kit');
 		const view = await lab.read('radio-kit', 0);
@@ -436,11 +436,11 @@ describe('Workbench host steps, says, and processes', () => {
 			scriptedStream((agent, call, closing) => {
 				if (closing || agent !== 'assistant' || call !== 1)
 					return fauxAssistantMessage('quiet', { stopReason: 'stop' });
-				const later = { text: 'Check the LED temperature.', after: 600 };
+				const later = { text: 'Check the LED temperature.', delaySeconds: 600 };
 				return fauxAssistantMessage([fauxToolCall('schedule', later)], { stopReason: 'toolUse' });
 			}),
 		);
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await lab.send('radio-kit', person, 'later-1', 'Check the LED later.');
 		const waiting = await vi.waitFor(async () => {
 			const [say] = (await lab.read('radio-kit', 0)).scheduled;
@@ -475,7 +475,7 @@ describe('Workbench host steps, says, and processes', () => {
 			events += 1;
 		});
 		expect(await lab.processes()).toEqual([]);
-		await lab.join('radio-tune', person);
+		await lab.visit('radio-tune', person);
 		await lab.send('radio-tune', person, 'ps-1', 'Start the soak.');
 		await vi.waitFor(async () => expect(await lab.processes()).toHaveLength(2), {
 			timeout: 5_000,
@@ -525,7 +525,7 @@ describe('Workbench host, a message to one seat', () => {
 	it('wakes a seat at named only when the message addresses it', async () => {
 		const heard = new Set<string>();
 		const lab = await open(await freshDirectory(), listeningStream(heard));
-		await lab.join('radio-tune', person);
+		await lab.visit('radio-tune', person);
 		await lab.send('radio-tune', person, 'plain-1', 'Plan the press.');
 		await untilSummary(lab, 'radio-tune');
 		expect(heard.has('experiments')).toBe(true);
@@ -540,7 +540,7 @@ describe('Workbench host, a message to one seat', () => {
 
 	it('refuses a name that is neither the assistant nor a specialist', async () => {
 		const lab = await open(await freshDirectory(), listeningStream(new Set()));
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await expect(lab.send('radio-kit', person, 'to-2', '@nobody hi', [], 'nobody')).rejects.toThrow(
 			"No seat or specialist named 'nobody'.",
 		);
@@ -563,7 +563,7 @@ describe('Workbench host, a message to one seat', () => {
 		const lab = await open(directory, listeningStream(heard));
 		const before = await lab.read('legacy', 0);
 		expect(before.participants.some((seat) => seat.name === 'builder')).toBe(false);
-		await lab.join('legacy', person);
+		await lab.visit('legacy', person);
 		await lab.send('legacy', person, 'to-3', '@builder check the diode.', [], 'builder');
 		await whenHeard(heard, 'builder');
 		const after = await lab.read('legacy', 0);
@@ -590,7 +590,7 @@ describe('Workbench host, a message to one seat', () => {
 		await rooms.close();
 		database.close();
 		const lab = await open(directory, listeningStream(new Set()));
-		await lab.join('mute', person);
+		await lab.visit('mute', person);
 		await expect(lab.send('mute', person, 'to-4', '@builder hi', [], 'builder')).rejects.toThrow(
 			"'builder' listens at none",
 		);

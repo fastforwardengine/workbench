@@ -14,15 +14,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
 	createRuntime,
-	isSpoken,
+	isSaid,
 	type Room,
-	type SpokenMessage,
+	type SaidMessage,
 	startRoom,
 } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
 import { directoryBackend } from '@ambionframework/just-bash';
 import { piExecution } from '@ambionframework/pi';
-import type { Run, RunExchange, Verdict } from '@ambionframework/simulator';
+import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
@@ -86,7 +86,7 @@ export async function openRoom(
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-eval-'));
 	const workspace = openWorkspace({
 		name: 'workbench',
-		backend: { bash: directoryBackend(directory), git: labRepositories(':memory:') },
+		backend: { bash: directoryBackend(directory, { git: labRepositories(':memory:') }) },
 	});
 	await seedWorkspace(workspace, ledFiles);
 	const built = await team(workspace, ledProject);
@@ -107,27 +107,30 @@ export async function openRoom(
 }
 
 /** A run that the checks and the judge can read: it ended cleanly, and each exchange has its summary. */
-export function expectGradable(run: Run, ended: readonly Run['ended'][] = ['limit']): void {
+export function expectGradable(
+	run: Simulation,
+	ended: readonly Simulation['ended'][] = ['limit'],
+): void {
 	expect(ended, run.error).toContain(run.ended);
 	for (const exchange of run.exchanges)
 		expect(exchange.summary, JSON.stringify(exchange.discussion)).toBeDefined();
 }
 
 /** What one participant said in one exchange, in record order. */
-export const saidBy = (exchange: RunExchange | undefined, name: string): SpokenMessage[] =>
+export const saidBy = (exchange: SimulationExchange | undefined, name: string): SaidMessage[] =>
 	(exchange?.discussion ?? []).filter(
-		(message): message is SpokenMessage => isSpoken(message) && message.from === name,
+		(message): message is SaidMessage => isSaid(message) && message.from === name,
 	);
 
 /** The names of the tools that one seat started in the run, in order. */
-export const toolsOf = (run: Run, agent: string): string[] =>
+export const toolsOf = (run: Simulation, agent: string): string[] =>
 	run.events.flatMap((event) =>
-		event.type === 'tool_execution_start' && event.agent === agent ? [event.toolName] : [],
+		event.type === 'tool_call' && event.seat === agent ? [event.name] : [],
 	);
 
 /** What a case keeps for a person to read when it fails. */
 export interface Evidence {
-	run?: Run;
+	run?: Simulation;
 	verdict?: Verdict;
 }
 

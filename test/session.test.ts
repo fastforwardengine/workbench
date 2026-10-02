@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ActivationSteps, ProcessView } from '../src/host/host.ts';
+import type { ActivationSteps, Process } from '../src/host/host.ts';
 import { lastPart } from '../src/host/processes.ts';
 import { COMMANDS } from '../src/terminal/state/commands.ts';
 import { ProcessBrowser, stateText } from '../src/terminal/state/process-browser.ts';
@@ -12,7 +12,7 @@ describe('Session start', () => {
 		const { host, session } = await started();
 		expect(session.room).toBe('characterization');
 		expect(session.entered).toBe(true);
-		expect(host.calls).toEqual(['join:characterization:priya']);
+		expect(host.calls).toEqual(['visit:characterization:priya']);
 	});
 
 	it('asks who the person is, and joins no room, when nobody is chosen', async () => {
@@ -80,7 +80,7 @@ describe('Session users', () => {
 		const { host, session } = await started(null);
 		await session.submit('/user noor');
 		expect(session.identity?.name).toBe('noor');
-		expect(host.calls).toEqual(['join:characterization:noor']);
+		expect(host.calls).toEqual(['visit:characterization:noor']);
 		expect(session.notice).toBe('You are noor, electrochemistry lead.');
 	});
 
@@ -88,7 +88,7 @@ describe('Session users', () => {
 		const { host, session } = await started();
 		host.calls.length = 0;
 		await session.submit('/user noor');
-		expect(host.calls).toEqual(['leave:characterization:priya', 'join:characterization:noor']);
+		expect(host.calls).toEqual(['leave:characterization:priya', 'visit:characterization:noor']);
 		expect(session.room).toBe('characterization');
 		expect(session.entered).toBe(true);
 	});
@@ -111,7 +111,7 @@ describe('Session rooms', () => {
 		const { host, session } = await started();
 		host.calls.length = 0;
 		await session.submit('/room budget');
-		expect(host.calls).toEqual(['leave:characterization:priya', 'join:budget:priya']);
+		expect(host.calls).toEqual(['leave:characterization:priya', 'visit:budget:priya']);
 		expect(session.room).toBe('budget');
 	});
 
@@ -179,7 +179,7 @@ describe('Session messages and control', () => {
 		host.calls.length = 0;
 		await session.submit('Which resistor?');
 		expect(host.calls).toEqual([
-			'join:characterization:priya',
+			'visit:characterization:priya',
 			'send:characterization:priya:Which resistor?',
 		]);
 	});
@@ -208,19 +208,19 @@ describe('Session messages and control', () => {
 		expect(session.error).toBe('Enter this room before sending.');
 	});
 
-	it('refuses to abort when no exchange is open, and aborts when one is', async () => {
+	it('refuses to cancel when no exchange is open, and cancels when one is', async () => {
 		const { host, session } = await started();
-		await session.submit('/abort');
-		expect(session.notice).toBe('Nothing to abort. characterization has no open exchange.');
+		await session.submit('/cancel');
+		expect(session.notice).toBe('Nothing to cancel. characterization has no open exchange.');
 		expect(host.calls.some((call) => call.startsWith('control'))).toBe(false);
 		host.table.set(
 			'characterization',
 			view('characterization', { exchange: { person: 'priya', from: 4, at: '' } }),
 		);
 		await session.refresh();
-		await session.submit('/abort');
-		expect(host.calls).toContain('control:characterization:abort');
-		expect(session.notice).toBe('Aborted the open exchange in characterization.');
+		await session.submit('/cancel');
+		expect(host.calls).toContain('control:characterization:cancel');
+		expect(session.notice).toBe('Cancelled the open exchange in characterization.');
 	});
 
 	it('stops a room, marks the person out of it, and enters it again on resume', async () => {
@@ -233,7 +233,7 @@ describe('Session messages and control', () => {
 		expect(session.notice).toBe('characterization is already stopped.');
 		host.calls.length = 0;
 		await session.submit('/resume');
-		expect(host.calls).toEqual(['control:characterization:resume', 'join:characterization:priya']);
+		expect(host.calls).toEqual(['control:characterization:resume', 'visit:characterization:priya']);
 		expect(session.entered).toBe(true);
 	});
 
@@ -385,14 +385,14 @@ const closedExchange = (from: number, extra: Record<string, unknown> = {}) => ({
 	person: 'priya',
 	at: AT,
 	outcome: { kind: 'complete' },
-	summary: { status: 'silent' },
+	summary: { kind: 'silent' },
 	activations: [
 		{
 			id: `act-${from}`,
 			seat: 'design',
 			purpose: 'respond',
 			attempt: 1,
-			outcome: { status: 'released' },
+			outcome: { kind: 'released' },
 		},
 	],
 	...extra,
@@ -479,12 +479,12 @@ describe('Session steps', () => {
 
 	it('opens the attempt that ran, and not the attempt the room abandoned after it', async () => {
 		const { host, session } = await started();
-		const attempt = (id: string, status: string, attempt: number) => ({
+		const attempt = (id: string, kind: string, attempt: number) => ({
 			id,
 			seat: 'assistant',
 			purpose: 'respond',
 			attempt,
-			outcome: { status, cause: 'permanent' },
+			outcome: { kind, cause: 'permanent' },
 		});
 		const activations = [attempt('act-4', 'failed', 1), attempt('act-4b', 'abandoned', 2)];
 		host.table.set(
@@ -563,7 +563,7 @@ describe('Session awaiting', () => {
 
 describe('Session /ps', () => {
 	const at = (seconds: number) => new Date(Date.UTC(2026, 0, 1, 12, 0, seconds)).toISOString();
-	const process = (handle: string, extra: Partial<ProcessView> = {}): ProcessView => ({
+	const process = (handle: string, extra: Partial<Process> = {}): Process => ({
 		handle,
 		kind: 'bash',
 		agent: 'design',
@@ -571,6 +571,7 @@ describe('Session /ps', () => {
 		state: 'running',
 		output: `/home/design/.processes/${handle}/out`,
 		timeout: 600,
+		grace: 10,
 		startedAt: at(0),
 		...extra,
 	});
@@ -673,7 +674,7 @@ describe('Session /ps', () => {
 		void panel.cancel();
 		expect(panel.message).toBe('Cancelling bash-000000000001.');
 		await cancelling;
-		expect(panel.message).toBe('bash-000000000001 did not end within 10 seconds.');
+		expect(panel.message).toBe('bash-000000000001 did not end within the wait of the stop.');
 		expect(host.calls.filter((call) => call.startsWith('cancel:'))).toHaveLength(1);
 	});
 
@@ -715,7 +716,7 @@ describe('Session commands', () => {
 		host.table.set(
 			'characterization',
 			view('characterization', {
-				participants: [{ name: 'priya', kind: 'human' }],
+				participants: [{ name: 'priya', kind: 'person' }],
 				messages: [said(1, 'priya'), said(2, 'design'), said(3, 'datasheets'), said(4, 'priya')],
 				exchanges: [closedExchange(1, { through: 3 })],
 			}),

@@ -1,5 +1,5 @@
 import { userInfo } from 'node:os';
-import { defineAgent, defineHuman } from '@ambionframework/ambion';
+import { defineAgent, definePerson } from '@ambionframework/ambion';
 import { defineAssistant } from '@ambionframework/assistant';
 import { pi } from '@ambionframework/pi';
 import type { Workspace } from '@ambionframework/workspace';
@@ -13,7 +13,7 @@ const owner = userInfo().username;
 /** The people who use Workbench: the owner of the account, who runs the bench. */
 export const people = [
 	{
-		...defineHuman({
+		...definePerson({
 			name: owner,
 			identity: `${owner}, project lead on the Workbench lab bench.`,
 			preferences: 'Lead with the decision and the evidence. Skip the walkthrough unless asked.',

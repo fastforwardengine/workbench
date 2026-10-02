@@ -1,4 +1,4 @@
-import { BACKGROUND_CONTEXT, type Workspace } from '@ambionframework/workspace';
+import type { Workspace } from '@ambionframework/workspace';
 import { type SeedContent, seedFiles } from '../domain/scenarios.ts';
 
 /** The environment of one workspace operation. */
@@ -13,11 +13,11 @@ const LIBRARY = '/library/';
  */
 async function writeSeed(env: Env, path: string, content: SeedContent): Promise<void> {
 	if (!path.startsWith(LIBRARY)) {
-		const found = await env.exists(path, BACKGROUND_CONTEXT);
+		const found = await env.exists(path);
 		if (!found.ok) throw found.error;
 		if (found.value) return;
 	}
-	const written = await env.writeFile(path, content, BACKGROUND_CONTEXT);
+	const written = await env.writeFile(path, content);
 	if (!written.ok) throw written.error;
 }
 
@@ -30,7 +30,7 @@ export async function seedWorkspace(
 	workspace: Workspace,
 	overrides: Record<string, string> = {},
 ): Promise<void> {
-	await workspace.use(workspace.host, async (env) => {
+	await workspace.use(workspace.mirrorAgent, async (env) => {
 		for (const [path, content] of Object.entries(seedFiles(overrides)))
 			await writeSeed(env, path, content);
 	});

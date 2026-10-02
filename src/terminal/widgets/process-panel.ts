@@ -1,5 +1,5 @@
 import { bg, type CliRenderer, fg, StyledText, TextRenderable } from '@opentui/core';
-import type { ProcessOutput, ProcessView } from '../../host/host.ts';
+import type { Process, ProcessOutput } from '../../host/host.ts';
 import { label, type ProcessBrowser, stateText } from '../state/process-browser.ts';
 import { tui as palette } from './brand.ts';
 import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
@@ -10,7 +10,7 @@ const HINT = 'Up/Down choose   PgUp/PgDn scroll   x x cancel   Ctrl+Y copy   Esc
 const COMMAND_WIDTH = 60;
 
 /** The color of the dot before each process: its state at a glance. */
-function dotColor(process: ProcessView): string {
+function dotColor(process: Process): string {
 	if (process.state === 'running') return palette.coral;
 	if (process.state === 'exited' && process.exitCode === 0) return palette.green;
 	return process.state === 'cancelled' ? palette.dim : palette.red;
@@ -22,7 +22,7 @@ const clip = (text: string, width: number): string =>
 	text.length > width ? `${text.slice(0, width - 1)}…` : text;
 
 /** What the output area says about the size of the output. */
-function outputNote(output: ProcessOutput, process: ProcessView): string {
+function outputNote(output: ProcessOutput, process: Process): string {
 	if (output.size === 0)
 		return process.state === 'running' ? 'No output yet.' : 'The process wrote no output.';
 	const size = output.size < 1024 ? `${output.size} B` : `${(output.size / 1024).toFixed(1)} KB`;

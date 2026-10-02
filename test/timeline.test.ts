@@ -1,4 +1,4 @@
-import type { ExchangeView, Message } from '@ambionframework/ambion';
+import type { Exchange, Message } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
 import { type Block, buildTimeline, discussionKeys } from '../src/view/timeline.ts';
 
@@ -19,8 +19,8 @@ const closedExchange = (
 	from: number,
 	through: number,
 	owner: string,
-	summary: object = { status: 'silent' },
-): ExchangeView =>
+	summary: object = { kind: 'silent' },
+): Exchange =>
 	({
 		from,
 		through,
@@ -30,14 +30,14 @@ const closedExchange = (
 		owner,
 		at: AT,
 		summary,
-	}) as ExchangeView;
+	}) as Exchange;
 const arrived = (seq: number): Message =>
 	({ seq, kind: 'arrived', subject: 'noor', at: '2026-01-01T00:00:00Z' }) as Message;
 
 const humans = new Set(['noor', 'priya']);
 const build = (
 	messages: Message[],
-	exchanges: ExchangeView[],
+	exchanges: Exchange[],
 	extra: Partial<Parameters<typeof buildTimeline>[0]> = {},
 ) =>
 	buildTimeline({
@@ -66,7 +66,7 @@ const thread = [
 	said(134, 'experiments'),
 	summaryOf(145, 'noor'),
 ];
-const closed: ExchangeView = {
+const closed: Exchange = {
 	from: 98,
 	through: 134,
 	status: 'closed',
@@ -74,7 +74,7 @@ const closed: ExchangeView = {
 	outcome: { kind: 'complete' },
 	person: 'noor',
 	at: AT,
-	summary: { status: 'published', summary: summaryOf(145, 'noor') },
+	summary: { kind: 'published', summary: summaryOf(145, 'noor') },
 };
 
 describe('buildTimeline', () => {
@@ -105,7 +105,7 @@ describe('buildTimeline', () => {
 
 	it('shows one reply directly, with no discussion and no summary', () => {
 		const messages = [said(59, 'priya'), said(61, 'assistant', 'priya'), summaryOf(66, 'priya')];
-		const exchange: ExchangeView = {
+		const exchange: Exchange = {
 			from: 59,
 			through: 61,
 			status: 'closed',
@@ -113,13 +113,13 @@ describe('buildTimeline', () => {
 			outcome: { kind: 'complete' },
 			person: 'priya',
 			at: AT,
-			summary: { status: 'published', summary: summaryOf(66, 'priya') },
+			summary: { kind: 'published', summary: summaryOf(66, 'priya') },
 		};
 		expect(shape(build(messages, [exchange]))).toEqual(['question:59', 'said:61']);
 	});
 
 	it('shows a returned say as the opening of its own exchange, and the answer after it', () => {
-		const scheduled = { ...said(61, 'agent', 'agent'), after: 600 } as Message;
+		const scheduled = { ...said(61, 'agent', 'agent'), delaySeconds: 600 } as Message;
 		const returned = {
 			seq: 70,
 			kind: 'posted',
@@ -139,7 +139,7 @@ describe('buildTimeline', () => {
 	});
 
 	it('marks a scheduled say that a dismissal names, in the open and in a discussion', () => {
-		const scheduled = { ...said(61, 'agent', 'agent'), after: 600 } as Message;
+		const scheduled = { ...said(61, 'agent', 'agent'), delaySeconds: 600 } as Message;
 		const dismissed = { seq: 62, kind: 'dismissed', message: 61, at: AT } as Message;
 		const open = build([said(59, 'noor'), scheduled, dismissed], []);
 		expect(open.find((block) => block.type === 'message' && block.message.seq === 61)).toEqual({
@@ -164,7 +164,7 @@ describe('buildTimeline', () => {
 			text: 'Check the build.',
 			at: AT,
 		} as Message;
-		const scheduled = { ...said(61, 'agent', 'agent'), after: 600 } as Message;
+		const scheduled = { ...said(61, 'agent', 'agent'), delaySeconds: 600 } as Message;
 		const messages = [said(59, 'noor'), scheduled, returned, said(72, 'agent'), said(75, 'agent')];
 		expect(shape(build(messages, [closedExchange(59, 75, 'noor')]))).toEqual([
 			'question:59',
@@ -174,7 +174,7 @@ describe('buildTimeline', () => {
 
 	it('keeps the closing mark when a person is the only one who spoke after the question', () => {
 		// An exchange aborted after a follow-up: no agent replied, so there is nothing to show directly.
-		const exchange: ExchangeView = {
+		const exchange: Exchange = {
 			from: 4,
 			through: 9,
 			status: 'closed',
@@ -182,7 +182,7 @@ describe('buildTimeline', () => {
 			outcome: { kind: 'complete' },
 			person: 'priya',
 			at: AT,
-			summary: { status: 'silent' },
+			summary: { kind: 'silent' },
 		};
 		const blocks = build([said(4, 'priya'), said(9, 'priya')], [exchange]);
 		expect(shape(blocks)).toEqual(['question:4', 'discussion:4(1)']);
@@ -190,7 +190,7 @@ describe('buildTimeline', () => {
 	});
 
 	it('notes a closed exchange that has no reply and no summary', () => {
-		const exchange: ExchangeView = {
+		const exchange: Exchange = {
 			from: 75,
 			through: 75,
 			status: 'closed',
@@ -198,7 +198,7 @@ describe('buildTimeline', () => {
 			outcome: { kind: 'complete' },
 			person: 'noor',
 			at: AT,
-			summary: { status: 'silent' },
+			summary: { kind: 'silent' },
 		};
 		const blocks = build([said(75, 'noor')], [exchange]);
 		expect(shape(blocks)).toEqual(['question:75', 'note']);
@@ -209,21 +209,21 @@ describe('buildTimeline', () => {
 		const attempt = (
 			id: string,
 			purpose: string,
-			status: string,
+			kind: string,
 			cause: string,
 			attempt = 1,
-		): object => ({ id, seat: 'assistant', purpose, attempt, outcome: { status, cause } });
+		): object => ({ id, seat: 'assistant', purpose, attempt, outcome: { kind, cause } });
 		const limit = '400 invalid_request_error: You have reached your specified API usage limits.';
 		const failures = new Map([
 			['m1', limit],
 			['s1', limit],
 		]);
-		const exhausted = (activations: object[], summary: object = { status: 'failed' }) =>
+		const exhausted = (activations: object[], summary: object = { kind: 'failed' }) =>
 			({
 				...closedExchange(75, 75, 'theo', summary),
 				outcome: { kind: 'exhausted' },
 				activations,
-			}) as ExchangeView;
+			}) as Exchange;
 
 		it.each([
 			[
@@ -231,7 +231,7 @@ describe('buildTimeline', () => {
 				exhausted([
 					attempt('m1', 'respond', 'failed', 'permanent'),
 					attempt('m2', 'respond', 'abandoned', 'permanent', 2),
-					attempt('s1', 'summary', 'failed', 'permanent'),
+					attempt('s1', 'summarize', 'failed', 'permanent'),
 				]),
 				failures,
 				`Closed, assistant failed, the room does not retry this: ${limit}`,
@@ -245,9 +245,9 @@ describe('buildTimeline', () => {
 			[
 				'names why a summary failed after a reply',
 				{
-					...closedExchange(75, 75, 'theo', { status: 'failed' }),
-					activations: [attempt('s1', 'summary', 'failed', 'permanent')],
-				} as ExchangeView,
+					...closedExchange(75, 75, 'theo', { kind: 'failed' }),
+					activations: [attempt('s1', 'summarize', 'failed', 'permanent')],
+				} as Exchange,
 				failures,
 				`Closed, summary failed: assistant failed, the room does not retry this: ${limit}`,
 			],
@@ -267,20 +267,20 @@ describe('buildTimeline', () => {
 				...closed,
 				outcome: { kind: 'exhausted' },
 				activations: [attempt('m1', 'respond', 'failed', 'permanent')],
-			} as ExchangeView;
+			} as Exchange;
 			expect(build(thread, [exchange])[1]).toMatchObject({ flag: 'assistant failed' });
 		});
 	});
 
 	it('flags a discussion whose summary is pending or failed', () => {
-		const pending: ExchangeView = { ...closed, summary: { status: 'pending' } };
+		const pending: Exchange = { ...closed, summary: { kind: 'pending' } };
 		const blocks = build(thread.slice(0, -1), [pending]);
 		expect(blocks[1]).toMatchObject({ type: 'discussion', flag: 'Summary pending' });
 	});
 
 	it('keeps the open exchange in the open, and ends with a live block', () => {
 		const messages = [said(4, 'priya'), said(6, 'assistant', 'design'), said(9, 'priya')];
-		const open: ExchangeView = {
+		const open: Exchange = {
 			from: 4,
 			status: 'open',
 			person: 'priya',
@@ -302,7 +302,7 @@ describe('buildTimeline', () => {
 	});
 
 	it('shows an earlier exchange collapsed beside a newer open one', () => {
-		const later: ExchangeView = {
+		const later: Exchange = {
 			from: 150,
 			status: 'open',
 			person: 'priya',
@@ -324,8 +324,8 @@ describe('buildTimeline', () => {
 
 describe('cost and awaiting', () => {
 	const usage = { input: 9000, output: 3300, cacheRead: 0, cacheWrite: 0 };
-	const exchangeWith = (extra: Record<string, unknown>): ExchangeView =>
-		({ ...closed, ...extra }) as ExchangeView;
+	const exchangeWith = (extra: Record<string, unknown>): Exchange =>
+		({ ...closed, ...extra }) as Exchange;
 
 	it('shows the cost of an exchange on its discussion', () => {
 		const blocks = build(thread, [exchangeWith({ usage: { ...usage, cost: 0.0123 } })]);
@@ -340,7 +340,7 @@ describe('cost and awaiting', () => {
 	it('reads an awaiting exchange as waiting on the person, and not as a plain close', () => {
 		const awaiting = exchangeWith({
 			outcome: { kind: 'awaiting', person: 'noor' },
-			summary: { status: 'silent' },
+			summary: { kind: 'silent' },
 		});
 		expect(build(thread.slice(0, 6), [awaiting])[1]).toMatchObject({ flag: 'Waiting on noor' });
 	});
@@ -348,7 +348,7 @@ describe('cost and awaiting', () => {
 	it('puts the waiting and the cost in the note of an exchange with no messages', () => {
 		const awaiting = exchangeWith({
 			outcome: { kind: 'awaiting', person: 'noor' },
-			summary: { status: 'silent' },
+			summary: { kind: 'silent' },
 			usage: { ...usage, cost: 0.5 },
 		});
 		const blocks = build([said(98, 'noor')], [awaiting]);
@@ -356,7 +356,7 @@ describe('cost and awaiting', () => {
 	});
 
 	it('places the tail blocks after the closed exchanges and before the live block', () => {
-		const later: ExchangeView = {
+		const later: Exchange = {
 			from: 150,
 			status: 'open',
 			person: 'priya',

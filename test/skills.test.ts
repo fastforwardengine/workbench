@@ -2,14 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRuntime, startRoom } from '@ambionframework/ambion';
-import {
-	byAgent,
-	callTool,
-	quiet,
-	scripted,
-	settled,
-	speak,
-} from '@ambionframework/ambion/testing';
+import { byAgent, callTool, quiet, say, scripted, settled } from '@ambionframework/ambion/testing';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
@@ -68,10 +61,10 @@ describe('the Workbench skills', () => {
 			execution: scripted(
 				byAgent({
 					assistant: (_step, _seat, call) =>
-						call === 1 ? speak('Scan the bench.', 'instruments') : quiet(),
+						call === 1 ? say('Scan the bench.', 'instruments') : quiet(),
 					instruments: (step, _seat, call) => {
 						if (call === 1) return callTool('read', { path: '~/.skills/scan-the-bench/SKILL.md' });
-						if (call === 2) return speak(`Read: ${step.results.at(-1)?.text}`, 'assistant');
+						if (call === 2) return say(`Read: ${step.results.at(-1)?.text}`, 'assistant');
 						return quiet();
 					},
 				}),

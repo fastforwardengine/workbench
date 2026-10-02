@@ -1,4 +1,4 @@
-import type { Lab, ProcessOutput, ProcessView } from '../../host/host.ts';
+import type { Lab, Process, ProcessOutput } from '../../host/host.ts';
 import { errorText } from '../../view/text.ts';
 
 type ProcessHost = Pick<Lab, 'processes' | 'processOutput' | 'cancelProcess' | 'watchProcesses'>;
@@ -12,7 +12,7 @@ type ProcessHost = Pick<Lab, 'processes' | 'processOutput' | 'cancelProcess' | '
 export class ProcessBrowser {
 	open = false;
 	index = 0;
-	processes: ProcessView[] = [];
+	processes: Process[] = [];
 	/** The end of the output of the chosen process, once it loads. */
 	output: ProcessOutput | undefined;
 	/** Why the list or the output did not load. */
@@ -35,7 +35,7 @@ export class ProcessBrowser {
 		this.changed = changed;
 	}
 
-	get selected(): ProcessView | undefined {
+	get selected(): Process | undefined {
 		return this.processes[this.index];
 	}
 
@@ -79,7 +79,7 @@ export class ProcessBrowser {
 	async refresh(): Promise<void> {
 		if (!this.open) return;
 		const generation = this.generation;
-		let listed: ProcessView[] | undefined;
+		let listed: Process[] | undefined;
 		let problem: string | undefined;
 		try {
 			listed = await this.host.processes();
@@ -93,7 +93,7 @@ export class ProcessBrowser {
 	}
 
 	/** Take a new list, and keep the chosen process when the list still holds it. */
-	private choose(listed: ProcessView[]): void {
+	private choose(listed: Process[]): void {
 		const chosen = this.selected?.handle;
 		this.processes = listed;
 		const at = listed.findIndex((process) => process.handle === chosen);
@@ -120,7 +120,7 @@ export class ProcessBrowser {
 			const ended = await this.host.cancelProcess(process.handle);
 			this.message =
 				ended.state === 'running'
-					? `${label(ended)} did not end within 10 seconds.`
+					? `${label(ended)} did not end within the wait of the stop.`
 					: `${label(ended)} is ${ended.state.replace('_', ' ')}.`;
 		} catch (error) {
 			this.message = errorText(error);
@@ -159,7 +159,7 @@ export class ProcessBrowser {
 }
 
 /** The name and the handle of a process, or the handle alone. */
-export function label(process: ProcessView): string {
+export function label(process: Process): string {
 	return process.name ? `${process.name} (${process.handle})` : process.handle;
 }
 
@@ -176,7 +176,7 @@ function span(ms: number): string {
  * or `cancelled after 1m 2s`. An ended process whose files name no end time
  * gives the state alone.
  */
-export function stateText(process: ProcessView, now: number): string {
+export function stateText(process: Process, now: number): string {
 	const end = process.endedAt === undefined ? now : Date.parse(process.endedAt);
 	const took = span(end - Date.parse(process.startedAt));
 	if (process.state !== 'running' && process.endedAt === undefined && process.state !== 'failed')

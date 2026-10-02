@@ -24,8 +24,8 @@ import { seedWorkspace } from './seed.ts';
 import { unavailable } from './unavailable.ts';
 import { type WorkstationConfig, workstationBackends } from './workstation.ts';
 
-/** What a person can do to a room's work. Abort ends the open exchange. Stop and resume end and start a run. */
-export type RoomAction = 'abort' | 'stop' | 'resume';
+/** What a person can do to a room's work. Cancel ends the open exchange. Stop and resume end and start a run. */
+export type RoomAction = 'cancel' | 'stop' | 'resume';
 
 export function fail(message: string): never {
 	throw new Error(message);
@@ -39,7 +39,7 @@ interface CatalogEntry {
 interface Activity {
 	at: string;
 	type: string;
-	agent?: string;
+	seat?: string;
 	text: string;
 }
 type HostLifecycle =
@@ -80,8 +80,9 @@ async function workspaceBackends(directory: string, workstation?: WorkstationCon
 		return { backend: await workstationBackends(workstation), roots: workstation.roots };
 	return {
 		backend: {
-			bash: directoryBackend(resolve(directory, 'workspace')),
-			git: labRepositories(resolve(directory, 'git.db')),
+			bash: directoryBackend(resolve(directory, 'workspace'), {
+				git: labRepositories(resolve(directory, 'git.db')),
+			}),
 		},
 		roots: ['/'],
 	};
@@ -142,7 +143,7 @@ export async function openRooms(
 		await seedWorkspace(workspace);
 		// Register the templates now, so a template that fails to register
 		// stops the start with an error that names it.
-		await workspace.git?.use(workspace.host, (env) => env.list());
+		await workspace.git?.use(workspace.mirrorAgent, (env) => env.list());
 		// Load the skills now, so a skill that breaks a rule stops the start.
 		roomTeam = await team(workspace);
 	} catch (error) {
@@ -256,8 +257,8 @@ export async function openRooms(
 					entry.enabled = 0;
 					save(entry);
 					break;
-				case 'abort':
-					await liveRoom(entry).abort();
+				case 'cancel':
+					await liveRoom(entry).cancel();
 					break;
 			}
 			return status(entry);
@@ -317,13 +318,13 @@ export async function openRooms(
 		activation: (name: string, id: string) => withRoom(name, async () => log.read(name, id)),
 		list: () =>
 			Promise.all([...entries.values()].map((entry) => serial(entry, () => status(entry)))),
-		read: (name: string, since?: number) =>
+		read: (name: string, after?: number) =>
 			withRoom(name, async (entry) =>
 				roomView(
 					entry,
 					await readRoom(entry.name, {
 						runtime,
-						messages: since === undefined ? undefined : { since },
+						messages: after === undefined ? undefined : { after },
 					}),
 					missing,
 				),
@@ -394,16 +395,16 @@ function recordActivity(entry: HostedRoom, event: RoomNotification): void {
 function describeEvent(event: RoomNotification): Omit<Activity, 'at'> | undefined {
 	switch (event.type) {
 		case 'error':
-		case 'delivery_error':
-			return { type: event.type, agent: event.agent, text: event.error.message };
+		case 'port_error':
+			return { type: event.type, seat: event.seat, text: event.error.message };
 		case 'activation_start':
-			return { type: event.type, agent: event.agent, text: 'Reading and working' };
+			return { type: event.type, seat: event.seat, text: 'Reading and working' };
 		case 'activation_end':
-			return { type: event.type, agent: event.agent, text: 'Finished activation' };
-		case 'tool_execution_start':
-			return { type: event.type, agent: event.agent, text: `Using ${event.toolName}` };
+			return { type: event.type, seat: event.seat, text: 'Finished activation' };
+		case 'tool_call':
+			return { type: event.type, seat: event.seat, text: `Using ${event.name}` };
 		case 'abandoned':
-			return { type: event.type, agent: event.agent, text: 'Retry limit reached' };
+			return { type: event.type, seat: event.seat, text: 'Retry limit reached' };
 		default:
 			return undefined;
 	}

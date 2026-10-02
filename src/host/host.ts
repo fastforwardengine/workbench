@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { Room } from '@ambionframework/ambion';
 import type { PiExecutionOptions } from '@ambionframework/pi';
+import type { Process } from '@ambionframework/workspace';
 import { type Person, people } from '../domain/definitions.ts';
 import { scenarios } from '../domain/scenarios.ts';
 import type { ActivationSteps } from '../view/steps.ts';
@@ -16,7 +17,7 @@ import {
 } from './files.ts';
 import { MAX_GOAL, ROOM_NAME } from './names.ts';
 import { readCommitFile, readSnapshotFile } from './previews.ts';
-import { byRecency, type ProcessOutput, type ProcessView, readOutput } from './processes.ts';
+import { byRecency, type ProcessOutput, readOutput } from './processes.ts';
 import {
 	fail,
 	liveRoom,
@@ -27,10 +28,11 @@ import {
 } from './rooms.ts';
 import { loadWorkstation } from './workstation.ts';
 
+export type { Process } from '@ambionframework/workspace';
 export type { Person } from '../domain/definitions.ts';
 export type { ActivationSteps } from '../view/steps.ts';
 export type { Attachment, FileContent, FileEntry, ImageContent, TableView } from './files.ts';
-export type { ProcessOutput, ProcessView } from './processes.ts';
+export type { ProcessOutput } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
 
 /** An assistant or a specialist that a message can address, seated in the room or not. */
@@ -50,8 +52,8 @@ export interface Lab {
 	/** The seats a person can address with `@name`: the assistant and every specialist. */
 	readonly agents: readonly Addressable[];
 	rooms(): Promise<RoomView[]>;
-	/** Read one room. Messages come back only after `since`, an exclusive position. */
-	read(room: string, since: number): Promise<RoomView>;
+	/** Read one room. Messages come back only above `after`, an exclusive seq. */
+	read(room: string, after: number): Promise<RoomView>;
 	/**
 	 * Watch one room for live changes. A running room calls `changed` after each
 	 * entry it records and each activation step, so a reader can read again at
@@ -60,7 +62,7 @@ export interface Lab {
 	 */
 	watch(room: string, changed: () => void): () => void;
 	/** Enter a room as a person. Entering twice records one arrival. */
-	join(room: string, person: string): Promise<void>;
+	visit(room: string, person: string): Promise<void>;
 	/** Leave a room. A person who is not present has nothing to leave. */
 	leave(room: string, person: string): Promise<void>;
 	/**
@@ -99,17 +101,18 @@ export interface Lab {
 	 * The background processes of the agents that used the workspace in this
 	 * run: the running processes first, then the newest start first.
 	 */
-	processes(): Promise<ProcessView[]>;
+	processes(): Promise<Process[]>;
 	/**
 	 * The end of the output of the process `handle` of `agent`: the last 64 K
 	 * characters. An output over 1 MiB gives its size and no text.
 	 */
 	processOutput(handle: string, agent: string): Promise<ProcessOutput>;
 	/**
-	 * Stop one process. It waits up to 10 seconds for the end, then gives the
-	 * state. It runs outside the queue of the host's file reads.
+	 * Stop one process. It waits for the end up to the wait of the stop, 15
+	 * seconds at most, then gives the state. It runs outside the queue of the
+	 * host's file reads.
 	 */
-	cancelProcess(handle: string): Promise<ProcessView>;
+	cancelProcess(handle: string): Promise<Process>;
 	/** Call `changed` when a process starts and when one ends. The return value ends the watch. */
 	watchProcesses(changed: () => void): () => void;
 	/** Stop every room and release the storage. The journals stay, so a later open resumes them. */
@@ -179,7 +182,7 @@ function present(
 	return snapshot.participants.some(
 		(seat) =>
 			seat.name === name &&
-			seat.kind === 'human' &&
+			seat.kind === 'person' &&
 			'presence' in seat &&
 			seat.presence === 'present',
 	);
@@ -226,9 +229,9 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		people,
 		agents: rooms.agents,
 		rooms: () => rooms.list(),
-		read: (room, since) => rooms.read(room, since),
+		read: (room, after) => rooms.read(room, after),
 		watch: (room, changed) => rooms.watch(room, changed),
-		async join(room, person) {
+		async visit(room, person) {
 			const who = personNamed(person);
 			await inRoom(room, async (live) => void (await live.visit(who)));
 		},

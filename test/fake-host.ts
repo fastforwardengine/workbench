@@ -5,7 +5,7 @@ import type {
 	FileEntry,
 	Lab,
 	Person,
-	ProcessView,
+	Process,
 	RoomView,
 } from '../src/host/host.ts';
 import { Session } from '../src/terminal/state/session.ts';
@@ -26,7 +26,7 @@ export const view = (name: string, extra: Record<string, unknown> = {}) =>
 		exchanges: [],
 		exchange: undefined,
 		scheduled: [],
-		watermark: 0,
+		through: 0,
 		...extra,
 	}) as unknown as RoomView;
 
@@ -92,8 +92,8 @@ export class FakeHost implements Lab {
 	listeners(room: string): number {
 		return this.watching.get(room)?.size ?? 0;
 	}
-	async join(room: string, who: string) {
-		this.record(`join:${room}:${who}`);
+	async visit(room: string, who: string) {
+		this.record(`visit:${room}:${who}`);
 	}
 	async leave(room: string, who: string) {
 		this.record(`leave:${room}:${who}`);
@@ -169,14 +169,14 @@ export class FakeHost implements Lab {
 		return { path: ref, text: `commit ${ref}`, truncated: false };
 	}
 	/** The processes the host lists. A cancel moves one to `cancelled`. */
-	processTable: ProcessView[] = [];
+	processTable: Process[] = [];
 	readonly processWatchers = new Set<() => void>();
 	/** While set, a process list waits for it. */
 	processGate: Promise<void> | undefined;
 	/** While set, a process list fails with it. */
 	processFailure: string | undefined;
 	/** The state a cancel gives. `running` stands for a process that did not end in time. */
-	cancelState: ProcessView['state'] = 'cancelled';
+	cancelState: Process['state'] = 'cancelled';
 	async processes() {
 		const table = [...this.processTable];
 		if (this.processGate) await this.processGate;

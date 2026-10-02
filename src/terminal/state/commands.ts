@@ -1,4 +1,4 @@
-import type { PendingSay } from '@ambionframework/ambion';
+import type { ScheduledSay } from '@ambionframework/ambion';
 
 /** A slash command the composer understands. */
 interface Command {
@@ -66,9 +66,9 @@ export const COMMANDS = [
 		help: ['  /try              fill the composer with the room’s suggested question'],
 	},
 	{
-		name: 'abort',
+		name: 'cancel',
 		summary: 'Cancel the open exchange',
-		help: ['  /abort            cancel the open exchange in this room'],
+		help: ['  /cancel           cancel the open exchange in this room'],
 	},
 	{
 		name: 'dismiss',
@@ -175,7 +175,7 @@ export interface Choices {
 	people: readonly PersonChoice[];
 	files: readonly FileChoice[];
 	/** The says of the open room that wait to return. */
-	says: readonly PendingSay[];
+	says: readonly ScheduledSay[];
 }
 
 /** What a palette row completes to. It names the palette. */

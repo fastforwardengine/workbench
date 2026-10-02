@@ -1,4 +1,4 @@
-import type { ParticipantInfo, PendingSay } from '@ambionframework/ambion';
+import type { Participant, ScheduledSay } from '@ambionframework/ambion';
 import type { RoomAction, RoomView } from '../../host/host.ts';
 import type { Block } from '../../view/timeline.ts';
 import { COMMANDS } from './commands.ts';
@@ -25,7 +25,7 @@ export const HELP = ['Commands', ...COMMANDS.flatMap((command) => command.help),
 );
 
 export const DONE: Record<RoomAction, (room: string) => string> = {
-	abort: (room) => `Aborted the open exchange in ${room}.`,
+	cancel: (room) => `Cancelled the open exchange in ${room}.`,
 	stop: (room) => `Stopped ${room}. Use /resume to start it again.`,
 	resume: (room) => `Resumed ${room}.`,
 };
@@ -33,9 +33,9 @@ export const DONE: Record<RoomAction, (room: string) => string> = {
 /** The reason an action does not apply to the room, or undefined when it does. */
 export function refusal(action: RoomAction, view: RoomView | undefined): string | undefined {
 	if (!view) return 'No room is open.';
-	if (action === 'abort') {
+	if (action === 'cancel') {
 		if (view.status !== 'running') return `${view.name} is not running. Use /resume first.`;
-		return view.exchange ? undefined : `Nothing to abort. ${view.name} has no open exchange.`;
+		return view.exchange ? undefined : `Nothing to cancel. ${view.name} has no open exchange.`;
 	}
 	if (action === 'stop')
 		return view.status === 'stopped' ? `${view.name} is already stopped.` : undefined;
@@ -44,7 +44,7 @@ export function refusal(action: RoomAction, view: RoomView | undefined): string 
 
 /** The agents that are at work in a room now. */
 export const workingAgents = (view: RoomView | undefined): string[] =>
-	(view?.participants ?? []).flatMap((participant: ParticipantInfo) =>
+	(view?.participants ?? []).flatMap((participant: Participant) =>
 		participant.kind === 'agent' && participant.status === 'active' ? [participant.name] : [],
 	);
 
@@ -56,12 +56,12 @@ export function emptyText(view: RoomView): string {
 
 /** The notes after the closed exchanges: what waits on the person, then each say that waits. */
 export function notesOf(attention: readonly string[], view: RoomView): Block[] {
-	const notes = [...attention, ...view.scheduled.map(pendingLine)];
+	const notes = [...attention, ...view.scheduled.map(scheduledLine)];
 	return notes.map((text) => ({ type: 'note', text }));
 }
 
 /** One say that waits to return, as the conversation notes it. */
-function pendingLine(say: PendingSay): string {
+function scheduledLine(say: ScheduledSay): string {
 	const due = new Date(say.due);
 	const later = due.valueOf() - Date.now() > 86_400_000;
 	const time = Number.isNaN(due.valueOf())

@@ -17,7 +17,7 @@ describe('the help text', () => {
 			'attach',
 			'ps',
 			'try',
-			'abort',
+			'cancel',
 			'dismiss',
 			'stop',
 			'resume',

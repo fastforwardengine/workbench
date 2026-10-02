@@ -1,4 +1,4 @@
-import type { ExchangeActivation, ExchangeView } from '@ambionframework/ambion';
+import type { Exchange, ExchangeActivation } from '@ambionframework/ambion';
 import type { RoomView } from '../../host/host.ts';
 
 /**
@@ -6,19 +6,16 @@ import type { RoomView } from '../../host/host.ts';
  * none. The room abandons an attempt without running it, so an abandoned
  * attempt has no steps. It counts only when no other activation exists.
  */
-export function newest(exchange: ExchangeView | undefined): ExchangeActivation | undefined {
+export function newest(exchange: Exchange | undefined): ExchangeActivation | undefined {
 	const activations = exchange?.activations ?? [];
 	return (
-		activations.findLast((activation) => activation.outcome.status !== 'abandoned') ??
+		activations.findLast((activation) => activation.outcome.kind !== 'abandoned') ??
 		activations.at(-1)
 	);
 }
 
 /** The exchange a person names: by ordinal, oldest first, or the latest with an activation. */
-export function pick(
-	exchanges: readonly ExchangeView[],
-	argument: string,
-): ExchangeView | undefined {
+export function pick(exchanges: readonly Exchange[], argument: string): Exchange | undefined {
 	if (argument === '') return [...exchanges].reverse().find((exchange) => newest(exchange));
 	const ordinal = Number(argument);
 	return Number.isInteger(ordinal) ? exchanges[ordinal - 1] : undefined;
@@ -27,7 +24,7 @@ export function pick(
 /** What the person owes the room: the replies that wait on them. */
 export function attentionOf(view: RoomView | undefined, person: string): string[] {
 	if (!view || !person) return [];
-	// `pendingFor` reads a `RoomRead`, and the host view overrides `goal`, so filter here.
+	// `awaitingFor` reads a `RoomRead`, and the host view overrides `goal`, so filter here.
 	return view.exchanges
 		.filter(
 			(exchange) =>

@@ -1,7 +1,7 @@
-import type { ExchangeActivation, ExchangeView, Message } from '@ambionframework/ambion';
+import type { Exchange, ExchangeActivation, Message } from '@ambionframework/ambion';
 import { formatUsage, type PassView } from './steps.ts';
 
-type ClosedView = Extract<ExchangeView, { status: 'closed' }>;
+type ClosedView = Extract<Exchange, { status: 'closed' }>;
 
 /**
  * How a message reads in the conversation. A steer is a person's message
@@ -61,7 +61,7 @@ export type Block = MessageBlock | DiscussionBlock | NoteBlock | StepsBlock | Li
 
 export interface TimelineInput {
 	messages: readonly Message[];
-	exchanges: readonly ExchangeView[];
+	exchanges: readonly Exchange[];
 	open?: { person?: string };
 	/** The latest work an agent reported in the open exchange. */
 	activity?: string;
@@ -83,7 +83,7 @@ interface Group {
 	direct: boolean;
 }
 
-const spoken = (message: Message): boolean =>
+const hasText = (message: Message): boolean =>
 	message.kind === 'said' || message.kind === 'summary' || message.kind === 'posted';
 
 function waitingOn(exchange: ClosedView): string | undefined {
@@ -96,7 +96,7 @@ const lastFailed = (
 	purpose: ExchangeActivation['purpose'],
 ): ExchangeActivation | undefined =>
 	exchange.activations.findLast(
-		(activation) => activation.purpose === purpose && activation.outcome.status === 'failed',
+		(activation) => activation.purpose === purpose && activation.outcome.kind === 'failed',
 	);
 
 /** The seat whose reply the room gave up on, or undefined when the room gave up on none. */
@@ -119,7 +119,7 @@ function flagFor(exchange: ClosedView): string {
 	if (waiting) return waiting;
 	const failed = gaveUpOn(exchange);
 	if (failed) return `${failed.seat} failed`;
-	const status = exchange.summary.status;
+	const status = exchange.summary.kind;
 	if (status === 'published') return '';
 	if (status === 'pending') return 'Summary pending';
 	if (status === 'failed') return 'Summary failed';
@@ -137,9 +137,9 @@ function noteFor(exchange: ClosedView, failures?: ReadonlyMap<string, string>): 
 	if (waiting) return `${waiting}${suffix}`;
 	const failed = gaveUpOn(exchange);
 	if (failed) return `Closed, ${failureText(failed, failures)}${suffix}`;
-	const status = exchange.summary.status;
+	const status = exchange.summary.kind;
 	if (status === 'pending') return `Closed, summary pending${suffix}`;
-	const summary = lastFailed(exchange, 'summary');
+	const summary = lastFailed(exchange, 'summarize');
 	if (status === 'failed' && summary)
 		return `Closed, summary failed: ${failureText(summary, failures)}${suffix}`;
 	if (status === 'failed') return `Closed, summary failed${suffix}`;
@@ -156,13 +156,13 @@ function groupsOf(input: TimelineInput): Group[] {
 					message.seq > exchange.from &&
 					message.seq <= exchange.through,
 			);
-			const published = exchange.summary.status === 'published';
+			const published = exchange.summary.kind === 'published';
 			return {
 				exchange,
 				source,
 				summary: published ? exchange.summary.summary : undefined,
 				// One agent reply shows directly. A lone person's message is not a reply, so an
-				// exchange that holds only that, such as an aborted one, keeps its closing mark.
+				// exchange that holds only that, such as a cancelled one, keeps its closing mark.
 				direct: source.length === 1 && !input.humans.has(source[0]?.from ?? ''),
 			};
 		});
@@ -213,7 +213,7 @@ class Builder {
 	}
 
 	build(): Block[] {
-		for (const message of this.input.messages.filter(spoken)) this.place(message);
+		for (const message of this.input.messages.filter(hasText)) this.place(message);
 		for (const group of this.groups) this.emit(group);
 		this.blocks.push(...(this.input.tail ?? []));
 		if (this.input.open)
@@ -258,7 +258,7 @@ class Builder {
 /**
  * Turn the record into the blocks the conversation shows.
  *
- * A closed exchange shows its question, then one discussion holding every spoken
+ * A closed exchange shows its question, then one discussion holding every said
  * message after it, in order, and then its summary. A person's steering message
  * is part of the discussion. An exchange with one reply shows that reply and no
  * discussion or summary. The open exchange keeps its messages in the open, and a

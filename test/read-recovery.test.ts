@@ -42,11 +42,11 @@ describe('Workbench room reads and recovery', () => {
 			stream: quietStream(counter),
 		});
 		try {
-			await lab.join('radio-kit', person.name);
+			await lab.visit('radio-kit', person.name);
 			await lab.send('radio-kit', person.name, 'read-1', 'Read this room.');
 			const closedExchange = async () => {
 				const exchange = (await lab.read('radio-kit', 0)).exchanges[0];
-				return exchange?.status === 'closed' && exchange.summary.status === 'silent'
+				return exchange?.status === 'closed' && exchange.summary.kind === 'silent'
 					? exchange
 					: undefined;
 			};
@@ -64,7 +64,7 @@ describe('Workbench room reads and recovery', () => {
 				status: 'running',
 				participants: expect.any(Array),
 				exchanges: expect.any(Array),
-				watermark: expect.any(Number),
+				through: expect.any(Number),
 			});
 			expect(selected.messages.every((message) => message.seq > from)).toBe(true);
 			await lab.control('radio-kit', 'stop');

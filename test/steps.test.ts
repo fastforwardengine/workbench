@@ -56,6 +56,7 @@ describe('stepsView', () => {
 						seq: 7,
 					},
 					{ type: 'steer', seq: 8, consumed: false },
+					{ type: 'notice', level: 'warning', text: 'Reconnecting' },
 					{ type: 'usage', ...usage({ cost: 0.5 }) },
 					{ type: 'end', stop: 'stopped' },
 				],
@@ -74,6 +75,7 @@ describe('stepsView', () => {
 			'failed: boom',
 			'room committed at 7',
 			'steer 8 queued',
+			'warning: Reconnecting',
 			'$0.5000',
 			'ended: stopped',
 		]);
@@ -86,25 +88,29 @@ describe('stepsView', () => {
 		expect(stepsView({ activation: 'a', passes: [] })).toEqual([]);
 	});
 
-	it('shows the failure of an activation and the harness permission steps', () => {
+	it('shows the session of a seat and the failure of an activation', () => {
 		const lines = stepsView(
 			read([
 				[
-					{ type: 'approval', call: 'c', name: 'bash' },
-					{ type: 'approval', call: 'c', name: 'bash', decision: 'deny' },
-					{ type: 'approval', call: 'd', name: 'edit', decision: 'allow' },
+					{
+						type: 'session',
+						name: 'pi',
+						model: 'fake-model',
+						tools: ['say', 'bash'],
+						servers: [],
+					},
+					{ type: 'session', name: 'pi', tools: [], servers: [] },
 					{
 						type: 'end',
-						stop: 'aborted',
+						stop: 'cut',
 						failure: { cause: 'error', message: 'provider down' },
 					},
 				],
 			]),
 		)[0]?.lines;
 		expect(lines?.map((line) => line.text)).toEqual([
-			'bash: waiting for the harness permission',
-			'bash: harness permission denied',
-			'edit: harness permission allowed',
+			'pi fake-model: 2 tools',
+			'pi: 0 tools',
 			'ended: provider down',
 		]);
 	});
@@ -127,11 +133,11 @@ describe('activationLine', () => {
 			seat: 'design',
 			attempt: 1,
 			purpose: 'respond',
-			outcome: { status: 'released' },
+			outcome: { kind: 'released' },
 			usage: usage({ cost: 0.0031 }),
 		};
 		expect(activationLine(base)).toBe('design · respond · attempt 1 · $0.0031');
-		expect(activationLine({ ...base, usage: undefined, outcome: { status: 'running' } })).toBe(
+		expect(activationLine({ ...base, usage: undefined, outcome: { kind: 'running' } })).toBe(
 			'design · respond · attempt 1 · running',
 		);
 	});

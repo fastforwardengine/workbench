@@ -86,7 +86,7 @@ describe('Workbench with no key', () => {
 			'instruments',
 			'builder',
 		]);
-		await lab.join('radio-kit', person);
+		await lab.visit('radio-kit', person);
 		await lab.send('radio-kit', person, 'nokey-1', 'Plan a test.');
 		await vi.waitFor(async () => {
 			const view = await lab.read('radio-kit', 0);

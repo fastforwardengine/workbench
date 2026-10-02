@@ -1,12 +1,5 @@
 import { createRuntime, startRoom } from '@ambionframework/ambion';
-import {
-	byAgent,
-	callTool,
-	quiet,
-	scripted,
-	settled,
-	speak,
-} from '@ambionframework/ambion/testing';
+import { byAgent, callTool, quiet, say, scripted, settled } from '@ambionframework/ambion/testing';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -22,7 +15,7 @@ afterEach(async () => {
 async function build() {
 	const workspace = openWorkspace({
 		name: 'workbench',
-		backend: { bash: memoryBackend(), git: labRepositories(':memory:') },
+		backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
 	});
 	cleanups.push(() => workspace.dispose());
 	return team(workspace);
@@ -45,6 +38,7 @@ const WORKSPACE_TOOLS = [
 	'snapshot',
 	'restore',
 	'repos',
+	'clone',
 	'fork',
 ];
 
@@ -82,15 +76,15 @@ describe('the Workbench filesystem', () => {
 		const marker = 'LED limit 20 mA';
 		const script = byAgent({
 			assistant: (_step, _seat, call) =>
-				call === 1 ? speak('Please state the limit.', 'datasheets') : quiet(),
+				call === 1 ? say('Please state the limit.', 'datasheets') : quiet(),
 			datasheets: (_step, _seat, call) => {
 				if (call === 1) return callTool('write', { path: '/shared/handoff.md', content: marker });
-				if (call === 2) return speak('Written.', 'experiments');
+				if (call === 2) return say('Written.', 'experiments');
 				return quiet();
 			},
 			experiments: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: '/shared/handoff.md' });
-				if (call === 2) return speak(`Read back: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 2) return say(`Read back: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
 			},
 		});
@@ -120,7 +114,7 @@ describe('the Workbench repositories', () => {
 		const person = people[0];
 		if (!person) throw new Error('No person.');
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? speak('Plan it.', 'experiments') : quiet()),
+			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'experiments') : quiet()),
 			experiments: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', { source: 'templates/test-plan', name: 'plan', clone: '~/plan' });
@@ -129,7 +123,7 @@ describe('the Workbench repositories', () => {
 						command:
 							"cd ~/plan && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git commit -am 'Name the plan' && git push origin led",
 					});
-				if (call === 3) return speak(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
 			},
 		});

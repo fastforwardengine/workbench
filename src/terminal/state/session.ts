@@ -1,4 +1,4 @@
-import type { ExchangeView } from '@ambionframework/ambion';
+import type { Exchange } from '@ambionframework/ambion';
 import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
 import { holderOf, type Known, type RefItem, refItems, shows } from '../../view/refs.ts';
@@ -189,11 +189,11 @@ export class Session {
 			open: view.exchange,
 			humans: new Set(
 				view.participants
-					.filter((participant) => participant.kind === 'human')
+					.filter((participant) => participant.kind === 'person')
 					.map((participant) => participant.name),
 			),
 			working: workingAgents(view),
-			activity: activity ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
+			activity: activity ? `${activity.seat ?? 'room'}: ${activity.text}` : undefined,
 			expanded: this.expanded,
 			tail: this.tail(view),
 			failures: view.failures,
@@ -333,7 +333,7 @@ export class Session {
 			this.say('This room has no suggested question.');
 			return undefined;
 		},
-		abort: () => this.finish(this.control('abort')),
+		cancel: () => this.finish(this.control('cancel')),
 		stop: () => this.finish(this.control('stop')),
 		resume: () => this.finish(this.control('resume')),
 		steps: (argument) => this.finish(this.stepsCommand(argument)),
@@ -369,7 +369,7 @@ export class Session {
 	private async join(): Promise<void> {
 		if (!this.identity || !this.room) return;
 		try {
-			await this.host.join(this.room, this.identity.name);
+			await this.host.visit(this.room, this.identity.name);
 			this.entered = true;
 		} catch (error) {
 			this.fail(error);
@@ -583,7 +583,7 @@ export class Session {
 		if (exchange) await this.showExchange(exchange);
 	}
 
-	private async showExchange(exchange: ExchangeView): Promise<void> {
+	private async showExchange(exchange: Exchange): Promise<void> {
 		const activation = newest(exchange);
 		if (!activation) return this.say('That exchange ran no activation.');
 		try {

@@ -2,7 +2,7 @@
 
 **A shared lab workspace where people and specialists work on electrical
 engineering, hardware, and electrochemistry.** It runs on
-[Ambion](https://github.com/ambionframework/ambion) 0.4.0, the
+[Ambion](https://github.com/ambionframework/ambion) 0.5.0, the
 collaboration kernel, and follows
 [Ambion's example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
 **The objective now is an FM radio that the team helps build and then
@@ -52,9 +52,11 @@ pnpm start ./bench                # another directory
 - **A new data directory gets the four radio rooms and the library.** An
   existing one resumes its rooms and has no radio rooms. Move an older
   data directory away, or add a room with `/new radio-kit`.
-- **Ambion 0.4.0 opens no journal of 0.3.0.** Move an older data directory
-  away, and start again. A workstation needs `workstation/setup.sh` again:
-  `workstation.json` names the `snapshots` folder now.
+- **Ambion 0.5.0 opens no journal of 0.4.0.** Stored bodies changed field
+  names, and the kernel reads only the format of its own release. Move an
+  older data directory away, and start again. The first run of 0.4.0 also
+  needed `workstation/setup.sh` again: `workstation.json` names the
+  `snapshots` folder.
 
 ## Run on a local workstation
 

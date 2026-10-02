@@ -297,9 +297,9 @@ describe('Workbench host stop recovery', () => {
 		let lab: Awaited<ReturnType<typeof openLab>> | undefined;
 		try {
 			lab = await openLab({ directory: joinPath(directory, 'run'), stream });
-			await lab.join('radio-kit', person.name);
+			await lab.visit('radio-kit', person.name);
 			await expect(lab.control('radio-kit', 'stop')).rejects.toThrow(/write failure/);
-			await expect(lab.join('radio-kit', person.name)).rejects.toThrow(/Resume this room first/);
+			await expect(lab.visit('radio-kit', person.name)).rejects.toThrow(/Resume this room first/);
 			expect((await lab.rooms()).find((room) => room.name === 'radio-kit')?.status).toBe(
 				'stopping',
 			);
@@ -311,7 +311,7 @@ describe('Workbench host stop recovery', () => {
 			const shutdownFailure = failNextDeparture();
 			try {
 				expect((await lab.control('radio-kit', 'resume')).status).toBe('running');
-				await lab.join('radio-kit', person.name);
+				await lab.visit('radio-kit', person.name);
 				await expect(lab.close()).rejects.toThrow(/write failure/);
 			} finally {
 				shutdownFailure.restore();

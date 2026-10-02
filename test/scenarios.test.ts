@@ -1,5 +1,5 @@
 import { memoryBackend } from '@ambionframework/just-bash';
-import { BACKGROUND_CONTEXT, openWorkspace } from '@ambionframework/workspace';
+import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { radioProject, sharedRules, team } from '../src/domain/definitions.ts';
 import { scenarios, seats, seedFiles } from '../src/domain/scenarios.ts';
@@ -104,10 +104,10 @@ describe('the seed of a workspace', () => {
 		try {
 			await seedWorkspace(workspace, { '/shared/kit.md': 'the LED kit' });
 			await seedWorkspace(workspace, { '/shared/kit.md': 'a later kit' });
-			await workspace.use(workspace.host, async (env) => {
-				const kit = await env.readTextFile('/shared/kit.md', BACKGROUND_CONTEXT);
+			await workspace.use(workspace.mirrorAgent, async (env) => {
+				const kit = await env.readTextFile('/shared/kit.md');
 				expect(kit.ok && kit.value).toBe('the LED kit');
-				const bench = await env.readTextFile('/shared/bench.md', BACKGROUND_CONTEXT);
+				const bench = await env.readTextFile('/shared/bench.md');
 				expect(bench.ok && bench.value).toContain('RDA5807FP-M');
 			});
 		} finally {

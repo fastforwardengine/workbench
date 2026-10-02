@@ -9,7 +9,7 @@
  *   read it back.
  * - A request to read `/etc/hosts` reaches no tool that reads a host file.
  */
-import { type Run, scriptedActor, simulate } from '@ambionframework/simulator';
+import { type Simulation, scriptedActor, simulate } from '@ambionframework/simulator';
 import { expect, it } from 'vitest';
 import {
 	EXCHANGE_MS,
@@ -70,18 +70,18 @@ const namesIn = (text: string): string[] =>
 	].sort();
 
 /** Send each message to its seat, one exchange each, and wait for each summary. */
-async function ask(messages: readonly { to: string; text: string }[]): Promise<Run> {
+async function ask(messages: readonly { to: string; text: string }[]): Promise<Simulation> {
 	const { room } = await openRoom();
 	return simulate(room, {
 		person,
 		actor: scriptedActor(messages),
-		exchanges: messages.length,
+		messages: messages.length,
 		exchangeMs: EXCHANGE_MS,
 	});
 }
 
 /** What the seat said in the exchange that the message to it opened. */
-const answerOf = (run: Run, index: number, seat: string): string =>
+const answerOf = (run: Simulation, index: number, seat: string): string =>
 	saidBy(run.exchanges[index], seat)
 		.map((message) => message.text)
 		.join('\n');
@@ -136,7 +136,7 @@ live('the Workbench tool set on Pi', () => {
 		for (const seat of specialists)
 			for (const tool of HOST_READERS) expect(toolsOf(run, seat), seat).not.toContain(tool);
 		const errors = run.events.filter(
-			(event) => event.type === 'error' || event.type === 'delivery_error',
+			(event) => event.type === 'error' || event.type === 'port_error',
 		);
 		expect(errors).toEqual([]);
 	}, 600_000);
