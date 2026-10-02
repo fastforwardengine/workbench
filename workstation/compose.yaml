@@ -27,14 +27,16 @@ services:
       - /dev/bus/usb:/dev/bus/usb
     # Access to the device files of the bench, also to one attached after the
     # start: USB devices (189), cameras (81), USB-serial chips (188), CDC-ACM
-    # serial ports (166), and USBTMC instruments (180). The entrypoint makes
-    # the file of each camera, serial port, and instrument from /sys.
+    # serial ports (166), USBTMC instruments (180), and ALSA sound devices
+    # (116). The entrypoint makes the file of each camera, serial port,
+    # instrument, and sound device from /sys.
     device_cgroup_rules:
       - 'c 189:* rmw'
       - 'c 81:* rmw'
       - 'c 188:* rmw'
       - 'c 166:* rmw'
       - 'c 180:* rmw'
+      - 'c 116:* rmw'
     restart: unless-stopped
     # Healthy once sshd accepts a connection, so `up --wait` returns then.
     healthcheck:

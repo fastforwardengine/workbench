@@ -65,8 +65,29 @@ usb_access() {
 	chmod -R g+rw /dev/bus/usb 2>/dev/null || true
 }
 
-# The device file of each camera, serial port, and USBTMC instrument that the
-# kernel lists in /sys, with the group that reaches it. The container's own
+# The files of the sound devices go to /dev/snd, with the group audio. The
+# kernel lists each one in /sys/class/sound: controlC1, pcmC1D0c, timer.
+# The script removes the file of a sound device that went away.
+sound_files() {
+	local entry name numbers
+	install -d /dev/snd
+	for entry in /sys/class/sound/*; do
+		[ -e "$entry/dev" ] || continue
+		name="$(basename "$entry")"
+		if ! [ -e "/dev/snd/$name" ]; then
+			numbers="$(cat "$entry/dev")"
+			mknod "/dev/snd/$name" c "${numbers%%:*}" "${numbers##*:}" 2>/dev/null || continue
+		fi
+		chgrp audio "/dev/snd/$name" && chmod 0660 "/dev/snd/$name"
+	done
+	for entry in /dev/snd/*; do
+		[ -e "$entry" ] || continue
+		[ -e "/sys/class/sound/$(basename "$entry")" ] || rm -f "$entry"
+	done
+}
+
+# The device file of each camera, serial port, USBTMC instrument, and sound
+# device that the kernel lists in /sys, with the group that reaches it. The container's own
 # /dev holds no file for a device that arrives after the start, so the
 # script makes it from the major and minor numbers in /sys, and removes the
 # file of a device that went away.
@@ -87,6 +108,7 @@ device_files() {
 		fi
 		chgrp "$group" "/dev/$name" && chmod 0660 "/dev/$name"
 	done
+	sound_files
 	for entry in /dev/video* /dev/ttyUSB* /dev/ttyACM* /dev/usbtmc*; do
 		[ -e "$entry" ] || continue
 		name="$(basename "$entry")"

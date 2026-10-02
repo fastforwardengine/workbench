@@ -39,6 +39,22 @@ const bytes = python
 		)
 	: Buffer.alloc(0);
 const digest = createHash('sha256').update(bytes).digest('hex');
+// The demo clip and the level series of its 10 ms windows.
+const clip = python
+	? (JSON.parse(
+			execFileSync(
+				'python3',
+				[
+					'-B',
+					'-c',
+					'import base64,camera,json; w=camera.demo_wav(); print(json.dumps({"wav": base64.b64encode(w).decode(), "values": camera.clip_levels(w)[2]}))',
+				],
+				{ cwd: directory, encoding: 'utf8' },
+			),
+		) as { wav: string; values: number[] })
+	: { wav: '', values: [] };
+const wavBytes = Buffer.from(clip.wav, 'base64');
+const wavDigest = createHash('sha256').update(wavBytes).digest('hex');
 let root: string;
 let child: ChildProcess;
 let data: string;
@@ -80,7 +96,7 @@ describe.skipIf(!python)('the USB camera sensor API v1', () => {
 
 	const cases = sensorConformance(
 		{
-			name: 'USB camera',
+			name: 'USB camera and microphone',
 			open: async () => ({
 				request: async (method, path, body) => {
 					const response = await fetch(`${root}${path}`, {
@@ -91,7 +107,7 @@ describe.skipIf(!python)('the USB camera sensor API v1', () => {
 					return {
 						status: response.status,
 						contentType,
-						...(contentType === 'image/png'
+						...(contentType === 'image/png' || contentType === 'audio/wav'
 							? { bytes: new Uint8Array(await response.arrayBuffer()) }
 							: { body: await response.json() }),
 					};
@@ -116,8 +132,36 @@ describe.skipIf(!python)('the USB camera sensor API v1', () => {
 						},
 					],
 				},
+				{
+					name: 'microphone',
+					spans: false,
+					withinSpan: [],
+					latest: [
+						{
+							at,
+							parts: [
+								{
+									kind: 'text',
+									text: 'SYNTHETIC DEMO: not a bench measurement. A 440 Hz tone pulsed at 10 Hz; 1 s clip, 48000 Hz mono 16-bit; peak -6.0 dBFS, RMS -12.0 dBFS.',
+								},
+								{ kind: 'file', file: wavDigest, name: 'clip.wav', mediaType: 'audio/wav' },
+								{
+									kind: 'series',
+									channel: 'level',
+									unit: 'dBFS',
+									from: at,
+									intervalMs: 10,
+									values: clip.values,
+								},
+							],
+						},
+					],
+				},
 			],
-			files: [{ digest, bytes }],
+			files: [
+				{ digest, bytes },
+				{ digest: wavDigest, bytes: wavBytes },
+			],
 		},
 	);
 	for (const check of cases) it(check.name, check.run);
@@ -127,5 +171,16 @@ describe.skipIf(!python)('the USB camera sensor API v1', () => {
 		expect((await client.index()).source.repository).toBe('instruments/bench-camera');
 		expect((await client.observe('camera')).observations[0]?.at).toBe(at);
 		expect(Buffer.from((await client.file(digest)).bytes)).toEqual(bytes);
+	});
+
+	it('serves the microphone clip through the digest-verifying client', async () => {
+		const client = createSensorClient(root);
+		expect((await client.index()).sensors.map((sensor) => sensor.name)).toEqual([
+			'camera',
+			'microphone',
+		]);
+		const observation = (await client.observe('microphone')).observations[0];
+		expect(observation?.parts.map((part) => part.kind)).toEqual(['text', 'file', 'series']);
+		expect(Buffer.from((await client.file(wavDigest)).bytes)).toEqual(wavBytes);
 	});
 });
