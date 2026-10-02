@@ -51,5 +51,62 @@ another directory.
 commands: `info`, `status`, `measure`, `set`, `output`, `protect`, and
 `read`. The `read` command needs a driver with raw registers.
 
+**The sensor reads the supply and never writes to it.** `sensor.py` is a
+sensor server for the sensor API of Ambion. It follows the lifecycle of
+`templates/usb-camera`. It takes no drive lock, so it runs beside a
+controller. It serves three sensors:
+
+| Sensor     | Spans | Answer                                                    |
+| ---------- | ----- | --------------------------------------------------------- |
+| `output`   | yes   | The voltage, the current, and the power of each channel   |
+| `recent`   | no    | The statistics of the last 60 s, and the recent changes   |
+| `settings` | no    | The setpoints, the protection limits, and the drive owner |
+
+1. Fork and clone the template, as in `templates/usb-camera/README.md`.
+   Run the sensor from a second clone of the fork at a pushed commit. Then
+   a later edit in your working clone leaves the launch metadata of the
+   evidence unchanged.
+2. Start one foreground server with the process tools. Use your fork ID
+   and an absolute data directory outside the clone:
+
+   ```ts
+   bash({
+     command: 'cd ~/bench-psu-sensor && AMBION_SENSOR_REPOSITORY=instruments/bench-psu AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-psu" python3 -u -B sensor.py',
+     name: 'bench-psu-sensor', wait: 0, timeout: 86400,
+   });
+   ```
+
+3. Read `status({ handle })` until `READY {"port": ...}` appears. The
+   sensor takes one sample and one settings read before it prints READY.
+   A failed read prints the error and no READY.
+4. Connect with the process handle and the printed port. The connection
+   name is `name` from `psu.json`:
+
+   ```ts
+   connect({ name: 'psu', process: handle, port });
+   observe({ sensor: 'psu/output' });
+   ```
+
+5. Replace the sensor in this order: `cancel({ handle })`, edit and push,
+   start a new handle, and connect again. After a restart the sensor
+   refills its memory of the last 60 s from the data directory.
+
+The command takes `--config psu.json`, `--sim FILE`, and `--port 0`. The
+sample period follows the cost of one read: 250 ms for the HM310P and for
+the simulator. The constants at the top of `sensor.py` set the period, the
+windows, and the memory. Each sample time is a multiple of the period since
+the Unix epoch, so a gap shows as a missing slot.
+
+The data directory holds three kinds of file:
+
+- `samples.jsonl` holds one line for each sample, with the time, the
+  period, and the voltage, the current, and the power of each channel. A
+  span read of `output` reads it. A span of more than 14400 samples gets
+  status 422.
+- `settings.jsonl` holds one line for each change of the settings. The
+  first line is the baseline.
+- `blobs/<sha256>` holds each `recent.json` document that `observe`
+  returned.
+
 **Run the tests** with `python3 -B -m unittest` in this directory. They
 need python3 and no hardware.

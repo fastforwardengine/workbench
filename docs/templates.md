@@ -80,3 +80,11 @@ commands exist in the Workbench repository only.
 test/usb-camera-workstation.test.ts` checks these steps: fork, save,
   start, connect, observation by a second account, cancellation, and
   restoration after a change to an export.
+
+**One test validates the `psu` protocol.** `pnpm exec vitest run
+test/psu-sensor-protocol.test.ts` runs Ambion's `sensorConformance` and the
+standard digest-verifying client against `sensor.py`. The test serves a
+fixed scenario on the simulated supply, with two channels and a fixed set of
+sample times. It opens no hardware. The
+[template README](../templates/psu/README.md) gives the steps to start the
+sensor.
