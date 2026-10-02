@@ -111,9 +111,10 @@ needs one. A bench script comes from a template.
   | `radio-build`    | Guide the build of the second kit              | Builder, Instruments     |
   | `radio-firmware` | Path C: new firmware                           | Instruments, Datasheets  |
 
-- **State of the bench:** `/shared/bench.md` holds the build, the parts,
-  the instruments, and the facts of the radio, each with a source, a time,
-  and a confidence. Every room reads it and updates it.
+- **State of the bench:** the Git repository `shared/notes` holds facts,
+  decisions, and questions with their sources and confidence. Every specialist
+  clones it, reads its README.md, and commits and pushes changes.
+  [Notes](docs/notes.md) describes the layout and workflow.
 - **Workspace:** one directory for every room. It holds `/library`,
   `/shared`, `/attachments`, and a home for each agent.
 - **Addressing:** start a message with `@name` to wake one seat: the

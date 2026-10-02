@@ -6,12 +6,9 @@ facts of the bench, the decisions, and the questions that stay open. A
 disagreement between two seats lives on a branch until evidence or the
 person settles it.
 
-**Status: planned.** The repository `shared/notes` does not exist yet.
-Ambion lets an agent push to its own namespace only, so no repository can
-take pushes from every seat. The page
-[`ambion_notes_project.md`](../ambion_notes_project.md) describes the Ambion
-change that adds shared repositories. Until it lands, the team keeps its
-state in `/shared/bench.md` and `/shared/notes.md`.
+**Status: implemented.** Ambion 0.5.0 registers `shared/notes` on the local
+and workstation backends. The package supplies the first files. Registration
+keeps all later commits and branches when Workbench starts again.
 
 ## The library and the notes
 
@@ -43,8 +40,7 @@ state in `/shared/bench.md` and `/shared/notes.md`.
 3. The seat works with `git` in `bash`, and with `read`, `write`, and `edit`.
 4. A push persists the work. A seat pushes before it finishes.
 
-A skill, `keep-notes`, will state the loop below. It does not exist yet. No
-tool and no check enforces the layout. The conventions live in the notes
+The `keep-notes` skill states the loop below. No tool enforces the layout. The conventions live in the notes
 themselves, in `README.md`, and every seat reads that file first.
 
 ## The layout
@@ -147,9 +143,9 @@ notes keep both until evidence settles it.
   `repos` tool shows only the first five branches, so use `git`.
 - **A dispute stays open** until evidence or the person settles it.
   The steward of the area does not settle it by preference.
-- **A branch stays.** The shared repository refuses a force push and the
-  deletion of a branch, so the history of every dispute remains (see
-  [`ambion_notes_project.md`](../ambion_notes_project.md)).
+- **A dispute branch stays by convention.** Every specialist must keep it
+  and must not force push it. Ambion refuses deletion and non-fast-forward
+  pushes on the default branch. It permits those operations on other branches.
 
 **A resolution is a merge.** The merge commit names the winner and its
 evidence in its message. The commands below work in the shell of every seat,
@@ -180,22 +176,13 @@ The steward records the message ref in the merge commit.
 
 ## The first content
 
-**The notes start from what the team already knows.** The migration reads
-`/shared/bench.md`, `/shared/kit.md`, `/shared/notes.md`, and the open points
-of the library files.
+**The package supplies claims from the library and its open questions.**
+The files in `notes/` use the subject folders above.
 
-| Today                                | In the notes                                                |
-| ------------------------------------ | ----------------------------------------------------------- |
-| The parts table of `bench.md`        | One file for each part in `parts/`                          |
-| The instruments table                | One file for each device in `instruments/`                  |
-| The build table                      | `build/first-kit.md` and `build/second-kit.md`              |
-| The radio facts table                | Files in `radio/`                                           |
-| The open points of the library files | One file for each in `questions/`                           |
-| The house rules of `kit.md`          | `README.md` of the notes, and the instructions of the seats |
-| The lab notes of `/shared/notes.md`  | One file for each decision in `decisions/`                  |
-
-`bench.md` has no open conflict today. The notes start with no dispute
-branch.
+**The repository starts from the packaged notes.** Previous workspace state
+is not migrated. Registration seeds the repository only once. Later starts
+keep its commits and branches. New claims go into `shared/notes`.
+`/shared/kit.md` holds the project and house rules.
 
 ## Later
 

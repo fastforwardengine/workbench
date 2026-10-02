@@ -50,12 +50,14 @@ describe('the rooms of the FM radio', () => {
 });
 
 describe('the seed of the workspace', () => {
-	it('holds the kit, the bench state, and the notes of the radio', () => {
+	it('holds the kit file, and points at the notes and the library', () => {
 		const files = seedFiles();
-		expect(files['/shared/kit.md']).toContain('FM radio kit');
-		expect(files['/shared/bench.md']).toContain('RDA5807FP-M');
-		expect(files['/shared/bench.md']).toContain('STC8G1K');
-		expect(files['/shared/notes.md']).toBeDefined();
+		const kit = files['/shared/kit.md'];
+		expect(kit).toContain('FM radio kit');
+		expect(kit).toContain('shared/notes');
+		expect(kit).toContain('STC8G1K17');
+		expect(Object.keys(files)).not.toContain('/shared/bench.md');
+		expect(Object.keys(files)).not.toContain('/shared/notes.md');
 	});
 
 	it('names every room in the kit file', () => {
@@ -66,15 +68,17 @@ describe('the seed of the workspace', () => {
 	it('replaces a file by path from the overrides, and keeps the others', () => {
 		const files = seedFiles({ '/shared/kit.md': 'other' });
 		expect(files['/shared/kit.md']).toBe('other');
-		expect(files['/shared/bench.md']).toBe(seedFiles()['/shared/bench.md']);
+		expect(files['/library/README.md']).toBe(seedFiles()['/library/README.md']);
 	});
 });
 
 describe('the shared rules', () => {
-	it('carry the project text, and point at the state of the bench', () => {
+	it('carry the project text, and point at the notes and their skill', () => {
 		const rules = sharedRules('A test project.');
 		expect(rules).toContain('A test project.');
-		expect(rules).toContain('/shared/bench.md');
+		expect(rules).toContain('shared/notes');
+		expect(rules).toContain('keep-notes');
+		expect(rules).not.toContain('bench.md');
 		expect(sharedRules(radioProject)).toContain(radioProject);
 	});
 });
@@ -107,8 +111,8 @@ describe('the seed of a workspace', () => {
 			await workspace.use(workspace.mirrorAgent, async (env) => {
 				const kit = await env.readTextFile('/shared/kit.md');
 				expect(kit.ok && kit.value).toBe('the LED kit');
-				const bench = await env.readTextFile('/shared/bench.md');
-				expect(bench.ok && bench.value).toContain('RDA5807FP-M');
+				const index = await env.readTextFile('/library/README.md');
+				expect(index.ok && index.value).toContain('rda5807fp.md');
 			});
 		} finally {
 			await workspace.dispose();

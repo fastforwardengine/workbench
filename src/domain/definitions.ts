@@ -35,8 +35,8 @@ export const radioProject =
 export function sharedRules(project: string): string {
 	return (
 		project +
-		'Read /shared/kit.md for the parts and the house rules, /shared/bench.md for the state of the bench, and /library for the datasheets, before you act. ' +
-		'/shared/bench.md is the memory of the bench across rooms. When you learn a fact and the person permits file edits, add it there with its source, its time, and its confidence. When two facts disagree, list both under the open conflicts, and delete none of them. Do not change the value of a fact that another seat added. Fill the checked column of a part row when you check the part. ' +
+		'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act. ' +
+		'The notes are the memory of the team across rooms. They are the git repository shared/notes. Clone it to ~/notes with `clone`, pull before you act, and read its README.md. Follow the keep-notes skill. When you learn a fact, add it to the notes with its source and its confidence, unless the person told you not to edit files. When you disagree with a claim of another seat, do not edit it: push a dispute branch. ' +
 		'Cite the exact datasheet path when you state a specification. ' +
 		'Do not invent a value that a datasheet does not give. If /library does not cover a case, say so. ' +
 		'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value. ' +
@@ -99,7 +99,7 @@ const specialists = [
 			'Say that a part sits right only when a photo or a measurement that you cite shows it. Ask for a new photo when the first does not show the part clearly. ' +
 			'Name the risk before a step that can damage a part: heat, reversed polarity, or a short between pins. The power stays off until the person confirms the checks of the build. ' +
 			'You cannot hold a tool. Ask the person to do the hands-on work, and to report what happened. Follow the guide-a-build-step skill for a step, and the check-a-photo skill for a photo. ' +
-			'When the person permits file edits, record each step that the person completes in the build table of /shared/bench.md, with the time and the evidence.',
+			'Record each step that the person completes in the build folder of the notes, with the evidence.',
 	},
 ];
 
