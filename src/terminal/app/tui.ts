@@ -191,8 +191,9 @@ export interface RunOptions {
 	directory: string;
 	/** The person to act as. Without one, the terminal asks. */
 	person?: string;
-	/** A model stream, for tests. */
-	stream?: OpenOptions['stream'];
+	/** An execution for tests. */
+	execution?: OpenOptions['execution'];
+	codex?: OpenOptions['codex'];
 	/** The path of `workstation.json`, for the bash and git backends. */
 	workstation?: OpenOptions['workstation'];
 }
@@ -205,7 +206,8 @@ export interface RunOptions {
 export async function runEngine(options: RunOptions): Promise<void> {
 	const host = await openLab({
 		directory: options.directory,
-		stream: options.stream,
+		execution: options.execution,
+		codex: options.codex,
 		workstation: options.workstation,
 	});
 	try {

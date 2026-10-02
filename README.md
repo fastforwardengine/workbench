@@ -24,7 +24,7 @@ Use Node 26.4 or newer, on macOS or Linux.
 
 ```sh
 npm install -g @fastforwardengine/workbench
-export ANTHROPIC_API_KEY=...       # or put it in .env in the working directory
+codex login                       # host ChatGPT login; or set CODEX_API_KEY
 workbench                         # data in ./.data
 workbench ./bench                 # another directory
 ```
@@ -36,17 +36,28 @@ variable that the environment already sets keeps its value.
 
 ```sh
 pnpm install
-cp .env.example .env              # set ANTHROPIC_API_KEY, OPENAI_API_KEY, or both
+codex login                       # or codex login --device-auth
+cp .env.example .env              # optional model or API key override
 pnpm start                        # data in ./.data
 pnpm start ./bench                # another directory
 ```
 
-- **`WORKBENCH_MODEL`** selects the model of every seat: `anthropic`
-  (the default, `anthropic/claude-sonnet-4-5`), `openai`
-  (`openai/gpt-5.6-luna`), or a full Pi model ID. Every seat thinks at
-  the `low` level (`THINKING` in `src/domain/families.ts`).
-- **A seat whose key is not set does not run.** The header marks it
-  `no key`, and the other seats keep running.
+- **Every seat runs on Codex with `gpt-6-luna`.** `WORKBENCH_MODEL`
+  accepts a Codex model identifier without a provider prefix.
+  Light reasoning maps to `modelReasoningEffort: 'low'`.
+  [Ambion's Codex guide](https://github.com/ambionframework/ambion/blob/v0.5.0/docs/codex.md)
+  states the supported options.
+- **The seats use the host login.** Run `codex login` (`npx @openai/codex login` if needed), or set
+  `CODEX_API_KEY`. A key takes precedence over the login file.
+  `CODEX_HOME` selects the host login folder when set.
+- **Codex keeps seat state in `~/.ambion/codex`.** The adapter links the
+  host login into that folder. Host tools, skills, and MCP settings stay
+  outside the seats. Workspace tools reach the local or remote workstation.
+- **A seat without a login does not run.** The header marks it `no login`.
+  The failure states how to sign in. For a keyring login, set
+  `cli_auth_credentials_store = "file"` in the host Codex configuration,
+  then run `codex login` again. The adapter validates the credential and
+  model when an activation starts.
 - **The terminal opens as the person named for your OS account.** That
   person is the one person of Workbench.
 - **A new data directory gets the four radio rooms and the library.** An
@@ -80,7 +91,7 @@ layout, and the tests.
 **Three specialists hear every message in a new room, at `broadcast`. The
 Builder listens at `named`: it wakes when the assistant or a specialist
 addresses it, and not for a message from you. The assistant writes the
-closing summary.** Every seat runs on Pi.
+closing summary.** Every seat runs on Codex.
 
 | Seat        | Work                                                   | Tools     |
 | ----------- | ------------------------------------------------------ | --------- |
@@ -147,13 +158,13 @@ Every measurement is a planned value.
 
 ## Develop
 
-| Command          | What it does                                             |
-| ---------------- | -------------------------------------------------------- |
-| `pnpm check`     | Format, types, lint, and the scripted tests. CI runs it. |
-| `pnpm format`    | Writes the formatting and the lint fixes                 |
-| `pnpm test`      | The scripted tests: no key, no network                   |
-| `pnpm test:live` | The evals on the simulator: needs a key, and costs money |
-| `pnpm build`     | Writes the bundle of the npm package, `dist/main.mjs`    |
+| Command          | What it does                                              |
+| ---------------- | --------------------------------------------------------- |
+| `pnpm check`     | Format, types, lint, and the scripted tests. CI runs it.  |
+| `pnpm format`    | Writes the formatting and the lint fixes                  |
+| `pnpm test`      | The scripted tests: no key, no network                    |
+| `pnpm test:live` | The evals: needs a Codex login and judge key; costs money |
+| `pnpm build`     | Writes the bundle of the npm package, `dist/main.mjs`     |
 
 **`src/` has four layers, and an import points down only.** Biome holds
 the rule.

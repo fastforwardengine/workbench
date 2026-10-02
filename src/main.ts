@@ -8,13 +8,13 @@ import { runEngine } from './terminal/app/tui.ts';
 const USAGE = 'Usage: workbench [directory]';
 
 /**
- * Say which seats cannot run for want of a key. Workbench still
+ * Say which seats cannot run without a Codex login. Workbench still
  * starts and runs the other seats. The terminal shows the same fact beside
  * each seat name.
  */
 function reportMissingKeys(): void {
 	for (const line of describeUnavailable()) {
-		console.error(`${line} Set it in the environment or in .env.`);
+		console.error(`${line}`);
 	}
 }
 

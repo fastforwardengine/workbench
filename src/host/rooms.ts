@@ -12,10 +12,10 @@ import {
 import type { Execution } from '@ambionframework/ambion/hosting';
 import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journal';
 import { directoryBackend } from '@ambionframework/just-bash';
-import { type PiExecutionOptions, piExecution } from '@ambionframework/pi';
+import { type CodexExecutionOptions, codexExecution } from '@ambionframework/codex';
 import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
-import { type Environment, hasKey, keyVariable, unavailableSeats } from '../domain/families.ts';
+import { type Environment, hasLogin, LOGIN_HELP, unavailableSeats } from '../domain/families.ts';
 import { scenarios, seats } from '../domain/scenarios.ts';
 import { WORKSPACE } from '../view/refs.ts';
 import { stepLog } from '../view/steps.ts';
@@ -62,10 +62,12 @@ interface HostedRoom extends CatalogEntry {
 	watchers: Set<() => void>;
 }
 
-/** What the rooms run on. A test passes `stream` and needs no key. */
+/** The execution and credentials of the rooms. */
 export interface RoomsOptions {
-	/** A model stream for the Pi seats. */
-	stream?: PiExecutionOptions['stream'];
+	/** An execution for tests. It replaces live Codex execution. */
+	execution?: Execution;
+	/** Options for the host Codex binary, login, and private home. */
+	codex?: CodexExecutionOptions;
 	/** The environment that holds the key. The default is the environment of the process. */
 	env?: Environment;
 	/**
@@ -93,18 +95,19 @@ async function workspaceBackends(directory: string, workstation?: WorkstationCon
 	};
 }
 
-/**
- * The execution every seat runs on. Every seat is Pi today, so this is a
- * single Pi execution, not a composition. A test's `stream` scripts it and
- * needs no key. A live run with no key gets an execution that fails its
- * seats with the name of the missing variable, so the room keeps running and
- * reports why, instead of a bare provider error.
- */
+/** An injected execution runs without credentials. Live seats use the host Codex login. */
 function familyExecutions(options: RoomsOptions = {}): Execution {
-	const { stream, env = process.env } = options;
-	if (stream !== undefined) return piExecution({ stream });
-	if (hasKey('pi', env)) return piExecution({});
-	return unavailable('pi', `${keyVariable('pi', env)} is not set, and the pi family needs it.`);
+	if (options.execution) return options.execution;
+	const env = options.env ?? process.env;
+	if (!hasLogin(env, options.codex)) return unavailable('codex', LOGIN_HELP);
+	// An explicit environment is a snapshot. Remove inherited values that it omits.
+	const overlay = options.env
+		? Object.fromEntries(Object.keys(process.env).map((key) => [key, undefined]))
+		: {};
+	return codexExecution({
+		...options.codex,
+		env: options.env ? { ...overlay, ...options.env, ...options.codex?.env } : options.codex?.env,
+	});
 }
 
 /** The catalog records hosting intent. Collaboration state stays in each room journal. */
@@ -119,10 +122,10 @@ export async function openRooms(
 		},
 		all: (query, ...params) => database.prepare(query).all(...params) as Record<string, SqlValue>[],
 	};
-	// A test that supplies a stream runs no live family, so no seat lacks a key.
-	const missing = options.stream
+	// An injected execution runs no live model.
+	const missing = options.execution
 		? []
-		: unavailableSeats(options.env ?? process.env).map(({ seat }) => seat);
+		: unavailableSeats(options.env ?? process.env, options.codex).map(({ seat }) => seat);
 	const entries = new Map<string, HostedRoom>();
 	// The steps of each activation go to a log in this process. Each step
 	// tells the watchers of its room to read again.
@@ -150,7 +153,7 @@ export async function openRooms(
 		// stops the start with an error that names it.
 		await workspace.git?.use(workspace.mirrorAgent, (env) => env.list());
 		// Load the skills now, so a skill that breaks a rule stops the start.
-		roomTeam = await team(workspace);
+		roomTeam = await team(workspace, undefined, options.env);
 	} catch (error) {
 		await workspace.dispose().catch(() => {});
 		throw error;
@@ -356,7 +359,7 @@ function roomView(
 ) {
 	return {
 		...snapshot,
-		/** The seats that cannot run because their family has no key. */
+		/** The seats that cannot run because Codex has no login. */
 		unavailable,
 		goal: snapshot.initialized ? snapshot.goal : entry.goal,
 		status: entry.lifecycle.status,

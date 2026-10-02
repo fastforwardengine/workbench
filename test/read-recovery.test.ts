@@ -1,3 +1,4 @@
+import { scriptedExecution } from './scripted-execution.ts';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -39,7 +40,7 @@ describe('Workbench room reads and recovery', () => {
 		const counter = { calls: 0 };
 		const lab = await openLab({
 			directory: join(directory, 'run'),
-			stream: quietStream(counter),
+			execution: scriptedExecution(quietStream(counter)),
 		});
 		try {
 			await lab.join('radio-kit', person.name);
@@ -85,7 +86,9 @@ describe('Workbench room reads and recovery', () => {
 		let rooms: Awaited<ReturnType<typeof openRooms>> | undefined;
 		let restarted: Awaited<ReturnType<typeof openRooms>> | undefined;
 		try {
-			rooms = await openRooms(database, directory, { stream: quietStream(counter) });
+			rooms = await openRooms(database, directory, {
+				execution: scriptedExecution(quietStream(counter)),
+			});
 			await rooms.create('legacy', 'Recorded goal.');
 			await rooms.withRoom('legacy', async (entry) => {
 				await liveRoom(entry).unseat('experiments');
@@ -96,7 +99,9 @@ describe('Workbench room reads and recovery', () => {
 			database
 				.prepare('UPDATE engine_rooms SET goal = ?, enabled = 1 WHERE name = ?')
 				.run('Provisional goal.', 'legacy');
-			restarted = await openRooms(database, directory, { stream: quietStream(counter) });
+			restarted = await openRooms(database, directory, {
+				execution: scriptedExecution(quietStream(counter)),
+			});
 			const status = (await restarted.list())[0];
 			expect(status).toMatchObject({
 				initialized: true,
@@ -149,9 +154,11 @@ describe('Workbench room reads and recovery', () => {
 		let recovered: Awaited<ReturnType<typeof openRooms>> | undefined;
 		try {
 			await expect(
-				openRooms(database, directory, { stream: quietStream(counter) }),
+				openRooms(database, directory, { execution: scriptedExecution(quietStream(counter)) }),
 			).rejects.toThrow(/injected initialization write failure/);
-			recovered = await openRooms(database, directory, { stream: quietStream(counter) });
+			recovered = await openRooms(database, directory, {
+				execution: scriptedExecution(quietStream(counter)),
+			});
 			expect((await recovered.list())[0]).toMatchObject({ initialized: true, status: 'running' });
 			expect(counter.calls).toBe(0);
 		} finally {

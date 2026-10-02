@@ -5,8 +5,7 @@
  * asks, checks in code decide the facts, and a judge grades the meaning.
  *
  * `WORKBENCH_MODEL` names the model of every seat, as `pnpm start` reads it.
- * `JUDGE_MODEL` names the judge's model, the same model by default. A suite
- * that grades one model family names another family for the judge.
+ * `JUDGE_MODEL` names the separate Pi judge, `openai/gpt-6-luna` by default.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -21,28 +20,28 @@ import {
 } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
 import { directoryBackend } from '@ambionframework/just-bash';
-import { piExecution } from '@ambionframework/pi';
+import { codexExecution } from '@ambionframework/codex';
 import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
-import { piModel, THINKING } from '../../src/domain/families.ts';
+import { codexModel, hasLogin, REASONING_EFFORT } from '../../src/domain/families.ts';
 import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
 import { ledFiles, ledNotes, ledProject, ledSweepRoom } from './led-sweep.ts';
 
-const MODEL = piModel();
-export const JUDGE_MODEL = process.env.JUDGE_MODEL || MODEL;
+const MODEL = codexModel();
+export const JUDGE_MODEL = process.env.JUDGE_MODEL || 'openai/gpt-6-luna';
 /** The judge thinks at the level of the seats. */
-export const JUDGE_THINKING = THINKING;
+export const JUDGE_THINKING = REASONING_EFFORT;
 
 const keyOf = (model: string) =>
 	`${(model.split('/')[0] ?? '').toUpperCase().replace(/-/g, '_')}_API_KEY`;
 
-/** `describe` when the keys of the model and the judge are set; a skipped block when either is not. */
+/** `describe` when Codex has a login and the judge has a key; otherwise skip. */
 export const live: ReturnType<typeof describe.skipIf> = describe.skipIf(
-	!process.env[keyOf(MODEL)] || !process.env[keyOf(JUDGE_MODEL)],
+	!hasLogin() || !process.env[keyOf(JUDGE_MODEL)],
 );
 
 /** Real milliseconds for one exchange and its summary. Three specialists hear every message. */
@@ -83,7 +82,7 @@ export const WORKSPACE_TOOLS = [
  * a test of this support.
  */
 export async function openRoom(
-	execution: Execution = piExecution(),
+	execution: Execution = codexExecution(),
 ): Promise<{ room: Room; workspace: Workspace }> {
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-eval-'));
 	const workspace = openWorkspace({

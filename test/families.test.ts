@@ -1,83 +1,169 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readlink, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
-import { describeUnavailable, keyVariable, piModel, seatFamilies } from '../src/domain/families.ts';
+import { describeUnavailable, hasLogin, codexModel, seatFamilies } from '../src/domain/families.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
 import { buildTimeline } from '../src/view/timeline.ts';
 
 describe('Workbench executor families', () => {
-	it('puts every seat on Pi', () => {
+	it('puts every seat on Codex', () => {
 		expect(seatFamilies).toEqual({
-			assistant: 'pi',
-			datasheets: 'pi',
-			experiments: 'pi',
-			instruments: 'pi',
-			builder: 'pi',
+			assistant: 'codex',
+			datasheets: 'codex',
+			experiments: 'codex',
+			instruments: 'codex',
+			builder: 'codex',
 		});
 	});
 
-	it('switches the model between the anthropic and openai presets', () => {
-		expect(piModel({})).toBe('anthropic/claude-sonnet-4-5');
-		expect(piModel({ WORKBENCH_MODEL: 'anthropic' })).toBe('anthropic/claude-sonnet-4-5');
-		expect(piModel({ WORKBENCH_MODEL: 'openai' })).toBe('openai/gpt-5.6-luna');
-		// Any other value passes through as a full Pi model id.
-		expect(piModel({ WORKBENCH_MODEL: 'openai-codex/gpt-5' })).toBe('openai-codex/gpt-5');
+	it('defaults to gpt-6-luna and accepts Codex model identifiers', () => {
+		expect(codexModel({})).toBe('gpt-6-luna');
+		expect(codexModel({ WORKBENCH_MODEL: 'gpt-6-sol' })).toBe('gpt-6-sol');
+		expect(() => codexModel({ WORKBENCH_MODEL: 'openai/gpt-6-luna' })).toThrow(/provider prefix/);
+		expect(() => codexModel({ WORKBENCH_MODEL: 'anthropic' })).toThrow(/preset/);
 	});
 
-	it('names the key of the model WORKBENCH_MODEL selects', () => {
-		expect(keyVariable('pi', {})).toBe('ANTHROPIC_API_KEY');
-		expect(keyVariable('pi', { WORKBENCH_MODEL: 'openai' })).toBe('OPENAI_API_KEY');
-		expect(keyVariable('pi', { WORKBENCH_MODEL: 'openai-codex/gpt-5' })).toBe(
-			'OPENAI_CODEX_API_KEY',
+	it('accepts a Codex key and reports missing login files', () => {
+		expect(describeUnavailable({ CODEX_API_KEY: 'k' })).toEqual([]);
+		expect(hasLogin({ HOME: '/nonexistent-workbench-home' })).toBe(false);
+		expect(describeUnavailable({ HOME: '/nonexistent-workbench-home' })).toHaveLength(5);
+		expect(describeUnavailable({ HOME: '/nonexistent-workbench-home' })[0]).toContain(
+			'codex login',
 		);
 	});
 
-	it('says which seat cannot run and why, and lists only the seats without a key', () => {
-		expect(describeUnavailable({ ANTHROPIC_API_KEY: 'k' })).toEqual([]);
-		expect(describeUnavailable({ WORKBENCH_MODEL: 'openai', OPENAI_API_KEY: 'k' })).toEqual([]);
-		expect(describeUnavailable({})).toHaveLength(5);
-		expect(describeUnavailable({})[0]).toBe(
-			"Seat 'assistant' cannot run: ANTHROPIC_API_KEY is not set, and the pi family needs it.",
-		);
+	it('finds the host login and respects the execution login options', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'workbench-login-'));
+		try {
+			const login = join(directory, '.codex', 'auth.json');
+			await mkdir(join(directory, '.codex'));
+			await writeFile(login, '{}');
+			expect(hasLogin({ HOME: directory })).toBe(true);
+			expect(hasLogin({ HOME: directory }, { login: false })).toBe(false);
+			expect(hasLogin({ HOME: directory }, { login })).toBe(true);
+			expect(hasLogin({ HOME: '/missing' }, { env: { HOME: directory } })).toBe(true);
+			expect(
+				hasLogin(
+					{ HOME: directory, CODEX_API_KEY: 'test' },
+					{ env: { CODEX_API_KEY: undefined }, login: false },
+				),
+			).toBe(false);
+			expect(hasLogin({ HOME: '/missing', CODEX_HOME: join(directory, '.codex') })).toBe(true);
+			expect(hasLogin({ HOME: directory }, { login: directory })).toBe(false);
+			const home = join(directory, 'seat-home');
+			await mkdir(home);
+			await writeFile(join(home, 'auth.json'), '{}');
+			expect(hasLogin({ HOME: '/missing' }, { home, login: false })).toBe(true);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
 	});
 
-	it('gives every specialist the Pi executor, on the model WORKBENCH_MODEL selects', async () => {
+	it('gives every specialist the Codex executor, on the model WORKBENCH_MODEL selects', async () => {
 		const workspace = { tools: () => ({ name: 'workspace', guidance: '', tools: [] }) } as never;
-		const built = await team(workspace);
+		const built = await team(workspace, undefined, { WORKBENCH_MODEL: 'gpt-6-luna' });
 		expect(built.assistant.executor).toMatchObject({
-			kind: 'pi',
-			model: piModel(),
-			thinking: 'low',
+			kind: 'codex',
+			model: 'gpt-6-luna',
+			modelReasoningEffort: 'low',
 		});
+		expect(built.assistant.executor.guidance).toContain('This is a respond activation.');
+		expect(built.assistant.executor.instructions).toContain('preserve evidence');
 		const executors = Object.fromEntries(
 			built.specialists.map((seat) => [seat.name, seat.executor]),
 		);
 		for (const name of ['datasheets', 'experiments', 'instruments', 'builder']) {
 			expect(executors[name], name).toMatchObject({
-				kind: 'pi',
-				model: piModel(),
-				thinking: 'low',
+				kind: 'codex',
+				model: 'gpt-6-luna',
+				modelReasoningEffort: 'low',
 			});
 		}
 	});
 });
 
-describe('Workbench with no key', () => {
+describe('Workbench Codex login and failures', () => {
 	const opened: { lab: Lab; directory: string }[] = [];
 	const person = people[0]?.name ?? '';
 
 	afterEach(async () => {
+		vi.unstubAllEnvs();
 		for (const { lab, directory } of opened.splice(0)) {
 			await lab.close().catch(() => undefined);
 			await rm(directory, { recursive: true, force: true });
 		}
 	});
 
-	it('marks every seat, fails an activation with the missing key, and keeps the room running', async () => {
+	it.each(['snapshot', 'host'])(
+		'links the host login with a %s environment and reports a catalog failure',
+		async (environment) => {
+			vi.stubEnv('WORKBENCH_TEST_SECRET', 'host-only');
+			vi.stubEnv('WORKBENCH_MODEL', 'gpt-6-luna');
+			const directory = await mkdtemp(join(tmpdir(), 'workbench-codex-offline-'));
+			const hostHome = join(directory, 'host');
+			const codexHome = join(directory, 'seats');
+			const login = join(hostHome, '.codex', 'auth.json');
+			const binary = join(directory, 'fake-codex.mjs');
+			const log = join(directory, 'catalog.json');
+			await mkdir(join(hostHome, '.codex'), { recursive: true });
+			await writeFile(login, '{}');
+			// The executable has no network code. It only serves an empty model catalog.
+			await writeFile(
+				binary,
+				`#!${process.execPath}
+import { writeFileSync } from 'node:fs';
+writeFileSync(${JSON.stringify(log)}, JSON.stringify({ args: process.argv.slice(2), home: process.env.HOME, codexHome: process.env.CODEX_HOME, secret: process.env.WORKBENCH_TEST_SECRET ?? null }));
+if (process.argv.slice(2).join(' ') !== 'debug models') process.exit(1);
+process.stdout.write(JSON.stringify({ models: [] }));
+`,
+				{ mode: 0o700 },
+			);
+			const lab = await openLab({
+				directory: join(directory, 'run'),
+				env:
+					environment === 'snapshot'
+						? { HOME: hostHome, WORKBENCH_MODEL: 'gpt-6-luna' }
+						: undefined,
+				codex: {
+					codexPath: binary,
+					home: codexHome,
+					env: {
+						HOME: hostHome,
+						CODEX_HOME: undefined,
+						CODEX_API_KEY: undefined,
+						OPENAI_API_KEY: undefined,
+					},
+				},
+			});
+			opened.push({ lab, directory });
+			expect((await lab.read('radio-kit', 0)).unavailable).toEqual([]);
+			await lab.join('radio-kit', person);
+			await lab.send('radio-kit', person, 'catalog-1', 'Plan a test.');
+			await vi.waitFor(async () => {
+				const view = await lab.read('radio-kit', 0);
+				expect(
+					view.activity
+						.filter((item) => item.type === 'error')
+						.map((item) => item.text)
+						.join(' '),
+				).toContain("The model 'gpt-6-luna' has no entry in the Codex catalog");
+				expect(view.status).toBe('running');
+			});
+			expect(await readlink(join(codexHome, 'auth.json'))).toBe(login);
+			expect(JSON.parse(await readFile(log, 'utf8'))).toEqual({
+				args: ['debug', 'models'],
+				home: join(codexHome, 'home'),
+				codexHome,
+				secret: null,
+			});
+		},
+	);
+
+	it('marks every seat, fails an activation with the missing login, and keeps the room running', async () => {
 		const directory = await mkdtemp(join(tmpdir(), 'workbench-nokey-'));
-		const lab = await openLab({ directory: join(directory, 'run'), env: {} });
+		const lab = await openLab({ directory: join(directory, 'run'), env: { HOME: directory } });
 		opened.push({ lab, directory });
 		expect((await lab.read('radio-kit', 0)).unavailable).toEqual([
 			'assistant',
@@ -92,12 +178,11 @@ describe('Workbench with no key', () => {
 			const view = await lab.read('radio-kit', 0);
 			const errors = view.activity.filter((item) => item.type === 'error');
 			expect(errors.map((item) => item.text).join('\n')).toContain(
-				"Seat 'assistant' cannot run: ANTHROPIC_API_KEY is not set",
+				"Seat 'assistant' cannot run: Codex needs CODEX_API_KEY",
 			);
 			expect(view.status).toBe('running');
 		});
-		// The exchange closes on the failure. The seats of `radio-kit` that hold a key wake,
-		// and the note names the last seat that failed, with its reason.
+		// The exchange closes on the failure. The note gives the last failure and its reason.
 		await vi.waitFor(async () => {
 			const view = await lab.read('radio-kit', 0);
 			const closed = view.exchanges.find((exchange) => exchange.status === 'closed');
@@ -113,7 +198,7 @@ describe('Workbench with no key', () => {
 			expect(blocks).toContainEqual({
 				type: 'note',
 				text: expect.stringMatching(
-					/^Closed, (\S+) failed, the room does not retry this: Seat '\1' cannot run: ANTHROPIC_API_KEY is not set/,
+					/^Closed, (\S+) failed, the room does not retry this: Seat '\1' cannot run: Codex needs CODEX_API_KEY/,
 				),
 			});
 		});

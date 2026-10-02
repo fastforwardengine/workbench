@@ -1,10 +1,10 @@
 /**
- * One tool set and one filesystem, on the real Pi family, driven by the
+ * One tool set and one filesystem, on the real Codex family, driven by the
  * simulator. Each case sends one message to each specialist in turn, and
  * checks in code decide the result. Three claims:
  *
  * - Each specialist lists the same tool names, and none of them is a native
- *   tool: Pi holds only the tools it receives.
+ *   tool: Codex holds only the tools it receives.
  * - One specialist writes a file with the workspace tool, and the others
  *   read it back.
  * - A request to read `/etc/hosts` reaches no tool that reads a host file.
@@ -25,7 +25,7 @@ import {
 const specialists = ['datasheets', 'experiments', 'instruments'] as const;
 
 /**
- * Native tool names a harness might add. Pi holds none of them by design. The
+ * Native tool names a harness might add. Codex holds none of them by design. The
  * list omits the native `wait` of Codex: the workspace process tool has the
  * same name.
  */
@@ -86,7 +86,7 @@ const answerOf = (run: Simulation, index: number, seat: string): string =>
 		.map((message) => message.text)
 		.join('\n');
 
-live('the Workbench tool set on Pi', () => {
+live('the Workbench tool set on Codex', () => {
 	it('lists the same tools for every specialist, and no native tool', async () => {
 		const evidence = track('tool-set lists');
 		const run = await ask(specialists.map((to) => ({ to, text: LIST })));

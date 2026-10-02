@@ -2,7 +2,6 @@ import { access, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { Room } from '@ambionframework/ambion';
-import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
 import { scenarios } from '../domain/scenarios.ts';
 import type { ActivationSteps } from '../view/steps.ts';
@@ -119,8 +118,9 @@ export interface Lab {
 export interface OpenOptions {
 	/** Where the journals and the workspace live. A directory with no journals starts fresh. */
 	directory: string;
-	/** A model stream, for tests. The default calls the configured provider. */
-	stream?: PiExecutionOptions['stream'];
+	/** An execution for tests. The default runs Codex. */
+	execution?: RoomsOptions['execution'];
+	codex?: RoomsOptions['codex'];
 	/** The environment that holds the key. The default is the environment of the process. */
 	env?: RoomsOptions['env'];
 	/**
@@ -155,7 +155,8 @@ export async function openLab(options: OpenOptions): Promise<Lab> {
 	let rooms: Rooms | undefined;
 	try {
 		rooms = await openRooms(database, options.directory, {
-			stream: options.stream,
+			execution: options.execution,
+			codex: options.codex,
 			env: options.env,
 			workstation,
 		});

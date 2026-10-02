@@ -1,3 +1,4 @@
+import { scriptedExecution } from './scripted-execution.ts';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
@@ -88,7 +89,7 @@ const scriptedStream = (respond: Respond): PiExecutionOptions['stream'] => {
 };
 
 async function open(directory: string, stream = scriptedStream(scriptedResponse)) {
-	const lab = await openLab({ directory, stream });
+	const lab = await openLab({ directory, execution: scriptedExecution(stream) });
 	opened.push({ lab, directory });
 	return lab;
 }
@@ -551,7 +552,7 @@ describe('Workbench host, a message to one seat', () => {
 		const directory = await freshDirectory();
 		const database = new DatabaseSync(joinPath(directory, 'rooms.db'));
 		const rooms = await openRooms(database, directory, {
-			stream: listeningStream(new Set()),
+			execution: scriptedExecution(listeningStream(new Set())),
 		});
 		await rooms.create('legacy', 'A room from before the Builder.');
 		await rooms.withRoom('legacy', async (entry) => {
@@ -580,7 +581,9 @@ describe('Workbench host, a message to one seat', () => {
 	it('refuses a seat at none, and sends nothing', async () => {
 		const directory = await freshDirectory();
 		const database = new DatabaseSync(joinPath(directory, 'rooms.db'));
-		const rooms = await openRooms(database, directory, { stream: listeningStream(new Set()) });
+		const rooms = await openRooms(database, directory, {
+			execution: scriptedExecution(listeningStream(new Set())),
+		});
 		await rooms.create('mute', 'A room with a seat that hears nothing.');
 		await rooms.withRoom('mute', async (entry) => {
 			const room = liveRoom(entry);

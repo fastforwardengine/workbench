@@ -53,14 +53,15 @@
 	"dependencies": {
 		"@ambionframework/ambion": "^0.5.0",
 		"@ambionframework/assistant": "^0.5.0",
+		"@ambionframework/codex": "^0.5.0",
 		"@ambionframework/journal": "^0.5.0",
 		"@ambionframework/just-bash": "^0.5.0",
-		"@ambionframework/pi": "^0.5.0",
 		"@ambionframework/workspace": "^0.5.0",
 		"@ambionframework/workstation": "^0.5.0",
 		"@opentui/core": "0.5.11"
 	},
 	"devDependencies": {
+		"@ambionframework/pi": "^0.5.0",
 		"@ambionframework/simulator": "^0.5.0",
 		"@biomejs/biome": "^2.5.10",
 		"@earendil-works/pi-ai": "^1.0.0",

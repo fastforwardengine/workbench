@@ -1,9 +1,9 @@
 import { userInfo } from 'node:os';
 import { defineAgent, definePerson } from '@ambionframework/ambion';
 import { defineAssistant } from '@ambionframework/assistant';
-import { pi } from '@ambionframework/pi';
+import { codex } from '@ambionframework/codex';
 import type { Workspace } from '@ambionframework/workspace';
-import { piModel, THINKING } from './families.ts';
+import { codexModel, REASONING_EFFORT, type Environment } from './families.ts';
 import { agentSkills } from './skills.ts';
 import { templateInstructions } from './templates.ts';
 
@@ -110,23 +110,35 @@ const specialists = [
  * opens the instructions of every seat: the FM radio project by default, and
  * another one for an eval.
  */
-export async function team(workspace: Workspace, project: string = radioProject) {
-	const model = piModel();
+export async function team(
+	workspace: Workspace,
+	project: string = radioProject,
+	env: Environment = process.env,
+) {
+	const model = codexModel(env);
 	const rules = sharedRules(project);
-	const assistant = defineAssistant({
+	const maintainedAssistant = defineAssistant({
 		model,
-		thinking: THINKING,
 		instructions: assistantInstructions(project),
 	});
+	const assistant = {
+		...maintainedAssistant,
+		executor: codex({
+			...maintainedAssistant.executor,
+			bundles: [{ tools: [], guidance: maintainedAssistant.executor.guidance }],
+			model,
+			modelReasoningEffort: REASONING_EFFORT,
+		}),
+	};
 	const definitions = await Promise.all(
 		specialists.map(async ({ instructions, ...definition }) => {
 			const skills = await agentSkills(definition.name);
 			return defineAgent({
 				...definition,
-				executor: pi({
+				executor: codex({
 					instructions: `${rules}${instructions}${templateInstructions(definition.name)}${CLOSING}`,
 					model,
-					thinking: THINKING,
+					modelReasoningEffort: REASONING_EFFORT,
 					bundles: [workspace.tools({ skills })],
 				}),
 			});

@@ -21,7 +21,7 @@ describe('the team instructions', () => {
 	});
 });
 
-/** The instructions of a Pi seat. */
+/** The instructions of a Codex seat. */
 const instructionsOf = (seat: { executor: unknown }): string =>
 	(seat.executor as { instructions: string }).instructions;
 
