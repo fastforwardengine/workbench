@@ -38,7 +38,7 @@ from guard import DriveLocks, Guard, load_config, lock_directory, natural
 
 # The constants that an agent can tune.
 MIN_PERIOD = 0.25  # the shortest sample period, in seconds
-BUS_SHARE = 3  # the sampler uses at most 1/BUS_SHARE of the bus time
+BUS_SHARE = 3  # the period is at least BUS_SHARE times the cost of one measure call
 SETTINGS_SECONDS = 1  # the time between two reads of the settings
 MEMORY_SECONDS = 60  # the samples and the changes that stay in memory
 WINDOWS = (3, 5, 15, 30, 60)  # the windows of `recent`, in seconds
@@ -325,10 +325,7 @@ class Sensor:
 
     def snapshot_channel(self, channel, setting):
         reading = self.latest_reading(channel)
-        if reading is None and setting.mode is None:
-            mode = None
-        else:
-            mode = self.guard.mode(setting, reading)
+        mode = setting.mode if reading is None else self.guard.mode(setting, reading)
         volts, amps, _ = self.decimals[channel]
 
         def rounded(value, places):
@@ -373,10 +370,11 @@ class Sensor:
         """One slot: a sample, and the settings in the first slot of each new second."""
         try:
             sample = self.measure(slot)
-            # A late reading means a controller held the bus. The sensor drops it, and the gap shows in n.
+            self.clear("sample")
+            # A reading that ends after its slot means that a controller held the bus.
+            # The sensor drops it, and the gap shows in n.
             if self.clock() < slot + self.period_ms:
                 self.store(sample)
-                self.clear("sample")
         except Exception as error:
             self.fail("sample", slot, error)
         if self.settings_second is None or slot // 1000 >= self.settings_second + SETTINGS_SECONDS:
@@ -386,8 +384,17 @@ class Sensor:
             except Exception as error:
                 self.fail("settings", slot, error)
 
-    def next_slot(self):
-        return (self.clock() // self.period_ms + 1) * self.period_ms
+    def next_slot(self, slot=None):
+        """The slot after `slot`, or the slot that runs now when the last tick overran.
+
+        A reading may start late in its slot: the settings read takes the bus
+        after the sample of the same slot. The reading counts when it ends
+        before the end of its slot.
+        """
+        current = self.clock() // self.period_ms * self.period_ms
+        if slot is None:
+            return current + self.period_ms
+        return max(slot + self.period_ms, current)
 
     def run(self, stop_event):
         slot = self.next_slot()
@@ -395,7 +402,7 @@ class Sensor:
             if stop_event.wait(max(0, (slot - self.clock()) / 1000)):
                 return
             self.tick(slot)
-            slot = self.next_slot()
+            slot = self.next_slot(slot)
 
     # The sensors
 

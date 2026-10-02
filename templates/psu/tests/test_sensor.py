@@ -53,6 +53,7 @@ class Wrapped:
         self.guard, self.clock = guard, clock
         self.fail = None
         self.delay = []  # the time that each read takes, in milliseconds
+        self.settings_delay = 0
 
     def describe(self):
         return self.guard.describe()
@@ -64,6 +65,7 @@ class Wrapped:
         return self.guard.measure()
 
     def settings(self):
+        self.clock.now += self.settings_delay
         return self.guard.settings()
 
     def mode(self, setting, reading):
@@ -286,11 +288,25 @@ class Sampler(Sensed):
         sensor = self.make(clock=clock)
         wrapped = Wrapped(self.guard, clock)
         sensor.guard = wrapped
-        wrapped.delay = [0, 300]  # the second read ends past its slot plus one period
+        wrapped.delay = [0, 300]  # the second read ends past the end of its slot
         sensor.run(Stop(clock, 3))
-        self.assertEqual([s["at"] - T0 for s in sensor.ring], [250, 1000])
-        self.assertEqual(sensor.latest[0], T0 + 1000)
+        # The slot at 500 is dropped. The slot at 750 has started, and its read ends in time.
+        self.assertEqual([s["at"] - T0 for s in sensor.ring], [250, 750])
+        self.assertEqual(sensor.latest[0], T0 + 250)
         self.assertEqual((self.directory / "data" / "samples.jsonl").read_text().count("\n"), 2)
+
+    def test_a_slow_settings_read_loses_no_slot(self):
+        # The costs of the HM310P: 75 ms for measure, four exchanges of 75 ms for settings.
+        clock = Clock(T0 + 10)
+        sensor = self.make(clock=clock)
+        wrapped = Wrapped(self.guard, clock)
+        sensor.guard = wrapped
+        wrapped.delay = [75] * 100
+        wrapped.settings_delay = 300
+        sensor.run(Stop(clock, 40))
+        slots = [s["at"] - T0 for s in sensor.ring]
+        self.assertEqual(slots, list(range(250, 250 * (len(slots) + 1), 250)))
+        self.assertGreaterEqual(len(slots), 36)
 
     def test_a_failed_read_sets_and_clears_the_error(self):
         clock = Clock()
