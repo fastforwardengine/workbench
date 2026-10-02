@@ -18,11 +18,11 @@ no captions.
    node and a supported resolution. `/dev/video0` is an example. The
    Instruments account has the `video` group. If no node exists, attach
    the camera and scan again after five seconds.
-3. Give `--device` the stable path of the node, such as
-   `/dev/v4l/by-id/usb-046d_Logitech_BRIO_<serial>-video-index0`. The
-   kernel can give a camera a different `/dev/videoN` number after a
-   reconnect or a reboot. Use `/dev/videoN` only when `/dev/v4l/by-id/`
-   does not exist.
+3. Give `--device` the path of that node. The kernel can give a camera a
+   different `/dev/videoN` number after a reconnect or a reboot. On a host
+   with udev, use the stable path under `/dev/v4l/by-id/`. The workstation
+   container runs no udev, so it has no `/dev/v4l/by-id/`. There, match
+   the USB ID in `v4l2-ctl --list-devices` to the node before each start.
 4. Fork and clone, then make a branch:
 
    ```ts
@@ -32,12 +32,13 @@ no captions.
 
 5. Change `camera.py` when the capture needs it. Keep the data outside the
    checkout. Run `python3 -B -m unittest -v test_camera.py` in the clone.
-   The tests open no camera. Commit and push the branch before you run
-   the saved version:
+   The tests open no camera. Commit your changes, if there are any. Then
+   push the branch before you run the saved version. The push also runs
+   when there is nothing to commit:
 
    ```sh
    git add README.md camera.py test_camera.py
-   git commit -m 'Set up bench camera'
+   git diff --cached --quiet || git commit -m 'Set up bench camera'
    git push -u origin capture
    ```
 
@@ -46,7 +47,7 @@ no captions.
 
    ```ts
    bash({
-     command: 'cd ~/bench-camera && AMBION_SENSOR_REPOSITORY=instruments/bench-camera AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-camera" python3 -u -B camera.py --device /dev/v4l/by-id/<camera>-video-index0 --resolution 1280x720',
+     command: 'cd ~/bench-camera && AMBION_SENSOR_REPOSITORY=instruments/bench-camera AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-camera" python3 -u -B camera.py --device /dev/video0 --resolution 1280x720',
      name: 'bench-camera', wait: 0, timeout: 86400,
    });
    ```
