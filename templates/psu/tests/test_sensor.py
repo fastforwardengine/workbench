@@ -296,7 +296,7 @@ class Sampler(Sensed):
         self.assertEqual((self.directory / "data" / "samples.jsonl").read_text().count("\n"), 2)
 
     def test_a_slow_settings_read_loses_no_slot(self):
-        # The costs of the HM310P: 75 ms for measure, four exchanges of 75 ms for settings.
+        # The HM310P takes 75 ms for measure and about 225 ms for settings. 300 ms adds a margin.
         clock = Clock(T0 + 10)
         sensor = self.make(clock=clock)
         wrapped = Wrapped(self.guard, clock)
