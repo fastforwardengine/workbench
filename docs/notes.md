@@ -40,8 +40,12 @@ keeps all later commits and branches when Workbench starts again.
 3. The seat works with `git` in `bash`, and with `read`, `write`, and `edit`.
 4. A push persists the work. A seat pushes before it finishes.
 
-The `keep-notes` skill states the loop below. No tool enforces the layout. The conventions live in the notes
-themselves, in `README.md`, and every seat reads that file first.
+The `keep-notes` skill states the loop below. No tool enforces the layout.
+The conventions live in the notes themselves, in `README.md`, and every seat
+reads that file first.
+
+**A specialist adds to the notes by default.** A specialist stops when the
+person tells it not to edit files.
 
 ## The layout
 
@@ -179,9 +183,9 @@ The steward records the message ref in the merge commit.
 **The package supplies claims from the library and its open questions.**
 The files in `notes/` use the subject folders above.
 
-**The repository starts from the packaged notes.** Previous workspace state
-is not migrated. Registration seeds the repository only once. Later starts
-keep its commits and branches. New claims go into `shared/notes`.
+**The repository starts from the packaged notes.** Registration does not
+migrate the earlier workspace state. Registration seeds the repository only
+once. Later starts keep its commits and branches. New claims go into `shared/notes`.
 `/shared/kit.md` holds the project and house rules.
 
 ## Later
