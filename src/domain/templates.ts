@@ -39,7 +39,7 @@ export const templates: readonly Template[] = [
 	{
 		name: 'usb-camera',
 		description:
-			'A Linux USB camera sensor: an agent-owned foreground server, fresh PNG captures, connect and observe, and retained snapshot evidence. Offline demo frames are labelled synthetic.',
+			'A Linux USB camera sensor. An agent-owned foreground server captures a PNG for each observation. The snapshot store keeps each observed frame. The demo mode makes synthetic frames and labels them.',
 		use: 'retained images from a USB camera',
 		specialists: ['instruments'],
 	},

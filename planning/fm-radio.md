@@ -42,12 +42,12 @@ frequency only from the display, so the camera and its digit reading
 carry path A.
 
 The [`usb-camera` template](../templates/usb-camera/README.md) supplies
-retained still frames for this check. Instruments owns its foreground
-server; each specialist can `observe` its connection and cite the returned
-manifest snapshot ref. Aim it at the bench and make the display legible.
-The template provides no digit recognition, change detection, audio, or
-automatic cropping and face blurring; those remain work in the perception
-plan. An unreadable digit stays unclear.
+saved still frames for this check. Instruments owns the foreground server.
+Each specialist can `observe` its connection and cite the manifest snapshot
+ref that it returns. Aim the camera at the bench so that the display is
+legible. The template has no digit recognition, change detection, audio,
+automatic crop, or face blur. Those stay in the perception plan. The
+specialist reports an unreadable digit as unclear.
 
 **Path B makes the Pico the only master of the bus.** The STC8G1K comes out
 of its socket, and the Pico drives the RDA5807 directly. Both run at 3.3 V.
