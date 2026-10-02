@@ -176,7 +176,7 @@ def open_server(camera, port=0, timeout=10):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", help="Explicit V4L2 capture node from device-scan, e.g. /dev/video0")
+    parser.add_argument("--device", help="Explicit V4L2 capture node from device-scan, e.g. /dev/v4l/by-id/<camera>-video-index0")
     parser.add_argument("--resolution", default="1280x720")
     parser.add_argument("--demo", action="store_true")
     parser.add_argument("--port", type=int, default=0)
