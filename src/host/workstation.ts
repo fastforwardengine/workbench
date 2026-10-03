@@ -206,10 +206,12 @@ export async function workstationBackends(
 }
 
 /**
- * Check that the host account reaches the workstation. Without the check, an
- * SSH failure surfaces at the first workspace operation, with no host, port,
- * account, or key. The workstation check of Ambion replaces this probe when
- * it exists.
+ * Check that the host reaches the workstation. The first operation of the
+ * host account opens two SSH sessions: one as the host account, and one as
+ * the git account, which registers the templates. A failure in either names
+ * the server and both accounts with their keys. Without the check, an SSH
+ * failure surfaces at the first workspace operation with none of them.
+ * Ambion has no workstation check yet. When it gets one, remove this probe.
  */
 export async function probeWorkstation(
 	workspace: Pick<Workspace, 'use' | 'mirrorAgent'>,
@@ -221,7 +223,7 @@ export async function probeWorkstation(
 		if (!found.ok) throw found.error;
 	} catch (error) {
 		throw new Error(
-			`Workbench cannot reach the workstation at ${config.host}:${config.port} as ${account} with the key ${keyPath(config, account)}: ${reason(error)}`,
+			`Workbench cannot open the workstation at ${config.host}:${config.port}. The host account is ${account} with the key ${keyPath(config, account)}. The git account is ${config.gitAccount} with the key ${keyPath(config, config.gitAccount)}. ${reason(error)}`,
 			{ cause: error },
 		);
 	}

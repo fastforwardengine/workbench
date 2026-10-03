@@ -78,8 +78,8 @@ The steps, by hand:
    ```
 
 **A start that cannot reach the workstation stops with one message.** It
-names the host, the port, the account, the path of the key, and the SSH
-error. A missing or broken `workstation.json` stops the start with its path.
+names the host and the port, the host account and the git account with
+the path of each key, and the SSH error. A missing or broken `workstation.json` stops the start with its path.
 
 **Without `WORKBENCH_WORKSTATION`, Workbench runs as before.** The bash
 backend is a just-bash directory under the data directory, and the git

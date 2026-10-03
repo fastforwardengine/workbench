@@ -99,9 +99,8 @@ describe('the workstation config', () => {
 	it('names the path when the file is not JSON', async () => {
 		const path = await config();
 		await writeFile(path, '{ "host": ');
-		await expect(loadWorkstation(path)).rejects.toThrow(
-			new RegExp(`workstation.json at ${path.replaceAll('.', '\\.')} is not JSON: .+`),
-		);
+		const error = await loadWorkstation(path).catch((caught: unknown) => caught);
+		expect((error as Error).message).toContain(`workstation.json at ${path} is not JSON: `);
 	});
 
 	it('names the path and the step when the file is missing', async () => {
@@ -136,7 +135,7 @@ describe('the workstation probe', () => {
 		return { use, mirrorAgent };
 	}
 
-	it('names the host, the port, the account, the key, and the cause when SSH fails', async () => {
+	it('names the server, both accounts with their keys, and the cause when SSH fails', async () => {
 		const cause = new Error('connection refused');
 		const settings = await loaded();
 		const error = await probeWorkstation(
@@ -145,7 +144,7 @@ describe('the workstation probe', () => {
 		).catch((caught: unknown) => caught);
 		expect(error).toBeInstanceOf(Error);
 		expect((error as Error).message).toBe(
-			`Workbench cannot reach the workstation at 127.0.0.1:2222 as workbench-host with the key ${join(settings.keys, 'workbench-host')}: connection refused`,
+			`Workbench cannot open the workstation at 127.0.0.1:2222. The host account is workbench-host with the key ${join(settings.keys, 'workbench-host')}. The git account is ${settings.gitAccount} with the key ${join(settings.keys, settings.gitAccount)}. connection refused`,
 		);
 		expect((error as Error).cause).toBe(cause);
 	});
