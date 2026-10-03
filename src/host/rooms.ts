@@ -98,8 +98,8 @@ async function workspaceBackends(directory: string, workstation?: WorkstationCon
  * scripts it and needs no login. A live run reads the sign-ins of the
  * credential file, and reads the key variable when the file holds no
  * sign-in. A live run with no login gets an execution that fails its seats
- * with the way to log in. The room keeps running and reports why, with no
- * bare provider error. `reason` is the result of `missingLogin`.
+ * with the way to log in. The room keeps running and reports why. `reason`
+ * is the result of `missingLogin`.
  */
 function modelExecution(options: RoomsOptions, reason: string | undefined): Execution {
 	const { stream, env = process.env } = options;

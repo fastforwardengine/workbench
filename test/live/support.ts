@@ -6,7 +6,7 @@
  *
  * `WORKBENCH_MODEL` names the model of every seat, as `pnpm start` reads it.
  * `JUDGE_MODEL` names the judge's model, the same model by default. A suite
- * that grades one model family names another family for the judge.
+ * that grades one provider names a model of another provider for the judge.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
