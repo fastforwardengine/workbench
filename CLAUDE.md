@@ -96,7 +96,8 @@ Rules that carry the most weight here:
 8. **No slang, no metaphor, no ellipsis.** State the mechanism.
 
 State facts, not claims. If a command or feature does not exist yet, say
-so plainly.
+so plainly. Wrap Markdown prose at about 78 columns; Prettier preserves it.
+Also:
 
 - Banned words: "load-bearing", "seam".
 - No contrastive framing as a rhetorical device: avoid "X, not Y",
