@@ -29,7 +29,14 @@ import { loadWorkstation } from './workstation.ts';
 
 export type { Person } from '../domain/definitions.ts';
 export type { ActivationSteps } from '../view/steps.ts';
-export type { Attachment, FileContent, FileEntry, ImageContent, TableView } from './files.ts';
+export type {
+	Attachment,
+	FileContent,
+	FileEntry,
+	FrameContent,
+	ImageContent,
+	TableView,
+} from './files.ts';
 export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
 

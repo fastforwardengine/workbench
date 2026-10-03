@@ -8,13 +8,14 @@ import {
 	SyntaxStyle,
 	TextRenderable,
 } from '@opentui/core';
-import type { FileContent, ImageContent, TableView } from '../../host/host.ts';
+import type { FileContent, FrameContent, ImageContent, TableView } from '../../host/host.ts';
 import type { FileBrowser } from '../state/browser.ts';
 import { tui as palette } from './brand.ts';
 import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
 
 const HINT = 'Type to search   Up/Down choose   PgUp/PgDn scroll   Ctrl+Y copy   Esc close';
 const TABLE_HINT = 'Left/Right table   ';
+const FRAME_HINT = 'Left/Right frame   ';
 const MAX_COLUMN = 40;
 
 /** The rows that a picture takes in the preview. */
@@ -40,8 +41,15 @@ function markdownStyle(): SyntaxStyle {
 	});
 }
 
+/** The hint for Left and Right, when the file has more than one table or frame. */
+function stepHint(file: FileContent | undefined): string {
+	if ((file?.frames?.length ?? 0) > 1) return FRAME_HINT;
+	return (file?.tables?.length ?? 0) > 1 ? TABLE_HINT : '';
+}
+
 /** The size and shape of one file, for the title. */
 function describe(file: FileContent): string {
+	if (file.frames) return `${file.frames.length} ${file.frames.length === 1 ? 'frame' : 'frames'}`;
 	if (file.image) return `${bytes(file.image.data.length)}, ${file.image.mimeType}`;
 	if (file.tables) return `${file.tables.length} ${file.tables.length === 1 ? 'table' : 'tables'}`;
 	const lines = file.text.split('\n').length;
@@ -80,6 +88,14 @@ function tabsText(tables: readonly TableView[], shown: number): StyledText {
 	);
 }
 
+/** The line above a frame: its place among the frames, the sensor, and the time. */
+function frameText(frames: readonly FrameContent[], at: number): StyledText {
+	return new StyledText([
+		fg(palette.accent)(`frame ${at + 1} of ${frames.length}`),
+		fg(palette.muted)(` · ${frames[at]?.caption ?? ''}`),
+	]);
+}
+
 const bytes = (size: number): string =>
 	size < 1024 ? `${size} B` : `${(size / 1024).toFixed(1)} KB`;
 
@@ -93,7 +109,7 @@ export class FilesPanel extends SidePanel {
 	private readonly image: ImageRenderable;
 	private readonly tabs: TextRenderable;
 	private shown: string | undefined;
-	private tables = false;
+	private steps = '';
 	private flashing: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(renderer: CliRenderer) {
@@ -138,7 +154,7 @@ export class FilesPanel extends SidePanel {
 		]);
 		this.list.content = this.rows(browser);
 		this.drawPreview(browser);
-		this.tables = (browser.file?.tables?.length ?? 0) > 1;
+		this.steps = stepHint(browser.file);
 		if (!this.flashing) this.hint.content = new StyledText([fg(palette.dim)(this.hintText())]);
 	}
 
@@ -173,8 +189,8 @@ export class FilesPanel extends SidePanel {
 			fg(palette.accent)(file.path),
 			fg(palette.dim)(`   ${describe(file)}`),
 		]);
-		this.showFile(file, browser.table);
-		const key = `${file.path}:${browser.table}`;
+		this.showFile(file, browser.tab);
+		const key = `${file.path}:${browser.tab}`;
 		if (this.shown !== key) this.scroll.scrollTop = 0;
 		this.shown = key;
 	}
@@ -182,10 +198,18 @@ export class FilesPanel extends SidePanel {
 	/** The one view that a file takes: a picture, a table, markdown, or plain text. */
 	private showFile(file: FileContent, at: number): void {
 		const table = file.tables?.[at];
-		if (file.image) this.showImage(file.image);
+		const frame = file.frames?.[at];
+		if (file.frames && frame) this.showFrame(file.frames, frame, at);
+		else if (file.image) this.showImage(file.image);
 		else if (file.tables && table) this.showTable(file.tables, table, at);
 		else if (/\.md$/i.test(file.path)) this.showMarkdown(file.text);
 		else this.showBody(file.text);
+	}
+
+	private showFrame(frames: readonly FrameContent[], frame: FrameContent, at: number): void {
+		this.tabs.visible = true;
+		this.tabs.content = frameText(frames, at);
+		this.showImage(frame.image);
 	}
 
 	private showTable(tables: readonly TableView[], table: TableView, at: number): void {
@@ -221,7 +245,7 @@ export class FilesPanel extends SidePanel {
 	}
 
 	private hintText(): string {
-		return this.tables ? `${TABLE_HINT}${HINT}` : HINT;
+		return `${this.steps}${HINT}`;
 	}
 
 	/** Replace the key hints with a short message, then bring the hints back. */
