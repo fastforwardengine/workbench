@@ -9,6 +9,7 @@ import { sensorConformance } from '@ambionframework/workspace/conformance';
 import { createSensorClient } from '@ambionframework/workspace/sensors';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { templatesDirectory } from '../src/domain/templates.ts';
+import { python } from './python.ts';
 
 const directory = join(templatesDirectory, 'psu');
 const T0 = Date.UTC(2026, 0, 1);
@@ -52,15 +53,6 @@ else:
     print(server.server_port, flush=True)
     server.serve_forever()
 `;
-const python = (() => {
-	try {
-		execFileSync('python3', ['--version']);
-		return true;
-	} catch {
-		return false;
-	}
-})();
-
 /** Run the scenario once in a mode that prints, with its own temporary directory. */
 function collect(mode: 'recent' | 'text'): Buffer {
 	if (!python) return Buffer.alloc(0);

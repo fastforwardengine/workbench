@@ -7,17 +7,9 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { python } from './python.ts';
 
 const USB = fileURLToPath(new URL('../workstation/usb.py', import.meta.url));
-
-const python = (() => {
-	try {
-		execFileSync('python3', ['--version']);
-		return true;
-	} catch {
-		return false;
-	}
-})();
 
 interface Device {
 	bus_id: string;

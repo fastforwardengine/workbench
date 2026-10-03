@@ -1,25 +1,17 @@
 /**
- * The psu template: its own Python suite, and psu.py on its simulated supply
- * with two channels. The tier needs python3, and no hardware.
+ * The psu template: psu.py on its simulated supply with two channels. The tier
+ * needs python3, and no hardware. `pnpm check` runs the Python suite of the template.
  */
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { templatesDirectory } from '../src/domain/templates.ts';
+import { python } from './python.ts';
 
 const TEMPLATE = join(templatesDirectory, 'psu');
 const PSU = join(TEMPLATE, 'psu.py');
-
-const python = (() => {
-	try {
-		execFileSync('python3', ['--version']);
-		return true;
-	} catch {
-		return false;
-	}
-})();
 
 const directories: string[] = [];
 
@@ -66,17 +58,6 @@ async function supply(config: object = CONFIG) {
 		};
 	};
 }
-
-describe.skipIf(!python)('the psu template', () => {
-	it('passes its own Python suite', () => {
-		const done = spawnSync('python3', ['-B', '-m', 'unittest'], {
-			cwd: TEMPLATE,
-			encoding: 'utf8',
-		});
-		expect(done.stderr + done.stdout, done.stderr).toMatch(/OK/);
-		expect(done.status).toBe(0);
-	}, 30_000);
-});
 
 describe.skipIf(!python)('psu.py on a simulated supply with two channels', () => {
 	it('shows both channels, with the output off', async () => {

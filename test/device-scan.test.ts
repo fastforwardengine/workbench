@@ -9,17 +9,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { templatesDirectory } from '../src/domain/templates.ts';
+import { python } from './python.ts';
 
 const SCAN = join(templatesDirectory, 'device-scan', 'scan', 'scan.py');
-
-const python = (() => {
-	try {
-		execFileSync('python3', ['--version']);
-		return true;
-	} catch {
-		return false;
-	}
-})();
 
 const directories: string[] = [];
 
