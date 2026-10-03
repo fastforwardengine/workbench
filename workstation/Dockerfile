@@ -24,13 +24,14 @@ RUN apt-get update -q \
 #   psutil, zeroconf  list the instruments on the network too
 #   v4l-utils         v4l2-ctl, the USB cameras (UVC), their formats and controls
 #   fswebcam          one frame of a V4L2 camera, as a JPEG
+#   alsa-utils        arecord, the USB microphones: sound cards and one clip
 #   numpy, pil        a frame as numbers: the brightness of each step
 #   gphoto2           the cameras that gphoto2 drives, such as a DSLR
 #   nmap              the SCPI ports of the instruments on a subnet
 RUN apt-get update -q \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
 		usbutils python3-serial libusb-1.0-0 python3-usb python3-pyvisa \
-		python3-pyvisa-py python3-psutil python3-zeroconf v4l-utils fswebcam \
+		python3-pyvisa-py python3-psutil python3-zeroconf v4l-utils fswebcam alsa-utils \
 		python3-numpy python3-pil gphoto2 nmap \
 	&& rm -rf /var/lib/apt/lists/*
 
@@ -42,8 +43,8 @@ COPY entrypoint.sh /usr/local/sbin/workbench-entrypoint
 # mode 0700, so no account reads another account's files. The password `*`
 # sets no password and does not lock the account: an sshd without PAM
 # refuses a locked account for every method. Instruments also joins the
-# device groups: dialout for a serial port, video for a camera, and plugdev
-# for a USB device through libusb.
+# device groups: dialout for a serial port, video for a camera, audio for a microphone,
+# and plugdev for a USB device through libusb.
 #
 # Every account has a fixed uid. The group accounts count up from 1000 in the
 # order of the accounts file, and the git account has 1900. A home on a volume
@@ -61,7 +62,7 @@ RUN groupadd workbench \
 	&& usermod --password '*' workbench-git \
 	&& chmod 0700 /home/workbench-git \
 	&& chmod 0755 /usr/local/sbin/workbench-entrypoint \
-	&& usermod --append --groups dialout,video,plugdev instruments
+	&& usermod --append --groups dialout,video,plugdev,audio instruments
 
 # The entrypoint makes the layout of the workspace at each start: a named
 # volume on /srv, /library, or /shared drops the default ACLs of the image.

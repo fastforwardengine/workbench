@@ -145,21 +145,24 @@ The `device-scan` template runs them all, and writes one report
 | `python3-serial`                       | The serial ports: a USB-serial chip, or CDC-ACM    |
 | `pyvisa`, `pyvisa-py`, `pyusb`, libusb | USBTMC instruments, with no kernel driver          |
 | `v4l2-ctl`, `gphoto2`                  | USB cameras (UVC), and cameras that gphoto2 drives |
+| `arecord`                              | USB microphones (ALSA sound cards)                 |
 | `nmap`                                 | The SCPI ports of the instruments on a subnet      |
 
-**Instruments is in the groups `dialout`, `video`, and `plugdev`.** The
+**Instruments is in the groups `dialout`, `video`, `audio`, and `plugdev`.** The
 container mounts `/dev/bus/usb` with a rule for every USB device file, so
 libusb reaches a device that arrives after the start. The container runs no
 udev, so the entrypoint gives `plugdev` read and write on each USB device
 file every 5 seconds.
 
-**The workstation makes the device file of each camera, serial port, and
-USBTMC instrument.** The container's own `/dev` holds no file for a device
-that arrives after the start. The entrypoint reads the major and minor
-numbers in `/sys` every 5 seconds, makes `/dev/video*`, `/dev/ttyUSB*`,
-`/dev/ttyACM*`, and `/dev/usbtmc*` with the group of Instruments, and removes
-the file of a device that went away. `compose.yaml` allows these device
-types. No `devices:` entry is needed.
+**The workstation makes the device file of each camera, serial port,
+USBTMC instrument, and sound device.** The container's own `/dev` holds no
+file for a device that arrives after the start. The entrypoint reads the
+major and minor numbers in `/sys` every 5 seconds, makes `/dev/video*`,
+`/dev/ttyUSB*`, `/dev/ttyACM*`, `/dev/usbtmc*`, and `/dev/snd/*` with the
+group of Instruments, and removes the file of a device that went away.
+`compose.yaml` allows these device types. The ALSA rule is `c 116:* rmw`.
+Without it, opening `/dev/snd` fails with "Operation not permitted". No
+`devices:` entry is needed.
 
 **Capture a frame** as Instruments:
 
@@ -173,19 +176,33 @@ python3 -c "from PIL import Image; import numpy; print(numpy.asarray(Image.open(
 `-S 10` skips 10 frames, so the exposure settles. The last line prints the
 mean brightness of the frame.
 
-To keep the frames as evidence, Instruments forks the
+**Record a clip** as Instruments:
+
+```sh
+arecord -l                                       # the sound cards
+arecord -D plughw:CARD=BRIO,DEV=0 -f S16_LE -r 48000 -c 1 -d 5 clip.wav
+```
+
+`arecord -l` prints a line such as `card 1: BRIO [Logitech BRIO]`. The card
+id `BRIO` stays the same after a reconnect. The card number does not: card 0
+is the sound card of OrbStack. Use `plughw:CARD=<id>,DEV=0`, so ALSA
+converts to mono 48 kHz. The BRIO records 16-bit samples (`S16_LE`) in two
+channels, from 16000 to 48000 Hz. Docker hides `/proc/asound` in the
+container. `arecord -l` still works.
+
+To keep the frames and the clips as evidence, Instruments forks the
 [`usb-camera` template](../templates/usb-camera/README.md). The template
-uses the Python and `fswebcam` tools of the image, so the image needs no
-change. The server listens on the loopback address of the workstation.
+uses the Python, `fswebcam`, and `arecord` tools of the image, so the image
+needs no change. The server listens on the loopback address of the workstation.
 Ambion 0.5.0 carries the sensor API through SSH forwarding. Each
-`observe` saves the frame and the manifest in the snapshot store. Docker
+`observe` saves the frame or clip and the manifest in the snapshot store. Docker
 publishes no sensor port. Other seats observe through the connection and
 need no access to the home of Instruments.
 
 **OrbStack's Linux has the drivers of the bench as modules:** `uvcvideo`
-for a UVC camera, `cdc-acm`, `ftdi_sio`, `ch341`, `cp210x`, and `pl2303` for
-a serial port, and `usbtmc` for an instrument. A module loads when its
-device arrives.
+for a UVC camera, `snd-usb-audio` for a USB microphone, `cdc-acm`,
+`ftdi_sio`, `ch341`, `cp210x`, and `pl2303` for a serial port, and `usbtmc`
+for an instrument. A module loads when its device arrives.
 
 **With OrbStack on macOS, `make` attaches the USB devices to its Linux.**
 `make workstation`, and so `make`, runs `make usb` after the container

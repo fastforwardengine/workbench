@@ -71,6 +71,10 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 				files: { ref: string; path: string; digest: string }[];
 			};
 			expect(evidence.source.commit).toBe(ready.source.commit);
+			const heard = await invoke('observe', { sensor: `${name}/microphone` }, 'builder');
+			expect(text(heard)).toContain('SYNTHETIC DEMO');
+			const clips = (heard.details as { files: { path: string; digest: string }[] }).files;
+			expect(clips).toHaveLength(1);
 			expect(evidence.files).toHaveLength(1);
 			const file = evidence.files[0];
 			if (!file) throw new Error('No retained camera frame');
