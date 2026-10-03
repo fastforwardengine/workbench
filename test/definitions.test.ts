@@ -15,11 +15,11 @@ describe('the team instructions', () => {
 	});
 
 	it('give examples that the terminal resolves', () => {
-		const known = { room: 'build', files: ['/shared/kit.md'], seqs: new Set<number>() };
+		const known = { room: 'build', files: ['/library/rda5807fp.md'], seqs: new Set<number>() };
 		const examples = [...shared.matchAll(/file:\/\/\/[A-Za-z0-9_./-]+[A-Za-z0-9]/g)].map(
 			(match) => match[0],
 		);
-		expect(examples).toEqual(['file:///shared/kit.md']);
+		expect(examples).toEqual(['file:///library/rda5807fp.md']);
 		for (const example of examples) expect(resolveRef(example, known).target).toBeDefined();
 	});
 });
@@ -79,9 +79,9 @@ describe('the structure of a prompt', () => {
 
 	it('states one citation rule: a read-only file by URI, a changing file by snapshot, a note by path', () => {
 		const rule = shared.split('\n').find((line) => line.startsWith('- Cite what you rely on'));
-		expect(rule).toContain('Cite a read-only file');
+		expect(rule).toContain('Cite a file of /library, which is read-only');
 		expect(rule).toContain('file:///<path>');
-		expect(rule).toContain('Cite a file that can change by its snapshot ref');
+		expect(rule).toContain('Cite a file that can change, such as /shared/kit.md, by its snapshot ref');
 		expect(rule).toContain('Inside a note, write the library/ path');
 	});
 
@@ -114,12 +114,10 @@ describe('the Engineer', () => {
 		}
 	});
 
-	it('tells each specialist to say a result with no `to`, and to hand a result to the Researcher with `to`', async () => {
+	it('tells each specialist to say a result with no `to`, and the Engineer to hand a result to the Researcher with `to`', async () => {
 		for (const prompt of Object.values(await prompts())) {
 			const speaking = groupOf(prompt, 'Speaking').join('\n');
 			expect(speaking).toContain('Say a result with no `to`.');
-			expect(speaking).toContain('hand a result to the Researcher');
-			expect(speaking).toContain('The Researcher hears only a directed say.');
 			expect(speaking).toContain('Post one message for each result.');
 			for (const word of ['assignment', 'broadcast', 'acknowledgment'])
 				expect(prompt).not.toContain(word);
@@ -143,7 +141,8 @@ describe('the Engineer', () => {
 				'Record each step that the person completes in the build folder of the notes',
 			])
 				expect(rules).toContain(rule);
-			expect(rules).not.toContain('ask the person before the first run');
+			expect(rules).toContain('Ask the person before the first run that turns on an output of a device.');
+			expect(groupOf(rules, 'Speaking').join('\n')).toContain('The Researcher hears only a directed say. Hand it a result that it needs with `to`.');
 			for (const copy of ['a transistor', 'pass, fail, or unclear', 'The power stays off', 'TBD'])
 				expect(rules).not.toContain(copy);
 			expect(built.specialists.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);

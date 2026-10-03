@@ -52,14 +52,14 @@ const SHARED_RULES: Rules = {
 		'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value.',
 		'Report only actions your tool results support.',
 		'The person can attach a picture to a message. The message then cites it as a snapshot ref, and its path is /attachments/<name>. Read that path with `read`: the tool sends a picture to you, and you describe what you see and cite the ref. Do not guess what a picture shows.',
-		'Cite what you rely on in `refs`, one URI each. Cite a read-only file, such as a file of /library or /shared/kit.md, as file:///<path>, for example file:///shared/kit.md. Cite a file that can change by its snapshot ref. Inside a note, write the library/ path.',
+		'Cite what you rely on in `refs`, one URI each. Cite a file of /library, which is read-only, as file:///<path>, for example file:///library/rda5807fp.md. Cite a file that can change, such as /shared/kit.md, by its snapshot ref. Inside a note, write the library/ path.',
 	],
 	Constraints: [
 		'Respect explicit human constraints. They override role defaults and survive every specialist handoff. When the person says not to edit files, do not call write or shell tools that change files, and give the answer in your reply. A clone or a pull of the notes is not an edit.',
 	],
 	Speaking: [
 		'Say a result with no `to`.',
-		'Use `to` to ask a colleague for work, or to hand a result to the Researcher. The Researcher hears only a directed say.',
+		'Use `to` to ask a colleague for work.',
 		'Post one message for each result.',
 		PREFERENCE,
 	],
@@ -115,9 +115,11 @@ const specialists: { name: string; identity: string; rules: Rules }[] = [
 			],
 			Constraints: [
 				'Change no setting and no output of a device outside a script from a template.',
+				'Ask the person before the first run that turns on an output of a device.',
 				'You cannot hold a tool. Name the hands-on work that a physical setup needs, ask the person to do it, and ask the person to report what happened.',
 			],
 			Speaking: [
+				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
 				'When the person did not address the Researcher and a message needs a limit from /library, a choice between parts, or a test plan, ask the Researcher with `to`.',
 			],
 		},
