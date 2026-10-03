@@ -30,7 +30,7 @@ function room(count: number) {
 	for (let at = 0; at < count; at += 1) {
 		const from = seq;
 		messages.push({ seq: seq++, kind: 'said', from: 'priya', text: `Question ${at}`, at: AT });
-		for (const who of ['datasheets', 'experiments', 'instruments'])
+		for (const who of ['researcher', 'engineer', 'researcher'])
 			messages.push({ seq: seq++, kind: 'said', from: who, text: `${who} on ${at}`, at: AT });
 		const through = seq - 1;
 		const summary = {
@@ -111,8 +111,8 @@ const RUN: [string, State][] = [
 	['the second discussion opens', { exchanges: 4, expanded: ['6'] }],
 	['the first discussion is selected', { exchanges: 4, expanded: ['6'], selected: '1' }],
 	['the selection moves', { exchanges: 4, expanded: ['6'], selected: '6' }],
-	['a live block', { exchanges: 4, tail: [live('instruments: reading')] }],
-	['the live block changes', { exchanges: 4, tail: [live('instruments: using bash')] }],
+	['a live block', { exchanges: 4, tail: [live('engineer: reading')] }],
+	['the live block changes', { exchanges: 4, tail: [live('engineer: using bash')] }],
 	['a steps block joins it', { exchanges: 4, tail: [live('x'), steps(true)] }],
 	['the steps block ends', { exchanges: 4, tail: [steps(false)] }],
 	['a notice', { exchanges: 4, notice: 'Created probe.' }],

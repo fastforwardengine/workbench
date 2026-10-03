@@ -25,7 +25,7 @@ class CameraTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
-        self.source = {"repository": "instruments/bench-camera", "commit": "a" * 40, "dirty": False}
+        self.source = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
         self.camera = camera.Camera(copy.deepcopy(self.source), self.folder.name, None, demo=True)
         self.running = False
         self.start_server()
@@ -161,14 +161,14 @@ class CameraTests(unittest.TestCase):
             git("add", ".")
             git("commit", "-m", "first")
             path.write_text("dirty")
-            source = camera.launch_source(folder, "instruments/bench-camera")
+            source = camera.launch_source(folder, "engineer/bench-camera")
             self.assertTrue(source["dirty"])
             self.assertEqual(source["branch"], "capture")
             git("commit", "-am", "second")
             self.assertNotEqual(source["commit"], git("rev-parse", "HEAD"))
             self.assertTrue(source["dirty"])
             git("checkout", "--detach")
-            self.assertNotIn("branch", camera.launch_source(folder, "instruments/bench-camera"))
+            self.assertNotIn("branch", camera.launch_source(folder, "engineer/bench-camera"))
             with self.assertRaises(ValueError):
                 camera.launch_source(folder, "templates/usb-camera")
 
@@ -221,7 +221,7 @@ class MicrophoneTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
-        self.source = {"repository": "instruments/bench-camera", "commit": "a" * 40, "dirty": False}
+        self.source = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
         self.running = False
         self.addCleanup(self.stop_server)
 
@@ -337,7 +337,7 @@ TEMPLATE = Path(__file__).resolve().parent
 
 class MainTests(unittest.TestCase):
     def run_main(self, *args, data, wait=10):
-        env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "instruments/bench-camera",
+        env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-camera",
                "AMBION_SENSOR_DATA_DIR": data}
         return subprocess.Popen([sys.executable, "-u", "-B", "camera.py", *args], cwd=TEMPLATE, env=env,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -350,7 +350,7 @@ class MainTests(unittest.TestCase):
             line = process.stdout.readline()
             self.assertTrue(line.startswith("READY "))
             ready = json.loads(line[6:])
-            self.assertEqual(ready["source"]["repository"], "instruments/bench-camera")
+            self.assertEqual(ready["source"]["repository"], "engineer/bench-camera")
             with urllib.request.urlopen(f"http://127.0.0.1:{ready['port']}/", timeout=5) as response:
                 self.assertEqual(json.load(response)["source"], ready["source"])
             process.send_signal(signal.SIGTERM)

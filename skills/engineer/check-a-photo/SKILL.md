@@ -1,14 +1,17 @@
 ---
 name: check-a-photo
-description: Check the placement and the orientation of a part from a photo that the person attached. Use it before a polarized part is soldered, and when the person asks whether a part sits right.
+description: Check the placement and the orientation of a part from a photo of the bench camera, or from a photo that the person attached. Use it before a polarized part is soldered, and when the person asks whether a part sits right.
 ---
 
-1. Ask the person to attach a photo. `/attach <path>` copies it into the
+1. Take a photo with the camera when it can show the part: follow
+   `observe-the-camera`. Ask the person to attach a photo only when the
+   camera cannot show the part. `/attach <path>` copies it into the
    workspace and cites it in the next message. Ask for a photo from above,
    in good light, with the mark of the part and the marking of the board in
    view.
-2. Read the file that the message cites with `read`. The tool sends the
-   picture to you. The snapshot ref names its path under `/attachments`.
+2. Read the frame or the file with `read`. The tool sends the picture to
+   you. The snapshot ref of an attachment names its path under
+   `/attachments`.
 3. Say what you see: the part, its place, and the mark that shows its
    orientation, such as a stripe, a notch, a dot, a longer lead, or a pin 1
    marking.

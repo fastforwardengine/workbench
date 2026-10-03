@@ -5,7 +5,7 @@ import { radioProject, sharedRules, team } from '../src/domain/definitions.ts';
 import { scenarios, seats, seedFiles } from '../src/domain/scenarios.ts';
 import { seedWorkspace } from '../src/host/seed.ts';
 
-const specialists = ['datasheets', 'experiments', 'instruments', 'builder'];
+const specialists = ['researcher', 'engineer'];
 
 describe('the rooms of the FM radio', () => {
 	it('are one for each phase, in order', () => {
@@ -30,10 +30,10 @@ describe('the rooms of the FM radio', () => {
 				.filter(([, attention]) => attention === 'broadcast')
 				.map(([seat]) => seat)
 				.sort();
-		expect(owners('radio-kit')).toEqual(['builder', 'datasheets']);
-		expect(owners('radio-tune')).toEqual(['experiments', 'instruments']);
-		expect(owners('radio-build')).toEqual(['builder', 'instruments']);
-		expect(owners('radio-firmware')).toEqual(['datasheets', 'instruments']);
+		expect(owners('radio-kit')).toEqual(['engineer', 'researcher']);
+		expect(owners('radio-tune')).toEqual(['engineer', 'researcher']);
+		expect(owners('radio-build')).toEqual(['engineer']);
+		expect(owners('radio-firmware')).toEqual(['engineer', 'researcher']);
 	});
 
 	it('carry a goal, a header pattern, and a prompt for /try', () => {
@@ -44,8 +44,10 @@ describe('the rooms of the FM radio', () => {
 		}
 	});
 
-	it('leave the default seats with the Builder at named', () => {
-		expect(seats.builder).toBe('named');
+	it('seat the Engineer at broadcast in every room and in the default seats', () => {
+		expect(seats.engineer).toBe('broadcast');
+		for (const scenario of scenarios)
+			expect(scenario.seats.engineer, scenario.name).toBe('broadcast');
 	});
 });
 

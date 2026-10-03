@@ -3,7 +3,7 @@
 **This file is the seller's instruction manual of the FM radio kit, in
 Markdown.** It covers the parts, the tools, the 28 assembly steps, and the
 use of the radio. The steps that hold an orientation risk carry a page
-image, so the Builder can compare a photo of the board with the manual.
+image, so the Engineer can compare a photo of the board with the manual.
 
 - **Source:** the manual PDF of the kit, file `A1KLFMlAjbL.pdf` (15
   pages, file date 2025-05-13). The file does not name the seller.

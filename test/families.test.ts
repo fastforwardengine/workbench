@@ -23,10 +23,8 @@ describe('Workbench executor families', () => {
 	it('puts every seat on Pi', () => {
 		expect(seatFamilies).toEqual({
 			assistant: 'pi',
-			datasheets: 'pi',
-			experiments: 'pi',
-			instruments: 'pi',
-			builder: 'pi',
+			researcher: 'pi',
+			engineer: 'pi',
 		});
 	});
 
@@ -52,7 +50,7 @@ describe('Workbench executor families', () => {
 		expect(
 			describeUnavailable({ ...none, WORKBENCH_MODEL: 'openai', OPENAI_API_KEY: 'k' }),
 		).toEqual([]);
-		expect(describeUnavailable(none)).toHaveLength(5);
+		expect(describeUnavailable(none)).toHaveLength(3);
 		expect(describeUnavailable(none)[0]).toBe(
 			"Seat 'assistant' cannot run: The pi family has no login. Set ANTHROPIC_API_KEY in the environment or in .env, or run `workbench login` for ChatGPT.",
 		);
@@ -136,7 +134,7 @@ describe('Workbench executor families', () => {
 		const executors = Object.fromEntries(
 			built.specialists.map((seat) => [seat.name, seat.executor]),
 		);
-		for (const name of ['datasheets', 'experiments', 'instruments', 'builder']) {
+		for (const name of ['researcher', 'engineer']) {
 			expect(executors[name], name).toMatchObject({
 				kind: 'pi',
 				model: piModel(),
@@ -163,10 +161,8 @@ describe('Workbench with no login', () => {
 		opened.push({ lab, directory });
 		expect((await lab.read('radio-kit', 0)).unavailable).toEqual([
 			'assistant',
-			'datasheets',
-			'experiments',
-			'instruments',
-			'builder',
+			'researcher',
+			'engineer',
 		]);
 		await lab.join('radio-kit', person);
 		await lab.send('radio-kit', person, 'nologin-1', 'Plan a test.');

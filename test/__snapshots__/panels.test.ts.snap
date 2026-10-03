@@ -123,15 +123,15 @@ exports[`the frames of the panels > draws the files panel with a search and a fl
 exports[`the frames of the panels > draws the processes panel in a short terminal 1`] = `
 "┌──────────────────────────────────────┐
 │ Processes   1 running, 2 in all      │
-│ ● ▸ scan         instruments  runnin │
-│ ●   bash-bbb222  experiments  exit 0 │
+│ ● ▸ scan         engineer    running │
+│ ●   bash-bbb222  researcher  exit 0  │
 │                                      │
 │                                      │
 │                                      │
 │                                      │
 │                                      │
 │                                      │
-│ scan (bash-aaa111)   instruments, in │
+│ scan (bash-aaa111)   engineer, in    │
 │ the room radio-kit, running 1m 5s    │
 │ $ python3 scan/scan.py               │
 └─second─line──────────────────────────┘
@@ -141,16 +141,16 @@ exports[`the frames of the panels > draws the processes panel in a short termina
 exports[`the frames of the panels > draws the processes panel with a long output at its end 1`] = `
 "┌─────────────────────────────────────────────────────┐
 │ Processes   1 running, 2 in all                     │
-│ ● ▸ scan         instruments  running 1m 5s         │
-│ ●   bash-bbb222  experiments  exit 0 after 4s       │
+│ ● ▸ scan         engineer    running 1m 5s          │
+│ ●   bash-bbb222  researcher  exit 0 after 4s        │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
-│ scan (bash-aaa111)   instruments, in the room       │
-│ radio-kit, running 1m 5s                            │
+│ scan (bash-aaa111)   engineer, in the room radio-   │
+│ kit, running 1m 5s                                  │
 │ $ python3 scan/scan.py                              │
 │ second line                                         │
 │ 900 B of output.                                    │
@@ -175,15 +175,15 @@ exports[`the frames of the panels > draws the processes panel with a long output
 exports[`the frames of the panels > draws the processes panel with the second process chosen 1`] = `
 "┌─────────────────────────────────────────────────────┐
 │ Processes   1 running, 2 in all                     │
-│ ●   scan         instruments  running 1m 5s         │
-│ ● ▸ bash-bbb222  experiments  exit 0 after 4s       │
+│ ●   scan         engineer    running 1m 5s          │
+│ ● ▸ bash-bbb222  researcher  exit 0 after 4s        │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
-│ bash-bbb222   experiments, exit 0 after 4s          │
+│ bash-bbb222   researcher, exit 0 after 4s           │
 │ $ echo done                                         │
 │ 900 B of output.                                    │
 │ output of bash-bbb222 52                            │

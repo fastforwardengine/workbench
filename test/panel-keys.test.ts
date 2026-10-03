@@ -38,7 +38,7 @@ async function build(width = 120) {
 			handle: 'bash-aaa111',
 			name: 'scan',
 			kind: 'bash',
-			agent: 'instruments',
+			agent: 'engineer',
 			command: 'python3 scan.py',
 			state: 'running',
 			output: '/x/out',
@@ -313,7 +313,7 @@ describe('moving between panels and modes', () => {
 				messages: [
 					{ seq: 1, kind: 'said', from: 'priya', text: 'one', at: AT },
 					{ seq: 2, kind: 'said', from: 'design', text: 'two', at: AT },
-					{ seq: 3, kind: 'said', from: 'datasheets', text: 'three', at: AT },
+					{ seq: 3, kind: 'said', from: 'researcher', text: 'three', at: AT },
 					{ seq: 4, kind: 'said', from: 'priya', text: 'four', at: AT },
 				],
 				exchanges: [

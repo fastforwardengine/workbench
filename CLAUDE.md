@@ -9,7 +9,7 @@ on electrical engineering, hardware, and electrochemistry. It runs on
 [Ambion](https://github.com/ambionframework/ambion), the collaboration
 kernel, and follows Ambion's own runnable example (`examples/workbench`)
 with a lab domain of its own: a bench with a programmable supply and a
-camera, four specialists, and an assistant that coordinates them. The
+camera, two specialists, and an assistant that coordinates them. The
 milestone is an FM radio that the team helps build and then controls.
 
 pnpm workspace, ESM only, TypeScript, Node 26.4 or newer (the OpenTUI
@@ -71,9 +71,9 @@ Rules that carry the most weight here:
    seat is where one agent sits in it; an activation is the room waking one
    seat; an exchange is a person's question and every activation until the
    room goes quiet. This project adds its own terms on top: a
-   **specialist** is a named agent role (Datasheets, Experiments,
-   Instruments); a **family** is the executor a seat runs on (Pi, Claude,
-   Codex); a **resource** is a shared tool implementation (the workspace).
+   **specialist** is a named agent role (Researcher, Engineer); a **family**
+   is the executor a seat runs on (Pi, Claude, Codex); a **resource** is a
+   shared tool implementation (the workspace).
    Do not use "agent" where "specialist" or "seat" names the thing more
    exactly.
 5. **Simple tenses.** Present for how things work, imperative for

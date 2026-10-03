@@ -25,32 +25,34 @@ describe('the team instructions', () => {
 const instructionsOf = (seat: { executor: unknown }): string =>
 	(seat.executor as { instructions: string }).instructions;
 
-describe('the Builder', () => {
-	it('listens at named in a room with no seats of its own, and the three others at broadcast', () => {
+describe('the Engineer', () => {
+	it('listens at broadcast in a room with no seats of its own, like the other specialists', () => {
 		expect(seats).toEqual({
-			datasheets: 'broadcast',
-			experiments: 'broadcast',
-			instruments: 'broadcast',
-			builder: 'named',
+			researcher: 'broadcast',
+			engineer: 'broadcast',
 		});
 	});
 
-	it('owns the build-procedure template, and no other specialist is told to fork it', () => {
-		expect(templates.find((template) => template.name === 'build-procedure')?.specialists).toEqual([
-			'builder',
-		]);
-		expect(templateInstructions('builder')).toContain('the build-procedure template');
-		for (const other of ['datasheets', 'experiments', 'instruments'])
-			expect(templateInstructions(other)).not.toContain('build-procedure');
+	it('owns every template, and no other specialist is told to fork one of its own', () => {
+		const owned = ['device-scan', 'usb-camera', 'psu', 'build-procedure'];
+		for (const name of owned)
+			expect(templates.find((template) => template.name === name)?.specialists).toEqual([
+				'engineer',
+			]);
+		expect(templateInstructions('engineer')).toContain('the build-procedure template');
+		for (const other of ['researcher'])
+			for (const name of owned) expect(templateInstructions(other)).not.toContain(name);
 	});
 
-	it('is in the briefing of the assistant, which tells it how to reach the Builder', async () => {
+	it('is in the briefing of the assistant, which tells it how to reach a seat at named', async () => {
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
 		try {
 			const built = await team(workspace);
 			const briefing = instructionsOf(built.assistant);
-			expect(briefing).toContain('Builder guides an assembly step by step');
+			expect(briefing).toContain('The Engineer watches the bench with the camera');
+			expect(briefing).toContain('The Engineer also guides an assembly step by step');
 			expect(briefing).toContain('directed say');
+			expect(briefing).not.toMatch(/\b(Builder|Instruments)\b/);
 		} finally {
 			await workspace.dispose();
 		}
@@ -60,8 +62,8 @@ describe('the Builder', () => {
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
 		try {
 			const built = await team(workspace);
-			const builder = built.specialists.find((seat) => seat.name === 'builder');
-			const rules = builder ? instructionsOf(builder) : '';
+			const engineer = built.specialists.find((seat) => seat.name === 'engineer');
+			const rules = engineer ? instructionsOf(engineer) : '';
 			for (const rule of [
 				'Say that a part sits right only when a photo or a measurement that you cite shows it.',
 				'The power stays off until the person confirms the checks of the build.',
@@ -70,6 +72,28 @@ describe('the Builder', () => {
 				'a transistor, a voltage regulator',
 			])
 				expect(rules).toContain(rule);
+		} finally {
+			await workspace.dispose();
+		}
+	});
+
+	it('holds the rules of the bench, and looks with the camera before it asks for a photo', async () => {
+		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		try {
+			const built = await team(workspace);
+			const engineer = built.specialists.find((seat) => seat.name === 'engineer');
+			const rules = engineer ? instructionsOf(engineer) : '';
+			for (const rule of [
+				'follow the scan-the-bench skill',
+				'Follow the drive-the-power-supply skill to run the HM310P.',
+				'ask the person before the first run that drives an output',
+				'Scan a network with `--subnet` only when the person names the subnet.',
+				'Start a long script with a `name`, and read its end with `wait` or `status`.',
+				'follow the observe-the-camera skill',
+				'Ask the person for a photo with /attach only when the camera cannot show the part.',
+			])
+				expect(rules).toContain(rule);
+			expect(built.specialists.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);
 		} finally {
 			await workspace.dispose();
 		}

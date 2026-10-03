@@ -71,7 +71,7 @@ controller. It serves three sensors:
 
    ```ts
    bash({
-     command: 'cd ~/bench-psu-sensor && AMBION_SENSOR_REPOSITORY=instruments/bench-psu AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-psu" python3 -u -B sensor.py',
+     command: 'cd ~/bench-psu-sensor && AMBION_SENSOR_REPOSITORY=engineer/bench-psu AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-psu" python3 -u -B sensor.py',
      name: 'bench-psu-sensor', wait: 0, timeout: 86400,
    });
    ```
@@ -117,6 +117,59 @@ The data directory holds three kinds of file:
   first line is the baseline.
 - `blobs/<sha256>` holds each `recent.json` document that `observe`
   returned.
+
+**A controller drives a channel and turns it off at its end.**
+`start.py ramp` brings a channel to a voltage in steps, under a current
+limit. It holds the voltage, and then it turns the channel off.
+
+1. Start the controller with the `bash` call. The turn-off takes
+   milliseconds, so `grace: 2` is enough. Set `timeout` above the sum of
+   `--seconds` and `--hold`:
+
+   ```ts
+   bash({
+     command: 'cd ~/bench-psu && python3 -u -B start.py ramp --channel ch1 --voltage 5 --current 0.1 --seconds 10 --hold 60',
+     name: 'psu-ramp', grace: 2, timeout: 120, wait: 0,
+   });
+   ```
+
+2. Read the log. The controller appends one JSON line for each event to
+   `events.jsonl`, or to the file in `ACTUATOR_EVENTS`. The `state` events
+   carry one of six words: `acting`, `reached`, `holding`, `stopping`,
+   `safe`, and `gave_up`. The `observe` and `drive` events come once for
+   each second, and at each change of state.
+3. Trust exit 0 as safe. Every channel that the process holds is off at
+   exit 0. Exit 1 means an error, and the state of the channel is unknown.
+4. Run `python3 finally.py --channel ch1` after an unclean end: an exit
+   code other than 0, a kill, or a lost process. It takes no drive lock.
+   A second run changes nothing.
+
+**The ramp gives up on an abnormal current.** A reading within 2 % of the
+current limit means constant current, and the ramp ends. With
+`--trip A`, a reading above that current also ends the ramp.
+`--tolerance V` sets the allowed distance from the target voltage.
+
+**Four actuators drive channels.** Each one takes `--channel` once for
+each channel, in the order that the options of the actuator use.
+
+| Actuator   | Channels | What it does                                         | It gives up when                                                       |
+| ---------- | -------- | ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| `ramp`     | one      | Brings the channel to a voltage in steps             | The channel is in constant current, or above `--trip`                  |
+| `sweep`    | one      | Visits each voltage of `--voltages`, and logs it     | The output goes off, or a current is above `--trip`                    |
+| `hold`     | one up   | Turns the outputs on, and watches them for `--seconds` | A current is at its limit or above `--trip`, a voltage leaves `--tolerance`, or an output goes off |
+| `sequence` | two up   | Brings the rails up in order, and down in reverse    | A rail does not settle in `--settle` s, or a rail leaves its band      |
+
+`--voltage`, `--current`, and `--trip` of `hold` and `sequence` take one
+value for each channel. One value serves every channel. A point of `sweep`
+in constant current is a valid point, and `sweep` logs it. The turn-off of
+`sequence` takes `--down-dwell` seconds between two rails, and the total
+stays below 2 s.
+
+**The controller takes the drive lock of each of its channels.** When another
+process holds it, the controller logs `gave_up` with the holder, and
+touches nothing. After the controller takes the locks, every end turns the
+channels off. This includes a refused option or a limit, so a channel that
+`psu.py` left on is off after a refused ramp.
 
 **Run the tests** with `python3 -B -m unittest` in this directory. They
 need python3 and no hardware.

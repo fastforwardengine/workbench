@@ -65,7 +65,7 @@ async function runRoom(built: Awaited<ReturnType<typeof build>>, script: Script,
 		assistant: built.assistant,
 		runtime: createRuntime(),
 		execution: scripted(script),
-		seats: { datasheets: 'named', experiments: 'named', instruments: 'named', builder: 'named' },
+		seats: { researcher: 'named', engineer: 'named' },
 	});
 	cleanups.push(() => room.stop());
 	await (await room.visit(person)).send({ text });
@@ -97,13 +97,13 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const path = `/shared/handoff-${token()}.md`;
 		const marker = `LED limit ${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Write it.', 'datasheets') : quiet()),
-			datasheets: (_step, _seat, call) => {
+			assistant: (_step, _seat, call) => (call === 1 ? say('Write it.', 'researcher') : quiet()),
+			researcher: (_step, _seat, call) => {
 				if (call === 1) return callTool('write', { path, content: marker });
-				if (call === 2) return say('Written.', 'experiments');
+				if (call === 2) return say('Written.', 'engineer');
 				return quiet();
 			},
-			experiments: (step, _seat, call) => {
+			engineer: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path });
 				if (call === 2) return say(`Read back: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
@@ -112,9 +112,9 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const room = await runRoom(built, script, 'Share a file.');
 		const said = (await room.read()).messages.filter((message) => message.kind === 'said');
 		expect(
-			said.some((message) => message.from === 'experiments' && message.text.includes(marker)),
+			said.some((message) => message.from === 'engineer' && message.text.includes(marker)),
 		).toBe(true);
-		await built.workspace.use({ name: 'datasheets' }, async (env) => {
+		await built.workspace.use({ name: 'researcher' }, async (env) => {
 			await env.remove(path, { recursive: false });
 		});
 	}, 120_000);
@@ -128,8 +128,8 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const attached = await attachFile(built.workspace, join(directory, name));
 		const script = byAgent({
 			assistant: (_step, _seat, call) =>
-				call === 1 ? say('Look at the picture.', 'instruments') : quiet(),
-			instruments: (step, _seat, call) => {
+				call === 1 ? say('Look at the picture.', 'engineer') : quiet(),
+			engineer: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: attached.path });
 				if (call === 2) return say(`Saw: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
@@ -140,12 +140,12 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		expect(
 			said.some(
 				(message) =>
-					message.from === 'instruments' && message.text.includes('Read image file [image/png]'),
+					message.from === 'engineer' && message.text.includes('Read image file [image/png]'),
 			),
 		).toBe(true);
 		expect(Buffer.from(await built.workspace.readSnapshot(attached.ref))).toEqual(PNG);
 		// A seat cannot write there: the folder belongs to the host account.
-		const write = await built.workspace.use({ name: 'instruments' }, (env) =>
+		const write = await built.workspace.use({ name: 'engineer' }, (env) =>
 			env.writeFile('/attachments/intruder.txt', 'x'),
 		);
 		expect(write.ok).toBe(false);
@@ -153,12 +153,10 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 
 	it('keeps the uid of each specialist, and gives each one the home with its uid', async () => {
 		const built = await build();
-		// A new account goes at the end of workstation/accounts, so none of these uids ever changes.
+		// The image assigns uids by position in workstation/accounts. Run `make reset` after an account moves.
 		const uids: Record<string, number> = {
-			datasheets: 1000,
-			experiments: 1001,
-			instruments: 1002,
-			builder: 1004,
+			researcher: 1000,
+			engineer: 1001,
 		};
 		expect(built.specialists.map((seat) => seat.name).sort()).toEqual(Object.keys(uids).sort());
 		for (const [seat, uid] of Object.entries(uids)) {
@@ -182,8 +180,8 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const built = await build();
 		const script = byAgent({
 			assistant: (_step, _seat, call) =>
-				call === 1 ? say('Read your skill.', 'instruments') : quiet(),
-			instruments: (step, _seat, call) => {
+				call === 1 ? say('Read your skill.', 'engineer') : quiet(),
+			engineer: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: '~/.skills/scan-the-bench/SKILL.md' });
 				if (call === 2)
 					return callTool('bash', {
@@ -200,23 +198,23 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		});
 		const room = await runRoom(built, script, 'Read a skill.');
 		const said = (await room.read()).messages.filter((message) => message.kind === 'said');
-		const report = said.find((message) => message.from === 'instruments')?.text ?? '';
+		const report = said.find((message) => message.from === 'engineer')?.text ?? '';
 		expect(report).toContain('device-scan');
 		expect(report).toMatch(/\.skills/);
-		expect(report).toContain('instruments');
+		expect(report).toContain('engineer');
 	}, 120_000);
 
-	it('lets Experiments fork the test-plan template, and push a branch through the git account', async () => {
+	it('lets the Researcher fork the test-plan template, and push a branch through the git account', async () => {
 		const built = await build();
 		const name = `plan-${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'experiments') : quiet()),
-			experiments: (step, _seat, call) => {
+			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'researcher') : quiet()),
+			researcher: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', { source: 'templates/test-plan', name, clone: `~/${name}` });
 				if (call === 2)
 					return callTool('bash', {
-						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git -c user.name=experiments -c user.email=experiments@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
+						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git -c user.name=researcher -c user.email=researcher@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
 						wait: 60,
 					});
 				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
@@ -224,14 +222,14 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 			},
 		});
 		const room = await runRoom(built, script, 'Plan a test.');
-		const fork = await built.workspace.git?.use({ name: 'experiments' }, (env) =>
-			env.get(`experiments/${name}`),
+		const fork = await built.workspace.git?.use({ name: 'researcher' }, (env) =>
+			env.get(`researcher/${name}`),
 		);
 		expect(fork?.source).toBe('templates/test-plan');
 		expect(Object.keys(fork?.branches ?? {}).sort()).toEqual(['led', 'main']);
 		expect(fork?.branches.led).not.toBe(fork?.branches.main);
 		const said = (await room.read()).messages.flatMap((message) =>
-			message.kind === 'said' && message.from === 'experiments' ? [message.text] : [],
+			message.kind === 'said' && message.from === 'researcher' ? [message.text] : [],
 		);
 		expect(said.at(-1)).toContain('pushed');
 	}, 120_000);
@@ -242,35 +240,35 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		// The process table persists on the workstation, so each run names its process.
 		const name = `probe-${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Run it.', 'instruments') : quiet()),
-			instruments: (_step, _seat, call) =>
+			assistant: (_step, _seat, call) => (call === 1 ? say('Run it.', 'engineer') : quiet()),
+			engineer: (_step, _seat, call) =>
 				call === 1
 					? callTool('bash', { command: `whoami; echo ${marker}`, name, wait: 30 })
 					: quiet(),
 		});
 		await runRoom(built, script, 'Run a probe.');
-		const [probe] = (await built.workspace.processes.list({ agent: 'instruments' })).filter(
+		const [probe] = (await built.workspace.processes.list({ agent: 'engineer' })).filter(
 			(process) => process.name === name,
 		);
-		expect(probe).toMatchObject({ agent: 'instruments', state: 'exited', exitCode: 0 });
-		const output = await built.workspace.use({ name: 'instruments' }, async (env) => {
+		expect(probe).toMatchObject({ agent: 'engineer', state: 'exited', exitCode: 0 });
+		const output = await built.workspace.use({ name: 'engineer' }, async (env) => {
 			const read = await env.readTextFile(probe?.output ?? '');
 			return read.ok ? read.value : '';
 		});
-		expect(output).toBe(`instruments\n${marker}\n`);
+		expect(output).toBe(`engineer\n${marker}\n`);
 	}, 120_000);
 
-	it('lets Instruments fork the device-scan template, scan the workstation, and push the report', async () => {
+	it('lets the Engineer fork the device-scan template, scan the workstation, and push the report', async () => {
 		const built = await build();
 		const name = `scan-${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Scan.', 'instruments') : quiet()),
-			instruments: (step, _seat, call) => {
+			assistant: (_step, _seat, call) => (call === 1 ? say('Scan.', 'engineer') : quiet()),
+			engineer: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', { source: 'templates/device-scan', name, clone: `~/${name}` });
 				if (call === 2)
 					return callTool('bash', {
-						command: `cd ~/${name} && git switch -qc scan && python3 scan/scan.py > /dev/null && git add scans && git -c user.name=instruments -c user.email=instruments@workbench commit -qm 'Scan the workstation' && git push -q origin scan && ls scans`,
+						command: `cd ~/${name} && git switch -qc scan && python3 scan/scan.py > /dev/null && git add scans && git -c user.name=engineer -c user.email=engineer@workbench commit -qm 'Scan the workstation' && git push -q origin scan && ls scans`,
 						wait: 60,
 					});
 				if (call === 3) return say(`Scanned: ${step.results.at(-1)?.text}`, 'assistant');
@@ -278,13 +276,13 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 			},
 		});
 		const room = await runRoom(built, script, 'Scan the devices.');
-		const fork = await built.workspace.git?.use({ name: 'instruments' }, (env) =>
-			env.get(`instruments/${name}`),
+		const fork = await built.workspace.git?.use({ name: 'engineer' }, (env) =>
+			env.get(`engineer/${name}`),
 		);
 		expect(fork?.source).toBe('templates/device-scan');
 		expect(Object.keys(fork?.branches ?? {}).sort()).toEqual(['main', 'scan']);
 		const said = (await room.read()).messages.flatMap((message) =>
-			message.kind === 'said' && message.from === 'instruments' ? [message.text] : [],
+			message.kind === 'said' && message.from === 'engineer' ? [message.text] : [],
 		);
 		// The report pairs: one JSON file and one Markdown file.
 		expect(said.at(-1)).toMatch(/\.json[\s\S]*\.md/);
