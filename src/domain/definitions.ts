@@ -3,7 +3,7 @@ import { defineAgent, definePerson } from '@ambionframework/ambion';
 import { defineAssistant } from '@ambionframework/assistant';
 import { pi } from '@ambionframework/pi';
 import type { Workspace } from '@ambionframework/workspace';
-import { piModel, THINKING } from './families.ts';
+import { piModel, THINKING } from './model.ts';
 import { agentSkills } from './skills.ts';
 import { templateInstructions } from './templates.ts';
 

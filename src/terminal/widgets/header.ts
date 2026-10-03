@@ -7,7 +7,6 @@ import {
 	StyledText,
 	TextRenderable,
 } from '@opentui/core';
-import { seatFamilies } from '../../domain/families.ts';
 import type { Person, RoomView } from '../../host/host.ts';
 import { brand, tui as palette } from './brand.ts';
 import { fitHeader, GAP } from './header-fit.ts';
@@ -32,13 +31,13 @@ function participantColor(participant: Participant): string {
 
 /** A filled dot marks a lit participant, and an empty dot marks the others. The state then reads without color. */
 const label = (participant: Participant, unavailable: readonly string[] = []): string =>
-	`${lit(participant) ? '●' : '○'} ${participant.name}${family(participant, unavailable)}`;
+	`${lit(participant) ? '●' : '○'} ${participant.name}${noLogin(participant, unavailable)}`;
 
-/** The executor family beside an agent, with a mark when the family has no login. */
-function family(participant: Participant, unavailable: readonly string[]): string {
-	const name = participant.kind === 'agent' ? seatFamilies[participant.name] : undefined;
-	if (!name) return '';
-	return unavailable.includes(participant.name) ? ` (${name}, no login)` : ` (${name})`;
+/** The mark beside an agent that has no login. */
+function noLogin(participant: Participant, unavailable: readonly string[]): string {
+	return participant.kind === 'agent' && unavailable.includes(participant.name)
+		? ' (no login)'
+		: '';
 }
 
 /** One row of the panel: text at the left edge, and text that stays at the right edge. */

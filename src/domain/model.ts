@@ -4,25 +4,15 @@ import { join } from 'node:path';
 import type { PiOptions } from '@ambionframework/pi';
 
 /**
- * The executor family of each seat, and the credential that family needs.
+ * The model of every seat, and the login it needs.
  *
- * Every seat runs on Pi today, not on `@ambionframework/codex` or
- * `@ambionframework/claude`. `WORKBENCH_MODEL` switches the model between
- * providers; `MODEL_PRESETS` names the three this project has a login for.
- * Codex is the family with a reasoning-effort control, and is future work;
- * see `docs/codex.md` in the Ambion documentation when that need is real.
+ * Every seat runs on Pi. `WORKBENCH_MODEL` switches the model between
+ * providers. `MODEL_PRESETS` names the three that this project has a login
+ * for.
  */
-export type Family = 'pi';
 
 /** The environment variables a run reads. */
 export type Environment = Readonly<Record<string, string | undefined>>;
-
-/** The seats that run on a family. Every seat is Pi today. */
-export const seatFamilies: Readonly<Record<string, Family>> = {
-	assistant: 'pi',
-	researcher: 'pi',
-	engineer: 'pi',
-};
 
 /** The provider of the ChatGPT Plus and Pro subscription in Pi. */
 export const CHATGPT_PROVIDER = 'openai-codex';
@@ -74,41 +64,28 @@ export const THINKING: NonNullable<PiOptions['thinking']> = 'low';
 /** The provider of a Pi model id: the text before the first slash. */
 const providerOf = (model: string): string => model.slice(0, Math.max(model.indexOf('/'), 0));
 
-/** The environment variable that holds the key of a family. */
-export function keyVariable(_family: Family, env: Environment = process.env): string {
-	return `${providerOf(piModel(env)).toUpperCase().replace(/-/g, '_')}_API_KEY`;
+/** The environment variable that holds the key of a provider. */
+const keyVariableOf = (provider: string): string =>
+	`${provider.toUpperCase().replace(/-/g, '_')}_API_KEY`;
+
+/** The environment variable that holds the key of the model. */
+export function keyVariable(env: Environment = process.env): string {
+	return keyVariableOf(providerOf(piModel(env)));
 }
 
 /** True when the model has a key in the environment or a sign-in in the credential file. */
 export const modelHasLogin = (model: string, env: Environment = process.env): boolean =>
-	Boolean(env[`${providerOf(model).toUpperCase().replace(/-/g, '_')}_API_KEY`]) ||
-	hasSignIn(providerOf(model), env);
+	Boolean(env[keyVariableOf(providerOf(model))]) || hasSignIn(providerOf(model), env);
 
-/** True when a family can run: the environment holds its key, or the credential file holds its sign-in. */
-export const hasLogin = (_family: Family, env: Environment = process.env): boolean =>
-	modelHasLogin(piModel(env), env);
-
-/** The line that tells the person how to give a family a login. */
-function loginAdvice(family: Family, env: Environment = process.env): string {
+/** The line that tells the person how to give the model a login. */
+function loginAdvice(env: Environment): string {
 	if (providerOf(piModel(env)) === CHATGPT_PROVIDER) return 'Run `workbench login`.';
-	return `Set ${keyVariable(family, env)} in the environment or in .env, or run \`workbench login\` for ChatGPT.`;
+	return `Set ${keyVariable(env)} in the environment or in .env, or run \`workbench login\` for ChatGPT.`;
 }
 
-/** The seats whose family has no login, each with the variable it needs. */
-export function unavailableSeats(
-	env: Environment = process.env,
-): { seat: string; family: Family; variable: string }[] {
-	return Object.entries(seatFamilies)
-		.filter(([, family]) => !hasLogin(family, env))
-		.map(([seat, family]) => ({ seat, family, variable: keyVariable(family, env) }));
+/** The reason the model cannot run, with the way to fix it. It is undefined when the model has a login. */
+export function missingLogin(env: Environment = process.env): string | undefined {
+	const model = piModel(env);
+	if (modelHasLogin(model, env)) return undefined;
+	return `The model ${model} has no login. ${loginAdvice(env)}`;
 }
-
-/** The reason a family cannot run, with the way to fix it. */
-export const describeMissingLogin = (family: Family, env: Environment = process.env): string =>
-	`The ${family} family has no login. ${loginAdvice(family, env)}`;
-
-/** One line per seat that cannot run. An empty list means every seat can run. */
-export const describeUnavailable = (env: Environment = process.env): string[] =>
-	unavailableSeats(env).map(
-		({ seat, family }) => `Seat '${seat}' cannot run: ${describeMissingLogin(family, env)}`,
-	);

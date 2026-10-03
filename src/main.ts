@@ -3,18 +3,18 @@ import { existsSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { parseArgs } from 'node:util';
 import { fileCredentials, loginPi } from '@ambionframework/pi';
-import { CHATGPT_PROVIDER, describeUnavailable, piCredentialsPath } from './domain/families.ts';
+import { CHATGPT_PROVIDER, missingLogin, piCredentialsPath } from './domain/model.ts';
 import { runEngine } from './terminal/app/tui.ts';
 
 const USAGE = 'Usage: workbench [directory]\n       workbench login';
 
 /**
- * Say which seats cannot run for want of a login. Workbench still
- * starts and runs the other seats. The terminal shows the same fact beside
- * each seat name.
+ * Say that the seats cannot run for want of a login. Workbench still
+ * starts. The terminal shows the same fact beside each seat name.
  */
-function reportMissingLogins(): void {
-	for (const line of describeUnavailable()) console.error(line);
+function reportMissingLogin(): void {
+	const reason = missingLogin();
+	if (reason) console.error(`No seat can run: ${reason}`);
 }
 
 /**
@@ -46,7 +46,7 @@ try {
 		process.exit(0);
 	}
 	if (positionals.length > 1) throw new Error(USAGE);
-	reportMissingLogins();
+	reportMissingLogin();
 	await runEngine({
 		directory: positionals[0] ?? '.data',
 		// The one person of Workbench has the name of this account

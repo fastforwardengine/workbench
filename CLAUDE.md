@@ -17,7 +17,7 @@ floor).
 
 | Path           | What                                                                                                           |
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
-| `src/domain`   | The lab domain: the person, the specialists, the room, the model family, templates, skills                     |
+| `src/domain`   | The lab domain: the person, the specialists, the room, the model, templates, skills                            |
 | `src/view`     | Read-only projections over the room journal: the timeline, steps, refs                                         |
 | `src/host`     | The room host: rooms, file handling, processes, name assignment                                                |
 | `src/terminal` | The OpenTUI terminal, in `state/`, `widgets/`, and `app/`. The next paragraph names the rule                   |
@@ -71,9 +71,8 @@ Rules that carry the most weight here:
    seat is where one agent sits in it; an activation is the room waking one
    seat; an exchange is a person's question and every activation until the
    room goes quiet. This project adds its own terms on top: a
-   **specialist** is a named agent role (Researcher, Engineer); a **family**
-   is the executor a seat runs on (Pi, Claude, Codex); a **resource** is a
-   shared tool implementation (the workspace).
+   **specialist** is a named agent role (Researcher, Engineer); a **resource**
+   is a shared tool implementation (the workspace).
    Do not use "agent" where "specialist" or "seat" names the thing more
    exactly.
 5. **Simple tenses.** Present for how things work, imperative for

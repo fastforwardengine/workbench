@@ -47,7 +47,7 @@ pnpm start ./bench                # another directory
   `chatgpt` (`openai-codex/gpt-6-luna`), or a full Pi model ID. With no
   value, the default is `chatgpt` after `workbench login`, and `anthropic`
   before it. Every seat thinks at the `low` level (`THINKING` in
-  `src/domain/families.ts`).
+  `src/domain/model.ts`).
 - **Sign in with ChatGPT.** `workbench login` signs in with a ChatGPT
   Plus or Pro subscription through the `openai-codex` provider of Pi. It
   asks for a browser login (`1`) or a device-code login (`2`) for a host

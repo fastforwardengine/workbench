@@ -1,5 +1,5 @@
 /**
- * One tool set and one filesystem, on the real Pi family, driven by the
+ * One tool set and one filesystem, on the real Pi executor, driven by the
  * simulator. Each case sends one message to each specialist in turn, and
  * checks in code decide the result. Three claims:
  *

@@ -6,7 +6,7 @@
  *
  * `WORKBENCH_MODEL` names the model of every seat, as `pnpm start` reads it.
  * `JUDGE_MODEL` names the judge's model, the same model by default. A suite
- * that grades one model family names another family for the judge.
+ * that grades one provider names a model of another provider for the judge.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -26,7 +26,7 @@ import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/s
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
-import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/domain/families.ts';
+import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/domain/model.ts';
 import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
