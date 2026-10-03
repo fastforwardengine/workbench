@@ -145,7 +145,7 @@ export type SeedContent = string | Uint8Array;
  * `/library/images/kit-schematic.jpg`. A Markdown file is text. Every other
  * file, such as a figure, is bytes. The shared ignore rule of the package
  * applies: `.DS_Store`, `.git`, `__pycache__`, and `.pyc` files stay out.
- * Another dot file is seeded.
+ * The seed keeps another dot file.
  */
 function libraryFiles(): Record<string, SeedContent> {
 	return Object.fromEntries(
