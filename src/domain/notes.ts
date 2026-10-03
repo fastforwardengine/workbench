@@ -1,5 +1,4 @@
-import { packageDirectory } from './package-root.ts';
-import { textFiles } from './text-files.ts';
+import { packageDirectory, packageFiles } from './package-root.ts';
 
 /** The directory that holds the first files of the team notes. */
 const notesDirectory = packageDirectory('notes');
@@ -16,6 +15,8 @@ const DESCRIPTION =
  * repository once from these files, and the team owns it after that. An
  * eval of another project passes its own files.
  */
-export function sharedRegistrations(files: Record<string, string> = textFiles(notesDirectory)) {
+export function sharedRegistrations(
+	files: Record<string, string> = packageFiles(notesDirectory, { text: true }),
+) {
 	return { [NOTES]: { description: DESCRIPTION, source: files } };
 }

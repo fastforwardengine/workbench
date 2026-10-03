@@ -1,7 +1,5 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
 import type { Attention } from '@ambionframework/ambion';
-import { packageDirectory } from './package-root.ts';
+import { packageDirectory, packageFiles } from './package-root.ts';
 
 /**
  * The seats of a room with no seats of its own. The two specialists hear
@@ -145,20 +143,17 @@ export type SeedContent = string | Uint8Array;
 /**
  * The files of `library/`, at any depth, by workspace path such as
  * `/library/images/kit-schematic.jpg`. A Markdown file is text. Every other
- * file, such as a figure, is bytes. A file whose name starts with a dot,
- * such as `.DS_Store`, stays out.
+ * file, such as a figure, is bytes. The shared ignore rule of the package
+ * applies: `.DS_Store`, `.git`, `__pycache__`, and `.pyc` files stay out.
+ * Another dot file is seeded.
  */
 function libraryFiles(): Record<string, SeedContent> {
-	const files: Record<string, SeedContent> = {};
-	for (const entry of readdirSync(libraryDirectory, { recursive: true, withFileTypes: true })) {
-		if (!entry.isFile() || entry.name.startsWith('.')) continue;
-		const path = join(entry.parentPath, entry.name);
-		const name = relative(libraryDirectory, path).split(sep).join('/');
-		files[`/library/${name}`] = name.endsWith('.md')
-			? readFileSync(path, 'utf8')
-			: readFileSync(path);
-	}
-	return files;
+	return Object.fromEntries(
+		Object.entries(packageFiles(libraryDirectory)).map(([name, bytes]) => [
+			`/library/${name}`,
+			name.endsWith('.md') ? Buffer.from(bytes).toString('utf8') : bytes,
+		]),
+	);
 }
 
 /**
