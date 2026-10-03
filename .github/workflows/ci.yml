@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           # The OpenTUI floor.
-          node-version: 26.4.0
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The scripted tier needs no key and no network.
