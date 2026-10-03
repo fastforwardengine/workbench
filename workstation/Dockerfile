@@ -19,8 +19,7 @@ RUN apt-get update -q \
 # The tools that find and drive the instruments of the bench:
 #   usbutils          lsusb, the USB devices and their classes
 #   python3-serial    serial ports: a USB-serial chip or CDC-ACM (/dev/tty*)
-#   libusb, pyusb     USBTMC and other USB instruments through libusb, with
-#                     no kernel driver
+#   libusb            the USB library that a driver of a USB instrument uses
 #   v4l-utils         v4l2-ctl, the USB cameras (UVC), their formats and controls
 #   fswebcam          one frame of a V4L2 camera, as a JPEG
 #   alsa-utils        arecord, the USB microphones: sound cards and one clip
@@ -28,7 +27,7 @@ RUN apt-get update -q \
 #   gphoto2           the cameras that gphoto2 drives, such as a DSLR
 RUN apt-get update -q \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
-		usbutils python3-serial libusb-1.0-0 python3-usb \
+		usbutils python3-serial libusb-1.0-0 \
 		v4l-utils fswebcam alsa-utils \
 		python3-numpy python3-pil gphoto2 \
 	&& rm -rf /var/lib/apt/lists/*

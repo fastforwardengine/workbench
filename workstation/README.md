@@ -148,7 +148,7 @@ The `device-scan` template runs them all, and writes one report
 | --------------------- | -------------------------------------------------- |
 | `lsusb`, sysfs        | Each USB device, its ID, and its interface class   |
 | `python3-serial`      | The serial ports: a USB-serial chip, or CDC-ACM    |
-| `pyusb`, libusb       | USBTMC instruments, with no kernel driver          |
+| sysfs                 | USBTMC instruments, by their interface class       |
 | `v4l2-ctl`, `gphoto2` | USB cameras (UVC), and cameras that gphoto2 drives |
 | `arecord`             | USB microphones (ALSA sound cards)                 |
 
