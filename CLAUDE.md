@@ -95,27 +95,8 @@ Rules that carry the most weight here:
 7. **No noun clusters over three words.** Break them with prepositions.
 8. **No slang, no metaphor, no ellipsis.** State the mechanism.
 
-Also: state facts, not claims. If a command or feature does not exist yet,
-say so plainly. Wrap Markdown prose at about 78 columns; Prettier preserves
-it.
-
-Optimize every page for a human scanning it:
-
-- A bold lead names each point. A reader of only the bold leads gets the
-  page's claims.
-- An enumeration is a bulleted or numbered list. Tabular facts are a table.
-- A paragraph stays under six lines of prose. Split at the natural break.
-- A diagram is welcome when it shows the mechanism. GitHub renders Mermaid.
-
-### Voice
-
-Write to get the job done. Do not educate, persuade, or lecture along the
-way. The reader wants the mechanism, once, and then the next mechanism.
-
-The reader has built an agent and has not yet met the scaling problems
-Ambion tackles. Ground a claim in what they have lived, then extrapolate
-to the scale they have not. Keep the field's vocabulary; do not flatten it
-to plain English.
+State facts, not claims. If a command or feature does not exist yet, say
+so plainly.
 
 - Banned words: "load-bearing", "seam".
 - No contrastive framing as a rhetorical device: avoid "X, not Y",
@@ -124,5 +105,5 @@ to plain English.
   human has no tools").
 - Do not restate a point in a second formulation. One statement per point.
 
-`README.md`, `docs/`, and `planning/` follow these rules. Hold every edit
-to the same standard.
+Read [`docs/writing.md`](docs/writing.md) before you edit `README.md`,
+`docs/`, or `planning/`. It holds the page layout and the voice.
