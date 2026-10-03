@@ -56,7 +56,7 @@ export class ViewfinderPanel extends SidePanel {
 		const picture = kitty ? frame : undefined;
 		this.drawImage(picture?.digest, picture?.png);
 		const line = kitty ? note : NEEDS_KITTY;
-		this.body.content = new StyledText([fg(note ? palette.summary : palette.muted)(line ?? '')]);
+		this.body.content = new StyledText([fg(note ? palette.note : palette.muted)(line ?? '')]);
 	}
 
 	/** Give the frame the rows that a 16:9 picture takes at the width of the panel. */

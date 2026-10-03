@@ -13,8 +13,7 @@ import type { Marks, Transcript } from '../widgets/transcript.ts';
 import type { Surface } from './surface.ts';
 
 const HINTS: Partial<Record<Mode, string>> = {
-	compose: 'Enter sends   Ctrl+J newline   / commands   Ctrl+R rooms   Tab discussions',
-	browse: 'Up/Down choose   Enter open or close   e open all   c close all   r refs   Esc back',
+	compose: 'Enter sends   Ctrl+J newline   / commands   Ctrl+R rooms   Tab refs',
 	refs: 'Up/Down choose a ref   Enter opens it   Esc back',
 };
 
@@ -46,7 +45,7 @@ export interface DrawParts {
 /**
  * The drawing. It reads the session and paints the header, the conversation, and
  * the composer chrome. It holds the last drawn signature, so an unchanged
- * conversation does not redraw, and it holds the next discussion to reveal.
+ * conversation does not redraw, and it holds the next message to reveal.
  */
 export class Painter {
 	private readonly session: Session;
@@ -73,11 +72,6 @@ export class Painter {
 		this.width = parts.width;
 	}
 
-	/** Reveal one discussion at the next draw, so opening it keeps it in view. */
-	revealNext(key: string | undefined): void {
-		this.reveal = key === undefined ? undefined : `discussion-${key}`;
-	}
-
 	/** Reveal one message at the next draw, so a jump to it shows it. */
 	revealMessage(seq: number): void {
 		this.reveal = `message-${seq}`;
@@ -88,9 +82,9 @@ export class Painter {
 		this.drawn = '';
 	}
 
-	/** Paint everything for the current mode and browse selection. */
-	render(mode: Mode, browsing: string | undefined, picking?: string): void {
-		this.drawTranscript(mode, browsing, picking);
+	/** Paint everything for the current mode and the chosen ref. */
+	render(mode: Mode, picking?: string): void {
+		this.drawTranscript(mode, picking);
 		this.drawChrome(mode, picking);
 		if (isPanel(mode)) this.surfaces[mode].draw();
 	}
@@ -107,22 +101,16 @@ export class Painter {
 		return marks;
 	}
 
-	private drawTranscript(
-		mode: Mode,
-		browsing: string | undefined,
-		picking: string | undefined,
-	): void {
+	private drawTranscript(mode: Mode, picking: string | undefined): void {
 		const session = this.session;
 		const reveal = this.reveal;
 		this.reveal = undefined;
 		const bottom = session.takeBottom();
-		const selected = mode === 'browse' ? browsing : undefined;
 		const empty = session.blocks.length === 0 && !session.notice && session.view !== undefined;
 		const shown = empty && session.view ? emptyText(session.view) : session.notice;
 		const marks = this.marks(mode === 'refs' ? picking : undefined);
 		const signature = JSON.stringify([
 			session.blocks,
-			selected,
 			shown,
 			session.noticeSeq,
 			[...marks.refs.values()],
@@ -133,7 +121,7 @@ export class Painter {
 		]);
 		if (signature === this.drawn) return;
 		this.drawn = signature;
-		this.transcript.render(session.blocks, selected, shown, reveal, bottom, marks);
+		this.transcript.render(session.blocks, shown, reveal, bottom, marks);
 	}
 
 	private drawChrome(mode: Mode, picking: string | undefined): void {

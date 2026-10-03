@@ -6,7 +6,7 @@ const said = (seq: number): Message =>
 	({
 		seq,
 		kind: 'said',
-		from: 'assistant',
+		from: 'engineer',
 		text: `message ${seq}`,
 		at: '2026-01-01T00:00:00Z',
 	}) as Message;

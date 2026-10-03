@@ -80,16 +80,13 @@ describe('the Workbench skills', () => {
 		const room = await startRoom({
 			name: 'skills',
 			goal: 'Read a skill.',
-			assistant: built.assistant,
 			agents: built.specialists,
 			runtime: createRuntime(),
 			execution: scripted(
 				byAgent({
-					assistant: (_step, _seat, call) =>
-						call === 1 ? say('Scan the bench.', 'engineer') : quiet(),
 					engineer: (step, _seat, call) => {
 						if (call === 1) return callTool('read', { path: '~/.skills/scan-the-bench/SKILL.md' });
-						if (call === 2) return say(`Read: ${step.results.at(-1)?.text}`, 'assistant');
+						if (call === 2) return say(`Read: ${step.results.at(-1)?.text}`);
 						return quiet();
 					},
 				}),
@@ -97,7 +94,7 @@ describe('the Workbench skills', () => {
 			seats: { engineer: 'named' },
 		});
 		try {
-			await (await room.visit(person)).send({ text: 'What is connected?' });
+			await (await room.visit(person)).send({ text: 'What is connected?', to: 'engineer' });
 			await settled(room);
 			const said = (await room.read()).messages.filter((message) => message.kind === 'said');
 			expect(

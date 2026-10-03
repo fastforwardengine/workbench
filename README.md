@@ -64,6 +64,10 @@ pnpm start ./bench                # another directory
 - **Ambion 0.5.0 opens no journal of 0.4.0.** Move an older data directory
   away, and start again. A workstation needs `workstation/setup.sh` again:
   `workstation.json` names the `snapshots` folder now.
+- **A room from before the removal of the assistant does not resume.**
+  Its journal seats the assistant, and Ambion stops with the error
+  `agent 'assistant' has no binding`. Move the data directory away, and
+  start again.
 
 ## Run on a local workstation
 
@@ -87,12 +91,15 @@ layout, and the tests.
 ## The team
 
 **The Engineer hears every message at `broadcast`. The Researcher waits at
-`named`, and the assistant routes a request to it. The assistant writes the
-closing summary.** Every seat runs on Pi.
+`named` and wakes on a directed say.** Every seat runs on Pi.
+
+**Every message shows in the conversation, in order.** The room writes no
+summary of an exchange. The person addresses the Researcher with
+`@researcher`. The Engineer asks the Researcher for a limit or a test plan
+with a directed say.
 
 | Seat       | Work                                                                   | Tools     |
 | ---------- | ---------------------------------------------------------------------- | --------- |
-| Assistant  | Seats and unseats specialists, and summarizes                          | None      |
 | Researcher | States limits from `/library`, with the source, and writes a test plan | Workspace |
 | Engineer   | Watches the bench, runs the bench scripts, and guides a build          | Workspace |
 
@@ -120,12 +127,12 @@ A bench script comes from a template.
   [Notes](docs/notes.md) describes the layout and workflow.
 - **Workspace:** one directory for every room. It holds `/library`,
   `/shared`, `/attachments`, and a home for each specialist.
-- **Addressing:** start a message with `@name` to wake one seat: the
-  assistant or a specialist. Type `@` to list them with their attention in
-  the room. The host seats a specialist at `named` first when the room has not
-  seated it. Start with `@@` to send a
-  leading at sign. A message takes one mention, and a second one stays
-  in the text.
+- **Addressing:** start a message with `@name` to wake one specialist.
+  A message with no mention wakes the Engineer. Type `@` to list the
+  specialists with their attention in the room. The host seats a
+  specialist at `named` first when the room has not seated it. Start with
+  `@@` to send a leading at sign. A message takes one mention, and a
+  second one stays in the text.
 - **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into
   `/attachments`, snapshots it, and cites the snapshot in your next
   message. Paste the path of a picture into an empty composer, and it fills

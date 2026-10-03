@@ -13,14 +13,7 @@ import {
 } from '@opentui/core';
 import { chipLine, type RefItem } from '../../view/refs.ts';
 import { ellipsize } from '../../view/text.ts';
-import type {
-	Block,
-	DiscussionBlock,
-	LiveBlock,
-	MessageBlock,
-	Role,
-	StepsBlock,
-} from '../../view/timeline.ts';
+import type { Block, LiveBlock, MessageBlock, Role, StepsBlock } from '../../view/timeline.ts';
 import { type Strip, stripKey } from '../state/pictures.ts';
 import { tui as palette } from './brand.ts';
 import { markdownStyle } from './markdown-style.ts';
@@ -38,7 +31,7 @@ const THUMB_SHAPE = 4 / 3;
 /** The cell height over the cell width, when the terminal reports no pixel size. */
 const CELL_ASPECT = 2;
 
-/** What the transcript marks besides the selected discussion: refs, the chosen ref, a focused message. */
+/** What the transcript marks: refs, the chosen ref, a focused message. */
 export interface Marks {
 	/** The refs of the shown messages, by the seq of the message. */
 	refs: ReadonlyMap<number, readonly RefItem[]>;
@@ -73,10 +66,6 @@ function paint(text: string, { color = palette.text, fill, strong }: Paint = {})
 	return strong ? bold(chunk) : chunk;
 }
 
-/** A label after the row title, or an empty run when the label is empty. */
-const tag = (text: string, color: string, fill: string): Chunk =>
-	paint(text ? `  ${text}` : '', { color, fill });
-
 const clock = (at: string | undefined): string => {
 	const date = at ? new Date(at) : undefined;
 	if (!date || Number.isNaN(date.valueOf())) return '';
@@ -84,8 +73,7 @@ const clock = (at: string | undefined): string => {
 };
 
 function bodyOf(message: Message): string {
-	if (message.kind === 'said' || message.kind === 'summary' || message.kind === 'posted')
-		return message.text ?? '';
+	if (message.kind === 'said' || message.kind === 'posted') return message.text ?? '';
 	return '';
 }
 
@@ -108,26 +96,12 @@ function postedHeader(message: PostedMessage, at: Chunk, fill?: string): Chunk[]
 
 function headerOf(block: MessageBlock, fill?: string): Chunk[] {
 	const { message, role } = block;
-	const from = message.kind === 'said' || message.kind === 'summary' ? (message.from ?? '') : '';
-	const to = message.kind === 'said' || message.kind === 'summary' ? message.to : undefined;
+	const from = message.kind === 'said' ? (message.from ?? '') : '';
+	const to = message.kind === 'said' ? message.to : undefined;
 	const at = paint(`  ${clock(message.at)}`, { color: palette.dim, fill });
 	if (role === 'question') return [paint(from, { strong: true, fill }), at];
 	if (message.kind === 'posted') return postedHeader(message, at, fill);
 	const arrow = to ? paint(` → ${to}`, { color: palette.muted, fill }) : paint('', { fill });
-	if (role === 'summary')
-		return [
-			paint('summary', { color: palette.summary, strong: true, fill }),
-			paint(` ${from}`, { color: palette.muted, fill }),
-			arrow,
-			at,
-		];
-	if (role === 'steer')
-		return [
-			paint('steer', { color: palette.accent, strong: true, fill }),
-			paint(` ${from}`, { fill }),
-			arrow,
-			at,
-		];
 	const returns = paint(returnsAt(block), { color: palette.accent, fill });
 	return [paint(from, { color: palette.accent, fill }), arrow, returns, at];
 }
@@ -135,8 +109,6 @@ function headerOf(block: MessageBlock, fill?: string): Chunk[] {
 const railOf: Record<Role, string> = {
 	question: palette.text,
 	said: palette.line,
-	summary: palette.summary,
-	steer: palette.accent,
 	posted: palette.green,
 };
 
@@ -148,47 +120,33 @@ interface Entry {
 
 /** The seqs of the messages that a block draws, for the marks that fall on it. */
 function seqsOf(block: Block): number[] {
-	if (block.type === 'message') return [block.message.seq];
-	if (block.type === 'discussion' && block.expanded)
-		return block.items.map((item) => item.message.seq);
-	return [];
+	return block.type === 'message' ? [block.message.seq] : [];
 }
 
 /**
- * Everything a block's node is built from: the block, whether it is selected,
- * the refs that fall on its messages, which of them is chosen, which message
+ * Everything a block's node is built from: the block, the refs that fall on its messages, which of them is chosen, which message
  * has the focus, and the width the chips were fitted to. Two equal signatures make
  * two equal nodes, so the transcript keeps the node it has.
  */
-function signatureOf(block: Block, selected: string | undefined, marks: Marks, width: number) {
+function signatureOf(block: Block, marks: Marks, width: number) {
 	const seqs = seqsOf(block);
 	const refs = seqs.flatMap((seq) => marks.refs.get(seq) ?? []);
 	// The values, not whether they fall on the block: a mark that moves inside one block changes its nodes.
 	const picked = refs.find((item) => item.id === marks.picked)?.id ?? null;
 	const focus = marks.focus !== undefined && seqs.includes(marks.focus) ? marks.focus : null;
-	const chosen = block.type === 'discussion' && block.key === selected;
 	// The key of each strip holds no bytes. A loaded picture changes the key.
 	const strips = seqs.flatMap((seq) => (marks.pictures?.get(seq) ?? []).map(stripKey));
 	const shape = strips.length > 0 ? [width, marks.cellAspect ?? CELL_ASPECT] : null;
-	return JSON.stringify([
-		block,
-		chosen,
-		refs,
-		picked,
-		focus,
-		refs.length > 0 ? width : 0,
-		strips,
-		shape,
-	]);
+	return JSON.stringify([block, refs, picked, focus, refs.length > 0 ? width : 0, strips, shape]);
 }
 
 /**
- * The conversation: the blocks of a room, with each discussion open or closed.
+ * The conversation: the blocks of a room.
  *
  * It keeps one node for each block. A new state replaces only the rows between
  * the rows that stay the same at the top and at the bottom, so a new message,
- * a live block that changes, or a discussion that opens costs a few nodes and
- * not the whole conversation.
+ * or a live block that changes costs a few nodes and not the whole
+ * conversation.
  */
 export class Transcript {
 	readonly root: ScrollBoxRenderable;
@@ -219,15 +177,13 @@ export class Transcript {
 	}
 
 	/**
-	 * Draw the blocks again. The selected discussion, if any, shows a highlight.
-	 * Drawing again resets the scroll position, so the transcript puts it back once
+	 * Draw the blocks again. Drawing again resets the scroll position, so the transcript puts it back once
 	 * the layout is known: at the bottom when it was there, at the same line when it
 	 * was not, or at the node the caller asks to reveal, by its id. The caller can
 	 * also ask for the bottom, as after a notice or a message that the person sent.
 	 */
 	render(
 		blocks: readonly Block[],
-		selected: string | undefined,
 		notice: string | undefined,
 		reveal?: string,
 		bottom = false,
@@ -237,8 +193,8 @@ export class Transcript {
 		const top = this.root.scrollTop;
 		const width = this.root.width;
 		const wanted = blocks.map((block) => ({
-			signature: signatureOf(block, selected, marks, width),
-			build: () => this.blockNode(block, selected, marks),
+			signature: signatureOf(block, marks, width),
+			build: () => this.blockNode(block, marks),
 		}));
 		if (notice)
 			wanted.push({
@@ -309,14 +265,8 @@ export class Transcript {
 		else this.root.scrollTop = top;
 	}
 
-	private blockNode(
-		block: Block,
-		selected: string | undefined,
-		marks: Marks,
-	): BoxRenderable | TextRenderable {
-		if (block.type === 'message') return this.messageNode(block, marks, 0);
-		if (block.type === 'discussion')
-			return this.discussionNode(block, block.key === selected, marks);
+	private blockNode(block: Block, marks: Marks): BoxRenderable | TextRenderable {
+		if (block.type === 'message') return this.messageNode(block, marks);
 		if (block.type === 'live') return this.liveNode(block);
 		if (block.type === 'steps') return this.stepsNode(block);
 		return this.text([paint(block.text, { color: palette.dim })]);
@@ -330,9 +280,9 @@ export class Transcript {
 		});
 	}
 
-	private messageNode(block: MessageBlock, marks: Marks, indent: number): BoxRenderable {
+	private messageNode(block: MessageBlock, marks: Marks): BoxRenderable {
 		const focused = marks.focus === block.message.seq;
-		const fill = focused ? palette.selected : block.role === 'steer' ? palette.steer : undefined;
+		const fill = focused ? palette.selected : undefined;
 		const box = new BoxRenderable(this.renderer, {
 			id: `message-${block.message.seq}`,
 			flexDirection: 'column',
@@ -344,7 +294,7 @@ export class Transcript {
 		box.add(this.text(headerOf(block, fill)));
 		const body = bodyOf(block.message);
 		if (body) box.add(this.markdown(body, fill));
-		const width = Math.max(CHIP_MIN, this.root.width - CHIP_MARGIN - indent);
+		const width = Math.max(CHIP_MIN, this.root.width - CHIP_MARGIN);
 		for (const item of marks.refs.get(block.message.seq) ?? [])
 			box.add(this.chip(item, item.id === marks.picked, width, fill));
 		for (const strip of marks.pictures?.get(block.message.seq) ?? [])
@@ -419,48 +369,6 @@ export class Transcript {
 			wrapMode: 'none',
 			width: '100%',
 		});
-	}
-
-	private discussionNode(block: DiscussionBlock, selected: boolean, marks: Marks): BoxRenderable {
-		const fill = selected ? palette.selected : palette.bg;
-		const row = new BoxRenderable(this.renderer, {
-			id: `discussion-${block.key}`,
-			backgroundColor: fill,
-			width: '100%',
-		});
-		const count = `${block.count} ${block.count === 1 ? 'message' : 'messages'}`;
-		const flag = tag(block.flag, palette.summary, fill);
-		const cost = tag(block.cost, palette.muted, fill);
-		const hint = tag(
-			selected ? `Enter ${block.expanded ? 'closes' : 'opens'} it, s shows the steps` : '',
-			palette.muted,
-			fill,
-		);
-		row.add(
-			this.text([
-				paint(block.expanded ? '▾ ' : '▸ ', { color: palette.accent, fill }),
-				paint('Discussion', { strong: true, fill }),
-				paint(`  ${count}`, { color: palette.muted, fill }),
-				paint(`  ${block.voices.join(', ')}`, {
-					color: selected ? palette.muted : palette.dim,
-					fill,
-				}),
-				flag,
-				cost,
-				hint,
-			]),
-		);
-		if (!block.expanded) return row;
-		const wrapper = new BoxRenderable(this.renderer, { flexDirection: 'column', gap: 1 });
-		wrapper.add(row);
-		const thread = new BoxRenderable(this.renderer, {
-			flexDirection: 'column',
-			gap: 1,
-			marginLeft: 2,
-		});
-		for (const item of block.items) thread.add(this.messageNode(item, marks, 2));
-		wrapper.add(thread);
-		return wrapper;
 	}
 
 	private stepsNode(block: StepsBlock): BoxRenderable {

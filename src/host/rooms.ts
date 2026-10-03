@@ -126,7 +126,7 @@ export async function openRooms(
 	const reason = options.stream ? undefined : missingLogin(options.env ?? process.env);
 	// One model serves every seat, so a missing login makes every seat unavailable.
 	const missing = (entry: HostedRoom): string[] =>
-		reason === undefined ? [] : entry.team.agents.map((agent) => agent.name);
+		reason === undefined ? [] : entry.team.specialists.map((agent) => agent.name);
 	const entries = new Map<string, HostedRoom>();
 	// The steps of each activation go to a log in this process. Each step
 	// tells the watchers of its room to read again.
@@ -200,13 +200,12 @@ export async function openRooms(
 		if (entry.lifecycle.status === 'stopping') await stopEntry(entry);
 		entry.enabled = 1;
 		save(entry);
-		const options = { agents: entry.team.agents, runtime };
+		const options = { agents: entry.team.specialists, runtime };
 		const recorded = await readRoom(entry.name, { runtime, messages: false });
 		const room = recorded.initialized
 			? await resumeRoom(entry.name, options)
 			: await startRoom({
 					agents: entry.team.specialists,
-					assistant: entry.team.assistant,
 					runtime,
 					name: entry.name,
 					goal: entry.goal,
@@ -317,8 +316,8 @@ export async function openRooms(
 		throw error;
 	}
 	return {
-		/** The assistant and the specialists that a room can seat. */
-		team: roomTeam.agents.map(({ name, identity }) => ({ name, identity })),
+		/** The specialists that a room can seat. */
+		team: roomTeam.specialists.map(({ name, identity }) => ({ name, identity })),
 		create,
 		withRoom,
 		watch,

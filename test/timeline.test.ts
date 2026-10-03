@@ -1,38 +1,24 @@
 import type { Exchange, Message } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
-import { type Block, buildTimeline, discussionKeys } from '../src/view/timeline.ts';
+import { type Block, buildTimeline } from '../src/view/timeline.ts';
 
-const said = (seq: number, from: string, to?: string): Message =>
-	({ seq, kind: 'said', from, to, text: `${from} ${seq}`, at: '2026-01-01T00:00:00Z' }) as Message;
-type Summary = Extract<Message, { kind: 'summary' }>;
 const AT = '2026-01-01T00:00:00Z';
-const summaryOf = (seq: number, to: string): Summary =>
-	({
-		seq,
-		kind: 'summary',
-		from: 'assistant',
-		to,
-		text: `summary ${seq}`,
-		at: '2026-01-01T00:00:00Z',
-	}) as Summary;
-const closedExchange = (
-	from: number,
-	through: number,
-	owner: string,
-	summary: object = { kind: 'silent' },
-): Exchange =>
+const said = (seq: number, from: string, to?: string): Message =>
+	({ seq, kind: 'said', from, to, text: `${from} ${seq}`, at: AT }) as Message;
+const arrived = (seq: number): Message =>
+	({ seq, kind: 'arrived', subject: 'noor', at: AT }) as Message;
+const closedExchange = (from: number, through: number, extra: object = {}): Exchange =>
 	({
 		from,
 		through,
 		status: 'closed',
 		activations: [],
 		outcome: { kind: 'complete' },
-		owner,
+		person: 'noor',
 		at: AT,
-		summary,
+		summary: { kind: 'silent' },
+		...extra,
 	}) as Exchange;
-const arrived = (seq: number): Message =>
-	({ seq, kind: 'arrived', subject: 'noor', at: '2026-01-01T00:00:00Z' }) as Message;
 
 const humans = new Set(['noor', 'priya']);
 const build = (
@@ -45,77 +31,44 @@ const build = (
 		exchanges,
 		humans,
 		working: [],
-		expanded: new Set(),
 		...extra,
 	});
 
 const shape = (blocks: Block[]) =>
-	blocks.map((block) => {
-		if (block.type === 'message') return `${block.role}:${block.message.seq}`;
-		if (block.type === 'discussion') return `discussion:${block.key}(${block.count})`;
-		return block.type;
-	});
+	blocks.map((block) =>
+		block.type === 'message' ? `${block.role}:${block.message.seq}` : block.type,
+	);
 
-// The cycling room's exchange: a person answers an agent inside the exchange.
+// The cycling room's exchange: a person answers a specialist inside the exchange.
 const thread = [
 	said(98, 'noor'),
-	said(102, 'assistant', 'researcher'),
-	said(121, 'assistant', 'noor'),
+	said(102, 'engineer', 'researcher'),
+	said(121, 'researcher', 'noor'),
 	said(125, 'noor'),
-	said(128, 'assistant', 'researcher'),
+	said(128, 'engineer', 'researcher'),
 	said(134, 'researcher'),
-	summaryOf(145, 'noor'),
 ];
-const closed: Exchange = {
-	from: 98,
-	through: 134,
-	status: 'closed',
-	activations: [],
-	outcome: { kind: 'complete' },
-	person: 'noor',
-	at: AT,
-	summary: { kind: 'published', summary: summaryOf(145, 'noor') },
-};
+const closed = closedExchange(98, 134);
 
 describe('buildTimeline', () => {
-	it('keeps a steering message inside the discussion, and the summary last', () => {
+	it('shows every message of a closed exchange in the open, in order', () => {
 		const blocks = build(thread, [closed]);
-		expect(shape(blocks)).toEqual(['question:98', 'discussion:98(5)', 'summary:145']);
-		const discussion = blocks[1];
-		if (discussion?.type !== 'discussion') throw new Error('Expected a discussion.');
-		expect(discussion.items.map((item) => [item.message.seq, item.role])).toEqual([
-			[102, 'said'],
-			[121, 'said'],
-			[125, 'steer'],
-			[128, 'said'],
-			[134, 'said'],
+		expect(shape(blocks)).toEqual([
+			'question:98',
+			'said:102',
+			'said:121',
+			'question:125',
+			'said:128',
+			'said:134',
 		]);
-		expect(discussion.voices).toEqual(['assistant', 'noor', 'researcher']);
-		expect(discussion.flag).toBe('');
 	});
 
-	it('marks a discussion open only when its key is in the expanded set', () => {
-		const closedThread = build(thread, [closed]);
-		expect(discussionKeys(closedThread)).toEqual(['98']);
-		const before = closedThread[1];
-		const after = build(thread, [closed], { expanded: new Set(['98']) })[1];
-		expect(before?.type === 'discussion' && before.expanded).toBe(false);
-		expect(after?.type === 'discussion' && after.expanded).toBe(true);
-	});
-
-	it('shows one reply directly, with no discussion and no summary', () => {
-		const messages = [said(59, 'priya'), said(61, 'assistant', 'priya'), summaryOf(66, 'priya')];
-		const exchange: Exchange = {
-			from: 59,
-			through: 61,
-			status: 'closed',
-			activations: [],
-			outcome: { kind: 'complete' },
-			person: 'priya',
-			at: AT,
-			summary: { kind: 'published', summary: summaryOf(66, 'priya') },
-		};
-		expect(shape(build(messages, [exchange]))).toEqual(['question:59', 'said:61']);
+	it('shows one reply of a closed exchange with no note', () => {
+		const messages = [said(59, 'priya'), said(61, 'engineer', 'priya')];
+		expect(shape(build(messages, [closedExchange(59, 61, { person: 'priya' })]))).toEqual([
+			'question:59',
+			'said:61',
+		]);
 	});
 
 	it('shows a returned say as the opening of its own exchange, and the answer after it', () => {
@@ -129,7 +82,7 @@ describe('buildTimeline', () => {
 			at: AT,
 		} as Message;
 		const messages = [said(59, 'noor'), scheduled, returned, said(72, 'agent', 'noor')];
-		const exchanges = [closedExchange(59, 61, 'noor'), closedExchange(70, 72, 'noor')];
+		const exchanges = [closedExchange(59, 61), closedExchange(70, 72)];
 		expect(shape(build(messages, exchanges))).toEqual([
 			'question:59',
 			'said:61',
@@ -138,71 +91,31 @@ describe('buildTimeline', () => {
 		]);
 	});
 
-	it('marks a scheduled say that a dismissal names, in the open and in a discussion', () => {
+	it('marks a scheduled say that a dismissal names', () => {
 		const scheduled = { ...said(61, 'agent', 'agent'), delaySeconds: 600 } as Message;
 		const dismissed = { seq: 62, kind: 'dismissed', message: 61, at: AT } as Message;
-		const open = build([said(59, 'noor'), scheduled, dismissed], []);
-		expect(open.find((block) => block.type === 'message' && block.message.seq === 61)).toEqual({
-			type: 'message',
-			message: scheduled,
-			role: 'said',
-			dismissed: true,
-		});
-		const messages = [said(59, 'noor'), scheduled, dismissed, said(63, 'agent')];
-		const [, discussion] = build(messages, [closedExchange(59, 63, 'noor')]);
-		expect(discussion).toMatchObject({ type: 'discussion', count: 2 });
-		if (discussion?.type !== 'discussion') throw new Error('Expected a discussion.');
-		expect(discussion.items.map((item) => item.dismissed)).toEqual([true, undefined]);
-	});
-
-	it('keeps a returned say that lands in an open exchange inside its discussion', () => {
-		const returned = {
-			seq: 70,
-			kind: 'posted',
-			to: 'agent',
-			returns: 61,
-			text: 'Check the build.',
-			at: AT,
-		} as Message;
-		const scheduled = { ...said(61, 'agent', 'agent'), delaySeconds: 600 } as Message;
-		const messages = [said(59, 'noor'), scheduled, returned, said(72, 'agent'), said(75, 'agent')];
-		expect(shape(build(messages, [closedExchange(59, 75, 'noor')]))).toEqual([
-			'question:59',
-			'discussion:59(4)',
+		const blocks = build(
+			[said(59, 'noor'), scheduled, dismissed, said(63, 'agent')],
+			[closedExchange(59, 63)],
+		);
+		expect(blocks.map((block) => block.type === 'message' && block.dismissed)).toEqual([
+			undefined,
+			true,
+			undefined,
 		]);
 	});
 
-	it('keeps the closing mark when a person is the only one who spoke after the question', () => {
-		// An exchange aborted after a follow-up: no agent replied, so there is nothing to show directly.
-		const exchange: Exchange = {
-			from: 4,
-			through: 9,
-			status: 'closed',
-			activations: [],
-			outcome: { kind: 'complete' },
-			person: 'priya',
-			at: AT,
-			summary: { kind: 'silent' },
-		};
-		const blocks = build([said(4, 'priya'), said(9, 'priya')], [exchange]);
-		expect(shape(blocks)).toEqual(['question:4', 'discussion:4(1)']);
-		expect(blocks[1]).toMatchObject({ flag: 'No summary' });
+	it('adds no note to a closed exchange that ended without a reply', () => {
+		const blocks = build([said(75, 'noor')], [closedExchange(75, 75, { person: 'noor' })]);
+		expect(shape(blocks)).toEqual(['question:75']);
 	});
 
-	it('notes a closed exchange that has no reply and no summary', () => {
-		const exchange: Exchange = {
-			from: 75,
-			through: 75,
-			status: 'closed',
-			activations: [],
-			outcome: { kind: 'complete' },
-			person: 'noor',
-			at: AT,
-			summary: { kind: 'silent' },
-		};
-		const blocks = build([said(75, 'noor')], [exchange]);
-		expect(shape(blocks)).toEqual(['question:75', 'note']);
-		expect(blocks[1]).toMatchObject({ text: 'Closed without a summary' });
+	it('adds no note to a closed exchange that a person cancelled', () => {
+		const blocks = build(
+			[said(4, 'priya'), said(9, 'priya')],
+			[closedExchange(4, 9, { outcome: { kind: 'cancelled' } })],
+		);
+		expect(shape(blocks)).toEqual(['question:4', 'question:9']);
 	});
 
 	describe('a failed activation', () => {
@@ -212,18 +125,11 @@ describe('buildTimeline', () => {
 			status: string,
 			cause: string,
 			attempt = 1,
-		): object => ({ id, seat: 'assistant', purpose, attempt, outcome: { kind: status, cause } });
+		): object => ({ id, seat: 'engineer', purpose, attempt, outcome: { kind: status, cause } });
 		const limit = '400 invalid_request_error: You have reached your specified API usage limits.';
-		const failures = new Map([
-			['m1', limit],
-			['s1', limit],
-		]);
-		const exhausted = (activations: object[], summary: object = { kind: 'failed' }) =>
-			({
-				...closedExchange(75, 75, 'theo', summary),
-				outcome: { kind: 'exhausted' },
-				activations,
-			}) as Exchange;
+		const failures = new Map([['m1', limit]]);
+		const exhausted = (activations: object[]) =>
+			closedExchange(75, 75, { person: 'theo', outcome: { kind: 'exhausted' }, activations });
 
 		it.each([
 			[
@@ -231,55 +137,40 @@ describe('buildTimeline', () => {
 				exhausted([
 					attempt('m1', 'respond', 'failed', 'permanent'),
 					attempt('m2', 'respond', 'abandoned', 'permanent', 2),
-					attempt('s1', 'summarize', 'failed', 'permanent'),
 				]),
 				failures,
-				`Closed, assistant failed, the room does not retry this: ${limit}`,
+				`Closed, engineer failed, the room does not retry this: ${limit}`,
 			],
 			[
 				'counts the attempts of a transient failure',
 				exhausted([attempt('m3', 'respond', 'failed', 'transient', 3)]),
 				failures,
-				'Closed, assistant failed, after 3 attempts',
-			],
-			[
-				'names why a summary failed after a reply',
-				{
-					...closedExchange(75, 75, 'theo', { kind: 'failed' }),
-					activations: [attempt('s1', 'summarize', 'failed', 'permanent')],
-				} as Exchange,
-				failures,
-				`Closed, summary failed: assistant failed, the room does not retry this: ${limit}`,
+				'Closed, engineer failed, after 3 attempts',
 			],
 			[
 				'keeps the plain line when this process heard no reason',
 				exhausted([attempt('m1', 'respond', 'failed', 'permanent')]),
 				undefined,
-				'Closed, assistant failed, the room does not retry this',
+				'Closed, engineer failed, the room does not retry this',
 			],
 		])('%s', (_what, exchange, known, text) => {
 			const blocks = build([said(75, 'theo')], [exchange], { failures: known });
 			expect(blocks[1]).toMatchObject({ type: 'note', text });
 		});
 
-		it('flags a discussion whose reply the room gave up on', () => {
-			const exchange = {
-				...closed,
-				outcome: { kind: 'exhausted' },
-				activations: [attempt('m1', 'respond', 'failed', 'permanent')],
-			} as Exchange;
-			expect(build(thread, [exchange])[1]).toMatchObject({ flag: 'assistant failed' });
+		it('puts the note after the last message of the exchange, and before the next one', () => {
+			const exchange = exhausted([attempt('m1', 'respond', 'failed', 'permanent')]);
+			const messages = [said(75, 'noor'), said(80, 'noor')];
+			expect(shape(build(messages, [{ ...exchange, through: 78 } as Exchange]))).toEqual([
+				'question:75',
+				'note',
+				'question:80',
+			]);
 		});
 	});
 
-	it('flags a discussion whose summary is pending or failed', () => {
-		const pending: Exchange = { ...closed, summary: { kind: 'pending' } };
-		const blocks = build(thread.slice(0, -1), [pending]);
-		expect(blocks[1]).toMatchObject({ type: 'discussion', flag: 'Summary pending' });
-	});
-
 	it('keeps the open exchange in the open, and ends with a live block', () => {
-		const messages = [said(4, 'priya'), said(6, 'assistant', 'design'), said(9, 'priya')];
+		const messages = [said(4, 'priya'), said(6, 'engineer', 'researcher'), said(9, 'priya')];
 		const open: Exchange = {
 			from: 4,
 			status: 'open',
@@ -289,11 +180,11 @@ describe('buildTimeline', () => {
 		};
 		const blocks = build(messages, [open], {
 			open: { person: 'priya' },
-			working: ['assistant', 'design'],
+			working: ['engineer', 'researcher'],
 		});
 		expect(shape(blocks)).toEqual(['question:4', 'said:6', 'question:9', 'live']);
 		expect(blocks.at(-1)).toMatchObject({
-			text: 'Working on priya’s question with assistant, design',
+			text: 'Working on priya’s question with engineer, researcher',
 		});
 	});
 
@@ -301,7 +192,7 @@ describe('buildTimeline', () => {
 		expect(shape(build([arrived(1), said(2, 'priya'), arrived(3)], []))).toEqual(['question:2']);
 	});
 
-	it('shows an earlier exchange collapsed beside a newer open one', () => {
+	it('shows an earlier exchange in the open beside a newer open one', () => {
 		const later: Exchange = {
 			from: 150,
 			status: 'open',
@@ -314,48 +205,41 @@ describe('buildTimeline', () => {
 		});
 		expect(shape(blocks)).toEqual([
 			'question:98',
-			'discussion:98(5)',
-			'summary:145',
+			'said:102',
+			'said:121',
+			'question:125',
+			'said:128',
+			'said:134',
 			'question:150',
 			'live',
 		]);
 	});
 });
 
-describe('cost and awaiting', () => {
+describe('awaiting', () => {
 	const usage = { input: 9000, output: 3300, cacheRead: 0, cacheWrite: 0 };
-	const exchangeWith = (extra: Record<string, unknown>): Exchange =>
-		({ ...closed, ...extra }) as Exchange;
+	const awaiting = (extra: object = {}): Exchange =>
+		closedExchange(98, 134, { outcome: { kind: 'awaiting', person: 'noor' }, ...extra });
 
-	it('shows the cost of an exchange on its discussion', () => {
-		const blocks = build(thread, [exchangeWith({ usage: { ...usage, cost: 0.0123 } })]);
-		expect(blocks[1]).toMatchObject({ type: 'discussion', cost: '$0.0123', activations: 0 });
+	it('notes that an awaiting exchange waits on the person, after its last message', () => {
+		const blocks = build(thread, [awaiting()]);
+		expect(blocks.at(-1)).toEqual({ type: 'note', text: 'Waiting on noor' });
+		expect(shape(blocks).filter((kind) => kind === 'note')).toHaveLength(1);
 	});
 
-	it('falls back to tokens when the usage has no cost, and to nothing without usage', () => {
-		expect(build(thread, [exchangeWith({ usage })])[1]).toMatchObject({ cost: '12.3k tokens' });
-		expect(build(thread, [closed])[1]).toMatchObject({ cost: '' });
+	it('adds the cost to the note', () => {
+		const note = build(thread, [awaiting({ usage: { ...usage, cost: 0.5 } })]).at(-1);
+		expect(note).toEqual({ type: 'note', text: 'Waiting on noor · $0.5000' });
 	});
 
-	it('reads an awaiting exchange as waiting on the person, and not as a plain close', () => {
-		const awaiting = exchangeWith({
-			outcome: { kind: 'awaiting', person: 'noor' },
-			summary: { kind: 'silent' },
+	it('falls back to tokens when the usage has no cost', () => {
+		expect(build(thread, [awaiting({ usage })]).at(-1)).toEqual({
+			type: 'note',
+			text: 'Waiting on noor · 12.3k tokens',
 		});
-		expect(build(thread.slice(0, 6), [awaiting])[1]).toMatchObject({ flag: 'Waiting on noor' });
 	});
 
-	it('puts the waiting and the cost in the note of an exchange with no messages', () => {
-		const awaiting = exchangeWith({
-			outcome: { kind: 'awaiting', person: 'noor' },
-			summary: { kind: 'silent' },
-			usage: { ...usage, cost: 0.5 },
-		});
-		const blocks = build([said(98, 'noor')], [awaiting]);
-		expect(blocks.at(-1)).toEqual({ type: 'note', text: 'Waiting on noor · $0.5000' });
-	});
-
-	it('places the tail blocks after the closed exchanges and before the live block', () => {
+	it('places the tail blocks after the messages and before the live block', () => {
 		const later: Exchange = {
 			from: 150,
 			status: 'open',

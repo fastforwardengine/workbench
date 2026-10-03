@@ -32,18 +32,15 @@ describe('a picture that the person attaches', () => {
 		const attached = await attachFile(workspace, join(directory, 'bench.png'));
 		const built = await team(workspace);
 		const script = byAgent({
-			assistant: (_step, _seat, call) =>
-				call === 1 ? say('Please look at the picture.', 'engineer') : quiet(),
 			engineer: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: attached.path });
-				if (call === 2) return say(`Saw: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 2) return say(`Saw: ${step.results.at(-1)?.text}`);
 				return quiet();
 			},
 		});
 		const room = await startRoom({
 			name: 'attachment',
 			goal: 'Look at a picture.',
-			assistant: built.assistant,
 			agents: built.specialists,
 			runtime: createRuntime(),
 			execution: scripted(script),
@@ -54,6 +51,7 @@ describe('a picture that the person attaches', () => {
 			await room.visit(person)
 		).send({
 			text: 'What is on the bench?',
+			to: 'engineer',
 			refs: [attached.ref],
 		});
 		await settled(room);

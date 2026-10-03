@@ -102,12 +102,6 @@ export const COMMANDS = [
 			'                    Without n, the latest exchange. /steps off hides them.',
 		],
 	},
-	{
-		name: 'expand',
-		summary: 'Open every discussion',
-		help: ['  /expand           open every discussion. /collapse closes them.'],
-	},
-	{ name: 'collapse', summary: 'Close every discussion', help: [] },
 	{ name: 'help', summary: 'Show the commands and keys', help: [] },
 	{
 		name: 'quit',

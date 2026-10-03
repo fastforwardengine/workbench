@@ -45,8 +45,7 @@ const WORKSPACE_TOOLS = [
 describe('the Workbench tool set', () => {
 	it('puts every seat on the Pi executor', async () => {
 		const built = await build();
-		expect(built.agents.map((seat) => [seat.name, seat.executor.kind])).toEqual([
-			['assistant', 'pi'],
+		expect(built.specialists.map((seat) => [seat.name, seat.executor.kind])).toEqual([
 			['researcher', 'pi'],
 			['engineer', 'pi'],
 		]);
@@ -60,10 +59,6 @@ describe('the Workbench tool set', () => {
 			expect(shapeOf(agent.executor.tools), agent.name).toEqual(expected);
 		}
 	});
-
-	it('gives the assistant no tool of its own', async () => {
-		expect((await build()).assistant.executor.tools).toEqual([]);
-	});
 });
 
 describe('the Workbench filesystem', () => {
@@ -73,8 +68,6 @@ describe('the Workbench filesystem', () => {
 		if (!person) throw new Error('No person.');
 		const marker = 'LED limit 20 mA';
 		const script = byAgent({
-			assistant: (_step, _seat, call) =>
-				call === 1 ? say('Please state the limit.', 'researcher') : quiet(),
 			researcher: (_step, _seat, call) => {
 				if (call === 1) return callTool('write', { path: '/shared/handoff.md', content: marker });
 				if (call === 2) return say('Written.', 'engineer');
@@ -82,7 +75,7 @@ describe('the Workbench filesystem', () => {
 			},
 			engineer: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path: '/shared/handoff.md' });
-				if (call === 2) return say(`Read back: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 2) return say(`Read back: ${step.results.at(-1)?.text}`);
 				return quiet();
 			},
 		});
@@ -90,13 +83,12 @@ describe('the Workbench filesystem', () => {
 			name: 'toolset',
 			goal: 'Share a file.',
 			agents: built.specialists,
-			assistant: built.assistant,
 			runtime: createRuntime(),
 			execution: scripted(script),
 			seats: { researcher: 'named', engineer: 'named' },
 		});
 		cleanups.push(() => room.stop());
-		await (await room.visit(person)).send({ text: 'Share a file.' });
+		await (await room.visit(person)).send({ text: 'Share a file.', to: 'researcher' });
 		await settled(room);
 		const read = await room.read();
 		const said = read.messages.filter((message) => message.kind === 'said');
@@ -112,7 +104,6 @@ describe('the Workbench repositories', () => {
 		const person = people[0];
 		if (!person) throw new Error('No person.');
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'researcher') : quiet()),
 			researcher: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', {
@@ -125,7 +116,7 @@ describe('the Workbench repositories', () => {
 						command:
 							"cd ~/plan && git switch -c led && sed -i 's/^# Device scan/# Device scan: LED sweep/' README.md && git commit -am 'Name the plan' && git push origin led",
 					});
-				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
+				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`);
 				return quiet();
 			},
 		});
@@ -133,13 +124,12 @@ describe('the Workbench repositories', () => {
 			name: 'plan',
 			goal: 'Plan a test.',
 			agents: built.specialists,
-			assistant: built.assistant,
 			runtime: createRuntime(),
 			execution: scripted(script),
 			seats: { researcher: 'named', engineer: 'named' },
 		});
 		cleanups.push(() => room.stop());
-		await (await room.visit(person)).send({ text: 'Plan a test.' });
+		await (await room.visit(person)).send({ text: 'Plan a test.', to: 'researcher' });
 		await settled(room);
 		const fork = await built.workspace.git?.use({ name: 'researcher' }, (env) =>
 			env.get('researcher/plan'),

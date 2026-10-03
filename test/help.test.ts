@@ -23,8 +23,6 @@ describe('the help text', () => {
 			'stop',
 			'resume',
 			'steps',
-			'expand',
-			'collapse',
 			'help',
 			'quit',
 		])

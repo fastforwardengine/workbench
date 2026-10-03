@@ -194,7 +194,7 @@ display, the camera, and the sound agree.
 - [ ] A scan of 87.5 to 108 MHz makes a station map by signal strength,
       checked by sound.
 
-**Done when** the team tunes any frequency the person names, and a summary
+**Done when** the team tunes any frequency the person names, and the team
 cites the station map.
 
 ### 6. Situation awareness in depth

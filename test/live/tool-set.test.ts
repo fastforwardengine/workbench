@@ -69,7 +69,7 @@ const namesIn = (text: string): string[] =>
 		),
 	].sort();
 
-/** Send each message to its seat, one exchange each, and wait for each summary. */
+/** Send each message to its seat, and wait for each exchange to close. */
 async function ask(messages: readonly { to: string; text: string }[]): Promise<Simulation> {
 	const { room } = await openRoom();
 	return simulate(room, {

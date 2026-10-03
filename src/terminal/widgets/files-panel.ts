@@ -21,7 +21,7 @@ const MAX_COLUMN = 40;
 /** The rows that a picture takes in the preview. */
 const IMAGE_ROWS = 24;
 
-/** How markdown looks on the panel: headings in the accent, code in the summary color. */
+/** How markdown looks on the panel: headings in the accent, code in the note color. */
 function markdownStyle(): SyntaxStyle {
 	return SyntaxStyle.fromStyles({
 		default: { fg: palette.text },
@@ -30,8 +30,8 @@ function markdownStyle(): SyntaxStyle {
 		'markup.strong': { fg: palette.text, bold: true },
 		'markup.italic': { fg: palette.text, italic: true },
 		'markup.strikethrough': { fg: palette.dim },
-		'markup.raw': { fg: palette.summary },
-		'markup.raw.block': { fg: palette.summary },
+		'markup.raw': { fg: palette.note },
+		'markup.raw.block': { fg: palette.note },
 		'markup.link': { fg: palette.accent, underline: true },
 		'markup.link.label': { fg: palette.accent, underline: true },
 		'markup.link.url': { fg: palette.dim },
@@ -250,7 +250,7 @@ export class FilesPanel extends SidePanel {
 
 	/** Replace the key hints with a short message, then bring the hints back. */
 	flash(message: string): void {
-		this.hint.content = new StyledText([fg(palette.summary)(message)]);
+		this.hint.content = new StyledText([fg(palette.note)(message)]);
 		clearTimeout(this.flashing);
 		this.flashing = setTimeout(() => {
 			this.flashing = undefined;

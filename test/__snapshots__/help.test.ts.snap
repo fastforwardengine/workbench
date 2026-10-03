@@ -19,15 +19,11 @@ exports[`the help text > lists every command and key, as the person reads them 1
   /stop             stop the room. /resume starts it again.
   /steps [n]        show the steps of the newest activation of exchange n, oldest first.
                     Without n, the latest exchange. /steps off hides them.
-  /expand           open every discussion. /collapse closes them.
   /quit             leave the terminal. The rooms stop with it.
 Keys
   Enter sends. Ctrl+J, Alt+Enter, and Shift+Enter add a line.
-  Tab browses the discussions. Up and Down choose, Enter opens or closes,
-  e opens all, c closes all, s shows the steps of the exchange, and Esc goes back
-  to the composer.
-  r, while browsing, chooses a ref of a shown message. Enter opens a file or a table
-  in the files panel, or jumps to a message. Esc goes back.
+  Tab chooses a ref of a shown message. Up and Down choose. Enter opens a file or a
+  table in the files panel, or jumps to a message. Esc goes back to the composer.
   PageUp and PageDown scroll. Start a message with // to send a leading slash.
   Ctrl+C clears the composer, cancels a new room that waits for its goal, and closes a
   panel. On an empty composer it drops the staged attachments.

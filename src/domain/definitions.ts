@@ -1,6 +1,5 @@
 import { userInfo } from 'node:os';
 import { defineAgent, definePerson } from '@ambionframework/ambion';
-import { defineAssistant } from '@ambionframework/assistant';
 import { pi } from '@ambionframework/pi';
 import type { Workspace } from '@ambionframework/workspace';
 import { piModel, THINKING } from './model.ts';
@@ -49,15 +48,6 @@ export function sharedRules(project: string): string {
 /** The shared rules for the FM radio project. */
 export const shared = sharedRules(radioProject);
 
-/** The rules of the assistant. It has no workspace, so the specialists hold the files. */
-const assistantInstructions = (project: string): string =>
-	project +
-	'You have no file, shell, or git tools. ' +
-	'Read the attention of each seat in the roster. A seat at named attention wakes only on a directed say. A seat at broadcast attention reads every message: send it nothing. ' +
-	'During a respond activation, route a request that needs a limit from /library or a test plan. If the Researcher sits at named attention and nobody addressed it, send the Researcher one directed request. ' +
-	'During a respond activation, do not acknowledge, relay, or restate the result of a specialist: the person reads it. ' +
-	'In a summary, keep the refs that the specialists cite.';
-
 /** The specialists. Each one has a narrow scope and reports back once. */
 const specialists = [
 	{
@@ -77,25 +67,20 @@ const specialists = [
 			'Follow the guide-a-build-step skill for a build step, and the check-a-photo skill for a photo. ' +
 			'Change no setting and no output of a device outside a script from a template, and ask the person before the first run that drives an output. ' +
 			'You cannot hold a tool. Name the hands-on work that a physical setup needs, ask the person to do it, and ask the person to report what happened. ' +
-			'Record each step that the person completes in the build folder of the notes, with the evidence.',
+			'Record each step that the person completes in the build folder of the notes, with the evidence. ' +
+			'The Researcher wakes only on a directed say. When the person did not address the Researcher and a message needs a limit from /library, a choice between parts, or a test plan, ask the Researcher with `to`.',
 	},
 ];
 
 /**
  * Build the team for one workspace. Every room reuses these definitions. Each
- * specialist reads its own skills from `skills/<name>/`. The assistant has no
- * file or shell tool, so it holds no skills. `project` is the paragraph that
- * opens the instructions of every seat: the FM radio project by default, and
- * another one for an eval.
+ * specialist reads its own skills from `skills/<name>/`. `project` is the
+ * paragraph that opens the instructions of every seat: the FM radio project by
+ * default, and another one for an eval.
  */
 export async function team(workspace: Workspace, project: string = radioProject) {
 	const model = piModel();
 	const rules = sharedRules(project);
-	const assistant = defineAssistant({
-		model,
-		thinking: THINKING,
-		instructions: assistantInstructions(project),
-	});
 	const definitions = await Promise.all(
 		specialists.map(async ({ instructions, ...definition }) => {
 			const skills = await specialistSkills(definition.name);
@@ -110,7 +95,7 @@ export async function team(workspace: Workspace, project: string = radioProject)
 			});
 		}),
 	);
-	return { workspace, assistant, specialists: definitions, agents: [assistant, ...definitions] };
+	return { workspace, specialists: definitions };
 }
 
 const CLOSING =

@@ -116,11 +116,6 @@ describe('Workbench model', () => {
 		vi.stubEnv('WORKBENCH_PI_CREDENTIALS', none.WORKBENCH_PI_CREDENTIALS);
 		const workspace = { tools: () => ({ name: 'workspace', guidance: '', tools: [] }) } as never;
 		const built = await team(workspace);
-		expect(built.assistant.executor).toMatchObject({
-			kind: 'pi',
-			model: piModel(),
-			thinking: 'low',
-		});
 		const executors = Object.fromEntries(
 			built.specialists.map((seat) => [seat.name, seat.executor]),
 		);
@@ -149,23 +144,18 @@ describe('Workbench with no login', () => {
 		const directory = await mkdtemp(join(tmpdir(), 'workbench-nologin-'));
 		const lab = await openLab({ directory: join(directory, 'run'), env: none });
 		opened.push({ lab, directory });
-		expect((await lab.read('build', 0)).unavailable).toEqual([
-			'assistant',
-			'researcher',
-			'engineer',
-		]);
+		expect((await lab.read('build', 0)).unavailable).toEqual(['researcher', 'engineer']);
 		await lab.join('build', person);
 		await lab.send('build', person, 'nologin-1', 'Plan a test.');
 		await vi.waitFor(async () => {
 			const view = await lab.read('build', 0);
 			const errors = view.activity.filter((item) => item.type === 'error');
 			expect(errors.map((item) => item.text).join('\n')).toContain(
-				"Seat 'assistant' cannot run: The model anthropic/claude-sonnet-4-5 has no login",
+				"Seat 'engineer' cannot run: The model anthropic/claude-sonnet-4-5 has no login",
 			);
 			expect(view.status).toBe('running');
 		});
-		// The exchange closes on the failure. The seats of `build` that hold a login wake,
-		// and the note names the last seat that failed, with its reason.
+		// The exchange closes on the failure, and the note names the seat that failed, with its reason.
 		await vi.waitFor(async () => {
 			const view = await lab.read('build', 0);
 			const closed = view.exchanges.find((exchange) => exchange.status === 'closed');
@@ -175,7 +165,6 @@ describe('Workbench with no login', () => {
 				exchanges: view.exchanges,
 				humans: new Set([person]),
 				working: [],
-				expanded: new Set(),
 				failures: view.failures,
 			});
 			expect(blocks).toContainEqual({
