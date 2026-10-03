@@ -41,8 +41,8 @@ export class FilesSurface implements Surface {
 	private readonly keys: Record<string, Action> = {
 		up: () => this.browser.move(-1),
 		down: () => this.browser.move(1),
-		left: () => this.browser.moveTable(-1),
-		right: () => this.browser.moveTable(1),
+		left: () => this.browser.moveTab(-1),
+		right: () => this.browser.moveTab(1),
 		pageup: () => this.panel.scrollBy(-this.panel.page),
 		pagedown: () => this.panel.scrollBy(this.panel.page),
 		// Esc clears the search first, then closes the panel.

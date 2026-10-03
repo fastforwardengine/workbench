@@ -2,7 +2,14 @@ import { type CommitUri, parseCommitUri, parseSnapshotUri } from '@ambionframewo
 import type { GitCommit, Workspace } from '@ambionframework/workspace';
 import { validRefName } from '@ambionframework/workspace/git';
 import { isDatabase, readTables, tablesText } from '../view/database.ts';
-import { type FileContent, imageMimeType, isImagePath, MAX_BYTES } from './files.ts';
+import { type ManifestFrame, parseManifestFrames } from '../view/manifest.ts';
+import {
+	type FileContent,
+	type FrameContent,
+	imageMimeType,
+	isImagePath,
+	MAX_BYTES,
+} from './files.ts';
 
 /** How many leading bytes the panel reads to tell text from binary, as git does. */
 const SNIFF_BYTES = 8000;
@@ -19,17 +26,65 @@ function tooLarge(bytes: Uint8Array, named: string): string | undefined {
 	return `A ${kind} of ${bytes.byteLength} bytes. The preview shows one of up to ${limit / 1_048_576} MiB. A specialist reads it with restore.`;
 }
 
+/** The bytes that the panel reads for all frames of one manifest. */
+const FRAME_BUDGET = MAX_BYTES.image;
+
+/**
+ * The frames of a sensor manifest, read one at a time in order. The host
+ * reads each ref once, skips a frame that it cannot read, and stops when the
+ * bytes pass the budget.
+ */
+async function readFrames(
+	workspace: Workspace,
+	sensor: string,
+	frames: readonly ManifestFrame[],
+): Promise<FrameContent[]> {
+	const read = new Map<string, Uint8Array>();
+	const out: FrameContent[] = [];
+	let total = 0;
+	for (const frame of frames) {
+		let data = read.get(frame.ref);
+		if (data === undefined) {
+			data = await workspace.readSnapshot(frame.ref).catch(() => undefined);
+			if (data === undefined) continue;
+			total += data.byteLength;
+			if (total > FRAME_BUDGET) break;
+			read.set(frame.ref, data);
+		}
+		out.push({ image: { data, mimeType: frame.mediaType }, caption: `${sensor} · ${frame.at}` });
+	}
+	return out;
+}
+
+/** The frames of a sensor manifest, or `undefined` when it holds no frame that reads. */
+async function readManifest(
+	workspace: Workspace,
+	ref: string,
+	bytes: Uint8Array,
+): Promise<FileContent | undefined> {
+	const manifest = parseManifestFrames(bytes);
+	if (manifest === undefined || manifest.frames.length === 0) return undefined;
+	const frames = await readFrames(workspace, manifest.sensor, manifest.frames);
+	if (frames.length === 0) return undefined;
+	const text = new TextDecoder().decode(bytes.subarray(0, MAX_BYTES.text));
+	return { path: ref, text, truncated: bytes.byteLength > MAX_BYTES.text, frames };
+}
+
 /**
  * The bytes of a snapshot ref, from the object store, as the panel shows
- * them: the tables of a SQLite database, a picture when the path that the file
- * had names one, a note for other binary bytes, and text otherwise. The
- * workspace checks the digest of the bytes.
+ * them: the frames of a sensor manifest, the tables of a SQLite database, a
+ * picture when the path that the file had names one, a note for other binary
+ * bytes, and text otherwise. The workspace checks the digest of the bytes.
  */
 export async function readSnapshotFile(workspace: Workspace, ref: string): Promise<FileContent> {
 	const bytes = await workspace.readSnapshot(ref);
 	const named = parseSnapshotUri(ref)?.path ?? ref;
 	const large = tooLarge(bytes, named);
 	if (large) return note(ref, large);
+	if (named.endsWith('manifest.json')) {
+		const manifest = await readManifest(workspace, ref, bytes);
+		if (manifest) return manifest;
+	}
 	if (isDatabase(bytes)) {
 		const tables = await readTables(bytes);
 		return { path: ref, text: tablesText(tables), truncated: false, tables };
