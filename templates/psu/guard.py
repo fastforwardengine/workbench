@@ -62,6 +62,17 @@ def load_config(path):
     return config
 
 
+def choose_channel(channels, wanted):
+    """The channel of a command: the option, else the only channel. It must be in channels."""
+    if wanted:
+        if wanted not in channels:
+            raise SupplyError(f"There is no channel {wanted} in psu.json. The channels are: {', '.join(channels)}.")
+        return wanted
+    if len(channels) == 1:
+        return channels[0]
+    raise SupplyError(f"The supply has several channels: use --channel with one of {', '.join(channels)}.")
+
+
 def lock_directory():
     """The directory of the lock files."""
     chosen = os.environ.get("PSU_LOCK_DIR")

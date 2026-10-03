@@ -29,10 +29,12 @@ def main(argv=None):
             config["driver"] = "sim"
         guard = Guard(open_driver(config, args.sim), config)
         settings = guard.off([args.channel] if args.channel else None)
-        emit("finally", "state", value="safe", note="finally")
         for channel, setting in settings.items():
             print(f"{channel}: {'on' if setting.on else 'off'}")
-        return 1 if any(setting.on for setting in settings.values()) else 0
+        if any(setting.on for setting in settings.values()):
+            return 1
+        emit("finally", "state", value="safe", note="finally")
+        return 0
     except (SupplyError, OSError) as error:
         print(f"finally: {error}", file=sys.stderr)
         return 1

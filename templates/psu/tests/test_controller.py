@@ -212,3 +212,28 @@ class Errors(Controllers):
         self.assertEqual(self.states(), [])
         self.assertIn("The read failed.", errors)
         self.assertIn("safe action failed", errors)
+
+    def test_a_channel_that_stays_on_after_the_turn_off_is_not_safe(self):
+        def body(control, guard, args):
+            guard.set("ch1", voltage=1.0, current=0.1)
+            guard.output("ch1", True)
+            guard.driver.off = lambda channels=None: None  # a supply that ignores the turn-off
+
+        code, errors = self.run_body(body)
+        self.assertEqual(code, 1)
+        self.assertNotIn("safe", self.states())
+        self.assertIn("ch1", errors)
+        self.assertTrue(self.channel_on())
+
+    def test_an_unknown_channel_takes_no_lock_and_touches_nothing(self):
+        args = argparse.Namespace(config=str(self.config), sim=str(self.state), channel="ch9")
+        errors = io.StringIO()
+        for number in (signal.SIGTERM, signal.SIGINT):
+            self.addCleanup(signal.signal, number, signal.getsignal(number))
+        with mock.patch.dict(os.environ, {"ACTUATOR_EVENTS": str(self.events)}), contextlib.redirect_stderr(errors):
+            code = controller.run("ramp", args, lambda *_: self.fail("the body ran"))
+        self.assertEqual(code, 1)
+        self.assertIn("There is no channel ch9", errors.getvalue())
+        self.assertNotIn("may be on", errors.getvalue())
+        self.assertFalse((self.locks / "psu.ch9.drive").exists())
+        self.assertEqual(self.sim_writes(), [])

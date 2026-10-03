@@ -120,30 +120,40 @@ The data directory holds three kinds of file:
 
 **A controller drives a channel and turns it off at its end.**
 `start.py ramp` brings a channel to a voltage in steps, under a current
-limit. It holds the voltage, and then it turns the channel off:
+limit. It holds the voltage, and then it turns the channel off.
 
-```sh
-python3 start.py ramp --channel ch1 --voltage 5 --current 0.1 --seconds 10 --hold 60
-```
+1. Start the controller with the `bash` call. The turn-off takes
+   milliseconds, so `grace: 2` is enough. Set `timeout` above the sum of
+   `--seconds` and `--hold`:
 
-`--trip A` gives an abnormal current below the limit. `--tolerance V`
-gives the allowed distance from the target. The controller takes the drive
-lock of its channel. When another process holds it, the controller logs
-`gave_up` with the holder, and touches nothing.
+   ```ts
+   bash({
+     command: 'cd ~/bench-psu && python3 -u -B start.py ramp --channel ch1 --voltage 5 --current 0.1 --seconds 10 --hold 60',
+     name: 'psu-ramp', grace: 2, timeout: 120, wait: 0,
+   });
+   ```
 
-1. Read the log. The controller appends one JSON line for each event to
+2. Read the log. The controller appends one JSON line for each event to
    `events.jsonl`, or to the file in `ACTUATOR_EVENTS`. The `state` events
    carry one of six words: `acting`, `reached`, `holding`, `stopping`,
    `safe`, and `gave_up`. The `observe` and `drive` events come once for
    each second, and at each change of state.
-2. Trust exit 0 as safe. Every channel that the process holds is off, also
-   after `gave_up` and after SIGTERM or SIGINT. Exit 1 means an error.
-3. Run `python3 finally.py --channel ch1` after an unclean end: an exit
+3. Trust exit 0 as safe. Every channel that the process holds is off at
+   exit 0. Exit 1 means an error, and the state of the channel is unknown.
+4. Run `python3 finally.py --channel ch1` after an unclean end: an exit
    code other than 0, a kill, or a lost process. It takes no drive lock.
    A second run changes nothing.
-4. Start the controller with the `bash` call. Set `grace` to the time that
-   the process needs to turn the output off, and `timeout` above `seconds`
-   plus `hold`. The turn-off takes milliseconds, so `grace: 2` is enough.
+
+**The ramp gives up on an abnormal current.** A reading within 2 % of the
+current limit means constant current, and the ramp ends. With
+`--trip A`, a reading above that current also ends the ramp.
+`--tolerance V` sets the allowed distance from the target voltage.
+
+**The controller takes the drive lock of its channel.** When another
+process holds it, the controller logs `gave_up` with the holder, and
+touches nothing. After the controller takes the lock, every end turns the
+channel off. This includes a refused option or a limit, so a channel that
+`psu.py` left on is off after a refused ramp.
 
 **Run the tests** with `python3 -B -m unittest` in this directory. They
 need python3 and no hardware.

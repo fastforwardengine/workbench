@@ -25,8 +25,7 @@ import time
 from datetime import datetime, timezone
 
 from drivers import SupplyError, open_driver
-from guard import Guard, hold_drive_locks, load_config
-from psu import choose_channel
+from guard import Guard, choose_channel, hold_drive_locks, load_config
 
 SLICE = 0.05
 INTERVAL = 1.0
@@ -119,9 +118,11 @@ class Controller:
             self._pair()
 
     def safe(self, guard, channels):
-        """Turn off the channels that this process holds, and log their drive lines."""
-        for channel, setting in guard.off(channels).items():
+        """Turn off the channels that this process holds, log their drive lines, and return the channels that stay on."""
+        settings = guard.off(channels)
+        for channel, setting in settings.items():
             self.emit("drive", channel=channel, voltage=setting.voltage, current=setting.current, output="on" if setting.on else "off")
+        return [channel for channel, setting in settings.items() if setting.on]
 
 
 def _give_up(control, note):
@@ -144,11 +145,14 @@ def _end(control, guard, channels, body, args):
         problem = describe(error)
         note = problem
     try:
-        control.safe(guard, channels)
-    except Exception as failure:
+        still_on = control.safe(guard, channels)
+        failure = f"The supply reports these channels on after the turn-off: {', '.join(still_on)}." if still_on else None
+    except Exception as error:
+        failure = describe(error)
+    if failure:
         if problem:
             print(f"{control.actuator}: {problem}", file=sys.stderr)
-        print(f"{control.actuator}: The channels may be on. The safe action failed: {describe(failure)}", file=sys.stderr)
+        print(f"{control.actuator}: The channels may be on. The safe action failed: {failure}", file=sys.stderr)
         return 1
     control.claim("safe", note)
     if problem:

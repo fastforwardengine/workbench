@@ -26,7 +26,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from drivers import SupplyError, open_driver
-from guard import Guard, load_config
+from guard import Guard, choose_channel, load_config
 
 HERE = Path(__file__).resolve().parent
 
@@ -64,15 +64,6 @@ def parser():
     read.add_argument("first", type=number)
     read.add_argument("count", type=number, nargs="?", default=1)
     return top
-
-
-def choose_channel(channels, wanted):
-    """The channel of a command: the option, else the only channel."""
-    if wanted:
-        return wanted
-    if len(channels) == 1:
-        return channels[0]
-    raise SupplyError(f"The supply has several channels: use --channel with one of {', '.join(channels)}.")
 
 
 def pick_channel(guard, args):

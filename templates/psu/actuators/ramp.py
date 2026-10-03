@@ -85,8 +85,8 @@ class Ramp:
     def judge(self, reading):
         """Give up on a reading at the current limit, or above the trip current."""
         where = f"{reading.current:g} A at {reading.voltage:g} V"
-        if reading.current >= self.current * (1 - CC_BAND):
-            raise GaveUp(f"The channel is in constant current: {where}, at the limit {self.current:g} A.")
+        if reading.current >= self.setting.current * (1 - CC_BAND):
+            raise GaveUp(f"The channel is in constant current: {where}, at the limit {self.setting.current:g} A.")
         if self.args.trip is not None and reading.current > self.args.trip:
             raise GaveUp(f"The current is abnormal: {where}, above the trip current {self.args.trip:g} A.")
 
