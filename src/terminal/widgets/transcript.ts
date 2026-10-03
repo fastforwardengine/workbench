@@ -165,7 +165,7 @@ function signatureOf(block: Block, selected: string | undefined, marks: Marks, w
 	const picked = refs.find((item) => item.id === marks.picked)?.id ?? null;
 	const focus = marks.focus !== undefined && seqs.includes(marks.focus) ? marks.focus : null;
 	const chosen = block.type === 'discussion' && block.key === selected;
-	// The keys of the strips, not their bytes: a loaded picture changes the key.
+	// The key of each strip holds no bytes. A loaded picture changes the key.
 	const strips = seqs.flatMap((seq) => (marks.pictures?.get(seq) ?? []).map(stripKey));
 	const shape = strips.length > 0 ? [width, marks.cellAspect ?? CELL_ASPECT] : null;
 	return JSON.stringify([
