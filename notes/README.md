@@ -33,11 +33,13 @@ their folder. In every other file, one claim is one bullet:
 ```
 
 - **Source:** a `library/` path, a snapshot ref, a commit ref, or a room
-  message ref (`ambion://room/<room>/message/<seq>`).
+  message ref (`ambion://room/<room>/message/<seq>`). Write the path of a
+  library file as `library/<file>`. Cite a file that can change by its
+  snapshot ref.
 - **Confidence:** `high` for a reading or a cited photo, `medium` for a
   datasheet or a schematic, `low` for a guess.
-- **A reading** counts only when a script wrote it to a file and you
-  snapshotted the file. Every other value is a planned value.
+- **A reading** is a value that the house rules of `/shared/kit.md` count.
+  Cite its snapshot ref.
 - **A claim of the person** cites the room message. Git records who wrote
   the claim and when.
 

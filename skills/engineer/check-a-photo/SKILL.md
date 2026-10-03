@@ -29,5 +29,5 @@ description: Check the placement and the orientation of a part from a photo of t
    the part goes in, or from another angle. Do not guess an orientation.
 8. Say that a part sits right only when a photo or a measurement that you
    cite shows it. Never answer pass for a part that the photo does not
-   show, or for a part whose orientation you can compare with the text of
-   the procedure alone.
+   show. Never answer pass for a part when you have only the text of the
+   procedure and no photo.

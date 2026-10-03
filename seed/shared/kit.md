@@ -1,8 +1,8 @@
 # The project
 
 **Workbench holds one bench project: an FM radio kit.** The person builds
-the first kit by hand. The room `build` holds every phase. The goal of the
-room lists the phases in order.
+the first kit by hand. The seeded room `build` holds every phase. The goal
+of the room lists the phases in order.
 
 **The notes hold the state of the bench.** They are the git repository
 `shared/notes`. The `keep-notes` skill states how to use them.

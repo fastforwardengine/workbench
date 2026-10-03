@@ -9,7 +9,8 @@ description: State a specification, rating, or operating limit of a part with it
    that the datasheet gives with it, such as the temperature.
 3. State the value with its unit and its condition. Add the exact path of
    the file and the revision that the file names.
-4. Cite the file in `refs`, as `file:///library/<file>`.
+4. Cite the file in `refs`, as `file:///library/<file>`. The library is
+   read-only. In a note, write the path as `library/<file>`.
 5. When the library does not hold the part or the value, say so. Name the
    datasheet that would answer. Do not estimate a value, and do not take
    one from memory.
