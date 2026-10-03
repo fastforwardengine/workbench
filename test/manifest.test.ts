@@ -49,6 +49,14 @@ describe('the frames of a sensor manifest', () => {
 		expect(parseManifestFrames(bytes(manifest({ observations: 'x' })))).toBeUndefined();
 	});
 
+	it('refuses a sensor name or a time that Ambion would not write', () => {
+		expect(parseManifestFrames(bytes(manifest({ sensor: 'bench\ncamera' })))).toBeUndefined();
+		const observations = [
+			{ at: '10:00\n', parts: [{ kind: 'frame', file: digest('a'), mediaType: 'image/png' }] },
+		];
+		expect(parseManifestFrames(bytes(manifest({ observations })))?.frames).toEqual([]);
+	});
+
 	it('skips a frame whose digest has no file entry, or whose ref is foreign', () => {
 		const files = [
 			{ digest: digest('a'), ref: 'file:///etc/passwd' },

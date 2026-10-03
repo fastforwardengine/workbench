@@ -26,25 +26,37 @@ function tooLarge(bytes: Uint8Array, named: string): string | undefined {
 	return `A ${kind} of ${bytes.byteLength} bytes. The preview shows one of up to ${limit / 1_048_576} MiB. An agent reads it with restore.`;
 }
 
-/** The frame of a manifest, or `undefined` when the store has no such picture or it is too large. */
-async function readFrame(
+/** The bytes that the panel reads for all frames of one manifest. */
+const FRAME_BUDGET = MAX_BYTES.image;
+
+/**
+ * The frames of a sensor manifest, read one at a time in order. The host
+ * reads each ref once, skips a frame that it cannot read, and stops when the
+ * bytes pass the budget.
+ */
+async function readFrames(
 	workspace: Workspace,
 	sensor: string,
-	frame: ManifestFrame,
-): Promise<FrameContent | undefined> {
-	try {
-		const data = await workspace.readSnapshot(frame.ref);
-		if (data.byteLength > MAX_BYTES.image) return undefined;
-		return {
-			image: { data, mimeType: frame.mediaType },
-			caption: `${sensor} · ${frame.at}`,
-		};
-	} catch {
-		return undefined;
+	frames: readonly ManifestFrame[],
+): Promise<FrameContent[]> {
+	const read = new Map<string, Uint8Array>();
+	const out: FrameContent[] = [];
+	let total = 0;
+	for (const frame of frames) {
+		let data = read.get(frame.ref);
+		if (data === undefined) {
+			data = await workspace.readSnapshot(frame.ref).catch(() => undefined);
+			if (data === undefined) continue;
+			total += data.byteLength;
+			if (total > FRAME_BUDGET) break;
+			read.set(frame.ref, data);
+		}
+		out.push({ image: { data, mimeType: frame.mediaType }, caption: `${sensor} · ${frame.at}` });
 	}
+	return out;
 }
 
-/** The frames of a sensor manifest, read in order. A frame that does not read drops out. */
+/** The frames of a sensor manifest, or `undefined` when it holds no frame that reads. */
 async function readManifest(
 	workspace: Workspace,
 	ref: string,
@@ -52,10 +64,7 @@ async function readManifest(
 ): Promise<FileContent | undefined> {
 	const manifest = parseManifestFrames(bytes);
 	if (manifest === undefined || manifest.frames.length === 0) return undefined;
-	const read = await Promise.all(
-		manifest.frames.map((frame) => readFrame(workspace, manifest.sensor, frame)),
-	);
-	const frames = read.filter((frame): frame is FrameContent => frame !== undefined);
+	const frames = await readFrames(workspace, manifest.sensor, manifest.frames);
 	if (frames.length === 0) return undefined;
 	const text = new TextDecoder().decode(bytes.subarray(0, MAX_BYTES.text));
 	return { path: ref, text, truncated: bytes.byteLength > MAX_BYTES.text, frames };
@@ -63,9 +72,9 @@ async function readManifest(
 
 /**
  * The bytes of a snapshot ref, from the object store, as the panel shows
- * them: the frames of a sensor manifest, the tables of a SQLite database, a picture when the path that the file
- * had names one, a note for other binary bytes, and text otherwise. The
- * workspace checks the digest of the bytes.
+ * them: the frames of a sensor manifest, the tables of a SQLite database, a
+ * picture when the path that the file had names one, a note for other binary
+ * bytes, and text otherwise. The workspace checks the digest of the bytes.
  */
 export async function readSnapshotFile(workspace: Workspace, ref: string): Promise<FileContent> {
 	const bytes = await workspace.readSnapshot(ref);

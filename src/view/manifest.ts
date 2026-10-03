@@ -19,6 +19,12 @@ const MAX_FRAMES = 64;
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 
+/** The form of a qualified sensor name, as Ambion checks it at retention. */
+const SENSOR = /^[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*$/;
+
+/** The form of an ISO 8601 time in UTC, as a sensor reports it. */
+const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -52,6 +58,7 @@ function partFrame(
 /** The picture parts of one observation, each with the observation time. */
 function observationFrames(observation: unknown, refs: Map<string, string>): ManifestFrame[] {
 	if (!isRecord(observation) || typeof observation.at !== 'string') return [];
+	if (!TIME.test(observation.at)) return [];
 	if (!Array.isArray(observation.parts)) return [];
 	const at = observation.at;
 	return observation.parts
@@ -74,6 +81,7 @@ export function parseManifestFrames(bytes: Uint8Array): ManifestFrames | undefin
 	}
 	if (!isRecord(manifest) || manifest.api !== 1 || typeof manifest.sensor !== 'string')
 		return undefined;
+	if (!SENSOR.test(manifest.sensor)) return undefined;
 	if (!Array.isArray(manifest.observations)) return undefined;
 	const refs = refsByDigest(manifest.files);
 	const frames = manifest.observations

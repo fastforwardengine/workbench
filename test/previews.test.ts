@@ -1,7 +1,7 @@
 import { parseSnapshotUri } from '@ambionframework/ambion';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readCommitFile, readSnapshotFile } from '../src/host/previews.ts';
 import { labRepositories } from '../src/host/repositories.ts';
 import { WORKSPACE } from '../src/view/refs.ts';
@@ -89,6 +89,20 @@ describe('the preview of a sensor manifest ref', () => {
 			PNG.byteLength + 1,
 		]);
 		expect(file.frames?.[0]?.image.mimeType).toBe('image/png');
+	});
+
+	it('reads a ref that repeats once', async () => {
+		const workspace = open();
+		const { ref } = await retain(workspace, ([a = '']) => ({
+			api: 1,
+			sensor: 'bench-camera/camera',
+			observations: [frame(a, '2026-10-03T10:00:00Z'), frame(a, '2026-10-03T10:00:05Z')],
+			files: [{ digest: parseSnapshotUri(a)?.digest, ref: a }],
+		}));
+		const read = vi.fn((one: string) => workspace.readSnapshot(one));
+		const file = await readSnapshotFile({ ...workspace, readSnapshot: read }, ref);
+		expect(file.frames).toHaveLength(2);
+		expect(read).toHaveBeenCalledTimes(2);
 	});
 
 	it('keeps the text of a manifest that holds no frame', async () => {
