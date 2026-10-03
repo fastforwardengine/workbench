@@ -38,6 +38,27 @@ person connects to it over SSH, as it connects to the local container of
   and the folders follow `workstation/Dockerfile` and
   `workstation/entrypoint.sh`, in a container or on the host.
 
+## The microscope: a TOMLOV TM4K-AF
+
+**A TOMLOV TM4K-AF autofocus digital microscope is the next key hardware
+component to integrate.** It gives the team a close view of the board: the
+solder joints, the markings of a part, and the orientation of a polarized
+part. The BRIO keeps the view of the whole bench.
+
+- **The listing states:** a 4K sensor, an 8-inch screen, autofocus with a
+  TOF sensor, an articulated arm, LED lights, and HDMI and USB output
+  ([Amazon B0FFSXMJ79](https://www.amazon.com/dp/B0FFSXMJ79)).
+- **It probably connects as a UVC camera over USB (unverified).** Then the
+  `usb-camera` template serves it with no change, and `device-scan` lists
+  it as `camera (UVC)`. The template selects the device by its USB ID.
+- **Unverified:** the USB ID, the resolution and the formats over USB,
+  whether the autofocus works while USB streams, and whether Linux can
+  control the focus or the lights.
+
+**Done when** `device-scan` finds the microscope on the workstation, the
+`usb-camera` template captures a frame of a solder joint, and the facts
+above are settled.
+
 ## The outcome
 
 **The milestone is done when the team tunes the radio in each of the three
