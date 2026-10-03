@@ -15,13 +15,7 @@ import { directoryBackend } from '@ambionframework/just-bash';
 import { fileCredentials, type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
-import {
-	describeMissingLogin,
-	type Environment,
-	hasLogin,
-	piCredentialsPath,
-	unavailableSeats,
-} from '../domain/families.ts';
+import { type Environment, missingLogin, piCredentialsPath } from '../domain/model.ts';
 import { sharedRegistrations } from '../domain/notes.ts';
 import { buildRoom, seats } from '../domain/scenarios.ts';
 import { WORKSPACE } from '../view/refs.ts';
@@ -100,20 +94,20 @@ async function workspaceBackends(directory: string, workstation?: WorkstationCon
 }
 
 /**
- * The execution every seat runs on. Every seat is Pi today, so this is a
- * single Pi execution, not a composition. A test's `stream` scripts it and
- * needs no login. A live run reads the sign-ins of the credential file. It
- * reads the key variable when the file holds no sign-in. A live run with no login gets an execution
- * that fails its seats with the way to log in, so the room keeps running and
- * reports why, instead of a bare provider error.
+ * The execution every seat runs on: one Pi execution. A test's `stream`
+ * scripts it and needs no login. A live run reads the sign-ins of the
+ * credential file, and reads the key variable when the file holds no
+ * sign-in. A live run with no login gets an execution that fails its seats
+ * with the way to log in. The room keeps running and reports why, with no
+ * bare provider error. `reason` is the result of `missingLogin`.
  */
-function familyExecutions(options: RoomsOptions = {}): Execution {
+function modelExecution(options: RoomsOptions, reason: string | undefined): Execution {
 	const { stream, env = process.env } = options;
 	if (stream !== undefined) return piExecution({ stream });
-	if (hasLogin('pi', env)) {
+	if (reason === undefined) {
 		return piExecution({ credentials: fileCredentials(piCredentialsPath(env)) });
 	}
-	return unavailable('pi', describeMissingLogin('pi', env));
+	return unavailable('pi', reason);
 }
 
 /** The catalog records hosting intent. Collaboration state stays in each room journal. */
@@ -128,17 +122,18 @@ export async function openRooms(
 		},
 		all: (query, ...params) => database.prepare(query).all(...params) as Record<string, SqlValue>[],
 	};
-	// A test that supplies a stream runs no live family, so no seat lacks a login.
-	const missing = options.stream
-		? []
-		: unavailableSeats(options.env ?? process.env).map(({ seat }) => seat);
+	// A test that supplies a stream runs no live model, so no seat lacks a login.
+	const reason = options.stream ? undefined : missingLogin(options.env ?? process.env);
+	// One model serves every seat, so a missing login makes every seat unavailable.
+	const missing = (entry: HostedRoom): string[] =>
+		reason === undefined ? [] : entry.team.agents.map((agent) => agent.name);
 	const entries = new Map<string, HostedRoom>();
 	// The steps of each activation go to a log in this process. Each step
 	// tells the watchers of its room to read again.
 	const log = stepLog();
 	const runtime = createRuntime({
 		storage: sqliteJournals(sql),
-		execution: familyExecutions(options),
+		execution: modelExecution(options, reason),
 		logger: (record) => {
 			log.logger(record);
 			const entry = entries.get(record.room);
@@ -230,7 +225,11 @@ export async function openRooms(
 		}
 	}
 	async function status(entry: HostedRoom) {
-		return roomView(entry, await readRoom(entry.name, { runtime, messages: false }), missing);
+		return roomView(
+			entry,
+			await readRoom(entry.name, { runtime, messages: false }),
+			missing(entry),
+		);
 	}
 	async function create(name: string, goal: string) {
 		if (closing) fail('The host is stopping.');
@@ -340,7 +339,7 @@ export async function openRooms(
 						runtime,
 						messages: since === undefined ? undefined : { after: since },
 					}),
-					missing,
+					missing(entry),
 				),
 			),
 		async close() {
@@ -365,7 +364,7 @@ function roomView(
 ) {
 	return {
 		...snapshot,
-		/** The seats that cannot run because their family has no login. */
+		/** The seats that cannot run because the model has no login. */
 		unavailable,
 		goal: snapshot.initialized ? snapshot.goal : entry.goal,
 		status: entry.lifecycle.status,

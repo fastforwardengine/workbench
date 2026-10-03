@@ -26,7 +26,7 @@ import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/s
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
-import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/domain/families.ts';
+import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/domain/model.ts';
 import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
