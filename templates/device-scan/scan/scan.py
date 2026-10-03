@@ -3,7 +3,7 @@
 
 Run it from the root of the clone:
 
-    python3 scan/scan.py                          # USB, serial, VISA, cameras
+    python3 scan/scan.py                          # USB, serial, VISA, cameras, microphones
     python3 scan/scan.py --identify               # also ask each VISA instrument *IDN?
     python3 scan/scan.py --subnet 192.168.1.0/24  # also look for SCPI ports on a subnet
 
@@ -184,6 +184,14 @@ def cameras():
     return run(["v4l2-ctl", "--list-devices"])
 
 
+def microphones():
+    """The sound cards, or a line that says there is none."""
+    sound = Path("/sys/class/sound")
+    if not sound.exists() or not any(sound.glob("card*")):
+        return "No sound card."
+    return run(["arecord", "-l"])
+
+
 def network(subnet):
     if not subnet:
         return None
@@ -206,6 +214,7 @@ def markdown(report):
     lines += ["", "## Serial ports", "", "```", json.dumps(report["serial"], indent=2), "```"]
     lines += ["", "## VISA resources (pyvisa-py)", "", "```", json.dumps(report["visa"], indent=2), "```"]
     lines += ["", "## Cameras", "", "```", report["v4l2"], "", report["gphoto2"], "```"]
+    lines += ["", "## Microphones", "", "```", report["arecord"], "```"]
     if report["network"] is not None:
         lines += ["", f"## SCPI ports on {report['subnet']}", "", "```", report["network"], "```"]
     return "\n".join(lines) + "\n"
@@ -227,6 +236,7 @@ def main():
         "visa": visa_resources(args.identify),
         "v4l2": cameras(),
         "gphoto2": run(["gphoto2", "--auto-detect"]),
+        "arecord": microphones(),
         "subnet": args.subnet,
         "network": network(args.subnet),
     }
