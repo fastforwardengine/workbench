@@ -1,11 +1,11 @@
-import type { KeyEvent } from '@opentui/core';
 import type { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import type { ViewfinderPanel } from '../widgets/viewfinder-panel.ts';
-import type { Surface } from './surface.ts';
 
-/** The viewfinder panel and its keys. */
-export class ViewfinderSurface implements Surface {
-	readonly status = 'Watching the camera. Esc closes the panel.';
+/**
+ * The viewfinder pane. It takes no keys and has no mode: it shows beside the
+ * conversation while the composer keeps the keyboard.
+ */
+export class ViewfinderSurface {
 	private readonly browser: ViewfinderBrowser;
 	private readonly panel: ViewfinderPanel;
 	private readonly graphics: () => boolean;
@@ -21,8 +21,13 @@ export class ViewfinderSurface implements Surface {
 		return this.panel.root;
 	}
 
+	/** True while the pane shows. */
+	get shown(): boolean {
+		return this.browser.open;
+	}
+
 	/** Open the browser. The first draw starts the poll. */
-	open(): void {
+	show(): void {
 		this.browser.show();
 	}
 
@@ -43,10 +48,5 @@ export class ViewfinderSurface implements Surface {
 
 	fill(whole: boolean): void {
 		this.panel.fill(whole);
-	}
-
-	onKey(key: KeyEvent, close: () => void): void {
-		key.preventDefault();
-		if (!key.ctrl && !key.meta && (key.name === 'escape' || key.name === 'q')) close();
 	}
 }

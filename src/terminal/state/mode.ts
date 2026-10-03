@@ -1,10 +1,10 @@
 /** The side panels, in the order the terminal lays them out. */
-const PANELS = ['files', 'processes', 'camera'] as const;
+const PANELS = ['files', 'processes'] as const;
 
-/** A side panel: the files of the workspace, the background processes, or the camera. */
+/** A side panel that takes the keys: the files of the workspace, or the background processes. */
 export type PanelMode = (typeof PANELS)[number];
 
-/** Which surface takes the keys: the composer, the discussions, the refs, or a side panel. */
+/** Which surface takes the keys: the composer, the discussions, the refs, or a side panel. The viewfinder is no mode: it takes no keys. */
 export type Mode = 'compose' | 'browse' | 'refs' | PanelMode;
 
 /** True when the mode is a side panel. */

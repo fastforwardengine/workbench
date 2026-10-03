@@ -7,11 +7,12 @@ import type { Palette } from '../widgets/palette.ts';
 import type { Transcript } from '../widgets/transcript.ts';
 import type { Painter } from './draw.ts';
 import type { Surface } from './surface.ts';
+import type { ViewfinderSurface } from './viewfinder-surface.ts';
 
 /** How far each browse key, and each refs key, moves the selection. */
 const BROWSE_STEP: Record<string, number> = { up: -1, k: -1, down: 1, j: 1 };
 
-/** Below this width, a side panel replaces the conversation. */
+/** Below this width, a side panel replaces the conversation, and the viewfinder does not show. */
 const NARROW = 100;
 
 /** What the keys reach into. `render` redraws after a change the keys make. */
@@ -23,6 +24,8 @@ export interface KeyParts {
 	painter: Painter;
 	/** The side panels, by mode. */
 	surfaces: Readonly<Record<PanelMode, Surface>>;
+	/** The viewfinder. It shows beside the conversation and takes no keys. */
+	viewfinder: ViewfinderSurface;
 	transcript: Transcript;
 	render: () => void;
 	/** Leave the terminal. */
@@ -39,6 +42,8 @@ export class Keys {
 	browsing: string | undefined;
 	/** The id of the chosen ref, in refs mode. */
 	picking: string | undefined;
+	/** True when the person asked for the viewfinder. A panel or a narrow terminal can still hide it. */
+	private finderWanted = false;
 	/** The mode a side panel returns to when it closes. */
 	private origin: Mode = 'compose';
 	private readonly renderer: CliRenderer;
@@ -47,6 +52,7 @@ export class Keys {
 	private readonly palette: Palette;
 	private readonly painter: Painter;
 	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
+	private readonly viewfinder: ViewfinderSurface;
 	private readonly transcript: Transcript;
 	private readonly render: () => void;
 	private readonly quit: () => void;
@@ -58,6 +64,7 @@ export class Keys {
 		this.palette = parts.palette;
 		this.painter = parts.painter;
 		this.surfaces = parts.surfaces;
+		this.viewfinder = parts.viewfinder;
 		this.transcript = parts.transcript;
 		this.render = parts.render;
 		this.quit = parts.quit;
@@ -68,8 +75,9 @@ export class Keys {
 		this.palette.refresh(this.mode === 'compose', (text) => this.session.suggestions(text));
 	}
 
-	/** Keep the browse selection on a discussion that still exists. */
+	/** Keep the browse selection on a discussion that still exists, and the viewfinder in its slot. */
 	reconcile(): void {
+		this.layoutViewfinder();
 		const keys = discussionKeys(this.session.blocks);
 		if (this.browsing && !keys.includes(this.browsing)) this.browsing = keys.at(-1);
 		const ids = this.session.refItems.map((item) => item.id);
@@ -138,14 +146,40 @@ export class Keys {
 		this.openPanel('processes');
 	}
 
-	/** Open the camera viewfinder. A narrow terminal gives it the whole width. */
-	openCamera(): void {
-		this.openPanel('camera');
+	/**
+	 * Open the viewfinder when it is closed, and close it when it is open. The
+	 * composer keeps the keys. A side panel covers the viewfinder while it is open.
+	 */
+	toggleCamera(): void {
+		this.finderWanted = !this.finderWanted;
+		if (this.finderWanted && this.renderer.width < NARROW)
+			this.session.say(
+				`The viewfinder shows when the terminal is at least ${NARROW} columns wide.`,
+			);
+		this.render();
 	}
 
-	/** End the open side panel without drawing, when the terminal ends. Its polls and timers stop. */
+	/** End the open side panel and the viewfinder without drawing, when the terminal ends. Their polls and timers stop. */
 	release(): void {
 		if (isPanel(this.mode)) this.surfaces[this.mode].release();
+		this.finderWanted = false;
+		this.viewfinder.release();
+	}
+
+	/**
+	 * Show the viewfinder in the slot of the side panels. It shows when the person
+	 * asked for it, no side panel is open, and the terminal is wide. Otherwise it
+	 * hides, and its poll stops until it shows again.
+	 */
+	private layoutViewfinder(): void {
+		const shown = this.finderWanted && !isPanel(this.mode) && this.renderer.width >= NARROW;
+		if (!shown) {
+			if (this.viewfinder.shown) this.viewfinder.hide();
+			return;
+		}
+		this.viewfinder.show();
+		this.viewfinder.fill(false);
+		this.viewfinder.draw();
 	}
 
 	private openPanel(mode: PanelMode): void {

@@ -10,8 +10,9 @@ exports[`the help text > lists every command and key, as the person reads them 1
   /attach <path>    copy a local file into the workspace and cite it in your next message
   /ps               show the background processes of the specialists, their output,
                     and cancel one with x, twice
-  /camera           show the latest frame of the camera in a side panel. It needs
-                    a terminal with Kitty graphics, such as Ghostty.
+  /camera           show the latest frame of the camera beside the conversation, and
+                    hide it when it shows. The composer stays active. It needs a
+                    terminal with Kitty graphics, such as Ghostty.
   /try              fill the composer with the room’s suggested question
   /abort            cancel the open exchange in this room
   /dismiss <n>      dismiss the say n that waits to return. The seat does not come back to it.
