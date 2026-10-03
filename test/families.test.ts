@@ -159,25 +159,25 @@ describe('Workbench with no login', () => {
 		const directory = await mkdtemp(join(tmpdir(), 'workbench-nologin-'));
 		const lab = await openLab({ directory: join(directory, 'run'), env: none });
 		opened.push({ lab, directory });
-		expect((await lab.read('radio-kit', 0)).unavailable).toEqual([
+		expect((await lab.read('build', 0)).unavailable).toEqual([
 			'assistant',
 			'researcher',
 			'engineer',
 		]);
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'nologin-1', 'Plan a test.');
+		await lab.join('build', person);
+		await lab.send('build', person, 'nologin-1', 'Plan a test.');
 		await vi.waitFor(async () => {
-			const view = await lab.read('radio-kit', 0);
+			const view = await lab.read('build', 0);
 			const errors = view.activity.filter((item) => item.type === 'error');
 			expect(errors.map((item) => item.text).join('\n')).toContain(
 				"Seat 'assistant' cannot run: The pi family has no login",
 			);
 			expect(view.status).toBe('running');
 		});
-		// The exchange closes on the failure. The seats of `radio-kit` that hold a login wake,
+		// The exchange closes on the failure. The seats of `build` that hold a login wake,
 		// and the note names the last seat that failed, with its reason.
 		await vi.waitFor(async () => {
-			const view = await lab.read('radio-kit', 0);
+			const view = await lab.read('build', 0);
 			const closed = view.exchanges.find((exchange) => exchange.status === 'closed');
 			expect(closed).toMatchObject({ outcome: { kind: 'exhausted' } });
 			const blocks = buildTimeline({

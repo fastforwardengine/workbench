@@ -22,16 +22,16 @@ specialist. The assistant has no file or shell tool, so it has no folder.
 
 ## The skills today
 
-| Specialist | Skill                    | Task                                                             |
-| ---------- | ------------------------ | ---------------------------------------------------------------- |
-| Researcher | `cite-a-limit`           | State a limit with its source, or say the library has none       |
-| Researcher | `compare-parts`          | Compare the specifications of parts, and name the deciding limit |
-| Researcher | `write-a-test-plan`      | Fill the `test-plan` template, and push it                       |
-| Engineer   | `scan-the-bench`         | Find the devices with the `device-scan` template                 |
-| Engineer   | `drive-the-power-supply` | Run a power supply with the `psu` template, within its limits    |
-| Engineer   | `observe-the-camera`     | Capture and keep a camera frame with the `usb-camera` template   |
-| Engineer   | `guide-a-build-step`     | Guide one step of a build, with the `build-procedure` template   |
-| Engineer   | `check-a-photo`          | Check the placement and orientation of a part from a photo       |
+| Specialist | Skill                    | Task                                                              |
+| ---------- | ------------------------ | ----------------------------------------------------------------- |
+| Researcher | `cite-a-limit`           | State a limit with its source, or say the library has none        |
+| Researcher | `compare-parts`          | Compare the specifications of parts, and name the deciding limit  |
+| Researcher | `write-a-test-plan`      | Fill the `test-plan` template, and push it                        |
+| Engineer   | `scan-the-bench`         | Find the devices with the `device-scan` template                  |
+| Engineer   | `drive-the-power-supply` | Drive a power supply and read its sensor, with the `psu` template |
+| Engineer   | `observe-the-camera`     | Capture and keep a camera frame with the `usb-camera` template    |
+| Engineer   | `guide-a-build-step`     | Guide one step of a build, with the `build-procedure` template    |
+| Engineer   | `check-a-photo`          | Check the placement and orientation of a part from a photo        |
 
 ## How a specialist reads a skill
 

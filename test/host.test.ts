@@ -125,27 +125,18 @@ afterEach(async () => {
 });
 
 describe('Workbench host', () => {
-	it('lists the person and the sample room, and resumes it without seeding again', async () => {
+	it('lists the person and the build room, and resumes it without seeding again', async () => {
 		const parent = await freshDirectory();
 		const directory = joinPath(parent, 'run');
 		const first = await open(directory);
 		expect(first.people.map((person) => person.name)).toEqual(people.map((person) => person.name));
 		expect((await first.rooms()).map((room) => [room.name, room.status])).toEqual([
-			['radio-kit', 'running'],
-			['radio-tune', 'running'],
-			['radio-build', 'running'],
-			['radio-firmware', 'running'],
+			['build', 'running'],
 		]);
 		await first.create('second', 'A second room.');
 		await first.close();
 		const again = await open(directory);
-		expect((await again.rooms()).map((room) => room.name)).toEqual([
-			'radio-kit',
-			'radio-tune',
-			'radio-build',
-			'radio-firmware',
-			'second',
-		]);
+		expect((await again.rooms()).map((room) => room.name)).toEqual(['build', 'second']);
 	});
 
 	it('creates a room, and refuses a duplicate and a bad name or goal', async () => {
@@ -170,12 +161,12 @@ describe('Workbench host', () => {
 	it('attributes deliveries, retries by key, and keeps rooms independent', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
 		await lab.create('second', 'A second room.');
-		await lab.join('radio-kit', person);
+		await lab.join('build', person);
 		await lab.join('second', person);
-		await lab.send('radio-kit', person, 'sweep-1', 'Which current range?');
-		await lab.send('radio-kit', person, 'sweep-1', 'Which current range?');
+		await lab.send('build', person, 'sweep-1', 'Which current range?');
+		await lab.send('build', person, 'sweep-1', 'Which current range?');
 		await lab.send('second', person, 'second-1', 'Which camera?');
-		const sweep = await messagesOf(lab, 'radio-kit');
+		const sweep = await messagesOf(lab, 'build');
 		const second = await messagesOf(lab, 'second');
 		expect(sweep.filter((message) => 'key' in message && message.key === 'sweep-1')).toHaveLength(
 			1,
@@ -195,26 +186,26 @@ describe('Workbench host', () => {
 
 	it('requires a person to be present before sending, also after leaving', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		await expect(lab.send('radio-kit', person, 'k0', 'Hello?')).rejects.toThrow(/Enter this room/);
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'k1', 'Keep this delivery.');
-		await lab.leave('radio-kit', person);
-		await expect(lab.send('radio-kit', person, 'k1', 'Keep this delivery.')).rejects.toThrow(
+		await expect(lab.send('build', person, 'k0', 'Hello?')).rejects.toThrow(/Enter this room/);
+		await lab.join('build', person);
+		await lab.send('build', person, 'k1', 'Keep this delivery.');
+		await lab.leave('build', person);
+		await expect(lab.send('build', person, 'k1', 'Keep this delivery.')).rejects.toThrow(
 			/Enter this room/,
 		);
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'k1', 'Keep this delivery.');
-		const messages = await messagesOf(lab, 'radio-kit');
+		await lab.join('build', person);
+		await lab.send('build', person, 'k1', 'Keep this delivery.');
+		const messages = await messagesOf(lab, 'build');
 		expect(messages.filter((message) => 'key' in message && message.key === 'k1')).toHaveLength(1);
 		expect(messages.filter((message) => message.kind === 'arrived')).toHaveLength(2);
 	});
 
 	it('does not record a departure for a person who never entered, and rejects an unknown person', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		const before = await messagesOf(lab, 'radio-kit');
-		await lab.leave('radio-kit', person);
-		expect(await messagesOf(lab, 'radio-kit')).toEqual(before);
-		await expect(lab.join('radio-kit', 'nobody')).rejects.toThrow(/Unknown person/);
+		const before = await messagesOf(lab, 'build');
+		await lab.leave('build', person);
+		expect(await messagesOf(lab, 'build')).toEqual(before);
+		await expect(lab.join('build', 'nobody')).rejects.toThrow(/Unknown person/);
 		await expect(lab.join('nowhere', person)).rejects.toThrow(/Unknown room/);
 	});
 
@@ -223,20 +214,20 @@ describe('Workbench host', () => {
 		const directory = joinPath(parent, 'run');
 		let lab = await open(directory);
 		await lab.create('second', 'A second room.');
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'stop-1', 'Persist this.');
-		const before = await messagesOf(lab, 'radio-kit');
-		const stopped = await lab.control('radio-kit', 'stop');
+		await lab.join('build', person);
+		await lab.send('build', person, 'stop-1', 'Persist this.');
+		const before = await messagesOf(lab, 'build');
+		const stopped = await lab.control('build', 'stop');
 		expect(stopped.status).toBe('stopped');
-		const history = await messagesOf(lab, 'radio-kit');
+		const history = await messagesOf(lab, 'build');
 		expect(history).toEqual(expect.arrayContaining(before as unknown[]));
 		expect(history.some((message) => message.kind === 'left')).toBe(true);
 		await lab.close();
 		lab = await open(directory);
 		const restarted = await lab.rooms();
-		expect(restarted.find((room) => room.name === 'radio-kit')?.status).toBe('stopped');
+		expect(restarted.find((room) => room.name === 'build')?.status).toBe('stopped');
 		expect(restarted.find((room) => room.name === 'second')?.status).toBe('running');
-		const resumed = await lab.control('radio-kit', 'resume');
+		const resumed = await lab.control('build', 'resume');
 		expect(resumed.status).toBe('running');
 	}, 20_000);
 
@@ -264,9 +255,9 @@ describe('Workbench host', () => {
 		const parent = await freshDirectory();
 		const directory = joinPath(parent, 'run');
 		let lab = await open(directory);
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'summary-1', 'Plan the sweep.');
-		const messages = await untilSummary(lab, 'radio-kit');
+		await lab.join('build', person);
+		await lab.send('build', person, 'summary-1', 'Plan the sweep.');
+		const messages = await untilSummary(lab, 'build');
 		expect(messages.some((message) => message.kind === 'summary')).toBe(true);
 		const path = '/home/researcher/shared/plan.md';
 		expect((await lab.file(path)).text).toBe(PLAN);
@@ -280,11 +271,11 @@ describe('Workbench host', () => {
 		const lab = await open(joinPath(directory, 'run'), idleStream);
 		const local = joinPath(directory, 'bench.png');
 		await writeFile(local, PNG);
-		await lab.join('radio-kit', person);
+		await lab.join('build', person);
 		const attached = await lab.attach(local);
 		expect(attached.path).toMatch(/^\/attachments\/\d+-bench\.png$/);
-		await lab.send('radio-kit', person, 'attach-1', 'What is on the bench?', [attached.ref]);
-		const sent = (await messagesOf(lab, 'radio-kit')).find(
+		await lab.send('build', person, 'attach-1', 'What is on the bench?', [attached.ref]);
+		const sent = (await messagesOf(lab, 'build')).find(
 			(message) => message.kind === 'said' && message.text === 'What is on the bench?',
 		);
 		expect(sent && 'refs' in sent && sent.refs).toEqual([attached.ref]);
@@ -297,11 +288,11 @@ describe('Workbench host', () => {
 
 	it('keeps a message that cites a snapshot of another workspace, and refuses to read that snapshot', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'), idleStream);
-		await lab.join('radio-kit', person);
+		await lab.join('build', person);
 		const foreign = `ambion://workspace/elsewhere/snapshot/${'ab'.repeat(32)}/attachments/1-x.png`;
 		// The room checks the form of a ref. The workspace checks whose it is, when it reads it.
-		await lab.send('radio-kit', person, 'foreign-1', 'See this.', [foreign]);
-		const cited = (await messagesOf(lab, 'radio-kit')).find(
+		await lab.send('build', person, 'foreign-1', 'See this.', [foreign]);
+		const cited = (await messagesOf(lab, 'build')).find(
 			(message) => message.kind === 'said' && message.text === 'See this.',
 		);
 		expect(cited && 'refs' in cited && cited.refs).toEqual([foreign]);
@@ -339,10 +330,10 @@ describe('Workbench host', () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'), () =>
 			createAssistantMessageEventStream(),
 		);
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'pending-1', 'Wait for work.');
-		expect((await lab.read('radio-kit', 0)).exchange).toBeDefined();
-		const aborted = await lab.control('radio-kit', 'abort');
+		await lab.join('build', person);
+		await lab.send('build', person, 'pending-1', 'Wait for work.');
+		expect((await lab.read('build', 0)).exchange).toBeDefined();
+		const aborted = await lab.control('build', 'abort');
 		expect(aborted.exchange).toBeUndefined();
 		expect(aborted.status).toBe('running');
 		expect(aborted.exchanges).toContainEqual(
@@ -356,18 +347,18 @@ describe('Workbench host watch', () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
 		let changes = 0;
 		let control = 0;
-		const stop = lab.watch('radio-kit', () => {
+		const stop = lab.watch('build', () => {
 			changes += 1;
 		});
-		lab.watch('radio-kit', () => {
+		lab.watch('build', () => {
 			control += 1;
 		});
-		await lab.join('radio-kit', person);
+		await lab.join('build', person);
 		await vi.waitFor(() => expect(changes).toBeGreaterThan(0));
 		stop();
 		const seen = changes;
 		const controlSeen = control;
-		await lab.send('radio-kit', person, 'watch-1', 'Which current range?');
+		await lab.send('build', person, 'watch-1', 'Which current range?');
 		await vi.waitFor(() => expect(control).toBeGreaterThan(controlSeen));
 		expect(changes).toBe(seen);
 	});
@@ -377,7 +368,7 @@ describe('Workbench host watch', () => {
 		await lab.create('second', 'A second room.');
 		let sweep = 0;
 		let second = 0;
-		lab.watch('radio-kit', () => {
+		lab.watch('build', () => {
 			sweep += 1;
 		});
 		lab.watch('second', () => {
@@ -396,14 +387,14 @@ describe('Workbench host watch', () => {
 	it('keeps a watch across a stop and a resume', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
 		let changes = 0;
-		lab.watch('radio-kit', () => {
+		lab.watch('build', () => {
 			changes += 1;
 		});
-		await lab.control('radio-kit', 'stop');
-		await lab.control('radio-kit', 'resume');
+		await lab.control('build', 'stop');
+		await lab.control('build', 'resume');
 		await new Promise<void>((resolve) => setTimeout(resolve, 50));
 		const settled = changes;
-		await lab.join('radio-kit', person);
+		await lab.join('build', person);
 		await vi.waitFor(() => expect(changes).toBeGreaterThan(settled));
 	}, 20_000);
 });
@@ -411,14 +402,14 @@ describe('Workbench host watch', () => {
 describe('Workbench host steps, says, and processes', () => {
 	it('reads the trace of an activation the room ran', async () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'trace-1', 'Plan the sweep.');
-		await untilSummary(lab, 'radio-kit');
-		const view = await lab.read('radio-kit', 0);
+		await lab.join('build', person);
+		await lab.send('build', person, 'trace-1', 'Plan the sweep.');
+		await untilSummary(lab, 'build');
+		const view = await lab.read('build', 0);
 		const activations = view.exchanges.flatMap((exchange) => exchange.activations);
 		expect(activations.length).toBeGreaterThan(0);
 		const id = activations[0]?.id ?? '';
-		const read = await lab.activation('radio-kit', id);
+		const read = await lab.activation('build', id);
 		expect(read?.activation).toBe(id);
 		const passes = read?.passes ?? [];
 		expect(passes.length).toBeGreaterThan(0);
@@ -426,7 +417,7 @@ describe('Workbench host steps, says, and processes', () => {
 		const types = steps.map((step) => step.type);
 		expect(types).toContain('tool_call');
 		expect(types.at(-1)).toBe('end');
-		expect(await lab.activation('radio-kit', 'not-an-id')).toBeUndefined();
+		expect(await lab.activation('build', 'not-an-id')).toBeUndefined();
 		await expect(lab.activation('nowhere', id)).rejects.toThrow(/Unknown room/);
 	}, 20_000);
 
@@ -440,18 +431,18 @@ describe('Workbench host steps, says, and processes', () => {
 				return fauxAssistantMessage([fauxToolCall('schedule', later)], { stopReason: 'toolUse' });
 			}),
 		);
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'later-1', 'Check the LED later.');
+		await lab.join('build', person);
+		await lab.send('build', person, 'later-1', 'Check the LED later.');
 		const waiting = await vi.waitFor(async () => {
-			const [say] = (await lab.read('radio-kit', 0)).scheduled;
+			const [say] = (await lab.read('build', 0)).scheduled;
 			if (!say) throw new Error('No say waits yet.');
 			return say;
 		});
 		expect(waiting).toMatchObject({ seat: 'assistant' });
-		expect(await lab.dismiss('radio-kit', waiting.seq)).toBe(true);
-		expect(await lab.dismiss('radio-kit', waiting.seq)).toBe(false);
-		expect((await lab.read('radio-kit', 0)).scheduled).toEqual([]);
-		expect((await messagesOf(lab, 'radio-kit')).at(-1)).toMatchObject({
+		expect(await lab.dismiss('build', waiting.seq)).toBe(true);
+		expect(await lab.dismiss('build', waiting.seq)).toBe(false);
+		expect((await lab.read('build', 0)).scheduled).toEqual([]);
+		expect((await messagesOf(lab, 'build')).at(-1)).toMatchObject({
 			kind: 'dismissed',
 			message: waiting.seq,
 		});
@@ -475,8 +466,8 @@ describe('Workbench host steps, says, and processes', () => {
 			events += 1;
 		});
 		expect(await lab.processes()).toEqual([]);
-		await lab.join('radio-tune', person);
-		await lab.send('radio-tune', person, 'ps-1', 'Start the soak.');
+		await lab.join('build', person);
+		await lab.send('build', person, 'ps-1', 'Start the soak.');
 		await vi.waitFor(async () => expect(await lab.processes()).toHaveLength(2), {
 			timeout: 5_000,
 		});
@@ -520,36 +511,13 @@ const whenHeard = (heard: Set<string>, agent: string) =>
 	vi.waitFor(() => expect(heard.has(agent)).toBe(true), { timeout: 5_000 });
 
 describe('Workbench host, a message to one seat', () => {
-	it('wakes a seat at named only when the message addresses it', async () => {
-		const heard = new Set<string>();
-		const lab = await open(await freshDirectory(), listeningStream(heard));
-		await lab.join('radio-build', person);
-		await lab.send('radio-build', person, 'plain-1', 'Plan the step.');
-		await untilSummary(lab, 'radio-build');
-		expect(heard.has('engineer')).toBe(true);
-		expect(heard.has('researcher')).toBe(false);
-		await lab.send(
-			'radio-build',
-			person,
-			'to-1',
-			'@researcher find the diode pin.',
-			[],
-			'researcher',
-		);
-		await whenHeard(heard, 'researcher');
-		const sent = (await messagesOf(lab, 'radio-build')).find(
-			(message) => message.kind === 'said' && message.text.startsWith('@researcher'),
-		);
-		expect(sent).toMatchObject({ to: 'researcher' });
-	});
-
 	it('refuses a name that is neither the assistant nor a specialist', async () => {
 		const lab = await open(await freshDirectory(), listeningStream(new Set()));
-		await lab.join('radio-kit', person);
-		await expect(lab.send('radio-kit', person, 'to-2', '@nobody hi', [], 'nobody')).rejects.toThrow(
+		await lab.join('build', person);
+		await expect(lab.send('build', person, 'to-2', '@nobody hi', [], 'nobody')).rejects.toThrow(
 			"No seat or specialist named 'nobody'.",
 		);
-		expect((await lab.read('radio-kit', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
+		expect((await lab.read('build', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
 	});
 
 	it('seats a specialist that the room has not seated, at named, and wakes it', async () => {

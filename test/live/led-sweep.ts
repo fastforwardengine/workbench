@@ -4,7 +4,7 @@
  * stay cheap and stable. The rooms of the product follow the FM radio.
  * The evals give this project to `team` and this kit to `seedWorkspace`.
  */
-import { type Scenario, seats } from '../../src/domain/scenarios.ts';
+import { type RoomPlan, seats } from '../../src/domain/scenarios.ts';
 
 /** The paragraph that opens the instructions of every seat. */
 export const ledProject =
@@ -44,7 +44,7 @@ bullet, with its source and its confidence.
 };
 
 /** The room of the LED sweep, with the seats of the first version of Workbench. */
-export const ledSweepRoom: Scenario = {
+export const ledSweepRoom: RoomPlan & { seats: typeof seats } = {
 	name: 'led-sweep',
 	goal:
 		'Sweep the drive current of an LED with a bench power supply, and measure the light ' +

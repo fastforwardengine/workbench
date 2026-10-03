@@ -12,7 +12,7 @@ describe('the team instructions', () => {
 	});
 
 	it('give examples that the terminal resolves', () => {
-		const known = { room: 'radio-kit', files: ['/shared/kit.md'], seqs: new Set<number>() };
+		const known = { room: 'build', files: ['/shared/kit.md'], seqs: new Set<number>() };
 		const examples = [...shared.matchAll(/file:\/\/\/[A-Za-z0-9_./-]+[A-Za-z0-9]/g)].map(
 			(match) => match[0],
 		);
@@ -26,7 +26,7 @@ const instructionsOf = (seat: { executor: unknown }): string =>
 	(seat.executor as { instructions: string }).instructions;
 
 describe('the Engineer', () => {
-	it('listens at broadcast in a room with no seats of its own, like the other specialists', () => {
+	it('listens at broadcast in every room, like the other specialists', () => {
 		expect(seats).toEqual({
 			researcher: 'broadcast',
 			engineer: 'broadcast',
@@ -85,7 +85,7 @@ describe('the Engineer', () => {
 			const rules = engineer ? instructionsOf(engineer) : '';
 			for (const rule of [
 				'follow the scan-the-bench skill',
-				'Follow the drive-the-power-supply skill to run the HM310P.',
+				'Follow the drive-the-power-supply skill to run a power supply.',
 				'ask the person before the first run that drives an output',
 				'Scan a network with `--subnet` only when the person names the subnet.',
 				'Start a long script with a `name`, and read its end with `wait` or `status`.',

@@ -29,14 +29,14 @@ export type Person = (typeof people)[number];
 export const radioProject =
 	'Workbench is a lab workspace for one bench project: an FM radio kit. ' +
 	'The person builds the first kit by hand. The team then tunes the radio in three ways, and guides the build of a second kit. ' +
-	'Four rooms hold the phases: radio-kit, radio-tune, radio-build, and radio-firmware. ';
+	'One room, build, holds every phase. ';
 
 /** The shared rules every specialist follows, for a project. The kernel adds the collaboration rules. */
 export function sharedRules(project: string): string {
 	return (
 		project +
 		'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act. ' +
-		'The notes are the memory of the team across rooms. They are the git repository shared/notes. Clone it to ~/notes with `clone`, pull before you act, and read its README.md. Follow the keep-notes skill. When you learn a fact, add it to the notes with its source and its confidence, unless the person told you not to edit files. When you disagree with a claim of another seat, do not edit it: push a dispute branch. ' +
+		'The notes are the memory of the team across phases and sessions. They are the git repository shared/notes. Clone it to ~/notes with `clone`, pull before you act, and read its README.md. Follow the keep-notes skill. When you learn a fact, add it to the notes with its source and its confidence, unless the person told you not to edit files. When you disagree with a claim of another seat, do not edit it: push a dispute branch. ' +
 		'Cite the exact datasheet path when you state a specification. ' +
 		'Do not invent a value that a datasheet does not give. If /library does not cover a case, say so. ' +
 		'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value. ' +
@@ -79,7 +79,7 @@ const specialists = [
 		instructions:
 			'Find the devices before you drive one. When the person asks what is connected, and before the first run of a bench script, follow the scan-the-bench skill. ' +
 			'Report each device: its name, its USB ID, its kind, and whether its device file reaches the workstation. ' +
-			'Follow the drive-the-power-supply skill to run the HM310P. ' +
+			'Follow the drive-the-power-supply skill to run a power supply. ' +
 			'Send an instrument only queries that read, such as `*IDN?`. Change no setting and no output of a device outside a script from a template, and ask the person before the first run that drives an output. ' +
 			'Scan a network with `--subnet` only when the person names the subnet. ' +
 			'Run a bench script from a fork of its template, and report what the script wrote. Start a long script with a `name`, and read its end with `wait` or `status`. ' +

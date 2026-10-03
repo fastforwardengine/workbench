@@ -58,9 +58,9 @@ pnpm start ./bench                # another directory
   marks the seat `no login`, and the other seats keep running.
 - **The terminal opens as the person named for your OS account.** That
   person is the one person of Workbench.
-- **A new data directory gets the four radio rooms and the library.** An
-  existing one resumes its rooms and has no radio rooms. Move an older
-  data directory away, or add a room with `/new radio-kit`.
+- **A new data directory gets the `build` room and the library.** An
+  existing one resumes its rooms and has no `build` room. Move an older
+  data directory away, or add a room with `/new bench`.
 - **Ambion 0.5.0 opens no journal of 0.4.0.** Move an older data directory
   away, and start again. A workstation needs `workstation/setup.sh` again:
   `workstation.json` names the `snapshots` folder now.
@@ -103,18 +103,15 @@ needs one. A bench script comes from a template.
 
 ## The lab
 
-- **Rooms:** one for each phase of the FM radio. A room seats every
-  specialist. The owners of the phase hear every message, at `broadcast`.
-  The others listen at `named`, and wake when the assistant or an owner
-  addresses them. The Engineer owns every phase. `/new` adds a room with
-  the two default seats, all at `broadcast`.
+- **Rooms:** the seeded room `build` holds every phase of the FM radio, in
+  this order:
+  1. Know the kit, and support the first hand build.
+  2. Tune the radio: path A and path B.
+  3. Guide the build of the second kit.
+  4. Write new firmware: path C.
 
-  | Room             | Phase                                          | Owners               |
-  | ---------------- | ---------------------------------------------- | -------------------- |
-  | `radio-kit`      | Know the kit, and support the first hand build | Engineer, Researcher |
-  | `radio-tune`     | Hear the radio, tune it: path A and path B     | Engineer, Researcher |
-  | `radio-build`    | Guide the build of the second kit              | Engineer             |
-  | `radio-firmware` | Path C: new firmware                           | Engineer, Researcher |
+  Every room seats both specialists at `broadcast`. `/new` adds a room with
+  the same two seats.
 
 - **State of the bench:** the Git repository `shared/notes` holds facts,
   decisions, and questions with their sources and confidence. Every specialist
