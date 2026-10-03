@@ -356,6 +356,21 @@ class MainTests(unittest.TestCase):
             process.send_signal(signal.SIGTERM)
             self.assertEqual(process.wait(timeout=10), 0)
 
+    def test_outside_a_git_checkout_exits_with_one_line(self):
+        with tempfile.TemporaryDirectory() as folder, tempfile.TemporaryDirectory() as data:
+            copy = Path(folder).resolve() / "camera.py"
+            copy.write_bytes((TEMPLATE / "camera.py").read_bytes())
+            env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-camera", "AMBION_SENSOR_DATA_DIR": data}
+            done = subprocess.run([sys.executable, "-B", "camera.py", "--demo"], cwd=folder, env=env,
+                                  capture_output=True, text=True, timeout=10)
+        self.assertEqual(done.returncode, 2)
+        self.assertEqual(done.stdout, "")
+        self.assertEqual(
+            done.stderr,
+            f"camera needs a git checkout of your fork at {copy.parent}. "
+            "Clone your fork, then start the sensor from the clone (README step 4).\n",
+        )
+
     def test_data_directory_inside_checkout_exits_with_2(self):
         process = self.run_main("--demo", data=str(TEMPLATE / "inside-data"))
         out, _err = process.communicate(timeout=10)

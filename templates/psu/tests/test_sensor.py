@@ -4,8 +4,10 @@ import hashlib
 import http.client
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 from pathlib import Path
 from unittest import mock
@@ -373,3 +375,19 @@ class Process(Isolated):
         self.assertEqual(process.returncode, 2)
         self.assertIn("outside the checkout", error)
         self.assertFalse((ROOT / "sensor-data-refused").exists())
+
+    def test_main_stops_with_one_line_outside_a_git_checkout(self):
+        with tempfile.TemporaryDirectory() as folder:
+            copy = Path(folder) / "bench-psu"
+            shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns("tests", "__pycache__"))
+            env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-psu",
+                   "AMBION_SENSOR_DATA_DIR": str(self.directory / "data")}
+            done = subprocess.run([sys.executable, "-B", "sensor.py", "--sim", str(self.state)], cwd=copy, env=env,
+                                  capture_output=True, text=True, timeout=30)
+        self.assertEqual(done.returncode, 2)
+        self.assertEqual(done.stdout, "")
+        self.assertEqual(
+            done.stderr,
+            f"psu needs a git checkout of your fork at {copy.resolve()}. "
+            "Clone your fork, then start the sensor from the clone (README step 1).\n",
+        )

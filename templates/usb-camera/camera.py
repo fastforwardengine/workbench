@@ -95,11 +95,24 @@ def clip_levels(wav):
     return peak_level, dbfs(total, len(data)), envelope
 
 
+class CheckoutError(ValueError):
+    """The sensor does not sit in a git checkout that has a commit."""
+
+
 def launch_source(checkout, repository):
     if not re.fullmatch(r"(?!templates/)[a-z][a-z0-9-]*/[a-z0-9][a-z0-9._-]{0,63}", repository):
         raise ValueError("Set AMBION_SENSOR_REPOSITORY to your fork ID, such as engineer/bench-camera.")
     def git(*args):
-        return subprocess.check_output(["git", "-C", str(checkout), *args], text=True).strip()
+        return subprocess.check_output(["git", "-C", str(checkout), *args], text=True, stderr=subprocess.DEVNULL).strip()
+
+    try:
+        git("rev-parse", "--is-inside-work-tree")
+        git("rev-parse", "--verify", "HEAD")
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise CheckoutError(
+            f"camera needs a git checkout of your fork at {checkout}. "
+            "Clone your fork, then start the sensor from the clone (README step 4)."
+        ) from error
     source = {"repository": repository, "commit": git("rev-parse", "HEAD"),
               "dirty": bool(git("status", "--porcelain", "--untracked-files=all"))}
     branch = git("branch", "--show-current")
@@ -308,7 +321,13 @@ def main():
     data = Path(os.environ.get("AMBION_SENSOR_DATA_DIR", "")).expanduser()
     if not data.is_absolute() or data.resolve().is_relative_to(checkout):
         parser.error("Set AMBION_SENSOR_DATA_DIR to an absolute directory outside the checkout.")
-    source = launch_source(checkout, os.environ.get("AMBION_SENSOR_REPOSITORY", ""))
+    try:
+        source = launch_source(checkout, os.environ.get("AMBION_SENSOR_REPOSITORY", ""))
+    except CheckoutError as error:
+        print(error, file=sys.stderr)
+        sys.exit(2)
+    except ValueError as error:
+        parser.error(str(error))
     camera = Camera(source, data, args.device, args.resolution, args.demo, args.audio_device, args.seconds)
     for sensor in camera.sensors():
         camera.acquire(sensor)  # No READY or connection before usable evidence.

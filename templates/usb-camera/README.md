@@ -56,6 +56,8 @@ no captions.
    node, resolution, and card id. Give `--device`, `--audio-device`, or
    both. The server serves a sensor for each option you give. Do not add
    `&`, `nohup`, or a supervisor.
+   The server needs a git checkout of the fork and stops at start without
+   one.
 
    ```ts
    bash({

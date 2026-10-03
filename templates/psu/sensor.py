@@ -73,12 +73,25 @@ def wall_clock():
     return time.time_ns() // 1_000_000
 
 
+class CheckoutError(ValueError):
+    """The sensor does not sit in a git checkout that has a commit."""
+
+
 def launch_source(checkout, repository):
     if not re.fullmatch(r"(?!templates/)[a-z][a-z0-9-]*/[a-z0-9][a-z0-9._-]{0,63}", repository):
         raise ValueError("Set AMBION_SENSOR_REPOSITORY to your fork ID, such as engineer/bench-psu.")
 
     def git(*args):
-        return subprocess.check_output(["git", "-C", str(checkout), *args], text=True).strip()
+        return subprocess.check_output(["git", "-C", str(checkout), *args], text=True, stderr=subprocess.DEVNULL).strip()
+
+    try:
+        git("rev-parse", "--is-inside-work-tree")
+        git("rev-parse", "--verify", "HEAD")
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise CheckoutError(
+            f"psu needs a git checkout of your fork at {checkout}. "
+            "Clone your fork, then start the sensor from the clone (README step 1)."
+        ) from error
 
     source = {"repository": repository, "commit": git("rev-parse", "HEAD"),
               "dirty": bool(git("status", "--porcelain", "--untracked-files=all"))}
@@ -634,6 +647,9 @@ def main(argv=None):
     try:
         try:
             source = launch_source(HERE, os.environ.get("AMBION_SENSOR_REPOSITORY", ""))
+        except CheckoutError as error:
+            print(error, file=sys.stderr)
+            return 2
         except ValueError as error:
             parser.error(str(error))
         config = load_config(args.config)
