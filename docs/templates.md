@@ -53,7 +53,7 @@ that a tool writes beside a template does not change it.
 | ----------------- | ---------------------------------- | ----------- |
 | `test-plan`       | A test plan                        | Experiments |
 | `device-scan`     | A scan of the connected devices    | Instruments |
-| `usb-camera`      | Retained images from a USB camera  | Instruments |
+| `usb-camera`      | Images and sound from a USB camera | Instruments |
 | `hm310p`          | Control of the HM310P power supply | Instruments |
 | `build-procedure` | A build procedure for a kit        | Builder     |
 
@@ -63,10 +63,12 @@ procedure for the FM radio kit.
 
 The `usb-camera` template follows the
 [Ambion 0.5.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.5.0/examples/camera-chat).
-It captures with Python and V4L2 on the workstation. Instruments forks and
+It captures frames with Python and V4L2 on the workstation. It records
+clips from the microphone of the camera with ALSA. One process owns the
+USB device and serves two sensors, `camera` and `microphone`. Instruments forks and
 saves the server, starts it with `bash`, waits for READY, and then uses
 `connect` and `observe`. Each successful observation saves a manifest and a
-frame in the snapshot store. The in-process just-bash backend has no sensor
+frame or a clip in the snapshot store. The in-process just-bash backend has no sensor
 endpoints. The [template README](../templates/usb-camera/README.md) gives
 the steps for replacement, rollback, and restoration.
 
@@ -74,8 +76,8 @@ the steps for replacement, rollback, and restoration.
 commands exist in the Workbench repository only.
 
 - `pnpm exec vitest run test/usb-camera-protocol.test.ts` runs Ambion's
-  `sensorConformance` and the standard digest-verifying client against the
-  server. The test fixes the clock of the acquisition.
+  `sensorConformance` and the standard digest-verifying client against both
+  sensors of the server. The test fixes the clock of the acquisition.
 - `WORKBENCH_WORKSTATION=.workstation/workstation.json pnpm exec vitest run
 test/usb-camera-workstation.test.ts` checks these steps: fork, save,
   start, connect, observation by a second account, cancellation, and
