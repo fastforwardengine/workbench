@@ -25,6 +25,7 @@ import {
 	type RoomsOptions,
 	type RoomView,
 } from './rooms.ts';
+import { openViewfinder, type Viewfinder } from './viewfinder.ts';
 import { loadWorkstation } from './workstation.ts';
 
 export type { Person } from '../domain/definitions.ts';
@@ -39,6 +40,7 @@ export type {
 } from './files.ts';
 export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
+export type { Viewfinder, ViewfinderState } from './viewfinder.ts';
 
 /** An assistant or a specialist that a message can address, seated in the room or not. */
 interface Addressable {
@@ -119,6 +121,13 @@ export interface Lab {
 	cancelProcess(handle: string): Promise<ProcessView>;
 	/** Call `changed` when a process starts and when one ends. The return value ends the watch. */
 	watchProcesses(changed: () => void): () => void;
+	/**
+	 * Open a viewfinder on the connected `camera` sensor. It polls the sensor
+	 * every 3 seconds and calls `changed` after each change of its state. A poll
+	 * is a display read: the workspace keeps no snapshot of it. The viewfinder
+	 * polls until its `close`.
+	 */
+	viewfinder(changed: () => void): Viewfinder;
 	/** Stop every room and release the storage. The journals stay, so a later open resumes them. */
 	close(): Promise<void>;
 }
@@ -285,6 +294,7 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		// needs no place in the host's queue, and a wait for the end holds no read.
 		cancelProcess: (handle) => rooms.workspace.processes.cancel(handle),
 		watchProcesses: (changed) => rooms.workspace.processes.subscribe(() => changed()),
+		viewfinder: (changed) => openViewfinder(rooms.workspace.sensors, changed),
 		close() {
 			if (closing) return closing;
 			const attempt = shutdown(rooms, database);

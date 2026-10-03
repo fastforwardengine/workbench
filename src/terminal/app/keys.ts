@@ -138,6 +138,11 @@ export class Keys {
 		this.openPanel('processes');
 	}
 
+	/** Open the camera viewfinder. A narrow terminal gives it the whole width. */
+	openCamera(): void {
+		this.openPanel('camera');
+	}
+
 	private openPanel(mode: PanelMode): void {
 		const surface = this.surfaces[mode];
 		// The surface opens first, so the first draw shows the panel.

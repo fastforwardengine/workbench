@@ -29,7 +29,8 @@ import {
 } from './session-text.ts';
 
 /** What the terminal does after a command, beyond what the session already changed. */
-export type Intent = { type: 'quit' | 'files' | 'processes' } | { type: 'compose'; text: string };
+export type Intent =
+	{ type: 'quit' | 'files' | 'processes' | 'camera' } | { type: 'compose'; text: string };
 
 /**
  * Everything the terminal does that is not drawing. It holds who the person is,
@@ -322,6 +323,7 @@ export class Session {
 			return undefined;
 		},
 		ps: async () => ({ type: 'processes' }),
+		camera: async () => ({ type: 'camera' }),
 		dismiss: async (argument) => {
 			const done = await dismissCommand(this.host, this.view, argument);
 			if ('error' in done) this.fail(done.error);

@@ -9,8 +9,11 @@ It needs Python 3.11 or newer, `fswebcam`, and `arecord`. The workstation
 has all three. It has no pip or npm dependency.
 
 One process owns the USB device and serves two sensors: `camera` and
-`microphone`. The camera sensor captures one still PNG for each `observe`.
-The microphone sensor records one WAV clip for each `observe`. The upstream
+`microphone`. The camera sensor captures one still PNG. The microphone
+sensor records one WAV clip. The server serves each request in its own
+thread. A request that arrives while a capture of the same sensor runs
+waits for that capture and receives the same observation. Otherwise the
+request starts a new capture. The upstream
 Mac example captures five frames each second. This server has no preview and
 no captions.
 
@@ -82,15 +85,19 @@ no captions.
    observe({ sensor: 'bench/microphone' });
    ```
 
-9. Know what each `observe` does. It captures a new PNG at compression
-   level 6, skips ten frames so the exposure settles, and records the UTC
-   time of receipt. A failed capture returns 503 and no frame. The server
-   closes a connection that stays idle for 10 seconds.
+9. Know what each `observe` does. It starts a capture, or it joins the
+   capture that runs for the same sensor. A joined `observe` can return a
+   frame that started before the call. A capture writes a new PNG at
+   compression level 6, skips ten frames so the exposure settles, and
+   records the UTC time of receipt. A failed capture returns 503 and no
+   frame, to every request that waits for it. The server closes a
+   connection that stays idle for 10 seconds.
 
    Each microphone `observe` records a clip of `--seconds` seconds. The
    value is an integer from 1 to 30, and the default is 5. The call blocks
-   for that time. The server handles one request at a time, so a camera
-   `observe` waits while a clip records. The clip is mono, 48 kHz, 16-bit.
+   for that time. The camera and the microphone capture in parallel, so a
+   camera `observe` does not wait while a clip records. A second microphone
+   `observe` during a clip receives that clip. The clip is mono, 48 kHz, 16-bit.
    The observation holds three parts: a text with the peak and RMS level in
    dBFS, the WAV file `clip.wav`, and the series `level`. The series holds
    the RMS level in dBFS of each 10 ms window. It starts at the time that
@@ -136,9 +143,9 @@ The data directory holds two kinds of file:
   server writes each blob through a temporary file and renames it, so a
   crash leaves no partial blob. The server replaces a stored blob whose
   bytes do not match its digest.
-- `observations.jsonl` holds one line for each observation, with the
+- `observations.jsonl` holds one line for each capture, with the
   original source metadata and the sensor name. The server only appends to
-  it.
+  it. A lock orders the writes of concurrent captures.
 
 Nothing reads `observations.jsonl` as sensor history. A span read gets
 status 422. A restart or a Git rollback keeps both files. No migration,

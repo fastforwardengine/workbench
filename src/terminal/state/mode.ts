@@ -1,7 +1,7 @@
 /** The side panels, in the order the terminal lays them out. */
-const PANELS = ['files', 'processes'] as const;
+const PANELS = ['files', 'processes', 'camera'] as const;
 
-/** A side panel: the files of the workspace, or the background processes. */
+/** A side panel: the files of the workspace, the background processes, or the camera. */
 export type PanelMode = (typeof PANELS)[number];
 
 /** Which surface takes the keys: the composer, the discussions, the refs, or a side panel. */

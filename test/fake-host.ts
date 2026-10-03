@@ -7,6 +7,8 @@ import type {
 	Person,
 	ProcessView,
 	RoomView,
+	Viewfinder,
+	ViewfinderState,
 } from '../src/host/host.ts';
 import { Session } from '../src/terminal/state/session.ts';
 
@@ -201,6 +203,20 @@ export class FakeHost implements Lab {
 		return () => {
 			this.processWatchers.delete(changed);
 		};
+	}
+	/** The viewfinders that the session opened. A test sets `state` and calls `changed`. */
+	readonly finders: { state: ViewfinderState; closed: boolean; changed: () => void }[] = [];
+	viewfinder(changed: () => void): Viewfinder {
+		const finder = {
+			state: { sensor: undefined, frame: undefined, note: undefined } as ViewfinderState,
+			closed: false,
+			changed,
+			close() {
+				finder.closed = true;
+			},
+		};
+		this.finders.push(finder);
+		return finder;
 	}
 	async close() {
 		this.calls.push('close');

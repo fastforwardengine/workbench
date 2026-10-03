@@ -61,6 +61,14 @@ export const COMMANDS = [
 		],
 	},
 	{
+		name: 'camera',
+		summary: 'Show the camera viewfinder in the side panel',
+		help: [
+			'  /camera           show the latest frame of the camera in a side panel. It needs',
+			'                    a terminal with Kitty graphics, such as Ghostty.',
+		],
+	},
+	{
 		name: 'try',
 		summary: 'Fill the composer with the room’s suggested question',
 		help: ['  /try              fill the composer with the room’s suggested question'],
