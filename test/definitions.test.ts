@@ -12,7 +12,7 @@ describe('the team instructions', () => {
 	});
 
 	it('give examples that the terminal resolves', () => {
-		const known = { room: 'radio-kit', files: ['/shared/kit.md'], seqs: new Set<number>() };
+		const known = { room: 'build', files: ['/shared/kit.md'], seqs: new Set<number>() };
 		const examples = [...shared.matchAll(/file:\/\/\/[A-Za-z0-9_./-]+[A-Za-z0-9]/g)].map(
 			(match) => match[0],
 		);
@@ -26,7 +26,7 @@ const instructionsOf = (seat: { executor: unknown }): string =>
 	(seat.executor as { instructions: string }).instructions;
 
 describe('the Engineer', () => {
-	it('listens at broadcast in a room with no seats of its own, like the other specialists', () => {
+	it('listens at broadcast in every room, like the other specialists', () => {
 		expect(seats).toEqual({
 			researcher: 'broadcast',
 			engineer: 'broadcast',

@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { Room } from '@ambionframework/ambion';
 import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
-import { scenarios } from '../domain/scenarios.ts';
+import { buildRoom } from '../domain/scenarios.ts';
 import type { ActivationSteps } from '../view/steps.ts';
 import {
 	type Attachment,
@@ -144,7 +144,7 @@ function personNamed(name: string): Person {
 	return person;
 }
 
-/** Open Workbench. A fresh directory gets the sample rooms. An old one resumes its rooms. */
+/** Open Workbench. A fresh directory gets the build room. An old one resumes its rooms. */
 export async function openLab(options: OpenOptions): Promise<Lab> {
 	// Read the workstation first, so a bad file stops the start before any room opens.
 	const workstation = options.workstation ? await loadWorkstation(options.workstation) : undefined;
@@ -169,7 +169,7 @@ export async function openLab(options: OpenOptions): Promise<Lab> {
 }
 
 async function seedRooms(rooms: Rooms): Promise<void> {
-	for (const scenario of scenarios) await rooms.create(scenario.name, scenario.goal);
+	await rooms.create(buildRoom.name, buildRoom.goal);
 }
 
 function present(

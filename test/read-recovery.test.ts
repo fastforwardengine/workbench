@@ -42,10 +42,10 @@ describe('Workbench room reads and recovery', () => {
 			stream: quietStream(counter),
 		});
 		try {
-			await lab.join('radio-kit', person.name);
-			await lab.send('radio-kit', person.name, 'read-1', 'Read this room.');
+			await lab.join('build', person.name);
+			await lab.send('build', person.name, 'read-1', 'Read this room.');
 			const closedExchange = async () => {
-				const exchange = (await lab.read('radio-kit', 0)).exchanges[0];
+				const exchange = (await lab.read('build', 0)).exchanges[0];
 				return exchange?.status === 'closed' && exchange.summary.kind === 'silent'
 					? exchange
 					: undefined;
@@ -55,8 +55,8 @@ describe('Workbench room reads and recovery', () => {
 				.toBe(true);
 			const from = (await closedExchange())?.from ?? 0;
 			const beforeRead = counter.calls;
-			const full = await lab.read('radio-kit', 0);
-			const selected = await lab.read('radio-kit', from);
+			const full = await lab.read('build', 0);
+			const selected = await lab.read('build', from);
 			expect(counter.calls).toBe(beforeRead);
 			expect(full).toMatchObject({
 				initialized: true,
@@ -67,8 +67,8 @@ describe('Workbench room reads and recovery', () => {
 				through: expect.any(Number),
 			});
 			expect(selected.messages.every((message) => message.seq > from)).toBe(true);
-			await lab.control('radio-kit', 'stop');
-			const stopped = await lab.read('radio-kit', 0);
+			await lab.control('build', 'stop');
+			const stopped = await lab.read('build', 0);
 			expect(stopped).toMatchObject({ status: 'stopped', initialized: true });
 			expect(stopped.exchanges).toContainEqual(expect.objectContaining({ from, status: 'closed' }));
 			expect(counter.calls).toBe(beforeRead);

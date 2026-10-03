@@ -2,52 +2,19 @@ import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { radioProject, sharedRules, team } from '../src/domain/definitions.ts';
-import { scenarios, seats, seedFiles } from '../src/domain/scenarios.ts';
+import { buildRoom, seats, seedFiles } from '../src/domain/scenarios.ts';
 import { seedWorkspace } from '../src/host/seed.ts';
 
-const specialists = ['researcher', 'engineer'];
-
-describe('the rooms of the FM radio', () => {
-	it('are one for each phase, in order', () => {
-		expect(scenarios.map((scenario) => scenario.name)).toEqual([
-			'radio-kit',
-			'radio-tune',
-			'radio-build',
-			'radio-firmware',
-		]);
+describe('the build room', () => {
+	it('is the one seeded room, and carries a goal, a header pattern, and a prompt for /try', () => {
+		expect(buildRoom.name).toBe('build');
+		expect(buildRoom.goal.length).toBeGreaterThan(40);
+		expect(buildRoom.pattern).toContain('→');
+		expect(buildRoom.prompt.length).toBeGreaterThan(20);
 	});
 
-	it('seat every specialist once, and give each room an owner at broadcast', () => {
-		for (const scenario of scenarios) {
-			expect(Object.keys(scenario.seats).sort(), scenario.name).toEqual([...specialists].sort());
-			expect(Object.values(scenario.seats), scenario.name).toContain('broadcast');
-		}
-	});
-
-	it('name the owners of each phase', () => {
-		const owners = (name: string) =>
-			Object.entries(scenarios.find((scenario) => scenario.name === name)?.seats ?? {})
-				.filter(([, attention]) => attention === 'broadcast')
-				.map(([seat]) => seat)
-				.sort();
-		expect(owners('radio-kit')).toEqual(['engineer', 'researcher']);
-		expect(owners('radio-tune')).toEqual(['engineer', 'researcher']);
-		expect(owners('radio-build')).toEqual(['engineer']);
-		expect(owners('radio-firmware')).toEqual(['engineer', 'researcher']);
-	});
-
-	it('carry a goal, a header pattern, and a prompt for /try', () => {
-		for (const scenario of scenarios) {
-			expect(scenario.goal.length, scenario.name).toBeGreaterThan(40);
-			expect(scenario.pattern, scenario.name).toContain('→');
-			expect(scenario.prompt.length, scenario.name).toBeGreaterThan(20);
-		}
-	});
-
-	it('seat the Engineer at broadcast in every room and in the default seats', () => {
-		expect(seats.engineer).toBe('broadcast');
-		for (const scenario of scenarios)
-			expect(scenario.seats.engineer, scenario.name).toBe('broadcast');
+	it('seats both specialists at broadcast', () => {
+		expect(seats).toEqual({ researcher: 'broadcast', engineer: 'broadcast' });
 	});
 });
 
@@ -62,9 +29,9 @@ describe('the seed of the workspace', () => {
 		expect(Object.keys(files)).not.toContain('/shared/notes.md');
 	});
 
-	it('names every room in the kit file', () => {
+	it('names the build room in the kit file', () => {
 		const kit = seedFiles()['/shared/kit.md'] ?? '';
-		for (const scenario of scenarios) expect(kit, scenario.name).toContain(scenario.name);
+		expect(kit).toContain(`\`${buildRoom.name}\``);
 	});
 
 	it('replaces a file by path from the overrides, and keeps the others', () => {
