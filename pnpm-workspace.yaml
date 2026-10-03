@@ -13,7 +13,6 @@ minimumReleaseAgeExclude:
   - '@ambionframework/just-bash@0.5.0'
   - '@ambionframework/pi@0.5.0'
   - '@ambionframework/workspace@0.5.0'
-  - '@ambionframework/assistant@0.5.0'
   - '@ambionframework/simulator@0.5.0'
   - '@ambionframework/workstation@0.5.0'
   - '@earendil-works/chord@1.0.0'

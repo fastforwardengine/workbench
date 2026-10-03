@@ -48,7 +48,7 @@ export const live: ReturnType<typeof describe.skipIf> = describe.skipIf(
 	!modelHasLogin(MODEL) || !modelHasLogin(JUDGE_MODEL),
 );
 
-/** Real milliseconds for one exchange and its summary. The sweep room seats both specialists at broadcast. */
+/** Real milliseconds for one exchange. The sweep room seats both specialists at broadcast. */
 export const EXCHANGE_MS = 150_000;
 
 /** The one person of Workbench. */
@@ -60,23 +60,6 @@ export const person = (() => {
 
 /** The room of the evals: the LED sweep, which the evals keep as their project. */
 export const sweep = ledSweepRoom;
-
-/** The tools of the workspace: files, processes, snapshots, and the git server. */
-export const WORKSPACE_TOOLS = [
-	'read',
-	'write',
-	'edit',
-	'bash',
-	'ps',
-	'status',
-	'wait',
-	'cancel',
-	'snapshot',
-	'restore',
-	'repos',
-	'clone',
-	'fork',
-] as const;
 
 /**
  * A room with the team of Workbench over a seeded workspace, as the host
@@ -102,7 +85,6 @@ export async function openRoom(
 	const room = await startRoom({
 		name: `workbench-eval-${crypto.randomUUID()}`,
 		goal: sweep.goal,
-		assistant: built.assistant,
 		agents: built.specialists,
 		seats: sweep.seats,
 		runtime: createRuntime({ execution }),
@@ -115,14 +97,17 @@ export async function openRoom(
 	return { room, workspace };
 }
 
-/** A run that the checks and the judge can read: it ended cleanly, and each exchange has its summary. */
+/** A run that the checks and the judge can read: it ended cleanly, and a seat spoke in each exchange. */
 export function expectGradable(
 	run: Simulation,
 	ended: readonly Simulation['ended'][] = ['limit'],
 ): void {
 	expect(ended, run.error).toContain(run.ended);
 	for (const exchange of run.exchanges)
-		expect(exchange.summary, JSON.stringify(exchange.discussion)).toBeDefined();
+		expect(
+			exchange.discussion.some((message) => isSaid(message) && message.from !== run.person.name),
+			JSON.stringify(exchange.discussion),
+		).toBe(true);
 }
 
 /** What one participant said in one exchange, in record order. */

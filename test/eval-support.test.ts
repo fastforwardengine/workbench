@@ -7,7 +7,6 @@
 import {
 	byAgent,
 	callTool,
-	isSummarizing,
 	quiet,
 	type Script,
 	say,
@@ -15,15 +14,7 @@ import {
 } from '@ambionframework/ambion/testing';
 import { scriptedActor, simulate } from '@ambionframework/simulator';
 import { describe, expect, it } from 'vitest';
-import {
-	expectGradable,
-	openRoom,
-	person,
-	saidBy,
-	sweep,
-	toolsOf,
-	WORKSPACE_TOOLS,
-} from './live/support.ts';
+import { expectGradable, openRoom, person, saidBy, sweep, toolsOf } from './live/support.ts';
 
 /** A seat that runs its turns once in each activation, one turn for each result so far. */
 const once =
@@ -34,10 +25,6 @@ const once =
 	};
 
 const script = byAgent({
-	assistant: (step) =>
-		isSummarizing(step.view) && step.results.length === 0
-			? say('Summary: /library holds no LED datasheet yet.')
-			: quiet(),
 	// One seat speaks, so no say of another seat makes its view stale.
 	researcher: once([
 		() => callTool('read', { path: '/shared/kit.md' }),
@@ -46,7 +33,7 @@ const script = byAgent({
 });
 
 describe('the eval support', () => {
-	it('runs the question of the sweep room through the team, with the summary', async () => {
+	it('runs the question of the sweep room through the team', async () => {
 		const { room } = await openRoom(scripted(script));
 		const run = await simulate(room, {
 			person,
@@ -57,12 +44,10 @@ describe('the eval support', () => {
 		expectGradable(run);
 		const [exchange] = run.exchanges;
 		expect(exchange?.sent).toBe(sweep.prompt);
-		expect(exchange?.summary).toMatchObject({ from: 'assistant', to: person.name });
 		const said = saidBy(exchange, 'researcher');
 		expect(said).toHaveLength(1);
 		// The workspace is seeded, as the host seeds it.
 		expect(said[0]?.text).toContain('# The project');
 		expect(toolsOf(run, 'researcher')).toEqual(['read']);
-		for (const tool of WORKSPACE_TOOLS) expect(toolsOf(run, 'assistant')).not.toContain(tool);
 	});
 });

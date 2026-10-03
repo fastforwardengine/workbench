@@ -55,7 +55,7 @@ const images = (node: Renderable): ImageRenderable[] => [
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
 async function draw(view: Awaited<ReturnType<typeof mount>>, marks: Marks): Promise<string> {
-	view.transcript.render(blocks(), undefined, undefined, undefined, true, marks);
+	view.transcript.render(blocks(), undefined, undefined, true, marks);
 	await settle();
 	await view.setup.renderOnce();
 	return view.setup.captureCharFrame();

@@ -19,7 +19,7 @@ holds the contract.
 | The check  | `test/skills.test.ts`          | The folders, the guidance, and the copy into the home         |
 
 **Each specialist has its own folder.** The folder name is the name of the
-specialist. The assistant has no file or shell tool, so it has no folder.
+specialist.
 
 **The folder `skills/shared/` holds the skills of every specialist.** It
 holds `keep-notes`. A specialist receives its own skills and the shared

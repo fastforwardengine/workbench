@@ -20,10 +20,9 @@ export const tui = {
 	dim: '#7f929a',
 	accent: '#5cc6d8',
 	coral: '#ff7a59',
-	summary: '#e6c68f',
+	note: '#e6c68f',
 	green: '#6fd3a1',
 	red: '#ff8f7d',
 	line: '#3f5b66',
 	selected: '#233a44',
-	steer: '#1e323b',
 } as const;

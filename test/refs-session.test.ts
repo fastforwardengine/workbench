@@ -73,7 +73,6 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 		composer: { blur: () => log.push('blur'), focus: () => log.push('focus'), setText: () => {} },
 		palette: { refresh: () => {} },
 		painter: {
-			revealNext: () => {},
 			revealMessage: (seq: number) => log.push(`reveal:${seq}`),
 			invalidate: () => {},
 		},
@@ -98,17 +97,25 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 }
 
 describe('the refs of a message', () => {
-	it('lists the refs of the shown messages only, and every discussion opens more', async () => {
+	it('lists the refs of every message, top to bottom', async () => {
 		const { session } = await open();
-		expect(session.refItems.map((item) => item.id)).toEqual(['4#0', '4#1', '5#0', '5#1', '5#2']);
-		session.setAllOpen(true);
-		expect(session.refItems.map((item) => item.id).slice(0, 2)).toEqual(['2#0', '2#1']);
+		expect(session.refItems.map((item) => item.id)).toEqual([
+			'2#0',
+			'2#1',
+			'4#0',
+			'4#1',
+			'5#0',
+			'5#1',
+			'5#2',
+		]);
 	});
 
 	it('marks each ref that does not resolve, and each one outside the workspace', async () => {
 		const { session } = await open();
 		const state = session.refItems.map((item) => [item.id, Boolean(item.resolved.target)]);
 		expect(state).toEqual([
+			['2#0', true],
+			['2#1', true],
 			['4#0', true],
 			['4#1', false],
 			['5#0', false],
@@ -119,7 +126,6 @@ describe('the refs of a message', () => {
 
 	it('opens a file ref in the same preview the files panel gives', async () => {
 		const { session, host } = await open();
-		session.setAllOpen(true);
 		const intent = await session.openRef('2#0');
 		expect(intent).toEqual({ type: 'files' });
 		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/library/cell-18650.md'));
@@ -165,15 +171,13 @@ describe('the refs of a message', () => {
 		expect(host.reads).toEqual([]);
 	});
 
-	it('jumps to a message inside a closed discussion, and opens the discussion', async () => {
+	it('jumps to the message that a message ref cites, and clears the focus', async () => {
 		const { session } = await open();
 		expect(session.refItems.find((item) => item.id === '4#0')?.resolved.target).toEqual({
 			kind: 'message',
 			seq: 3,
 		});
-		expect(session.expanded.has('1')).toBe(false);
 		await session.openRef('4#0');
-		expect(session.expanded.has('1')).toBe(true);
 		expect(session.focus).toBe(3);
 		session.clearFocus();
 		expect(session.focus).toBeUndefined();
@@ -181,13 +185,12 @@ describe('the refs of a message', () => {
 });
 
 describe('the ref keys', () => {
-	it('chooses a ref with r, moves with Up and Down, and goes back with Escape', async () => {
+	it('chooses a ref with Tab, moves with Up and Down, and goes back with Escape', async () => {
 		const { session } = await open();
-		const { keys, press } = keysOver(session);
+		const { keys, press, log } = keysOver(session);
 		press('tab');
-		expect(keys.mode).toBe('browse');
-		press('r');
 		expect(keys.mode).toBe('refs');
+		expect(log).toContain('blur');
 		expect(keys.picking).toBe('5#2');
 		press('up');
 		expect(keys.picking).toBe('5#1');
@@ -195,7 +198,8 @@ describe('the ref keys', () => {
 		press('down');
 		expect(keys.picking).toBe('5#2');
 		press('escape');
-		expect(keys.mode).toBe('browse');
+		expect(keys.mode).toBe('compose');
+		expect(log).toContain('focus');
 	});
 
 	it('says so when no shown message has a ref', async () => {
@@ -204,17 +208,14 @@ describe('the ref keys', () => {
 		await session.refresh();
 		const { keys, press } = keysOver(session);
 		press('tab');
-		press('r');
-		expect(keys.mode).toBe('browse');
+		expect(keys.mode).toBe('compose');
 		expect(session.notice).toMatch(/No shown message has a ref/);
 	});
 
 	it('opens the file preview from a chosen ref, and Escape returns to the refs', async () => {
 		const { session } = await open();
-		session.setAllOpen(true);
 		const { keys, press, root } = keysOver(session);
 		press('tab');
-		press('r');
 		while (keys.picking !== '2#0') press('up');
 		press('return');
 		await vi.waitFor(() => expect(keys.mode).toBe('files'));
@@ -239,12 +240,10 @@ describe('the ref keys', () => {
 		const { session } = await open();
 		const { keys, press, log } = keysOver(session);
 		press('tab');
-		press('r');
 		while (keys.picking !== '4#0') press('up');
 		press('return');
 		await vi.waitFor(() => expect(session.focus).toBe(3));
 		expect(log).toContain('reveal:3');
-		expect(session.expanded.has('1')).toBe(true);
 		expect(keys.mode).toBe('refs');
 		press('down');
 		expect(session.focus).toBeUndefined();
@@ -254,7 +253,6 @@ describe('the ref keys', () => {
 		const { session } = await open();
 		const { keys, press } = keysOver(session);
 		press('tab');
-		press('r');
 		expect(keys.picking).toBe('5#2');
 		press('return');
 		expect(keys.mode).toBe('refs');

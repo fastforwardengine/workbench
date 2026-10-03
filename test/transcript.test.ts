@@ -32,7 +32,7 @@ afterEach(() => {
 	for (const cleanup of cleanups.splice(0)) cleanup();
 });
 
-/** `count` closed exchanges: a question, three replies, and a summary each. */
+/** `count` closed exchanges: a question and three replies each. */
 function room(count: number) {
 	const messages: unknown[] = [];
 	const exchanges: unknown[] = [];
@@ -43,16 +43,6 @@ function room(count: number) {
 		for (const who of ['researcher', 'engineer', 'researcher'])
 			messages.push({ seq: seq++, kind: 'said', from: who, text: `${who} on ${at}`, at: AT });
 		const through = seq - 1;
-		const summary = {
-			seq: seq++,
-			kind: 'summary',
-			from: 'assistant',
-			to: 'priya',
-			text: `Summary ${at}`,
-			at: AT,
-			covers: [from, through],
-		};
-		messages.push(summary);
 		exchanges.push({
 			from,
 			through,
@@ -60,7 +50,7 @@ function room(count: number) {
 			person: 'priya',
 			at: AT,
 			outcome: { kind: 'complete' },
-			summary: { kind: 'published', summary },
+			summary: { kind: 'silent' },
 			activations: [],
 		});
 	}
@@ -69,9 +59,7 @@ function room(count: number) {
 
 interface State {
 	exchanges: number;
-	expanded?: string[];
 	tail?: Block[];
-	selected?: string;
 	notice?: string;
 	marks?: Marks;
 }
@@ -84,7 +72,6 @@ const blocksOf = (state: State): Block[] => {
 		open: undefined,
 		humans: new Set(['priya']),
 		working: [],
-		expanded: new Set(state.expanded ?? []),
 		tail: state.tail ?? [],
 		failures: new Map(),
 	} as never);
@@ -114,41 +101,19 @@ const steps = (running: boolean): Block =>
 		passes: [{ pass: 1, input: 1, through: 4, lines: [{ kind: 'text', text: 'thinking' }] }],
 	}) as never;
 
-/** The states of one run: growth, toggles, selection, marks, a live block, a notice, and shrinking. */
+/** The states of one run: growth, marks, a live block, a notice, and shrinking. */
 const RUN: [string, State][] = [
 	['three exchanges', { exchanges: 3 }],
 	['a fourth exchange', { exchanges: 4 }],
-	['the second discussion opens', { exchanges: 4, expanded: ['6'] }],
-	['the first discussion is selected', { exchanges: 4, expanded: ['6'], selected: '1' }],
-	['the selection moves', { exchanges: 4, expanded: ['6'], selected: '6' }],
 	['a live block', { exchanges: 4, tail: [live('engineer: reading')] }],
 	['the live block changes', { exchanges: 4, tail: [live('engineer: using bash')] }],
 	['a steps block joins it', { exchanges: 4, tail: [live('x'), steps(true)] }],
 	['the steps block ends', { exchanges: 4, tail: [steps(false)] }],
 	['a notice', { exchanges: 4, notice: 'Created probe.' }],
 	['the notice goes', { exchanges: 4 }],
-	[
-		'a ref on an open message',
-		{
-			exchanges: 4,
-			expanded: ['6'],
-			marks: { refs: new Map([[7, [ref(7)]]]) },
-		},
-	],
-	[
-		'the ref is chosen',
-		{
-			exchanges: 4,
-			expanded: ['6'],
-			marks: { refs: new Map([[7, [ref(7)]]]), picked: '7#0' },
-		},
-	],
-	[
-		'a message has the focus',
-		{ exchanges: 4, expanded: ['6'], marks: { refs: new Map(), focus: 8 } },
-	],
-	['everything opens', { exchanges: 4, expanded: ['1', '6', '11', '16'] }],
-	['everything closes', { exchanges: 4 }],
+	['a ref on a message', { exchanges: 4, marks: { refs: new Map([[6, [ref(6)]]]) } }],
+	['the ref is chosen', { exchanges: 4, marks: { refs: new Map([[6, [ref(6)]]]), picked: '6#0' } }],
+	['a message has the focus', { exchanges: 4, marks: { refs: new Map(), focus: 7 } }],
 	['the room shrinks', { exchanges: 2 }],
 	['the room is empty', { exchanges: 0 }],
 ];
@@ -202,7 +167,6 @@ async function draw(
 ): Promise<string> {
 	view.transcript.render(
 		blocksOf(state),
-		state.selected,
 		state.notice,
 		where.reveal,
 		where.bottom ?? true,
@@ -253,8 +217,8 @@ describe('the transcript, drawn step by step', () => {
 
 	it('draws the same after the run goes back and forth between two states', async () => {
 		const kept = await mount();
-		const a: State = { exchanges: 3, expanded: ['1'], tail: [live('a')] };
-		const b: State = { exchanges: 5, selected: '11', notice: 'n' };
+		const a: State = { exchanges: 3, tail: [live('a')] };
+		const b: State = { exchanges: 5, notice: 'n' };
 		for (const state of [a, b, a, b, b, a]) {
 			const fresh = await mount();
 			expect(await compare(kept, fresh, state)).toBe('');
@@ -274,9 +238,7 @@ function random(seed: number) {
 
 function randomState(next: (below: number) => number): State {
 	const exchanges = next(7);
-	const keys = Array.from({ length: exchanges }, (_, at) => String(1 + at * 5));
-	const expanded = keys.filter(() => next(3) === 0);
-	const seqs = Array.from({ length: exchanges * 5 }, (_, at) => at + 1);
+	const seqs = Array.from({ length: exchanges * 4 }, (_, at) => at + 1);
 	// One to three refs on some messages, so the chosen ref can move inside one message.
 	const refs = new Map(
 		seqs
@@ -286,8 +248,7 @@ function randomState(next: (below: number) => number): State {
 			),
 	);
 	const ids = [...refs.values()].flat().map((item) => item.id);
-	const state: State = { exchanges, expanded, marks: { refs } };
-	if (keys.length > 0 && next(2) === 0) state.selected = keys[next(keys.length)];
+	const state: State = { exchanges, marks: { refs } };
 	if (ids.length > 0 && next(2) === 0 && state.marks) state.marks.picked = ids[next(ids.length)];
 	if (seqs.length > 0 && next(3) === 0 && state.marks) state.marks.focus = seqs[next(seqs.length)];
 	const tails = [[], [live('a')], [live('b')], [steps(true)], [live('a'), steps(false)]];
@@ -317,7 +278,6 @@ describe('the transcript after a resize', () => {
 	it('fits the chips to the new width, as a fresh transcript at that width does', async () => {
 		const state: State = {
 			exchanges: 3,
-			expanded: ['1'],
 			marks: { refs: new Map([[2, [ref(2)]]]) },
 		};
 		const kept = await mount();
@@ -332,12 +292,11 @@ describe('the transcript after a resize', () => {
 });
 
 describe('the transcript when the chosen ref or the focus moves inside one block', () => {
-	const open: string[] = ['6'];
 	const refs = new Map([
-		[7, [ref(7, 0), ref(7, 1)]],
-		[8, [ref(8, 0)]],
+		[6, [ref(6, 0), ref(6, 1)]],
+		[7, [ref(7, 0)]],
 	]);
-	const at = (marks: Marks): State => ({ exchanges: 4, expanded: open, marks });
+	const at = (marks: Marks): State => ({ exchanges: 4, marks });
 
 	async function moves(states: State[]) {
 		const kept = await mount();
@@ -350,22 +309,22 @@ describe('the transcript when the chosen ref or the focus moves inside one block
 
 	it('moves the chosen ref between two refs of one message', async () => {
 		await moves([
-			at({ refs, picked: '7#0' }),
-			at({ refs, picked: '7#1' }),
-			at({ refs, picked: '7#0' }),
+			at({ refs, picked: '6#0' }),
+			at({ refs, picked: '6#1' }),
+			at({ refs, picked: '6#0' }),
 		]);
 	});
 
-	it('moves the chosen ref between the refs of two messages of one open discussion', async () => {
+	it('moves the chosen ref between the refs of two messages', async () => {
 		await moves([
+			at({ refs, picked: '6#0' }),
 			at({ refs, picked: '7#0' }),
-			at({ refs, picked: '8#0' }),
-			at({ refs, picked: '7#1' }),
+			at({ refs, picked: '6#1' }),
 		]);
 	});
 
-	it('moves the focus between two messages of one open discussion', async () => {
-		await moves([at({ refs, focus: 7 }), at({ refs, focus: 8 }), at({ refs, focus: 7 })]);
+	it('moves the focus between two messages', async () => {
+		await moves([at({ refs, focus: 6 }), at({ refs, focus: 7 }), at({ refs, focus: 6 })]);
 	});
 });
 
@@ -379,7 +338,7 @@ describe('the scroll position after a change', () => {
 		await view.setup.renderOnce();
 		const top = view.transcript.root.scrollTop;
 		expect(top).toBeGreaterThan(0);
-		await draw(view, { ...tall, expanded: ['6'] }, { bottom: false });
+		await draw(view, { ...tall, marks: { refs: new Map([[6, [ref(6)]]]) } }, { bottom: false });
 		expect(view.transcript.root.scrollTop).toBe(top);
 	});
 
@@ -395,7 +354,7 @@ describe('the scroll position after a change', () => {
 		const kept = await mount();
 		await draw(kept, tall);
 		const fresh = await mount();
-		const target = { reveal: 'discussion-96', bottom: false };
+		const target = { reveal: 'message-96', bottom: false };
 		await draw(kept, tall, target);
 		await draw(fresh, tall, target);
 		expect(kept.transcript.root.scrollTop).toBe(fresh.transcript.root.scrollTop);
@@ -413,7 +372,7 @@ describe('the nodes of rows that leave', () => {
 		const view = await mount();
 		const note = (text: string): Block => ({ type: 'note', text });
 		const set = async (texts: string[]) => {
-			view.transcript.render(texts.map(note), undefined, undefined, undefined, true);
+			view.transcript.render(texts.map(note), undefined, undefined, true);
 			await settle();
 		};
 		await set(['a', 'b', 'c', 'd', 'e']);
@@ -446,7 +405,7 @@ describe('the transcript when rows change places', () => {
 		for (const list of lists) {
 			const fresh = await mount();
 			const draw2 = async (view: Awaited<ReturnType<typeof mount>>) => {
-				view.transcript.render(list.map(note), undefined, undefined, undefined, true);
+				view.transcript.render(list.map(note), undefined, undefined, true);
 				await settle();
 				await view.setup.renderOnce();
 				await view.setup.renderOnce();
@@ -487,7 +446,7 @@ describe('what the transcript builds', () => {
 		const before = blocksOf({ exchanges: 40 }).length;
 		await draw(view, { exchanges: 41 });
 		expect(spy.mock.calls.length).toBe(blocksOf({ exchanges: 41 }).length - before);
-		expect(spy.mock.calls.length).toBeLessThanOrEqual(3);
+		expect(spy.mock.calls.length).toBeLessThanOrEqual(4);
 	});
 
 	it('builds one block when the live block changes', async () => {
@@ -496,25 +455,16 @@ describe('what the transcript builds', () => {
 		expect(spy).toHaveBeenCalledTimes(1);
 	});
 
-	it('builds nothing when a ref changes on a message that a closed discussion hides', async () => {
-		const marks = (picked?: string): Marks => ({
-			refs: new Map([[7, [ref(7, 0), ref(7, 1)]]]),
+	it('builds one block when the chosen ref moves between two messages', async () => {
+		const marks = (picked: string): Marks => ({
+			refs: new Map([
+				[6, [ref(6, 0)]],
+				[7, [ref(7, 0)]],
+			]),
 			picked,
 		});
-		const { view, spy } = await built({ exchanges: 40, marks: marks('7#0') });
-		await draw(view, { exchanges: 40, marks: marks('7#1') });
-		expect(spy).not.toHaveBeenCalled();
-	});
-
-	it('builds one block when a discussion opens, and two when the selection moves', async () => {
-		const { view, spy } = await built({ exchanges: 40 });
-		await draw(view, { exchanges: 40, expanded: ['6'] });
-		expect(spy).toHaveBeenCalledTimes(1);
-		spy.mockClear();
-		await draw(view, { exchanges: 40, expanded: ['6'], selected: '1' });
-		expect(spy).toHaveBeenCalledTimes(1);
-		spy.mockClear();
-		await draw(view, { exchanges: 40, expanded: ['6'], selected: '11' });
+		const { view, spy } = await built({ exchanges: 40, marks: marks('6#0') });
+		await draw(view, { exchanges: 40, marks: marks('7#0') });
 		expect(spy).toHaveBeenCalledTimes(2);
 	});
 });
@@ -539,11 +489,10 @@ describe('the body of a message', () => {
 			open: undefined,
 			humans: new Set(['priya']),
 			working: [],
-			expanded: new Set(),
 			tail: [],
 			failures: new Map(),
 		} as never);
-		view.transcript.render(blocks, undefined, undefined, undefined, true);
+		view.transcript.render(blocks, undefined, undefined, true);
 		await stable(view.setup, view.transcript.root);
 		const frame = view.setup.captureCharFrame();
 		expect(frame).toContain('engineer');

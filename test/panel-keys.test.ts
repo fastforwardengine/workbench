@@ -59,7 +59,7 @@ async function build(width = 120) {
 	const render = vi.fn(() => {
 		renders.count += 1;
 		keys.reconcile();
-		painter.render(keys.mode, keys.browsing, keys.picking);
+		painter.render(keys.mode, keys.picking);
 		keys.refreshPalette();
 	});
 	const transcript = new Transcript(renderer);
@@ -239,14 +239,6 @@ describe('the camera viewfinder', () => {
 		expect(built.host.finders[0]?.closed).toBe(true);
 		expect(built.cameraPanel.root.visible).toBe(false);
 		expect(built.keys.mode).toBe('compose');
-	});
-
-	it('shows beside browse mode too', async () => {
-		const built = await build(120);
-		built.keys.toggleCamera();
-		built.keys.mode = 'browse';
-		built.render();
-		expect(built.camera.open).toBe(true);
 	});
 
 	it('stops the poll when the terminal ends, without a draw', async () => {
@@ -463,7 +455,7 @@ describe('the processes panel keys', () => {
 });
 
 describe('moving between panels and modes', () => {
-	it('returns to browse mode when the panel opened from browse mode', async () => {
+	it('returns to refs mode when the panel opened from refs mode', async () => {
 		const built = await build();
 		built.host.table.set(
 			'characterization',
@@ -471,7 +463,14 @@ describe('moving between panels and modes', () => {
 				participants: [{ name: 'priya', kind: 'person' }],
 				messages: [
 					{ seq: 1, kind: 'said', from: 'priya', text: 'one', at: AT },
-					{ seq: 2, kind: 'said', from: 'design', text: 'two', at: AT },
+					{
+						seq: 2,
+						kind: 'said',
+						from: 'design',
+						text: 'two',
+						at: AT,
+						refs: ['file:///shared/notes.md'],
+					},
 					{ seq: 3, kind: 'said', from: 'researcher', text: 'three', at: AT },
 					{ seq: 4, kind: 'said', from: 'priya', text: 'four', at: AT },
 				],
@@ -491,11 +490,11 @@ describe('moving between panels and modes', () => {
 		);
 		await built.session.refresh();
 		built.press('tab');
-		expect(built.keys.mode).toBe('browse');
+		expect(built.keys.mode).toBe('refs');
 		await openFiles(built);
 		expect(built.keys.mode).toBe('files');
 		built.press('escape');
-		expect(built.keys.mode).toBe('browse');
+		expect(built.keys.mode).toBe('refs');
 	});
 
 	it('closes the files panel when the processes panel opens, and returns to the first mode', async () => {

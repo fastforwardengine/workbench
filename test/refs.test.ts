@@ -153,30 +153,15 @@ describe('refItems', () => {
 		},
 		{ type: 'message', message: said(2), role: 'said' },
 		{
-			type: 'discussion',
-			key: '1',
-			count: 1,
-			voices: [],
-			flag: '',
-			cost: '',
-			activations: 1,
-			expanded: false,
-			items: [
-				{ type: 'message', message: said(3, ['file:///shared/my%20notes.md']), role: 'said' },
-			],
+			type: 'message',
+			message: said(3, ['file:///shared/my%20notes.md']),
+			role: 'said',
 		},
 	];
 
-	it('lists the refs of the shown messages in order, with one id each', () => {
+	it('lists the refs of the messages in order, with one id each', () => {
 		const items = refItems(blocks, known);
-		expect(items.map((item) => item.id)).toEqual(['1#0', '1#1']);
-		expect(items.map((item) => item.resolved.kind)).toEqual(['message', 'file']);
-	});
-
-	it('lists the refs inside a discussion only when it is open', () => {
-		const open = blocks.map((block) =>
-			block.type === 'discussion' ? { ...block, expanded: true } : block,
-		);
-		expect(refItems(open, known).map((item) => item.id)).toEqual(['1#0', '1#1', '3#0']);
+		expect(items.map((item) => item.id)).toEqual(['1#0', '1#1', '3#0']);
+		expect(items.map((item) => item.resolved.kind)).toEqual(['message', 'file', 'file']);
 	});
 });

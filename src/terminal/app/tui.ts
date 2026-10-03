@@ -182,7 +182,7 @@ class EngineTui {
 	private render(): void {
 		if (this.stopped) return;
 		this.keys.reconcile();
-		this.painter.render(this.keys.mode, this.keys.browsing, this.keys.picking);
+		this.painter.render(this.keys.mode, this.keys.picking);
 		this.keys.refreshPalette();
 	}
 

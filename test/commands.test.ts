@@ -9,9 +9,8 @@ const rooms: RoomChoice[] = [
 
 const choices: Choices = {
 	seats: [
-		{ name: 'assistant', state: 'broadcast' },
-		{ name: 'engineer', state: 'named' },
-		{ name: 'researcher', state: 'not seated' },
+		{ name: 'engineer', state: 'broadcast' },
+		{ name: 'researcher', state: 'named' },
 	],
 	rooms,
 	people: [
@@ -105,9 +104,8 @@ describe('suggest a seat', () => {
 		expect(
 			suggest('@', choices).map((row) => [row.label, row.detail, row.insert, row.run]),
 		).toEqual([
-			['@assistant', 'broadcast', '@assistant ', false],
-			['@engineer', 'named', '@engineer ', false],
-			['@researcher', 'not seated', '@researcher ', false],
+			['@engineer', 'broadcast', '@engineer ', false],
+			['@researcher', 'named', '@researcher ', false],
 		]);
 	});
 
@@ -133,8 +131,6 @@ describe('suggest', () => {
 				'/dismiss',
 				'/stop',
 				'/resume',
-				'/expand',
-				'/collapse',
 			]),
 		);
 	});

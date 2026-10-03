@@ -1,7 +1,7 @@
 import type { Exchange } from '@ambionframework/ambion';
 import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
-import { holderOf, type Known, type RefItem, refItems, shows } from '../../view/refs.ts';
+import { type Known, type RefItem, refItems, shows } from '../../view/refs.ts';
 import { type ActivationSteps, activationLine, ended, stepsView } from '../../view/steps.ts';
 import { errorText } from '../../view/text.ts';
 import { type Block, buildTimeline } from '../../view/timeline.ts';
@@ -49,7 +49,6 @@ export class Session {
 	room = '';
 	view: RoomView | undefined;
 	blocks: Block[] = [];
-	expanded = new Set<string>();
 	notice: string | undefined;
 	error: string | undefined;
 	offline: string | undefined;
@@ -195,7 +194,6 @@ export class Session {
 			),
 			working: workingSeats(view),
 			activity: activity ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
-			expanded: this.expanded,
 			tail: this.tail(view),
 			failures: view.failures,
 		});
@@ -339,8 +337,6 @@ export class Session {
 		stop: () => this.finish(this.control('stop')),
 		resume: () => this.finish(this.control('resume')),
 		steps: (argument) => this.finish(this.stepsCommand(argument)),
-		expand: () => this.finish(this.setAllOpen(true)),
-		collapse: () => this.finish(this.setAllOpen(false)),
 		help: () => this.finish(this.say(HELP)),
 		quit: async () => ({ type: 'quit' }),
 	};
@@ -354,7 +350,6 @@ export class Session {
 		this.view = undefined;
 		this.blocks = [];
 		this.focus = undefined;
-		this.expanded.clear();
 		this.steps = undefined;
 		this.notice = undefined;
 		const dropped = this.pendingRefs.length;
@@ -536,15 +531,13 @@ export class Session {
 		return this.openFiles(target.path);
 	}
 
-	/** Focus one message. It opens the discussion that holds the message. */
+	/** Focus one message. */
 	jump(seq: number): void {
-		const holder = holderOf(this.blocks, seq);
-		if (holder) this.expanded.add(holder);
 		this.focus = seq;
 		this.rebuild();
 		if (!shows(this.blocks, seq)) {
 			this.focus = undefined;
-			this.say(`Message ${seq} is not in the conversation. A summary stands for it.`);
+			this.say(`Message ${seq} is not in the conversation.`);
 		}
 	}
 
@@ -579,12 +572,6 @@ export class Session {
 		return this.showExchange(exchange);
 	}
 
-	/** Show the steps of the exchange that a discussion key names. The key is the seq of its question. */
-	async showSteps(key: string): Promise<void> {
-		const exchange = this.view?.exchanges.find((candidate) => String(candidate.from) === key);
-		if (exchange) await this.showExchange(exchange);
-	}
-
 	private async showExchange(exchange: Exchange): Promise<void> {
 		const activation = newest(exchange);
 		if (!activation) return this.say('That exchange ran no activation.');
@@ -598,19 +585,6 @@ export class Session {
 		} catch (error) {
 			this.fail(error);
 		}
-	}
-
-	// Discussions
-
-	setAllOpen(open: boolean): void {
-		const keys = this.blocks.flatMap((block) => (block.type === 'discussion' ? [block.key] : []));
-		this.expanded = new Set(open ? keys : []);
-		this.rebuild();
-	}
-
-	toggle(key: string): void {
-		if (!this.expanded.delete(key)) this.expanded.add(key);
-		this.rebuild();
 	}
 
 	/** End the person's visit, so the room shows them as gone after the terminal exits. */

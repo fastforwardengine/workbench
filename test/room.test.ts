@@ -37,9 +37,9 @@ describe('the project of a team', () => {
 		try {
 			const other = await team(workspace, 'The project is a test project. ');
 			const radio = await team(workspace);
-			for (const seat of [...other.specialists, other.assistant])
+			for (const seat of other.specialists)
 				expect(instructionsOf(seat)).toContain('The project is a test project.');
-			for (const seat of [...radio.specialists, radio.assistant])
+			for (const seat of radio.specialists)
 				expect(instructionsOf(seat)).toContain('an FM radio kit');
 		} finally {
 			await workspace.dispose();

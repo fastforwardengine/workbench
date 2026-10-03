@@ -36,26 +36,23 @@ describe('the Engineer', () => {
 		});
 	});
 
-	it('is in the briefing of the assistant, which tells it how to reach a seat at named', async () => {
+	it('asks the Researcher with a directed say, because the Researcher waits at named', async () => {
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
 		try {
 			const built = await team(workspace);
-			const briefing = instructionsOf(built.assistant);
-			expect(briefing).toContain('You have no file, shell, or git tools');
-			expect(briefing).toContain('If the Researcher sits at named attention');
-			expect(briefing).toContain('do not acknowledge, relay, or restate');
-			expect(briefing).not.toMatch(/\b(Builder|Instruments)\b/);
+			const engineer = built.specialists.find((seat) => seat.name === 'engineer');
+			expect(engineer && instructionsOf(engineer)).toContain('ask the Researcher with `to`');
+			expect(built.specialists.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);
 		} finally {
 			await workspace.dispose();
 		}
 	});
 
-	it('tells each specialist to say its result to the room, not to the assistant', async () => {
+	it('tells each specialist to say its result to the room', async () => {
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
 		try {
 			const built = await team(workspace);
 			for (const seat of built.specialists) {
-				expect(instructionsOf(seat)).not.toMatch(/to the assistant/);
 				expect(instructionsOf(seat)).toContain('Say your result to the room, with no `to`');
 			}
 		} finally {

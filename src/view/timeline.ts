@@ -4,11 +4,10 @@ import { formatUsage, type PassView } from './steps.ts';
 type ClosedView = Extract<Exchange, { status: 'closed' }>;
 
 /**
- * How a message reads in the conversation. A steer is a person's message
- * inside a thread. A post is a message of the system: the host posted it, or
- * the room gave the say of a seat back to it.
+ * How a message reads in the conversation. A post is a message of the system:
+ * the host posted it, or the room gave the say of a seat back to it.
  */
-export type Role = 'question' | 'said' | 'summary' | 'steer' | 'posted';
+export type Role = 'question' | 'said' | 'posted';
 
 export interface MessageBlock {
 	type: 'message';
@@ -16,23 +15,6 @@ export interface MessageBlock {
 	role: Role;
 	/** Set on a scheduled say that its seat or the host dismissed. It does not return. */
 	dismissed?: true;
-}
-
-/** The thread between a question and its summary. It opens and closes. */
-export interface DiscussionBlock {
-	type: 'discussion';
-	/** The seq of the exchange's question. It names the discussion across reads. */
-	key: string;
-	count: number;
-	voices: string[];
-	/** Why the exchange has no published summary, or an empty string when it has one. */
-	flag: string;
-	/** What the exchange spent, or an empty string when the record holds no usage. */
-	cost: string;
-	/** How many activations the exchange ran, for the steps view. */
-	activations: number;
-	expanded: boolean;
-	items: MessageBlock[];
 }
 
 interface NoteBlock {
@@ -57,7 +39,7 @@ export interface LiveBlock {
 	detail?: string;
 }
 
-export type Block = MessageBlock | DiscussionBlock | NoteBlock | StepsBlock | LiveBlock;
+export type Block = MessageBlock | NoteBlock | StepsBlock | LiveBlock;
 
 export interface TimelineInput {
 	messages: readonly Message[];
@@ -68,40 +50,25 @@ export interface TimelineInput {
 	humans: ReadonlySet<string>;
 	/** The seats that are working now. */
 	working: readonly string[];
-	/** The keys of the discussions the person opened. */
-	expanded: ReadonlySet<string>;
-	/** Blocks that follow the closed exchanges, before the live block. */
+	/** Blocks that follow the messages, before the live block. */
 	tail?: readonly Block[];
 	/** Why each failed activation failed, by activation id, as this process heard it. */
 	failures?: ReadonlyMap<string, string>;
 }
 
-interface Group {
-	exchange: ClosedView;
-	source: Message[];
-	summary: Message | undefined;
-	direct: boolean;
-}
-
-const spoken = (message: Message): boolean =>
-	message.kind === 'said' || message.kind === 'summary' || message.kind === 'posted';
+const spoken = (message: Message): boolean => message.kind === 'said' || message.kind === 'posted';
 
 function waitingOn(exchange: ClosedView): string | undefined {
 	return exchange.outcome.kind === 'awaiting' ? `Waiting on ${exchange.outcome.person}` : undefined;
 }
 
-/** The newest activation of a purpose that failed, or undefined when none did. */
-const lastFailed = (
-	exchange: ClosedView,
-	purpose: ExchangeActivation['purpose'],
-): ExchangeActivation | undefined =>
-	exchange.activations.findLast(
-		(activation) => activation.purpose === purpose && activation.outcome.kind === 'failed',
-	);
-
 /** The seat whose reply the room gave up on, or undefined when the room gave up on none. */
 const gaveUpOn = (exchange: ClosedView): ExchangeActivation | undefined =>
-	exchange.outcome.kind === 'exhausted' ? lastFailed(exchange, 'respond') : undefined;
+	exchange.outcome.kind === 'exhausted'
+		? exchange.activations.findLast(
+				(activation) => activation.purpose === 'respond' && activation.outcome.kind === 'failed',
+			)
+		: undefined;
 
 /**
  * One failed activation: the seat, whether the room tried it again, and the
@@ -114,186 +81,75 @@ function failureText(activation: ExchangeActivation, failures?: ReadonlyMap<stri
 	return `${activation.seat} failed, ${tries}${reason ? `: ${reason}` : ''}`;
 }
 
-function flagFor(exchange: ClosedView): string {
-	const waiting = waitingOn(exchange);
-	if (waiting) return waiting;
-	const failed = gaveUpOn(exchange);
-	if (failed) return `${failed.seat} failed`;
-	const status = exchange.summary.kind;
-	if (status === 'published') return '';
-	if (status === 'pending') return 'Summary pending';
-	if (status === 'failed') return 'Summary failed';
-	return 'No summary';
-}
-
 /**
- * The line under a closed exchange with no reply. A reply the room gave up on
- * comes first, with its reason, because it is why the exchange has no reply.
+ * The line under the last message of a closed exchange that ended without a
+ * reply to the person: the exchange waits on a person, or the room gave up on a
+ * seat. An exchange that ended in any other way has no line.
  */
-function noteFor(exchange: ClosedView, failures?: ReadonlyMap<string, string>): string {
+function noteFor(exchange: ClosedView, failures?: ReadonlyMap<string, string>): string | undefined {
 	const cost = formatUsage(exchange.usage);
 	const suffix = cost ? ` · ${cost}` : '';
 	const waiting = waitingOn(exchange);
 	if (waiting) return `${waiting}${suffix}`;
 	const failed = gaveUpOn(exchange);
-	if (failed) return `Closed, ${failureText(failed, failures)}${suffix}`;
-	const status = exchange.summary.kind;
-	if (status === 'pending') return `Closed, summary pending${suffix}`;
-	const summary = lastFailed(exchange, 'summarize');
-	if (status === 'failed' && summary)
-		return `Closed, summary failed: ${failureText(summary, failures)}${suffix}`;
-	if (status === 'failed') return `Closed, summary failed${suffix}`;
-	return `Closed without a summary${suffix}`;
+	return failed ? `Closed, ${failureText(failed, failures)}${suffix}` : undefined;
 }
 
-function groupsOf(input: TimelineInput): Group[] {
-	return input.exchanges
-		.filter((exchange): exchange is ClosedView => exchange.status === 'closed')
-		.map((exchange) => {
-			const source = input.messages.filter(
-				(message) =>
-					(message.kind === 'said' || message.kind === 'posted') &&
-					message.seq > exchange.from &&
-					message.seq <= exchange.through,
-			);
-			const published = exchange.summary.kind === 'published';
-			return {
-				exchange,
-				source,
-				summary: published ? exchange.summary.summary : undefined,
-				// One reply of a seat shows directly. A lone person's message is not a reply, so an
-				// exchange that holds only that, such as an aborted one, keeps its closing mark.
-				direct: source.length === 1 && !input.humans.has(source[0]?.from ?? ''),
-			};
-		});
+/**
+ * The seq of the message that an exchange note follows: the last spoken
+ * message in the range of the exchange, or its opening when none is spoken.
+ */
+function anchorOf(exchange: ClosedView, messages: readonly Message[]): number {
+	const inRange = messages.filter(
+		(message) => spoken(message) && message.seq >= exchange.from && message.seq <= exchange.through,
+	);
+	return inRange.at(-1)?.seq ?? exchange.from;
 }
 
-/** Where each message and summary of the closed exchanges belongs. */
-interface Index {
-	bySource: Map<number, Group>;
-	byOpening: Map<number, Group>;
-	summarySeqs: Set<number>;
-	directSeqs: Set<number>;
+/** The notes of the closed exchanges, by the seq of the message that each follows. */
+function notesBySeq(input: TimelineInput): Map<number, string[]> {
+	const notes = new Map<number, string[]>();
+	for (const exchange of input.exchanges) {
+		if (exchange.status !== 'closed') continue;
+		const text = noteFor(exchange, input.failures);
+		if (!text) continue;
+		const anchor = anchorOf(exchange, input.messages);
+		notes.set(anchor, [...(notes.get(anchor) ?? []), text]);
+	}
+	return notes;
 }
 
-function indexGroups(groups: readonly Group[]): Index {
-	const index: Index = {
-		bySource: new Map(),
-		byOpening: new Map(),
-		summarySeqs: new Set(),
-		directSeqs: new Set(),
-	};
-	for (const group of groups) {
-		index.byOpening.set(group.exchange.from, group);
-		if (group.summary) index.summarySeqs.add(group.summary.seq);
-		for (const message of group.source) {
-			index.bySource.set(message.seq, group);
-			if (group.direct) index.directSeqs.add(message.seq);
-		}
-	}
-	return index;
-}
-
-class Builder {
-	private readonly input: TimelineInput;
-	private readonly groups: Group[];
-	private readonly index: Index;
-	private readonly blocks: Block[] = [];
-	private readonly done = new Set<Group>();
-	/** The seqs of the scheduled says that a dismissal names. */
-	private readonly dismissed: ReadonlySet<number>;
-
-	constructor(input: TimelineInput) {
-		this.input = input;
-		this.groups = groupsOf(input);
-		this.index = indexGroups(this.groups);
-		this.dismissed = new Set(
-			input.messages.flatMap((message) => (message.kind === 'dismissed' ? [message.message] : [])),
-		);
-	}
-
-	build(): Block[] {
-		for (const message of this.input.messages.filter(spoken)) this.place(message);
-		for (const group of this.groups) this.emit(group);
-		this.blocks.push(...(this.input.tail ?? []));
-		if (this.input.open)
-			this.blocks.push(liveBlock(this.input.open.person, this.input.working, this.input.activity));
-		return this.blocks;
-	}
-
-	private roleOf = (message: Message, inThread: boolean): Role => {
-		if (message.kind === 'summary') return 'summary';
-		if (message.kind === 'posted') return 'posted';
-		if (!this.input.humans.has(message.from ?? '')) return 'said';
-		return inThread ? 'steer' : 'question';
-	};
-
-	private blockOf = (message: Message, inThread: boolean): MessageBlock => ({
-		type: 'message',
-		message,
-		role: this.roleOf(message, inThread),
-		...(this.dismissed.has(message.seq) ? { dismissed: true } : {}),
-	});
-
-	/** Put one message in its place: in a thread, in the open, or nowhere when a summary shows it. */
-	private place(message: Message): void {
-		const grouped = this.index.bySource.get(message.seq);
-		if (grouped && !this.index.directSeqs.has(message.seq)) {
-			this.emit(grouped);
-			return;
-		}
-		if (this.index.summarySeqs.has(message.seq)) return;
-		this.blocks.push(this.blockOf(message, false));
-		const opening = this.index.byOpening.get(message.seq);
-		if (opening) this.emit(opening);
-	}
-
-	private emit(group: Group): void {
-		if (this.done.has(group)) return;
-		this.done.add(group);
-		if (!group.direct) this.blocks.push(...groupBlocks(group, this.input, this.blockOf));
-	}
-}
+const roleOf = (message: Message, humans: ReadonlySet<string>): Role => {
+	if (message.kind === 'posted') return 'posted';
+	return humans.has(message.from ?? '') ? 'question' : 'said';
+};
 
 /**
  * Turn the record into the blocks the conversation shows.
  *
- * A closed exchange shows its question, then one discussion holding every spoken
- * message after it, in order, and then its summary. A person's steering message
- * is part of the discussion. An exchange with one reply shows that reply and no
- * discussion or summary. The open exchange keeps its messages in the open, and a
- * live block follows them.
+ * Every message shows in the open, in the order of the record. A closed
+ * exchange that waits on a person, or that the room gave up on, adds one note
+ * after its last message. The blocks that follow the messages come next, and a
+ * live block ends the list while an exchange is open.
  */
 export function buildTimeline(input: TimelineInput): Block[] {
-	return new Builder(input).build();
-}
-
-function groupBlocks(
-	group: Group,
-	input: TimelineInput,
-	blockOf: (message: Message, inThread: boolean) => MessageBlock,
-): Block[] {
-	const summary: Block[] = group.summary
-		? [{ type: 'message', message: group.summary, role: 'summary' }]
-		: [];
-	if (group.source.length === 0)
-		return summary.length > 0
-			? summary
-			: [{ type: 'note', text: noteFor(group.exchange, input.failures) }];
-	const key = String(group.exchange.from);
-	const voices = [...new Set(group.source.map((message) => message.from ?? ''))].filter(Boolean);
-	const discussion: DiscussionBlock = {
-		type: 'discussion',
-		key,
-		count: group.source.length,
-		voices,
-		flag: flagFor(group.exchange),
-		cost: formatUsage(group.exchange.usage),
-		activations: group.exchange.activations.length,
-		expanded: input.expanded.has(key),
-		items: group.source.map((message) => blockOf(message, true)),
-	};
-	return [discussion, ...summary];
+	const dismissed = new Set(
+		input.messages.flatMap((message) => (message.kind === 'dismissed' ? [message.message] : [])),
+	);
+	const notes = notesBySeq(input);
+	const blocks: Block[] = [];
+	for (const message of input.messages.filter(spoken)) {
+		blocks.push({
+			type: 'message',
+			message,
+			role: roleOf(message, input.humans),
+			...(dismissed.has(message.seq) ? { dismissed: true } : {}),
+		});
+		for (const text of notes.get(message.seq) ?? []) blocks.push({ type: 'note', text });
+	}
+	blocks.push(...(input.tail ?? []));
+	if (input.open) blocks.push(liveBlock(input.open.person, input.working, input.activity));
+	return blocks;
 }
 
 function liveBlock(
@@ -304,9 +160,4 @@ function liveBlock(
 	const seats = working.length > 0 ? ` with ${working.join(', ')}` : '';
 	const work = person === undefined ? 'the room’s work' : `${person}’s question`;
 	return { type: 'live', text: `Working on ${work}${seats}`, detail: activity };
-}
-
-/** The keys of the discussions in the blocks, top to bottom. */
-export function discussionKeys(blocks: readonly Block[]): string[] {
-	return blocks.flatMap((block) => (block.type === 'discussion' ? [block.key] : []));
 }

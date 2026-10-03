@@ -63,7 +63,7 @@ export class ProcessesPanel extends SidePanel {
 		this.list.content = this.rows(browser, now);
 		this.drawChosen(browser, now);
 		this.hint.content = new StyledText(
-			browser.message ? [fg(palette.summary)(browser.message)] : [fg(palette.dim)(HINT)],
+			browser.message ? [fg(palette.note)(browser.message)] : [fg(palette.dim)(HINT)],
 		);
 	}
 

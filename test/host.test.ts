@@ -23,19 +23,14 @@ const person = people[0]?.name ?? '';
 
 const PLAN = 'LED sweep plan: 1 mA to 20 mA in 1 mA steps.\n';
 
-function scriptedResponse(agent: string, call: number, closing: boolean) {
-	if (closing)
-		return fauxAssistantMessage([fauxToolCall('say', { text: 'Summary: the lab answered.' })], {
-			stopReason: 'toolUse',
-		});
-	if (agent === 'assistant' && call === 1)
+/**
+ * The Engineer, at broadcast, wakes on the message of the person and asks the
+ * Researcher, at named, for a plan. The Researcher writes it and says so to the room.
+ */
+function scriptedResponse(agent: string, call: number) {
+	if (agent === 'engineer' && call === 1)
 		return fauxAssistantMessage(
 			[fauxToolCall('say', { to: 'researcher', text: 'Please plan the sweep.' })],
-			{ stopReason: 'toolUse' },
-		);
-	if (agent === 'assistant' && call === 2)
-		return fauxAssistantMessage(
-			[fauxToolCall('say', { to: 'researcher', text: 'Thanks, that is clear.' })],
 			{ stopReason: 'toolUse' },
 		);
 	if (agent === 'researcher' && call === 1)
@@ -44,14 +39,14 @@ function scriptedResponse(agent: string, call: number, closing: boolean) {
 			{ stopReason: 'toolUse' },
 		);
 	if (agent === 'researcher' && call === 2)
-		return fauxAssistantMessage([fauxToolCall('say', { to: 'assistant', text: 'Plan written.' })], {
+		return fauxAssistantMessage([fauxToolCall('say', { text: 'Plan written.' })], {
 			stopReason: 'toolUse',
 		});
 	return fauxAssistantMessage('quiet', { stopReason: 'stop' });
 }
 
-/** What a scripted stream answers: the seat, its request count from 1, and whether the exchange closes. */
-type Respond = (agent: string, call: number, closing: boolean) => AssistantMessage;
+/** What a scripted stream answers: the seat and its request count from 1. */
+type Respond = (agent: string, call: number) => AssistantMessage;
 
 /**
  * A model stream that answers each request of each Pi seat from `respond`. A
@@ -62,11 +57,10 @@ const scriptedStream = (respond: Respond): PiExecutionOptions['stream'] => {
 	return (_model, context, options) => {
 		const output = createAssistantMessageEventStream();
 		const system = getCurrentSystemPrompt(context.messages);
-		const closing = system.includes('The exchange is over.');
-		const agent = system.match(/You are '([^']+)'/)?.[1] ?? 'assistant';
+		const agent = system.match(/You are '([^']+)'/)?.[1] ?? 'unknown';
 		const call = (calls.get(agent) ?? 0) + 1;
 		calls.set(agent, call);
-		const response = respond(agent, call, closing);
+		const response = respond(agent, call);
 		queueMicrotask(() => {
 			if (options?.signal?.aborted) {
 				output.push({
@@ -105,13 +99,13 @@ async function messagesOf(lab: Lab, room: string) {
 /**
  * The exchange runs several activations over real SQLite and directory I/O.
  * Alone it takes about 300 ms, and a loaded run of the whole suite takes several
- * times that. The wait allows 5 s and returns as soon as the summary lands.
+ * times that. The wait allows 5 s and returns as soon as an exchange closes.
  */
-async function untilSummary(lab: Lab, room: string) {
+async function untilClosed(lab: Lab, room: string) {
 	const deadline = Date.now() + 5_000;
 	while (Date.now() < deadline) {
-		const messages = await messagesOf(lab, room);
-		if (messages.some((message) => message.kind === 'summary')) return messages;
+		const view = await lab.read(room, 0);
+		if (view.exchanges.some((exchange) => exchange.status === 'closed')) return view.messages;
 		await new Promise<void>((resolve) => setTimeout(resolve, 10));
 	}
 	return messagesOf(lab, room);
@@ -251,14 +245,22 @@ describe('Workbench host', () => {
 		await expect(lab.file('/missing.md')).rejects.toThrow(/File not found/);
 	});
 
-	it('publishes a summary, records a specialist artifact, and keeps it after restart', async () => {
+	it('shows each message of the specialists, records a specialist artifact, and keeps it after restart', async () => {
 		const parent = await freshDirectory();
 		const directory = joinPath(parent, 'run');
 		let lab = await open(directory);
 		await lab.join('build', person);
-		await lab.send('build', person, 'summary-1', 'Plan the sweep.');
-		const messages = await untilSummary(lab, 'build');
-		expect(messages.some((message) => message.kind === 'summary')).toBe(true);
+		await lab.send('build', person, 'plan-1', 'Plan the sweep.');
+		const messages = await untilClosed(lab, 'build');
+		const said = messages.flatMap((message) =>
+			message.kind === 'said' ? [[message.from, message.to, message.text]] : [],
+		);
+		expect(said).toEqual([
+			[person, undefined, 'Plan the sweep.'],
+			['engineer', 'researcher', 'Please plan the sweep.'],
+			['researcher', undefined, 'Plan written.'],
+		]);
+		expect(messages.some((message) => message.kind === 'summary')).toBe(false);
 		const path = '/home/researcher/shared/plan.md';
 		expect((await lab.file(path)).text).toBe(PLAN);
 		await lab.close();
@@ -404,7 +406,7 @@ describe('Workbench host steps, says, and processes', () => {
 		const lab = await open(joinPath(await freshDirectory(), 'run'));
 		await lab.join('build', person);
 		await lab.send('build', person, 'trace-1', 'Plan the sweep.');
-		await untilSummary(lab, 'build');
+		await untilClosed(lab, 'build');
 		const view = await lab.read('build', 0);
 		const activations = view.exchanges.flatMap((exchange) => exchange.activations);
 		expect(activations.length).toBeGreaterThan(0);
@@ -424,8 +426,8 @@ describe('Workbench host steps, says, and processes', () => {
 	it('lists a say that waits to return, and dismisses it once', async () => {
 		const lab = await open(
 			await freshDirectory(),
-			scriptedStream((agent, call, closing) => {
-				if (closing || agent !== 'assistant' || call !== 1)
+			scriptedStream((agent, call) => {
+				if (agent !== 'engineer' || call !== 1)
 					return fauxAssistantMessage('quiet', { stopReason: 'stop' });
 				const later = { text: 'Check the LED temperature.', delaySeconds: 600 };
 				return fauxAssistantMessage([fauxToolCall('schedule', later)], { stopReason: 'toolUse' });
@@ -438,7 +440,7 @@ describe('Workbench host steps, says, and processes', () => {
 			if (!say) throw new Error('No say waits yet.');
 			return say;
 		});
-		expect(waiting).toMatchObject({ seat: 'assistant' });
+		expect(waiting).toMatchObject({ seat: 'engineer' });
 		expect(await lab.dismiss('build', waiting.seq)).toBe(true);
 		expect(await lab.dismiss('build', waiting.seq)).toBe(false);
 		expect((await lab.read('build', 0)).scheduled).toEqual([]);
@@ -450,12 +452,12 @@ describe('Workbench host steps, says, and processes', () => {
 
 	it('lists the processes that a seat starts with bash, reads an output, and cancels a running one', async () => {
 		// Engineer starts a short process that ends in its window, then a long one that it leaves running.
-		const stream = scriptedStream((agent, call, closing) => {
+		const stream = scriptedStream((agent, call) => {
 			const start = (command: string, name: string, wait: number) =>
 				fauxAssistantMessage([fauxToolCall('bash', { command, name, wait })], {
 					stopReason: 'toolUse',
 				});
-			if (agent !== 'engineer' || closing) return fauxAssistantMessage('quiet');
+			if (agent !== 'engineer') return fauxAssistantMessage('quiet');
 			if (call === 1) return start('echo hello from the bench', 'greet', 5);
 			if (call === 2) return start('sleep 60', 'soak', 0);
 			return fauxAssistantMessage('quiet');
@@ -495,14 +497,10 @@ describe('Workbench host steps, says, and processes', () => {
 	}, 20_000);
 });
 
-/** A stream that only records which seats got a request. The exchange closes at once. */
+/** A stream that only records which seats got a request. Each seat stays quiet. */
 function listeningStream(heard: Set<string>) {
-	return scriptedStream((agent, _call, closing) => {
+	return scriptedStream((agent) => {
 		heard.add(agent);
-		if (closing)
-			return fauxAssistantMessage([fauxToolCall('say', { text: 'Summary: heard.' })], {
-				stopReason: 'toolUse',
-			});
 		return fauxAssistantMessage('quiet', { stopReason: 'stop' });
 	});
 }
@@ -511,7 +509,7 @@ const whenHeard = (heard: Set<string>, agent: string) =>
 	vi.waitFor(() => expect(heard.has(agent)).toBe(true), { timeout: 5_000 });
 
 describe('Workbench host, a message to one seat', () => {
-	it('refuses a name that is neither the assistant nor a specialist', async () => {
+	it('refuses a name that is not a specialist', async () => {
 		const lab = await open(await freshDirectory(), listeningStream(new Set()));
 		await lab.join('build', person);
 		await expect(lab.send('build', person, 'to-2', '@nobody hi', [], 'nobody')).rejects.toThrow(
@@ -581,8 +579,8 @@ describe('Workbench host, a message to one seat', () => {
 		expect((await lab.read('mute', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
 	});
 
-	it('lists the assistant and the specialists as the seats to address', async () => {
+	it('lists the specialists as the seats to address', async () => {
 		const lab = await open(await freshDirectory(), listeningStream(new Set()));
-		expect(lab.team.map((seat) => seat.name)).toEqual(['assistant', 'researcher', 'engineer']);
+		expect(lab.team.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);
 	});
 });

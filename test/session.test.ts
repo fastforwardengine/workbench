@@ -51,7 +51,6 @@ describe('Session mentions', () => {
 		);
 		await session.refresh();
 		expect(session.suggestions('@').map((row) => [row.label, row.detail])).toEqual([
-			['@assistant', 'not seated'],
 			['@researcher', 'not seated'],
 			['@engineer', 'named'],
 		]);
@@ -454,18 +453,6 @@ describe('Session steps', () => {
 		expect(session.notice).toBe('No exchange 7.');
 	});
 
-	it('opens the steps of the exchange a discussion key names', async () => {
-		const { host, session } = await started();
-		host.table.set(
-			'characterization',
-			view('characterization', { exchanges: [closedExchange(4)] }),
-		);
-		host.traces.set('act-4', trace('act-4', true));
-		await session.refresh();
-		await session.showSteps('4');
-		expect(session.steps?.id).toBe('act-4');
-	});
-
 	it('says so when the activation has no trace', async () => {
 		const { host, session } = await started();
 		host.table.set(
@@ -481,7 +468,7 @@ describe('Session steps', () => {
 		const { host, session } = await started();
 		const attempt = (id: string, status: string, attempt: number) => ({
 			id,
-			seat: 'assistant',
+			seat: 'engineer',
 			purpose: 'respond',
 			attempt,
 			outcome: { kind: status, cause: 'permanent' },
@@ -704,7 +691,7 @@ describe('Session commands', () => {
 		expect(await session.submit('/files')).toEqual({ type: 'files' });
 	});
 
-	it('opens every discussion with /expand and closes them with /collapse', async () => {
+	it('shows every message of a closed exchange in the open, and has no /expand', async () => {
 		const { host, session } = await started();
 		const said = (seq: number, from: string) => ({
 			seq,
@@ -722,11 +709,14 @@ describe('Session commands', () => {
 			}),
 		);
 		await session.refresh();
-		expect(session.expanded.size).toBe(0);
+		expect(session.blocks.map((block) => block.type)).toEqual([
+			'message',
+			'message',
+			'message',
+			'message',
+		]);
 		await session.submit('/expand');
-		expect(session.expanded.size).toBe(1);
-		await session.submit('/collapse');
-		expect(session.expanded.size).toBe(0);
+		expect(session.notice).toMatch(/Unknown command \/expand/);
 	});
 
 	it('shows the help text with /help', async () => {

@@ -157,38 +157,23 @@ export function chipLine(item: ResolvedRef, width: number): string {
 	return `${head}${ellipsize(item.label, room)}${tail}`;
 }
 
-/** The messages that the blocks show: the open ones, and the ones inside an open discussion. */
+/** The messages that the blocks show. */
 function shownMessages(blocks: readonly Block[]): Message[] {
-	return blocks.flatMap((block) => {
-		if (block.type === 'message') return [block.message];
-		if (block.type === 'discussion' && block.expanded)
-			return block.items.map((item) => item.message);
-		return [];
-	});
+	return blocks.flatMap((block) => (block.type === 'message' ? [block.message] : []));
 }
 
 /** The refs of the shown messages, top to bottom and in the order each message lists them. */
 export function refItems(blocks: readonly Block[], known: Known): RefItem[] {
 	return shownMessages(blocks).flatMap((message) =>
-		(message.kind === 'said' || message.kind === 'summary' ? (message.refs ?? []) : []).map(
-			(ref, index) => ({
-				id: `${message.seq}#${index}`,
-				seq: message.seq,
-				resolved: resolveRef(ref, known),
-			}),
-		),
+		(message.kind === 'said' ? (message.refs ?? []) : []).map((ref, index) => ({
+			id: `${message.seq}#${index}`,
+			seq: message.seq,
+			resolved: resolveRef(ref, known),
+		})),
 	);
 }
 
-/** The key of the discussion that holds the message at `seq`, when a discussion does. */
-export function holderOf(blocks: readonly Block[], seq: number): string | undefined {
-	for (const block of blocks)
-		if (block.type === 'discussion' && block.items.some((item) => item.message.seq === seq))
-			return block.key;
-	return undefined;
-}
-
-/** True when the blocks show the message at `seq`: open, or in a discussion that is open. */
+/** True when the blocks show the message at `seq`. */
 export function shows(blocks: readonly Block[], seq: number): boolean {
 	return shownMessages(blocks).some((message) => message.seq === seq);
 }

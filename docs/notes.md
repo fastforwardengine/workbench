@@ -76,9 +76,6 @@ disputes of its area when evidence exists.
 | `instruments/`, `radio/`, `build/` | Engineer   |
 | `decisions/`, `questions/`         | Researcher |
 
-The assistant has no file or git tool. It cites the commits and the
-branches of the notes in its summaries.
-
 ## A note
 
 **A note file has a title and a list of claims.** One claim is one bullet.

@@ -50,7 +50,6 @@
 	},
 	"dependencies": {
 		"@ambionframework/ambion": "^0.5.0",
-		"@ambionframework/assistant": "^0.5.0",
 		"@ambionframework/journal": "^0.5.0",
 		"@ambionframework/just-bash": "^0.5.0",
 		"@ambionframework/pi": "^0.5.0",

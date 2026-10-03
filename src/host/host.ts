@@ -42,7 +42,7 @@ export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
 export type { Viewfinder, ViewfinderState } from './viewfinder.ts';
 
-/** An assistant or a specialist that a message can address, seated in the room or not. */
+/** A specialist that a message can address, seated in the room or not. */
 interface Addressable {
 	name: string;
 	identity: string;
@@ -56,7 +56,7 @@ interface Addressable {
  */
 export interface Lab {
 	readonly people: readonly Person[];
-	/** The seats a person can address with `@name`: the assistant and every specialist. */
+	/** The seats a person can address with `@name`: every specialist. */
 	readonly team: readonly Addressable[];
 	rooms(): Promise<RoomView[]>;
 	/** Read one room. Messages come back only after `since`, an exclusive position. */
