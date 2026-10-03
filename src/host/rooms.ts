@@ -17,7 +17,7 @@ import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
 import { type Environment, hasKey, keyVariable, unavailableSeats } from '../domain/families.ts';
 import { sharedRegistrations } from '../domain/notes.ts';
-import { scenarios, seats } from '../domain/scenarios.ts';
+import { buildRoom, seats } from '../domain/scenarios.ts';
 import { WORKSPACE } from '../view/refs.ts';
 import { stepLog } from '../view/steps.ts';
 import { labRepositories } from './repositories.ts';
@@ -196,7 +196,6 @@ export async function openRooms(
 		entry.enabled = 1;
 		save(entry);
 		const options = { agents: entry.team.agents, runtime };
-		const scenario = scenarios.find((candidate) => candidate.name === entry.name);
 		const recorded = await readRoom(entry.name, { runtime, messages: false });
 		const room = recorded.initialized
 			? await resumeRoom(entry.name, options)
@@ -206,7 +205,7 @@ export async function openRooms(
 					runtime,
 					name: entry.name,
 					goal: entry.goal,
-					seats: scenario?.seats ?? seats,
+					seats,
 				});
 		// The handle is owned before subscription. A later host failure leaves a
 		// usable running room that shutdown can still clean up.
@@ -362,8 +361,8 @@ function roomView(
 		status: entry.lifecycle.status,
 		activity: [...entry.activity],
 		failures: new Map(entry.failures) as ReadonlyMap<string, string>,
-		pattern: scenarios.find((scenario) => scenario.name === entry.name)?.pattern,
-		prompt: scenarios.find((scenario) => scenario.name === entry.name)?.prompt,
+		pattern: entry.name === buildRoom.name ? buildRoom.pattern : undefined,
+		prompt: entry.name === buildRoom.name ? buildRoom.prompt : undefined,
 	};
 }
 

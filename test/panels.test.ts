@@ -75,7 +75,7 @@ function processes(): FakeHost {
 			output: '/x/out',
 			timeout: 600,
 			grace: 10,
-			room: 'radio-kit',
+			room: 'build',
 			startedAt: iso(65_000),
 		},
 		{

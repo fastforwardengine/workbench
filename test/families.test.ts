@@ -77,25 +77,25 @@ describe('Workbench with no key', () => {
 		const directory = await mkdtemp(join(tmpdir(), 'workbench-nokey-'));
 		const lab = await openLab({ directory: join(directory, 'run'), env: {} });
 		opened.push({ lab, directory });
-		expect((await lab.read('radio-kit', 0)).unavailable).toEqual([
+		expect((await lab.read('build', 0)).unavailable).toEqual([
 			'assistant',
 			'researcher',
 			'engineer',
 		]);
-		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'nokey-1', 'Plan a test.');
+		await lab.join('build', person);
+		await lab.send('build', person, 'nokey-1', 'Plan a test.');
 		await vi.waitFor(async () => {
-			const view = await lab.read('radio-kit', 0);
+			const view = await lab.read('build', 0);
 			const errors = view.activity.filter((item) => item.type === 'error');
 			expect(errors.map((item) => item.text).join('\n')).toContain(
 				"Seat 'assistant' cannot run: ANTHROPIC_API_KEY is not set",
 			);
 			expect(view.status).toBe('running');
 		});
-		// The exchange closes on the failure. The seats of `radio-kit` that hold a key wake,
+		// The exchange closes on the failure. The seats of `build` that hold a key wake,
 		// and the note names the last seat that failed, with its reason.
 		await vi.waitFor(async () => {
-			const view = await lab.read('radio-kit', 0);
+			const view = await lab.read('build', 0);
 			const closed = view.exchanges.find((exchange) => exchange.status === 'closed');
 			expect(closed).toMatchObject({ outcome: { kind: 'exhausted' } });
 			const blocks = buildTimeline({
