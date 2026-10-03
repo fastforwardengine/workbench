@@ -122,14 +122,15 @@ The data directory holds three kinds of file:
 `start.py ramp` brings a channel to a voltage in steps, under a current
 limit. It holds the voltage, and then it turns the channel off.
 
-1. Start the controller with the `bash` call. The turn-off takes
-   milliseconds, so `grace: 2` is enough. Set `timeout` above the sum of
-   `--seconds` and `--hold`:
+1. Start the controller with the `bash` call. The turn-off of `ramp` takes
+   milliseconds, and the turn-off of `sequence` can take 2 s. Give every
+   actuator `grace: 5`. Set `timeout` above the sum of `--seconds` and
+   `--hold`:
 
    ```ts
    bash({
      command: 'cd ~/bench-psu && python3 -u -B start.py ramp --channel ch1 --voltage 5 --current 0.1 --seconds 10 --hold 60',
-     name: 'psu-ramp', grace: 2, timeout: 120, wait: 0,
+     name: 'psu-ramp', grace: 5, timeout: 120, wait: 0,
    });
    ```
 
@@ -141,7 +142,7 @@ limit. It holds the voltage, and then it turns the channel off.
 3. Trust exit 0 as safe. Every channel that the process holds is off at
    exit 0. Exit 1 means an error, and the state of the channel is unknown.
 4. Run `python3 finally.py --channel ch1` after an unclean end: an exit
-   code other than 0, a kill, or a lost process. It takes no drive lock.
+   code other than 0, the state `cancelled`, a kill, or a lost process. It takes no drive lock.
    A second run changes nothing.
 
 **The ramp gives up on an abnormal current.** A reading within 2 % of the
@@ -166,9 +167,9 @@ in constant current is a valid point, and `sweep` logs it. The turn-off of
 stays below 2 s.
 
 **A `sequence` needs `--trip` below `--current` for each rail.** While a
-rail settles, the sequence ignores a current at the limit. Only a current
-above `--trip`, or the end of `--settle`, stops a shorted rail that sits at
-its current limit.
+rail settles, the sequence ignores a current at the limit. Within the
+controller, only a current above `--trip`, or the end of `--settle`, stops
+a shorted rail that sits at its current limit.
 
 **The controller takes the drive lock of each of its channels.** When another
 process holds it, the controller logs `gave_up` with the holder, and
