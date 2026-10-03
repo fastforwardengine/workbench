@@ -62,6 +62,17 @@ def load_config(path):
     return config
 
 
+def choose_channel(channels, wanted):
+    """The channel of a command: the option, else the only channel. It must be in channels."""
+    if wanted:
+        if wanted not in channels:
+            raise SupplyError(f"There is no channel {wanted} in psu.json. The channels are: {', '.join(channels)}.")
+        return wanted
+    if len(channels) == 1:
+        return channels[0]
+    raise SupplyError(f"The supply has several channels: use --channel with one of {', '.join(channels)}.")
+
+
 def lock_directory():
     """The directory of the lock files."""
     chosen = os.environ.get("PSU_LOCK_DIR")
@@ -253,6 +264,11 @@ class Guard:
         self._within(channel, volts, "max_voltage", "voltage", "V", what)
         self._within(channel, amps, "max_current", "current", "A", what)
         self._within(channel, volts * amps, "max_power", "power", "W", what)
+
+    def check(self, channel, voltage, current):
+        """Refuse a voltage and a current that break the limits. It writes nothing."""
+        self.known(channel)
+        self._check_pair(channel, voltage, current, "The target")
 
     def mode(self, setting, reading):
         """The mode of a channel: from the driver, else derived from the current."""
