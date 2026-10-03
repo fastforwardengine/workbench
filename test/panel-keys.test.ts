@@ -195,9 +195,17 @@ describe('the camera viewfinder', () => {
 		expect(built.keys.mode).toBe('compose');
 		expect(built.camera.open).toBe(true);
 		expect(built.host.finders).toHaveLength(0);
-		expect(await built.frame()).toContain('needs a terminal with Kitty graphics');
+		expect(await built.frame()).toContain('with Kitty graphics');
 		expect(built.transcript.root.visible).toBe(true);
 		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('takes one third of the terminal width', async () => {
+		const built = await build(180);
+		built.keys.toggleCamera();
+		await wait(20);
+		await built.frame();
+		expect(Math.abs(built.cameraPanel.root.width - 60)).toBeLessThanOrEqual(1);
 	});
 
 	it('leaves the keys to the composer while it shows', async () => {

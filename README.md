@@ -136,14 +136,15 @@ needs one. A bench script comes from a template.
   message that cites a picture or a sensor manifest.
 - **Camera viewfinder:** `/camera` shows a pane beside the conversation with
   the latest frame of the connected `camera` sensor, its age, and the sensor
-  name. A second `/camera` hides it. The composer stays active while the pane
-  shows. The pane reads the sensor every 3 seconds while it shows. Each read
-  is a normal `observe`, which the sensor server logs. The workspace keeps no
-  snapshot of it. The pane uses the slot of the side panels: the files and
-  processes panels cover it and stop the reads, and it shows again when they
-  close. A terminal under 100 columns does not show it. When no camera is
-  connected, the pane asks you to have the Engineer connect one. The pane
-  needs a terminal with Kitty graphics, such as Ghostty.
+  name. The pane takes one third of the terminal width, and the frame keeps
+  its 16:9 shape. A second `/camera` hides it. The composer stays active while
+  the pane shows. The pane reads the sensor every 3 seconds while it shows.
+  Each read is a normal `observe`, which the sensor server logs. The workspace
+  keeps no snapshot of it. The pane uses the slot of the side panels: the
+  files and processes panels cover it and stop the reads, and it shows again
+  when they close. A terminal under 100 columns does not show it. When no
+  camera is connected, the pane asks you to have the Engineer connect one. The
+  pane needs a terminal with Kitty graphics, such as Ghostty.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
   waits for its goal. In a side panel it closes the panel. Ctrl+D leaves
   the terminal when the composer is empty, and `/quit` also leaves. The

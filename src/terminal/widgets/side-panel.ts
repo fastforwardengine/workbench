@@ -42,13 +42,19 @@ export abstract class SidePanel {
 	protected readonly renderer: CliRenderer;
 	protected readonly scroll: ScrollBoxRenderable;
 	protected readonly hint: TextRenderable;
+	/** The share of the width that the panel takes beside the conversation. */
+	private readonly share: `${number}%`;
 
-	/** `sticky` keeps the body at its end while it grows, as a log does. */
-	protected constructor(renderer: CliRenderer, sticky = false) {
+	/**
+	 * `sticky` keeps the body at its end while it grows, as a log does. `share`
+	 * is the width beside the conversation.
+	 */
+	protected constructor(renderer: CliRenderer, sticky = false, share: `${number}%` = '55%') {
 		this.renderer = renderer;
+		this.share = share;
 		this.root = new BoxRenderable(renderer, {
 			flexDirection: 'column',
-			width: '55%',
+			width: share,
 			flexShrink: 0,
 			minWidth: 40,
 			border: true,
@@ -79,7 +85,7 @@ export abstract class SidePanel {
 
 	/** Give the panel the whole width, or a share of it beside the conversation. */
 	fill(whole: boolean): void {
-		this.root.width = whole ? '100%' : '55%';
+		this.root.width = whole ? '100%' : this.share;
 	}
 
 	scrollBy(lines: number): void {
