@@ -221,7 +221,7 @@ class MicrophoneTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
-        self.source = {"repository": "instruments/bench-camera", "commit": "a" * 40, "dirty": False}
+        self.source = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
         self.running = False
         self.addCleanup(self.stop_server)
 

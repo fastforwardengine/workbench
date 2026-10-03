@@ -18,7 +18,7 @@ flowchart LR
     s3["s3ObjectBackend"]
   end
   subgraph box["Container: sshd on 127.0.0.1:2222"]
-    agents["datasheets, experiments, instruments,<br/>builder, workbench-host"]
+    agents["datasheets, experiments, engineer,<br/>workbench-host"]
     repos["workbench-git<br/>~/repos"]
   end
   subgraph store["Container: silo on 127.0.0.1:9000"]
@@ -190,7 +190,7 @@ converts to mono 48 kHz. The BRIO records 16-bit samples (`S16_LE`) in two
 channels, from 16000 to 48000 Hz. Docker hides `/proc/asound` in the
 container. `arecord -l` still works.
 
-To keep the frames and the clips as evidence, The Engineer forks the
+To keep the frames and the clips as evidence, the Engineer forks the
 [`usb-camera` template](../templates/usb-camera/README.md). The template
 uses the Python, `fswebcam`, and `arecord` tools of the image, so the image
 needs no change. The server listens on the loopback address of the workstation.

@@ -71,7 +71,7 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 				files: { ref: string; path: string; digest: string }[];
 			};
 			expect(evidence.source.commit).toBe(ready.source.commit);
-			const heard = await invoke('observe', { sensor: `${name}/microphone` }, 'builder');
+			const heard = await invoke('observe', { sensor: `${name}/microphone` }, 'datasheets');
 			expect(text(heard)).toContain('SYNTHETIC DEMO');
 			const clips = (heard.details as { files: { path: string; digest: string }[] }).files;
 			expect(clips).toHaveLength(1);
