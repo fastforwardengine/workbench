@@ -289,6 +289,22 @@ class ConcurrencyTests(unittest.TestCase):
         self.assertTrue(self.wait_for_result(clip, 1))
         self.assertEqual(clip[0][0], 200)
 
+    def test_drain_waits_for_the_captures_in_flight(self):
+        results = []
+        self.ask("camera", results)
+        self.wait_for(self.entered)
+        drained = threading.Event()
+        waiter = threading.Thread(target=lambda: (self.camera.drain(), drained.set()))
+        waiter.start()
+        self.addCleanup(waiter.join)
+        self.assertFalse(drained.wait(0.2))
+        self.release.set()
+        self.assertTrue(drained.wait(5))
+        self.assertTrue(self.wait_for_result(results, 1))
+
+    def test_drain_returns_at_once_when_no_capture_runs(self):
+        self.camera.drain()
+
     def test_a_failed_capture_gives_503_to_every_waiting_request(self):
         results = []
         self.failing = True

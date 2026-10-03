@@ -101,6 +101,8 @@ class Poller implements Viewfinder {
 		}
 		this.unwatch = registry.subscribe((event) => this.onLink(event));
 		this.timer = setInterval(() => void this.poll(), options.every ?? POLL_MS);
+		// A forgotten viewfinder must not keep the process alive.
+		this.timer.unref();
 		void this.seed(registry);
 	}
 

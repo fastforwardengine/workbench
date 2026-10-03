@@ -210,6 +210,18 @@ describe('the camera panel', () => {
 		expect(built.composer.input.focused).toBe(true);
 	});
 
+	it('stops the poll when the terminal ends, without a draw', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.openCamera();
+		await wait(20);
+		const draws = built.renders.count;
+		built.keys.release();
+		expect(built.host.finders[0]?.closed).toBe(true);
+		expect(built.camera.open).toBe(false);
+		expect(built.renders.count).toBe(draws + 1);
+	});
+
 	it('gives the panel the whole width on a narrow terminal, and swaps with another panel', async () => {
 		const built = await build(80);
 		built.kitty.on = true;

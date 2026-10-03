@@ -65,6 +65,7 @@ export class ViewfinderBrowser {
 		if (this.finder) return;
 		this.finder = this.host.viewfinder(() => this.changed());
 		this.ticker = setInterval(() => this.changed(), TICK_MS);
+		this.ticker.unref();
 	}
 
 	private stop(): void {

@@ -67,6 +67,15 @@ describe('the viewfinder browser', () => {
 		expect(changed).toHaveBeenCalledTimes(calls);
 	});
 
+	it('leaves no timer after the panel closes', () => {
+		const browser = new ViewfinderBrowser(new FakeHost(), vi.fn());
+		browser.show();
+		browser.watch(true);
+		expect(vi.getTimerCount()).toBe(1);
+		browser.hide();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
 	it('redraws every second so the age moves, and on each change of the viewfinder', () => {
 		const host = new FakeHost();
 		const changed = vi.fn();

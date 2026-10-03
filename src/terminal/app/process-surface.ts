@@ -31,6 +31,10 @@ export class ProcessesSurface implements Surface {
 		this.panel.draw(this.browser);
 	}
 
+	release(): void {
+		this.browser.hide();
+	}
+
 	draw(): void {
 		this.panel.draw(this.browser);
 	}

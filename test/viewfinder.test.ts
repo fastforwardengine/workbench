@@ -257,6 +257,20 @@ describe('the poll', () => {
 	});
 });
 
+describe('the timers', () => {
+	it('leaves no timer after it closes, also with a read in flight', async () => {
+		const registry = new FakeRegistry();
+		const link = registry.connected('bench');
+		link.gate = new Promise(() => {});
+		const { finder } = watch(registry);
+		await settle();
+		expect(vi.getTimerCount()).toBeGreaterThan(0);
+		finder.close();
+		await settle();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+});
+
 describe('the link events', () => {
 	it('shows a plain line and stops reading when the only link disconnects', async () => {
 		const registry = new FakeRegistry();

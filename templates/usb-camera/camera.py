@@ -231,6 +231,13 @@ class Camera:
             raise flight.error
         return flight.observation
 
+    def drain(self):
+        """Wait for the captures in flight. The subprocess timeouts bound the wait."""
+        with self.lock:
+            flights = list(self.flights.values())
+        for flight in flights:
+            flight.done.wait()
+
     def acquire(self, sensor="camera"):
         if sensor == "microphone":
             return self.record()
@@ -388,6 +395,9 @@ def main():
         pass
     finally:
         server.server_close()
+        # A handler thread is a daemon. Wait for its capture, so that no fswebcam or arecord
+        # keeps the device and no temporary folder stays in the data directory.
+        camera.drain()
 
 
 if __name__ == "__main__":

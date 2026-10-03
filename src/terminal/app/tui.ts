@@ -150,6 +150,7 @@ class EngineTui {
 		await new Promise<void>((resolve) => {
 			this.renderer.once('destroy', () => {
 				this.stopped = true;
+				this.keys.release();
 				clearInterval(slow);
 				resolve();
 			});

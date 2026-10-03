@@ -31,6 +31,10 @@ export class ViewfinderSurface implements Surface {
 		this.panel.draw(this.browser, this.graphics());
 	}
 
+	release(): void {
+		this.browser.hide();
+	}
+
 	draw(): void {
 		const kitty = this.graphics();
 		this.browser.watch(kitty);

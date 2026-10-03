@@ -3,7 +3,7 @@ import type { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import { tui as palette } from './brand.ts';
 import { lineText, SidePanel } from './side-panel.ts';
 
-const HINT = 'The camera is read every 3 s   Esc close';
+const HINT = 'Workbench reads the camera every 3 s   Esc close';
 
 /** What the panel says in a terminal that cannot draw the frame. */
 const NEEDS_KITTY = 'The viewfinder needs a terminal with Kitty graphics, such as Ghostty.';
