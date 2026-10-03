@@ -51,7 +51,7 @@ that a tool writes beside a template does not change it.
 
 | Template          | Use                                    | Specialists |
 | ----------------- | -------------------------------------- | ----------- |
-| `test-plan`       | A test plan                            | Experiments |
+| `test-plan`       | A test plan                            | Research    |
 | `device-scan`     | A scan of the connected devices        | Engineer    |
 | `usb-camera`      | Images and sound from a USB camera     | Engineer    |
 | `psu`             | Control of a programmable power supply | Engineer    |

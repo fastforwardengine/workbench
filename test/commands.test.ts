@@ -11,7 +11,7 @@ const choices: Choices = {
 	agents: [
 		{ name: 'assistant', state: 'broadcast' },
 		{ name: 'engineer', state: 'named' },
-		{ name: 'datasheets', state: 'not seated' },
+		{ name: 'research', state: 'not seated' },
 	],
 	rooms,
 	people: [
@@ -75,10 +75,10 @@ describe('parse', () => {
 		expect(parse('@engineer, check the diode')).toMatchObject({ to: 'engineer' });
 		expect(parse('@engineer: check')).toMatchObject({ to: 'engineer' });
 		expect(parse("@Engineer's step")).toMatchObject({ to: 'engineer' });
-		expect(parse('@datasheets')).toEqual({
+		expect(parse('@research')).toEqual({
 			kind: 'message',
-			text: '@datasheets',
-			to: 'datasheets',
+			text: '@research',
+			to: 'research',
 		});
 		expect(parse('@engineer\nsecond line')).toMatchObject({ to: 'engineer' });
 	});
@@ -107,7 +107,7 @@ describe('suggest a seat', () => {
 		).toEqual([
 			['@assistant', 'broadcast', '@assistant ', false],
 			['@engineer', 'named', '@engineer ', false],
-			['@datasheets', 'not seated', '@datasheets ', false],
+			['@research', 'not seated', '@research ', false],
 		]);
 	});
 

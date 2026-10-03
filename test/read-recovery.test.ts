@@ -88,7 +88,7 @@ describe('Workbench room reads and recovery', () => {
 			rooms = await openRooms(database, directory, { stream: quietStream(counter) });
 			await rooms.create('legacy', 'Recorded goal.');
 			await rooms.withRoom('legacy', async (entry) => {
-				await liveRoom(entry).unseat('experiments');
+				await liveRoom(entry).unseat('research');
 			});
 			await rooms.lifecycle('legacy', 'stop');
 			await rooms.close();
@@ -104,7 +104,7 @@ describe('Workbench room reads and recovery', () => {
 				status: 'running',
 			});
 			expect(status?.participants).not.toEqual(
-				expect.arrayContaining([expect.objectContaining({ name: 'experiments' })]),
+				expect.arrayContaining([expect.objectContaining({ name: 'research' })]),
 			);
 			expect(counter.calls).toBe(0);
 		} finally {

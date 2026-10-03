@@ -39,7 +39,7 @@ const script = byAgent({
 			? say('Summary: /library holds no LED datasheet yet.')
 			: quiet(),
 	// One seat speaks, so no say of another seat makes its view stale.
-	datasheets: once([
+	research: once([
 		() => callTool('read', { path: '/shared/kit.md' }),
 		(results) => say(`/library holds no LED datasheet yet. ${results[0]?.text ?? ''}`),
 	]),
@@ -58,11 +58,11 @@ describe('the eval support', () => {
 		const [exchange] = run.exchanges;
 		expect(exchange?.sent).toBe(sweep.prompt);
 		expect(exchange?.summary).toMatchObject({ from: 'assistant', to: person.name });
-		const said = saidBy(exchange, 'datasheets');
+		const said = saidBy(exchange, 'research');
 		expect(said).toHaveLength(1);
 		// The workspace is seeded, as the host seeds it.
 		expect(said[0]?.text).toContain('# The project');
-		expect(toolsOf(run, 'datasheets')).toEqual(['read']);
+		expect(toolsOf(run, 'research')).toEqual(['read']);
 		for (const tool of WORKSPACE_TOOLS) expect(toolsOf(run, 'assistant')).not.toContain(tool);
 	});
 });

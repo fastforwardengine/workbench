@@ -7,15 +7,15 @@ library file that it rests on. The `keep-notes` skill states the git steps.
 
 ## Layout
 
-| Folder         | Holds                                                 | Steward     |
-| -------------- | ----------------------------------------------------- | ----------- |
-| `parts/`       | One file for each part                                | Datasheets  |
-| `circuit/`     | Nets and blocks: power, I²C, buttons, audio, display  | Datasheets  |
-| `instruments/` | One file for each device on the bench                 | Engineer    |
-| `radio/`       | What the radio does: bands, stations, current         | Engineer    |
-| `build/`       | One file for each kit and its steps                   | Engineer    |
-| `decisions/`   | One file for each decision, named by date and subject | Experiments |
-| `questions/`   | One file for each open question                       | Experiments |
+| Folder         | Holds                                                 | Steward  |
+| -------------- | ----------------------------------------------------- | -------- |
+| `parts/`       | One file for each part                                | Research |
+| `circuit/`     | Nets and blocks: power, I²C, buttons, audio, display  | Research |
+| `instruments/` | One file for each device on the bench                 | Engineer |
+| `radio/`       | What the radio does: bands, stations, current         | Engineer |
+| `build/`       | One file for each kit and its steps                   | Engineer |
+| `decisions/`   | One file for each decision, named by date and subject | Research |
+| `questions/`   | One file for each open question                       | Research |
 
 Anyone writes anywhere. The steward keeps the format of the folder, splits
 a file that grows long, and merges duplicate claims with their sources

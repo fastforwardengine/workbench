@@ -27,7 +27,7 @@ export const templates: readonly Template[] = [
 		description:
 			'A numbered test plan: the question, the setup, the variable, the controls, the measurement, the limits, and the pass criterion.',
 		use: 'a test plan',
-		specialists: ['experiments'],
+		specialists: ['research'],
 	},
 	{
 		name: 'device-scan',

@@ -123,8 +123,8 @@ exports[`the frames of the panels > draws the files panel with a search and a fl
 exports[`the frames of the panels > draws the processes panel in a short terminal 1`] = `
 "┌──────────────────────────────────────┐
 │ Processes   1 running, 2 in all      │
-│ ● ▸ scan         engineer     runnin │
-│ ●   bash-bbb222  experiments  exit 0 │
+│ ● ▸ scan         engineer  running 1 │
+│ ●   bash-bbb222  research  exit 0 af │
 │                                      │
 │                                      │
 │                                      │
@@ -141,8 +141,8 @@ exports[`the frames of the panels > draws the processes panel in a short termina
 exports[`the frames of the panels > draws the processes panel with a long output at its end 1`] = `
 "┌─────────────────────────────────────────────────────┐
 │ Processes   1 running, 2 in all                     │
-│ ● ▸ scan         engineer     running 1m 5s         │
-│ ●   bash-bbb222  experiments  exit 0 after 4s       │
+│ ● ▸ scan         engineer  running 1m 5s         py │
+│ ●   bash-bbb222  research  exit 0 after 4s       ec │
 │                                                     │
 │                                                     │
 │                                                     │
@@ -175,15 +175,15 @@ exports[`the frames of the panels > draws the processes panel with a long output
 exports[`the frames of the panels > draws the processes panel with the second process chosen 1`] = `
 "┌─────────────────────────────────────────────────────┐
 │ Processes   1 running, 2 in all                     │
-│ ●   scan         engineer     running 1m 5s         │
-│ ● ▸ bash-bbb222  experiments  exit 0 after 4s       │
+│ ●   scan         engineer  running 1m 5s         py │
+│ ● ▸ bash-bbb222  research  exit 0 after 4s       ec │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
 │                                                     │
-│ bash-bbb222   experiments, exit 0 after 4s          │
+│ bash-bbb222   research, exit 0 after 4s             │
 │ $ echo done                                         │
 │ 900 B of output.                                    │
 │ output of bash-bbb222 52                            │

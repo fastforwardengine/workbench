@@ -8,7 +8,7 @@
 #   make stop                   stop the workstation; the volumes keep every file
 #   make logs                   follow the logs of sshd and the object store
 #   make shell                  a root shell in the workstation
-#   make ssh ACCOUNT=experiments   a shell as one account, over ssh
+#   make ssh ACCOUNT=research   a shell as one account, over ssh
 #   make test-workstation       the workspace tier on the workstation, no model
 #   make reset                  remove the workstation and its volumes, after a prompt
 #
@@ -18,7 +18,7 @@ COMPOSE := docker compose -f workstation/compose.yaml
 STATE := .workstation
 CONFIG := $(STATE)/workstation.json
 DATA ?= .data
-ACCOUNT ?= experiments
+ACCOUNT ?= research
 
 .DEFAULT_GOAL := workbench
 .PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset

@@ -50,7 +50,7 @@ chmod 0600 "$STATE/objects.env"
 
 fingerprint="$(ssh-keygen -lf "$STATE/ssh_host_ed25519_key.pub" | cut -d' ' -f2)"
 # A known_hosts file for a person who logs in with ssh, such as:
-#   ssh -p 2222 -i .workstation/keys/experiments -o UserKnownHostsFile=.workstation/known_hosts experiments@127.0.0.1
+#   ssh -p 2222 -i .workstation/keys/research -o UserKnownHostsFile=.workstation/known_hosts research@127.0.0.1
 echo "[127.0.0.1]:$PORT $(cut -d' ' -f1-2 "$STATE/ssh_host_ed25519_key.pub")" >"$STATE/known_hosts"
 cat >"$STATE/workstation.json" <<JSON
 {

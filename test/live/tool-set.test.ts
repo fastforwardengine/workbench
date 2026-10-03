@@ -22,7 +22,7 @@ import {
 	track,
 } from './support.ts';
 
-const specialists = ['datasheets', 'experiments', 'engineer'] as const;
+const specialists = ['research', 'engineer'] as const;
 
 /**
  * Native tool names a harness might add. Pi holds none of them by design. The

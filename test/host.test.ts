@@ -30,20 +30,20 @@ function scriptedResponse(agent: string, call: number, closing: boolean) {
 		});
 	if (agent === 'assistant' && call === 1)
 		return fauxAssistantMessage(
-			[fauxToolCall('say', { to: 'experiments', text: 'Please plan the sweep.' })],
+			[fauxToolCall('say', { to: 'research', text: 'Please plan the sweep.' })],
 			{ stopReason: 'toolUse' },
 		);
 	if (agent === 'assistant' && call === 2)
 		return fauxAssistantMessage(
-			[fauxToolCall('say', { to: 'experiments', text: 'Thanks, that is clear.' })],
+			[fauxToolCall('say', { to: 'research', text: 'Thanks, that is clear.' })],
 			{ stopReason: 'toolUse' },
 		);
-	if (agent === 'experiments' && call === 1)
+	if (agent === 'research' && call === 1)
 		return fauxAssistantMessage(
 			[fauxToolCall('write', { path: 'shared/plan.md', content: PLAN })],
 			{ stopReason: 'toolUse' },
 		);
-	if (agent === 'experiments' && call === 2)
+	if (agent === 'research' && call === 2)
 		return fauxAssistantMessage([fauxToolCall('say', { to: 'assistant', text: 'Plan written.' })], {
 			stopReason: 'toolUse',
 		});
@@ -268,7 +268,7 @@ describe('Workbench host', () => {
 		await lab.send('radio-kit', person, 'summary-1', 'Plan the sweep.');
 		const messages = await untilSummary(lab, 'radio-kit');
 		expect(messages.some((message) => message.kind === 'summary')).toBe(true);
-		const path = '/home/experiments/shared/plan.md';
+		const path = '/home/research/shared/plan.md';
 		expect((await lab.file(path)).text).toBe(PLAN);
 		await lab.close();
 		lab = await open(directory);
@@ -523,17 +523,17 @@ describe('Workbench host, a message to one seat', () => {
 	it('wakes a seat at named only when the message addresses it', async () => {
 		const heard = new Set<string>();
 		const lab = await open(await freshDirectory(), listeningStream(heard));
-		await lab.join('radio-tune', person);
-		await lab.send('radio-tune', person, 'plain-1', 'Plan the press.');
-		await untilSummary(lab, 'radio-tune');
-		expect(heard.has('experiments')).toBe(true);
-		expect(heard.has('datasheets')).toBe(false);
-		await lab.send('radio-tune', person, 'to-1', '@datasheets find the CH+ pin.', [], 'datasheets');
-		await whenHeard(heard, 'datasheets');
-		const sent = (await messagesOf(lab, 'radio-tune')).find(
-			(message) => message.kind === 'said' && message.text.startsWith('@datasheets'),
+		await lab.join('radio-build', person);
+		await lab.send('radio-build', person, 'plain-1', 'Plan the step.');
+		await untilSummary(lab, 'radio-build');
+		expect(heard.has('engineer')).toBe(true);
+		expect(heard.has('research')).toBe(false);
+		await lab.send('radio-build', person, 'to-1', '@research find the diode pin.', [], 'research');
+		await whenHeard(heard, 'research');
+		const sent = (await messagesOf(lab, 'radio-build')).find(
+			(message) => message.kind === 'said' && message.text.startsWith('@research'),
 		);
-		expect(sent).toMatchObject({ to: 'datasheets' });
+		expect(sent).toMatchObject({ to: 'research' });
 	});
 
 	it('refuses a name that is neither the assistant nor a specialist', async () => {
@@ -551,27 +551,27 @@ describe('Workbench host, a message to one seat', () => {
 		const rooms = await openRooms(database, directory, {
 			stream: listeningStream(new Set()),
 		});
-		await rooms.create('legacy', 'A room from before the Experiments seat.');
+		await rooms.create('legacy', 'A room from before the Research seat.');
 		await rooms.withRoom('legacy', async (entry) => {
-			await liveRoom(entry).unseat('experiments');
+			await liveRoom(entry).unseat('research');
 		});
 		await rooms.close();
 		database.close();
 		const heard = new Set<string>();
 		const lab = await open(directory, listeningStream(heard));
 		const before = await lab.read('legacy', 0);
-		expect(before.participants.some((seat) => seat.name === 'experiments')).toBe(false);
+		expect(before.participants.some((seat) => seat.name === 'research')).toBe(false);
 		await lab.join('legacy', person);
-		await lab.send('legacy', person, 'to-3', '@experiments check the diode.', [], 'experiments');
-		await whenHeard(heard, 'experiments');
+		await lab.send('legacy', person, 'to-3', '@research check the diode.', [], 'research');
+		await whenHeard(heard, 'research');
 		const after = await lab.read('legacy', 0);
 		expect(
-			after.messages.find((m) => m.kind === 'said' && m.text.startsWith('@experiments')),
+			after.messages.find((m) => m.kind === 'said' && m.text.startsWith('@research')),
 		).toMatchObject({
-			to: 'experiments',
+			to: 'research',
 		});
 		expect(after.participants).toContainEqual(
-			expect.objectContaining({ name: 'experiments', kind: 'agent', attention: 'named' }),
+			expect.objectContaining({ name: 'research', kind: 'agent', attention: 'named' }),
 		);
 	});
 
@@ -582,26 +582,21 @@ describe('Workbench host, a message to one seat', () => {
 		await rooms.create('mute', 'A room with a seat that hears nothing.');
 		await rooms.withRoom('mute', async (entry) => {
 			const room = liveRoom(entry);
-			await room.unseat('experiments');
-			await room.seat('experiments', { attention: 'none' });
+			await room.unseat('research');
+			await room.seat('research', { attention: 'none' });
 		});
 		await rooms.close();
 		database.close();
 		const lab = await open(directory, listeningStream(new Set()));
 		await lab.join('mute', person);
-		await expect(
-			lab.send('mute', person, 'to-4', '@experiments hi', [], 'experiments'),
-		).rejects.toThrow("'experiments' listens at none");
+		await expect(lab.send('mute', person, 'to-4', '@research hi', [], 'research')).rejects.toThrow(
+			"'research' listens at none",
+		);
 		expect((await lab.read('mute', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
 	});
 
 	it('lists the assistant and the specialists as the seats to address', async () => {
 		const lab = await open(await freshDirectory(), listeningStream(new Set()));
-		expect(lab.agents.map((agent) => agent.name)).toEqual([
-			'assistant',
-			'datasheets',
-			'experiments',
-			'engineer',
-		]);
+		expect(lab.agents.map((agent) => agent.name)).toEqual(['assistant', 'research', 'engineer']);
 	});
 });

@@ -65,7 +65,7 @@ async function runRoom(built: Awaited<ReturnType<typeof build>>, script: Script,
 		assistant: built.assistant,
 		runtime: createRuntime(),
 		execution: scripted(script),
-		seats: { datasheets: 'named', experiments: 'named', engineer: 'named' },
+		seats: { research: 'named', engineer: 'named' },
 	});
 	cleanups.push(() => room.stop());
 	await (await room.visit(person)).send({ text });
@@ -97,13 +97,13 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const path = `/shared/handoff-${token()}.md`;
 		const marker = `LED limit ${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Write it.', 'datasheets') : quiet()),
-			datasheets: (_step, _seat, call) => {
+			assistant: (_step, _seat, call) => (call === 1 ? say('Write it.', 'research') : quiet()),
+			research: (_step, _seat, call) => {
 				if (call === 1) return callTool('write', { path, content: marker });
-				if (call === 2) return say('Written.', 'experiments');
+				if (call === 2) return say('Written.', 'engineer');
 				return quiet();
 			},
-			experiments: (step, _seat, call) => {
+			engineer: (step, _seat, call) => {
 				if (call === 1) return callTool('read', { path });
 				if (call === 2) return say(`Read back: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
@@ -112,9 +112,9 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const room = await runRoom(built, script, 'Share a file.');
 		const said = (await room.read()).messages.filter((message) => message.kind === 'said');
 		expect(
-			said.some((message) => message.from === 'experiments' && message.text.includes(marker)),
+			said.some((message) => message.from === 'engineer' && message.text.includes(marker)),
 		).toBe(true);
-		await built.workspace.use({ name: 'datasheets' }, async (env) => {
+		await built.workspace.use({ name: 'research' }, async (env) => {
 			await env.remove(path, { recursive: false });
 		});
 	}, 120_000);
@@ -153,11 +153,10 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 
 	it('keeps the uid of each specialist, and gives each one the home with its uid', async () => {
 		const built = await build();
-		// A new account goes at the end of workstation/accounts, so none of these uids ever changes.
+		// The image assigns uids by position in workstation/accounts. Run `make reset` after an account moves.
 		const uids: Record<string, number> = {
-			datasheets: 1000,
-			experiments: 1001,
-			engineer: 1002,
+			research: 1000,
+			engineer: 1001,
 		};
 		expect(built.specialists.map((seat) => seat.name).sort()).toEqual(Object.keys(uids).sort());
 		for (const [seat, uid] of Object.entries(uids)) {
@@ -205,17 +204,17 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		expect(report).toContain('engineer');
 	}, 120_000);
 
-	it('lets Experiments fork the test-plan template, and push a branch through the git account', async () => {
+	it('lets Research fork the test-plan template, and push a branch through the git account', async () => {
 		const built = await build();
 		const name = `plan-${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'experiments') : quiet()),
-			experiments: (step, _seat, call) => {
+			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'research') : quiet()),
+			research: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', { source: 'templates/test-plan', name, clone: `~/${name}` });
 				if (call === 2)
 					return callTool('bash', {
-						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git -c user.name=experiments -c user.email=experiments@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
+						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git -c user.name=research -c user.email=research@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
 						wait: 60,
 					});
 				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
@@ -223,14 +222,14 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 			},
 		});
 		const room = await runRoom(built, script, 'Plan a test.');
-		const fork = await built.workspace.git?.use({ name: 'experiments' }, (env) =>
-			env.get(`experiments/${name}`),
+		const fork = await built.workspace.git?.use({ name: 'research' }, (env) =>
+			env.get(`research/${name}`),
 		);
 		expect(fork?.source).toBe('templates/test-plan');
 		expect(Object.keys(fork?.branches ?? {}).sort()).toEqual(['led', 'main']);
 		expect(fork?.branches.led).not.toBe(fork?.branches.main);
 		const said = (await room.read()).messages.flatMap((message) =>
-			message.kind === 'said' && message.from === 'experiments' ? [message.text] : [],
+			message.kind === 'said' && message.from === 'research' ? [message.text] : [],
 		);
 		expect(said.at(-1)).toContain('pushed');
 	}, 120_000);
