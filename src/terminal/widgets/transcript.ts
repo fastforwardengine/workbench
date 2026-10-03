@@ -5,11 +5,13 @@ import {
 	bold,
 	type CliRenderer,
 	fg,
+	ImageRenderable,
 	ScrollBoxRenderable,
 	StyledText,
 	TextRenderable,
 } from '@opentui/core';
 import { chipLine, type RefItem } from '../../view/refs.ts';
+import { ellipsize } from '../../view/text.ts';
 import type {
 	Block,
 	DiscussionBlock,
@@ -18,12 +20,21 @@ import type {
 	Role,
 	StepsBlock,
 } from '../../view/timeline.ts';
+import { type Strip, stripKey } from '../state/pictures.ts';
 import { tui as palette } from './brand.ts';
 import { planRows } from './row-diff.ts';
 
 /** The cells a chip loses to the padding, the rail, and the scrollbar. */
 const CHIP_MARGIN = 8;
 const CHIP_MIN = 20;
+
+/** The rows of one thumbnail, and the cells between two thumbnails. */
+const THUMB_ROWS = 8;
+const THUMB_GAP = 1;
+/** A thumbnail box has the shape of a 4:3 picture. */
+const THUMB_SHAPE = 4 / 3;
+/** The cell height over the cell width, when the terminal reports no pixel size. */
+const CELL_ASPECT = 2;
 
 /** What the transcript marks besides the selected discussion: refs, the chosen ref, a focused message. */
 export interface Marks {
@@ -33,6 +44,13 @@ export interface Marks {
 	picked?: string;
 	/** The seq of the message a ref jumped to. */
 	focus?: number;
+	/**
+	 * The strips of thumbnails under the messages, by seq. The painter fills it
+	 * only for a terminal that draws Kitty graphics. Without it, a message shows chips only.
+	 */
+	pictures?: ReadonlyMap<number, readonly Strip[]>;
+	/** The height of a cell over its width, for the size of the thumbnails. */
+	cellAspect?: number;
 }
 
 /** Wait one layout pass, so a scroll position can use the new heights. */
@@ -147,7 +165,19 @@ function signatureOf(block: Block, selected: string | undefined, marks: Marks, w
 	const picked = refs.find((item) => item.id === marks.picked)?.id ?? null;
 	const focus = marks.focus !== undefined && seqs.includes(marks.focus) ? marks.focus : null;
 	const chosen = block.type === 'discussion' && block.key === selected;
-	return JSON.stringify([block, chosen, refs, picked, focus, refs.length > 0 ? width : 0]);
+	// The keys of the strips, not their bytes: a loaded picture changes the key.
+	const strips = seqs.flatMap((seq) => (marks.pictures?.get(seq) ?? []).map(stripKey));
+	const shape = strips.length > 0 ? [width, marks.cellAspect ?? CELL_ASPECT] : null;
+	return JSON.stringify([
+		block,
+		chosen,
+		refs,
+		picked,
+		focus,
+		refs.length > 0 ? width : 0,
+		strips,
+		shape,
+	]);
 }
 
 /**
@@ -314,7 +344,49 @@ export class Transcript {
 		const width = Math.max(CHIP_MIN, this.root.width - CHIP_MARGIN - indent);
 		for (const item of marks.refs.get(block.message.seq) ?? [])
 			box.add(this.chip(item, item.id === marks.picked, width, fill));
+		for (const strip of marks.pictures?.get(block.message.seq) ?? [])
+			this.addStrip(box, strip, width, marks.cellAspect ?? CELL_ASPECT);
 		return box;
+	}
+
+	/** A row of thumbnails, then one caption line. A strip that does not fit shows fewer pictures and a count. */
+	private addStrip(box: BoxRenderable, strip: Strip, width: number, aspect: number): void {
+		const cells = Math.max(1, Math.round(THUMB_ROWS * aspect * THUMB_SHAPE));
+		const fits = Math.max(1, Math.floor((width + THUMB_GAP) / (cells + THUMB_GAP)));
+		const shown = strip.pictures.slice(0, fits);
+		const more = strip.more + strip.pictures.length - shown.length;
+		const row = new BoxRenderable(this.renderer, {
+			flexDirection: 'row',
+			gap: THUMB_GAP,
+			height: THUMB_ROWS,
+			alignItems: 'flex-end',
+		});
+		for (const picture of shown)
+			row.add(
+				new ImageRenderable(this.renderer, {
+					width: cells,
+					height: THUMB_ROWS,
+					fit: 'fit',
+					protocol: 'kitty',
+					source: picture.data,
+				}),
+			);
+		if (more > 0)
+			row.add(
+				new TextRenderable(this.renderer, {
+					content: new StyledText([paint(`+${more} more`, { color: palette.dim })]),
+					wrapMode: 'none',
+					flexShrink: 0,
+				}),
+			);
+		box.add(row);
+		box.add(
+			new TextRenderable(this.renderer, {
+				content: new StyledText([paint(ellipsize(strip.caption, width), { color: palette.dim })]),
+				wrapMode: 'none',
+				width: '100%',
+			}),
+		);
 	}
 
 	/** One line for one ref. A chosen ref shows a highlight, and a ref that does not resolve shows in red. */

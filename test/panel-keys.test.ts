@@ -9,6 +9,7 @@ import { Painter } from '../src/terminal/app/draw.ts';
 import { FilesSurface } from '../src/terminal/app/files-surface.ts';
 import { Keys } from '../src/terminal/app/keys.ts';
 import { ProcessesSurface } from '../src/terminal/app/process-surface.ts';
+import { PictureCache } from '../src/terminal/state/picture-cache.ts';
 import { ProcessBrowser } from '../src/terminal/state/process-browser.ts';
 import { Composer } from '../src/terminal/widgets/composer.ts';
 import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
@@ -75,6 +76,12 @@ async function build(width = 120) {
 		composer,
 		surfaces,
 		header,
+		pictures: new PictureCache(
+			(ref) => host.snapshot(ref),
+			() => {},
+		),
+		graphics: () => false,
+		cellAspect: () => 2,
 		width: () => renderer.width,
 	});
 	const body = new BoxRenderable(renderer, {
