@@ -12,8 +12,8 @@ describe('the build room', () => {
 		expect(buildRoom.prompt.length).toBeGreaterThan(20);
 	});
 
-	it('seats both specialists at broadcast', () => {
-		expect(seats).toEqual({ researcher: 'broadcast', engineer: 'broadcast' });
+	it('seats the Researcher at named and the Engineer at broadcast', () => {
+		expect(seats).toEqual({ researcher: 'named', engineer: 'broadcast' });
 	});
 });
 
