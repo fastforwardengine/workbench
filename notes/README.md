@@ -24,7 +24,8 @@ intact.
 
 ## A claim
 
-One claim is one bullet:
+The files of `plans/` and `build/` follow the format of the README of
+their folder. In every other file, one claim is one bullet:
 
 ```markdown
 - **The four buttons sit on P3.1, P3.0, P5.4, and P5.5.** Source:

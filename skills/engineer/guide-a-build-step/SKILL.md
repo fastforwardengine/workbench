@@ -5,7 +5,8 @@ description: Guide the person through one step of a build, with the parts, the p
 
 1. Follow the `keep-notes` skill to get `~/notes` and to pull. Read
    `~/notes/build/README.md` for the format, and `~/notes/build/<kit>.md`
-   for the kit. When the file has no plan for the step, fill it from the
+   for the kit. When the file does not exist, create it with the title
+   `# Build: <kit>`. When the file has no plan for the step, fill it from the
    datasheets in `/library` and the photos of the kit. Mark each value that
    you cannot give with `TBD`.
 2. Find the next step that is not done. Tell the person its parts, with

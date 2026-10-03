@@ -4,7 +4,8 @@ description: Turn a question into a numbered, repeatable test plan in the notes 
 ---
 
 1. Follow the `keep-notes` skill to get `~/notes` and to pull. Read
-   `~/notes/plans/README.md` for the format of a plan.
+   `~/notes/plans/README.md` for the format of a plan, when the file
+   exists.
 2. Write the plan in `~/notes/plans/<test>.md`. Name the file for the test,
    such as `press-ch-plus.md`.
 3. Fill each section of the format: the question, the setup, the variable,

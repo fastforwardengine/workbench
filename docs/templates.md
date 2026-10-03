@@ -31,8 +31,8 @@ reaches the server in process. No network takes part.
 3. Add the other files. Mark each value the specialist fills in with `TBD`.
 4. Add an entry to `templates` in `src/domain/templates.ts`. The
    `description` shows in `repos`. The `use` is a noun phrase, such as "a
-   scan of the connected devices". The `specialists` get one instruction line that names the
-   template.
+   scan of the connected devices". The `specialists` get one instruction
+   line that names the template.
 
 ## Change a template
 

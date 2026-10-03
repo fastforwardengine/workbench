@@ -59,7 +59,8 @@ notes/
   circuit/            nets and blocks: power.md, i2c.md, display.md, buttons.md
   instruments/        one file for each device: hm310p.md, brio.md
   radio/              what the radio does: bands.md, stations.md, current.md
-  build/              one file for each kit and its steps
+  build/              one file for each kit: the plan and record of steps
+  plans/              one file for each test plan
   decisions/          one file for each decision, named by date and subject
   questions/          one file for each open question
 ```
@@ -71,7 +72,7 @@ disputes of its area when evidence exists.
 
 | Folder                             | Steward    |
 | ---------------------------------- | ---------- |
-| `parts/`, `circuit/`               | Researcher |
+| `parts/`, `circuit/`, `plans/`     | Researcher |
 | `instruments/`, `radio/`, `build/` | Engineer   |
 | `decisions/`, `questions/`         | Researcher |
 
