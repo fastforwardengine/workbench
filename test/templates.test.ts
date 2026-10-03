@@ -27,4 +27,10 @@ describe('the Workbench templates', () => {
 			expect(templateInstructions('engineer')).toContain(`the ${name} template`);
 		expect(templateInstructions('design')).toBe('');
 	});
+
+	it.each(['psu', 'usb-camera'])('registers the ignore file of %s as .gitignore', (name) => {
+		const files = templateFiles(name);
+		expect(files['.gitignore']).toContain('__pycache__/');
+		expect(files).not.toHaveProperty('gitignore');
+	});
 });

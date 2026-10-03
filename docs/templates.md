@@ -44,8 +44,12 @@ parent is the old tip. A changed `description` replaces the old one.
 not see the change. A new fork starts from the new commit.
 
 **No tool rewrites a template.** `.prettierignore` holds `templates/`.
-`templateFiles` skips `.git`, `.DS_Store`, and `__pycache__`, so a file
-that a tool writes beside a template does not change it.
+`templateFiles` skips `.git`, `.DS_Store`, `__pycache__`, and `.pyc`
+files, so a file that a tool writes beside a template does not change it.
+The `psu` and `usb-camera` templates store a file `gitignore` with the same
+Python lines, because npm and pnpm drop a `.gitignore` from a package. The
+host registers it as `.gitignore`, so a `git add -A` in a fork does not
+commit bytecode.
 
 ## The templates today
 

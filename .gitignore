@@ -7,3 +7,6 @@ dist/
 .workstation/
 .DS_Store
 __pycache__/
+templates/psu/events.jsonl
+templates/psu/sim.json
+templates/psu/sim.json.*

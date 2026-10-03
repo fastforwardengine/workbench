@@ -1,6 +1,5 @@
 import { join } from 'node:path';
-import { packageDirectory } from './package-root.ts';
-import { textFiles } from './text-files.ts';
+import { packageDirectory, packageFiles } from './package-root.ts';
 
 /** The directory that holds one directory for each template. */
 export const templatesDirectory = packageDirectory('templates');
@@ -61,10 +60,18 @@ export const templates: readonly Template[] = [
 
 /**
  * The files of one template, by path, as text. The host registers exactly
- * these files. A template holds text files only.
+ * these files. A template holds text files only. A template stores its
+ * ignore file as `gitignore`, and the host registers it as `.gitignore`.
  */
 export function templateFiles(name: string): Record<string, string> {
-	return textFiles(join(templatesDirectory, name));
+	const files = packageFiles(join(templatesDirectory, name), { text: true });
+	// npm and pnpm drop `.gitignore` from a package, so the file ships as `gitignore`.
+	return Object.fromEntries(
+		Object.entries(files).map(([path, text]) => [
+			path.replace(/(^|\/)gitignore$/, '$1.gitignore'),
+			text,
+		]),
+	);
 }
 
 /** The instruction lines that name the templates of one specialist. Empty when it has none. */

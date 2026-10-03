@@ -5,19 +5,14 @@ import {
 	type SkillSet,
 	type SourceFiles,
 } from '@ambionframework/workspace';
-import { packageDirectory } from './package-root.ts';
+import { isIgnored, packageDirectory } from './package-root.ts';
 
 /** The directory that holds one directory of skills for each agent. */
 export const skillsDirectory = packageDirectory('skills');
 
-/** A file that a tool writes beside the skills. A skill never holds it. */
-const IGNORED = new Set(['.DS_Store']);
-
 /** The files of a source, without the ones that a tool wrote. */
 const withoutIgnored = (files: SourceFiles): SourceFiles =>
-	Object.fromEntries(
-		Object.entries(files).filter(([path]) => !path.split('/').some((part) => IGNORED.has(part))),
-	);
+	Object.fromEntries(Object.entries(files).filter(([path]) => !isIgnored(path)));
 
 /**
  * The skills of one agent, from `<directory>/<agent>/`. Each folder in it is

@@ -89,12 +89,15 @@ describe('the Workbench skills', () => {
 		try {
 			mkdirSync(join(directory, 'engineer', 'scan'), { recursive: true });
 			writeFileSync(join(directory, 'engineer', '.DS_Store'), 'x');
+			mkdirSync(join(directory, 'engineer', 'scan', 'scripts', '__pycache__'), { recursive: true });
+			writeFileSync(join(directory, 'engineer', 'scan', 'scripts', '__pycache__', 'm.pyc'), 'x');
 			writeFileSync(
 				join(directory, 'engineer', 'scan', 'SKILL.md'),
 				'---\nname: scan\ndescription: Scan. Use it now.\n---\nSteps.\n',
 			);
 			const set = await agentSkills('engineer', directory);
 			expect(set.skills.map((skill) => skill.name)).toEqual(['scan']);
+			expect(Object.keys(set.files).filter((path) => path.includes('__pycache__'))).toEqual([]);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
