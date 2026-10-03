@@ -134,7 +134,8 @@ needs one. A bench script comes from a template.
   message that cites a picture or a sensor manifest.
 - **Camera viewfinder:** `/camera` shows a pane beside the conversation with
   the latest frame of the connected `camera` sensor, its age, and the sensor
-  name. A second `/camera` hides it. The composer stays active while the pane
+  name. The pane takes one third of the terminal width, and the frame keeps
+  its 16:9 shape. A second `/camera` hides it. The composer stays active while the pane
   shows. The pane reads the sensor every 3 seconds while it shows. Each read
   is a normal `observe`, which the sensor server logs. The workspace keeps no
   snapshot of it. The pane uses the slot of the side panels: the files and
