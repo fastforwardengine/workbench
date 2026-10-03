@@ -28,15 +28,14 @@ compatibility: Needs python3. A real supply needs python3-serial and a USB seria
    that the channels are off.
 8. After an exit code other than 0, the state `cancelled`, a kill, or a
    lost process, run
-   `python3 finally.py`. It turns off every channel, and it needs no
-   drive lock.
+   `python3 finally.py`. It turns off every channel, also while another
+   process holds a channel.
 9. Read the supply with the sensor. Start `sensor.py` as the README of the
    clone says, wait for READY, and `connect` with the handle and the
    port. Then `observe` `psu/output`, `psu/recent`, or `psu/settings`.
 10. Cite the manifest snapshot ref that `observe` returns for each
     reading. For rows of `psu.py measure` or for `events.jsonl`, save the
-    file with `snapshot`, and cite that ref. A value with no ref is a
-    planned value.
+    file with `snapshot`, and cite that ref.
 11. Turn every output off at the end of the work, also after a failure:
     `python3 psu.py output off`.
 12. Commit, and push your branch. A push keeps the work.

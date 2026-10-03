@@ -1,7 +1,7 @@
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
-import { shared, team } from '../src/domain/definitions.ts';
+import { PREFERENCE, people, shared, team } from '../src/domain/definitions.ts';
 import { seats } from '../src/domain/room.ts';
 import { resolveRef } from '../src/view/refs.ts';
 
@@ -15,11 +15,11 @@ describe('the team instructions', () => {
 	});
 
 	it('give examples that the terminal resolves', () => {
-		const known = { room: 'build', files: ['/shared/kit.md'], seqs: new Set<number>() };
+		const known = { room: 'build', files: ['/library/rda5807fp.md'], seqs: new Set<number>() };
 		const examples = [...shared.matchAll(/file:\/\/\/[A-Za-z0-9_./-]+[A-Za-z0-9]/g)].map(
 			(match) => match[0],
 		);
-		expect(examples).toEqual(['file:///shared/kit.md']);
+		expect(examples).toEqual(['file:///library/rda5807fp.md']);
 		for (const example of examples) expect(resolveRef(example, known).target).toBeDefined();
 	});
 });
@@ -27,6 +27,74 @@ describe('the team instructions', () => {
 /** The instructions of a Pi seat. */
 const instructionsOf = (seat: { executor: unknown }): string =>
 	(seat.executor as { instructions: string }).instructions;
+
+/** The rules of one group of a prompt: the lines of its section. */
+const groupOf = (prompt: string, header: string): string[] => {
+	const section = prompt.split('\n\n').find((part) => part.startsWith(`## ${header}\n`));
+	return section ? section.split('\n').slice(1) : [];
+};
+
+/** Build the team, and give the instructions of each specialist by name. */
+async function prompts(project?: string): Promise<Record<string, string>> {
+	const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+	try {
+		const built = await team(workspace, project);
+		return Object.fromEntries(built.specialists.map((seat) => [seat.name, instructionsOf(seat)]));
+	} finally {
+		await workspace.dispose();
+	}
+}
+
+describe('the structure of a prompt', () => {
+	it('opens with the project, then four groups in order, each rule on its own line', async () => {
+		for (const prompt of Object.values(await prompts('A test project.'))) {
+			const parts = prompt.split('\n\n');
+			expect(parts[0]).toBe('A test project.');
+			expect(parts.slice(1).map((part) => part.split('\n')[0])).toEqual([
+				'## Project',
+				'## Evidence',
+				'## Constraints',
+				'## Speaking',
+			]);
+			for (const part of parts.slice(1))
+				for (const line of part.split('\n').slice(1)) expect(line).toMatch(/^- \S/);
+		}
+	});
+
+	it('keeps each rule in its group', async () => {
+		const { engineer, researcher } = await prompts();
+		expect(groupOf(engineer ?? '', 'Evidence').join('\n')).toContain('file:///<path>');
+		expect(groupOf(engineer ?? '', 'Evidence').join('\n')).toContain('a planned value');
+		expect(groupOf(engineer ?? '', 'Constraints').join('\n')).toContain('not an edit');
+		expect(groupOf(researcher ?? '', 'Evidence')).toContain(
+			'- Never state a value without a datasheet path.',
+		);
+	});
+
+	it('gives every specialist the preference of the person, from one source', async () => {
+		expect(people[0]?.preferences).toBe(PREFERENCE);
+		for (const prompt of Object.values(await prompts()))
+			expect(groupOf(prompt, 'Speaking')).toContain(`- ${PREFERENCE}`);
+	});
+
+	it('states one citation rule: a read-only file by URI, a changing file by snapshot, a note by path', () => {
+		const rule = shared.split('\n').find((line) => line.startsWith('- Cite what you rely on'));
+		expect(rule).toContain('Cite a file of /library, which is read-only');
+		expect(rule).toContain('file:///<path>');
+		expect(rule).toContain(
+			'Cite a file that can change, such as /shared/kit.md, by its snapshot ref',
+		);
+		expect(rule).toContain('Inside a note, write the library/ path');
+	});
+
+	it('does not name the project as a room, and drops the rules that the kernel or the screen holds', async () => {
+		expect(shared).not.toContain('One room');
+		for (const prompt of Object.values(await prompts())) {
+			expect(prompt).not.toContain('Read a skill of ~/.skills');
+			expect(prompt).not.toContain('The terminal opens a ref');
+		}
+	});
+});
 
 describe('the Engineer', () => {
 	it('listens at broadcast in every room, and the Researcher waits at named', () => {
@@ -48,15 +116,13 @@ describe('the Engineer', () => {
 		}
 	});
 
-	it('tells each specialist to say its result to the room', async () => {
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
-		try {
-			const built = await team(workspace);
-			for (const seat of built.specialists) {
-				expect(instructionsOf(seat)).toContain('Say your result to the room, with no `to`');
-			}
-		} finally {
-			await workspace.dispose();
+	it('tells each specialist to say a result with no `to`, and the Engineer to hand a result to the Researcher with `to`', async () => {
+		for (const prompt of Object.values(await prompts())) {
+			const speaking = groupOf(prompt, 'Speaking').join('\n');
+			expect(speaking).toContain('Say a result with no `to`.');
+			expect(speaking).toContain('Post one message for each result.');
+			for (const word of ['assignment', 'broadcast', 'acknowledgment'])
+				expect(prompt).not.toContain(word);
 		}
 	});
 
@@ -72,11 +138,17 @@ describe('the Engineer', () => {
 				'the observe-the-camera skill',
 				'Follow the guide-a-build-step skill',
 				'the check-a-photo skill',
-				'ask the person before the first run that drives an output',
+				'Change no setting and no output of a device outside a script from a template.',
 				'You cannot hold a tool.',
 				'Record each step that the person completes in the build folder of the notes',
 			])
 				expect(rules).toContain(rule);
+			expect(rules).toContain(
+				'Ask the person before the first run that turns on an output of a device.',
+			);
+			expect(groupOf(rules, 'Speaking').join('\n')).toContain(
+				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
+			);
 			for (const copy of ['a transistor', 'pass, fail, or unclear', 'The power stays off', 'TBD'])
 				expect(rules).not.toContain(copy);
 			expect(built.specialists.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);

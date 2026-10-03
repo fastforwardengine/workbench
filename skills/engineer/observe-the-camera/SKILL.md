@@ -6,19 +6,16 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
 1. Follow `scan-the-bench` before you open a camera or a microphone.
    Select the V4L2 capture node and a supported resolution. Do not assume
    that `/dev/video0` is the camera. Use the path under `/dev/v4l/by-id/` when
-   it exists. The workstation container has none, so match the USB ID in
-   `v4l2-ctl --list-devices` before each start. For the microphone, run
+   it exists. Otherwise, match the USB ID in `v4l2-ctl --list-devices`
+   before each start. For the microphone, run
    `arecord -l` and use `plughw:CARD=<id>,DEV=0` with the card id, such as
    `BRIO`. The card number changes after a reconnect.
 2. Fork `usb-camera` with `fork`, and clone it into your home. Follow the
    README of the clone for the offline tests, the push, and the start of
    the foreground server. One process owns one USB device and serves its
-   camera and its microphone. Keep the data outside the checkout. A fork
-   from before the microphone has no `--audio-device` option. Check with
-   `python3 camera.py --help` in the clone. If the option is missing, fork
-   the template again under a new name.
+   camera and its microphone. Keep the data outside the checkout.
 3. Wait for READY with `status`. Then `connect` with your process handle
-   and the printed port. Only the workstation backend has endpoints.
+   and the printed port.
 4. `observe` the qualified sensor, such as `bench/camera` or
    `bench/microphone`. A microphone `observe` records a clip of `--seconds`
    seconds and blocks for that time. Cite the
