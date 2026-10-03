@@ -1,16 +1,11 @@
 # The project
 
 **Workbench holds one bench project: an FM radio kit.** The person builds
-the first kit by hand. The team then tunes the radio in three ways, and
-guides the build of a second kit. The room `build` holds every phase, in order:
-
-1. Know the kit, and support the hand build of the first one.
-2. Hear the radio, and tune it: path A (buttons and camera) and path B (I²C).
-3. Guide the build of the second kit, and its first power-on.
-4. Path C: new firmware for the microcontroller.
+the first kit by hand. The room `build` holds every phase. The goal of the
+room lists the phases in order.
 
 **The notes hold the state of the bench.** They are the git repository
-`shared/notes`. Clone it and read its README.md before you act, in any room.
+`shared/notes`. The `keep-notes` skill states how to use them.
 
 ## Parts of the kit
 

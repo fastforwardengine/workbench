@@ -16,12 +16,8 @@ layout, the form of a claim, and the stewards.
 3. List the open disputes: `git fetch`, then `git branch -r`. A branch
    `origin/dispute/<topic>` is open when `git log origin/main..origin/dispute/<topic>`
    prints commits. Read an open dispute before you act on its topic.
-4. Add a claim to the file of its subject, as one bullet:
-   `- **The statement.** Source: <where it comes from>. Confidence: high|medium|low.`
-   The source is a `library/` path, a snapshot ref, a commit ref, or a
-   message ref. A reading counts only when a script wrote it to a file and you
-   snapshotted the file. Every other value is a planned value, and the claim
-   says so.
+4. Add a claim to the file of its subject, in the form that `README.md`
+   gives for a claim, with its source and its confidence.
 5. Commit with a message of the form `<folder>: <what and why>`, then push:
    `git push origin main`. If the push is rejected, run
    `git pull --rebase`, fix any conflict by keeping both edits, and push

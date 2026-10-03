@@ -3,7 +3,6 @@ import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { shared, team } from '../src/domain/definitions.ts';
 import { seats } from '../src/domain/room.ts';
-import { templateInstructions, templates } from '../src/domain/templates.ts';
 import { resolveRef } from '../src/view/refs.ts';
 
 describe('the team instructions', () => {
@@ -33,24 +32,12 @@ describe('the Engineer', () => {
 		});
 	});
 
-	it('owns every template, and no other specialist is told to fork one of its own', () => {
-		const owned = ['device-scan', 'usb-camera', 'psu'];
-		for (const name of owned)
-			expect(templates.find((template) => template.name === name)?.specialists).toEqual([
-				'engineer',
-			]);
-		expect(templateInstructions('engineer')).toContain('the psu template');
-		for (const other of ['researcher'])
-			for (const name of owned) expect(templateInstructions(other)).not.toContain(name);
-	});
-
 	it('is in the briefing of the assistant, which tells it how to reach a seat at named', async () => {
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
 		try {
 			const built = await team(workspace);
 			const briefing = instructionsOf(built.assistant);
-			expect(briefing).toContain('The Engineer watches the bench with the camera');
-			expect(briefing).toContain('The Engineer also guides an assembly step by step');
+			expect(briefing).toContain('You have no file, shell, or git tools');
 			expect(briefing).toContain('If the Researcher sits at named attention');
 			expect(briefing).toContain('do not acknowledge, relay, or restate');
 			expect(briefing).not.toMatch(/\b(Builder|Instruments)\b/);
@@ -72,26 +59,7 @@ describe('the Engineer', () => {
 		}
 	});
 
-	it('holds the rules that keep a part from being called right on weak evidence', async () => {
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
-		try {
-			const built = await team(workspace);
-			const engineer = built.specialists.find((seat) => seat.name === 'engineer');
-			const rules = engineer ? instructionsOf(engineer) : '';
-			for (const rule of [
-				'Say that a part sits right only when a photo or a measurement that you cite shows it.',
-				'The power stays off until the person confirms the checks of the build.',
-				'answer pass, fail, or unclear',
-				'Record each step that the person completes in the build folder of the notes',
-				'a transistor, a voltage regulator',
-			])
-				expect(rules).toContain(rule);
-		} finally {
-			await workspace.dispose();
-		}
-	});
-
-	it('holds the rules of the bench, and looks with the camera before it asks for a photo', async () => {
+	it('names the skills and the hard rules of the Engineer, and copies no step of a skill', async () => {
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
 		try {
 			const built = await team(workspace);
@@ -99,14 +67,33 @@ describe('the Engineer', () => {
 			const rules = engineer ? instructionsOf(engineer) : '';
 			for (const rule of [
 				'follow the scan-the-bench skill',
-				'Follow the drive-the-power-supply skill to run a power supply.',
+				'Follow the drive-the-power-supply skill to run a power supply',
+				'the observe-the-camera skill',
+				'Follow the guide-a-build-step skill',
+				'the check-a-photo skill',
 				'ask the person before the first run that drives an output',
-				'Start a long script with a `name`, and read its end with `wait` or `status`.',
-				'follow the observe-the-camera skill',
-				'Ask the person for a photo with /attach only when the camera cannot show the part.',
+				'You cannot hold a tool.',
+				'Record each step that the person completes in the build folder of the notes',
 			])
 				expect(rules).toContain(rule);
+			for (const copy of ['a transistor', 'pass, fail, or unclear', 'The power stays off', 'TBD'])
+				expect(rules).not.toContain(copy);
 			expect(built.specialists.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);
+		} finally {
+			await workspace.dispose();
+		}
+	});
+
+	it('names the skills of the Researcher, and keeps its datasheet rule', async () => {
+		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		try {
+			const built = await team(workspace);
+			const researcher = built.specialists.find((seat) => seat.name === 'researcher');
+			const rules = researcher ? instructionsOf(researcher) : '';
+			expect(rules).toContain('cite-a-limit skill');
+			expect(rules).toContain('write-a-test-plan skill');
+			expect(rules).toContain('Never state a value without a datasheet path.');
+			expect(rules).not.toContain('TBD');
 		} finally {
 			await workspace.dispose();
 		}

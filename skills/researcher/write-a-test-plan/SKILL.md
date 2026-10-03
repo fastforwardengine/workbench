@@ -13,7 +13,8 @@ description: Turn a question into a numbered, repeatable test plan in the notes 
    criterion. A section holds one topic.
 4. Give each limit a value and a source. Follow the cite-a-limit skill for a
    limit that `/library` covers. Do not invent a value.
-5. Mark each value that you cannot give yet with `TBD`. Name the limit and
+5. Write the outline of the plan even when a part or a limit is not known.
+   Mark each value that you cannot give yet with `TBD`. Name the limit and
    the datasheet that must supply it, for example the maximum rated
    current from the datasheet of the part.
 6. Give the pass criterion as a number with a unit.

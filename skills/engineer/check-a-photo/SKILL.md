@@ -12,7 +12,10 @@ description: Check the placement and the orientation of a part from a photo of t
 2. Read the frame or the file with `read`. The tool sends the picture to
    you. The snapshot ref of an attachment names its path under
    `/attachments`.
-3. Say what you see: the part, its place, and the mark that shows its
+3. A polarized part is any part with a right way round: a diode, an LED,
+   an electrolytic or tantalum capacitor, a transistor, a voltage
+   regulator, a chip with or without a socket, a module or a header with a
+   marked pin 1, or a connector. Say what you see: the part, its place, and the mark that shows its
    orientation, such as a stripe, a notch, a dot, a longer lead, or a pin 1
    marking.
 4. Compare it with the step of the procedure and with the datasheet in
@@ -23,6 +26,7 @@ description: Check the placement and the orientation of a part from a photo of t
    the marking of the board is not visible, or when the light hides it. A
    part can cover the marking of the board: ask the person to show it before
    the part goes in, or from another angle. Do not guess an orientation.
-7. Never answer pass for a part that the photo does not show, or for a
+7. Say that a part sits right only when a photo or a measurement that you
+   cite shows it. Never answer pass for a part that the photo does not show, or for a
    part whose orientation you can compare with the text of the procedure
    alone.

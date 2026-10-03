@@ -12,7 +12,7 @@ holds the contract, the tools, and the credentials.
 | Part                     | Where                      | What it holds                                           |
 | ------------------------ | -------------------------- | ------------------------------------------------------- |
 | The files                | `templates/<name>/`        | The files that a fork starts with, text only            |
-| The registry             | `src/domain/templates.ts`  | The name, description, use, and specialists of each     |
+| The registry             | `src/domain/templates.ts`  | The name and description of each                        |
 | The git backend          | `src/host/repositories.ts` | `labRepositories`, which registers every template       |
 | The wiring               | `src/host/rooms.ts`        | The `git` backend of the workspace, in `<data>/git.db`  |
 | The registry check       | `test/templates.test.ts`   | The check of directories to entries                     |
@@ -30,9 +30,9 @@ reaches the server in process. No network takes part.
    "Commit, and push your branch. A push keeps the work."
 3. Add the other files. Mark each value the specialist fills in with `TBD`.
 4. Add an entry to `templates` in `src/domain/templates.ts`. The
-   `description` shows in `repos`. The `use` is a noun phrase, such as "a
-   scan of the connected devices". The `specialists` get one instruction
-   line that names the template.
+   `description` shows in `repos`.
+5. Name the template in the `SKILL.md` of the skill that forks it.
+   `test/templates.test.ts` checks that a skill names each template.
 
 ## Change a template
 

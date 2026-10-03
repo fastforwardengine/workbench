@@ -8,43 +8,35 @@ compatibility: Needs python3. A real supply needs python3-serial and a USB seria
    `README.md` of the clone holds every command and option.
 2. Try each command on the simulator first, with no hardware. Put
    `--sim sim.json` before the command or the actuator, as in
-   `python3 psu.py --sim sim.json status` or
    `python3 start.py --sim sim.json ramp ...`. Send the command to the real
    supply only after it works.
 3. Read `psu.json` and `python3 psu.py status` before you change anything.
-   The guard refuses a value above the limits of `psu.json`. Change
-   `psu.json` only when the person asks, and commit the change.
-4. Set a point with `psu.py set` while the output is off. Set the
-   protection limits with `psu.py protect`.
-5. Ask the person before the first command of an exchange that turns an
+   Change `psu.json` only when the person asks, and commit the change.
+4. Ask the person before the first command of an exchange that turns an
    output on, and wait for the answer. `psu.py output --channel <ch> on`
    is such a command. Each `start.py` actuator is such a command.
-6. Drive a channel with an actuator when the work needs a ramp, a sweep, a
+5. Drive a channel with an actuator when the work needs a ramp, a sweep, a
    hold, or a power-up order. Start `start.py <actuator>` with the `bash`
-   tool. Give it a `name`, `grace: 5`, a `timeout` above the run time, and
-   `wait: 0`. The turn-off of a `sequence` can take 2 s.
-7. Set `--trip` below `--current` for each rail of a `sequence`. While a
-   rail settles, the sequence ignores a current at the limit. Only a
-   current above `--trip`, or the end of `--settle`, stops a shorted rail
-   that sits at its current limit.
-8. Read `events.jsonl` in the clone while the actuator runs. Read the exit
+   tool, as the README says for a controller. Set `--trip` below
+   `--current` for each rail of a `sequence`.
+6. Read `events.jsonl` in the clone while the actuator runs. Read the exit
    code with `wait` or `status({ handle })`. Exit 0 means that the
    controller turned off the channels that it held. Any other code means
    that the state of the channels is unknown.
-9. Stop an actuator early with `cancel({ handle })`. Then read the state
+7. Stop an actuator early with `cancel({ handle })`. Then read the state
    with `status({ handle })`. Only the state `exited` with code 0 means
    that the channels are off.
-10. After an exit code other than 0, the state `cancelled`, a kill, or a
-    lost process, run
-    `python3 finally.py`. It turns off every channel, and it needs no
-    drive lock.
-11. Read the supply with the sensor. Start `sensor.py` as the README of the
-    clone says, wait for READY, and `connect` with the handle and the
-    port. Then `observe` `psu/output`, `psu/recent`, or `psu/settings`.
-12. Cite the manifest snapshot ref that `observe` returns for each
+8. After an exit code other than 0, the state `cancelled`, a kill, or a
+   lost process, run
+   `python3 finally.py`. It turns off every channel, and it needs no
+   drive lock.
+9. Read the supply with the sensor. Start `sensor.py` as the README of the
+   clone says, wait for READY, and `connect` with the handle and the
+   port. Then `observe` `psu/output`, `psu/recent`, or `psu/settings`.
+10. Cite the manifest snapshot ref that `observe` returns for each
     reading. For rows of `psu.py measure` or for `events.jsonl`, save the
     file with `snapshot`, and cite that ref. A value with no ref is a
     planned value.
-13. Turn every output off at the end of the work, also after a failure:
+11. Turn every output off at the end of the work, also after a failure:
     `python3 psu.py output off`.
-14. Commit, and push your branch. A push keeps the work.
+12. Commit, and push your branch. A push keeps the work.
