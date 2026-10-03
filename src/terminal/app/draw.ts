@@ -2,6 +2,8 @@ import { fg, StyledText } from '@opentui/core';
 import type { RefItem } from '../../view/refs.ts';
 import { stagedCue } from '../state/attachments.ts';
 import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
+import type { PictureCache } from '../state/picture-cache.ts';
+import { pictureRefs, stripKey, stripsBySeq } from '../state/pictures.ts';
 import type { Session } from '../state/session.ts';
 import { emptyText } from '../state/session-text.ts';
 import { tui as palette } from '../widgets/brand.ts';
@@ -27,6 +29,12 @@ export interface DrawParts {
 	/** The side panels, by mode. The painter draws the one that is open. */
 	surfaces: Readonly<Record<PanelMode, Surface>>;
 	header: Header;
+	/** The thumbnails of the snapshot refs that the shown messages cite. */
+	pictures: PictureCache;
+	/** True when the terminal draws Kitty graphics. Capabilities can arrive after the start. */
+	graphics: () => boolean;
+	/** The height of a cell over its width. */
+	cellAspect: () => number;
 	/**
 	 * The width the conversation has when the files panel is closed. A widget gets
 	 * its new width in the next layout pass, so a read right after the panel closes
@@ -46,6 +54,9 @@ export class Painter {
 	private readonly composer: Composer;
 	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
 	private readonly header: Header;
+	private readonly pictures: PictureCache;
+	private readonly graphics: () => boolean;
+	private readonly cellAspect: () => number;
 	private readonly width: () => number;
 	private drawn = '';
 	private reveal: string | undefined;
@@ -56,6 +67,9 @@ export class Painter {
 		this.composer = parts.composer;
 		this.surfaces = parts.surfaces;
 		this.header = parts.header;
+		this.pictures = parts.pictures;
+		this.graphics = parts.graphics;
+		this.cellAspect = parts.cellAspect;
 		this.width = parts.width;
 	}
 
@@ -85,7 +99,12 @@ export class Painter {
 		const refs = new Map<number, RefItem[]>();
 		for (const item of this.session.refItems)
 			refs.set(item.seq, [...(refs.get(item.seq) ?? []), item]);
-		return { refs, picked: picking, focus: this.session.focus };
+		const marks: Marks = { refs, picked: picking, focus: this.session.focus };
+		if (!this.graphics()) return marks;
+		this.pictures.want(this.session.refItems.flatMap((item) => pictureRefs([item])));
+		marks.pictures = stripsBySeq(this.session.refItems, (ref) => this.pictures.get(ref));
+		marks.cellAspect = this.cellAspect();
+		return marks;
 	}
 
 	private drawTranscript(
@@ -109,6 +128,8 @@ export class Painter {
 			[...marks.refs.values()],
 			marks.picked,
 			marks.focus,
+			[...(marks.pictures ?? [])].map(([seq, strips]) => [seq, strips.map(stripKey)]),
+			marks.cellAspect,
 		]);
 		if (signature === this.drawn) return;
 		this.drawn = signature;

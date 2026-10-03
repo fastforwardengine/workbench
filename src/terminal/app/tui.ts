@@ -1,7 +1,14 @@
-import { BoxRenderable, type CliRenderer, createCliRenderer, type KeyEvent } from '@opentui/core';
+import {
+	BoxRenderable,
+	type CliRenderer,
+	createCliRenderer,
+	type KeyEvent,
+	resolveImageRenderProtocol,
+} from '@opentui/core';
 import { type Lab, type OpenOptions, openLab, type Person } from '../../host/host.ts';
 import { errorText } from '../../view/text.ts';
 import { parse } from '../state/commands.ts';
+import { PictureCache } from '../state/picture-cache.ts';
 import { ProcessBrowser } from '../state/process-browser.ts';
 import { type Intent, Session } from '../state/session.ts';
 import { tui as palette } from '../widgets/brand.ts';
@@ -21,6 +28,18 @@ const SLOW_MS = 4_000;
 
 /** The cells between the terminal edge and the content, on each side. */
 const PADDING = 1;
+
+/** True when the terminal draws Kitty graphics. Thumbnails need it. */
+const drawsKitty = (renderer: CliRenderer): boolean =>
+	resolveImageRenderProtocol('auto', renderer.capabilities, Boolean(renderer.resolution)) ===
+	'kitty';
+
+/** The height of a cell over its width, from the pixel size of the terminal. Two when it is unknown. */
+function cellAspectOf(renderer: CliRenderer): number {
+	const size = renderer.resolution;
+	if (!size || renderer.terminalWidth <= 0 || renderer.terminalHeight <= 0) return 2;
+	return size.height / renderer.terminalHeight / (size.width / renderer.terminalWidth);
+}
 
 /**
  * The terminal. It builds the widgets, the session, and the input, and wires
@@ -65,6 +84,12 @@ class EngineTui {
 			composer: this.composer,
 			surfaces,
 			header,
+			pictures: new PictureCache(
+				(ref) => host.snapshot(ref),
+				() => this.render(),
+			),
+			graphics: () => drawsKitty(renderer),
+			cellAspect: () => cellAspectOf(renderer),
 			width: () => renderer.width - 2 * PADDING,
 		});
 		this.palette = new Palette(this.composer);
@@ -99,6 +124,8 @@ class EngineTui {
 			this.followEdit();
 		});
 		renderer.on('resize', () => this.render());
+		// The terminal answers the graphics query after the start.
+		renderer.on('capabilities', () => this.render());
 		this.composer.focus();
 		this.render();
 	}

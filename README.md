@@ -129,7 +129,9 @@ needs one. A bench script comes from a template.
   `/attachments`, snapshots it, and cites the snapshot in your next
   message. Paste the path of a picture into an empty composer, and it fills
   `/attach` for you. A specialist reads the copy with `read` and receives the
-  picture. The files panel shows a picture, also from a snapshot ref.
+  picture. The files panel shows a picture, also from a snapshot ref. A
+  terminal with Kitty graphics also shows up to four thumbnails under a
+  message that cites a picture or a sensor manifest.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
   waits for its goal. In a side panel it closes the panel. Ctrl+D leaves
   the terminal when the composer is empty, and `/quit` also leaves. The

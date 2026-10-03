@@ -22,7 +22,9 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
 4. `observe` the qualified sensor, such as `bench/camera` or
    `bench/microphone`. A microphone `observe` records a clip of `--seconds`
    seconds and blocks for that time. Cite the
-   manifest snapshot ref that it returns. Other specialists observe through
+   manifest snapshot ref that it returns. After each camera `observe`, post
+   a short message that cites that ref. The person then sees the photo
+   while you continue the work. Other specialists observe through
    the same connection. Do not share your home or the server URL.
 5. Read the frame before you describe the bench or the display. Report
    unclear when you cannot read a marking or a digit. For FM radio path A,
