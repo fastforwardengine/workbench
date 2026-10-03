@@ -71,7 +71,7 @@ export class ProcessesPanel extends SidePanel {
 		const processes = browser.processes;
 		if (processes.length === 0)
 			return new StyledText([
-				fg(palette.muted)('No process yet. A seat starts one with its bash tool.'),
+				fg(palette.muted)('No process yet. A specialist starts one with its bash tool.'),
 			]);
 		const start = windowStart(browser.index, processes.length);
 		const labels = processes.map((process) => process.name ?? process.handle);

@@ -54,9 +54,9 @@ export const COMMANDS = [
 	},
 	{
 		name: 'ps',
-		summary: 'Show the background processes of the seats',
+		summary: 'Show the background processes of the specialists',
 		help: [
-			'  /ps               show the background processes of the seats, their output,',
+			'  /ps               show the background processes of the specialists, their output,',
 			'                    and cancel one with x, twice',
 		],
 	},

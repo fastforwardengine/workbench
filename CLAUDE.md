@@ -21,8 +21,8 @@ floor).
 | `src/view`     | Read-only projections over the room journal: the timeline, steps, refs                                         |
 | `src/host`     | The room host: rooms, file handling, processes, name assignment                                                |
 | `src/terminal` | The OpenTUI terminal, in `state/`, `widgets/`, and `app/`. The next paragraph names the rule                   |
-| `templates/`   | The git templates that an agent forks. `docs/templates.md` holds the pattern                                   |
-| `skills/`      | One folder of skills for each specialist. `docs/skills.md` holds the pattern                                   |
+| `templates/`   | The git templates that a specialist forks. `docs/templates.md` holds the pattern                               |
+| `skills/`      | One folder of skills for each specialist, and `shared/` for all. `docs/skills.md` holds the pattern            |
 | `seed/`        | The files of a new workspace, by workspace path: `seed/shared/kit.md` is `/shared/kit.md`                      |
 | `notes/`       | The first files of the team notes, the shared git repository `shared/notes`. `docs/notes.md` holds the pattern |
 | `workstation/` | A workstation in a container: the bash and git backends over SSH                                               |
