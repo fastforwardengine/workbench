@@ -199,9 +199,21 @@ async function draw(
 		state.marks,
 	);
 	await settle();
-	await view.setup.renderOnce();
-	await view.setup.renderOnce();
-	return frameOf(view.setup);
+	return stable(view.setup);
+}
+
+/** Highlighting of Markdown bodies is asynchronous: draw until the frame holds for four passes. */
+async function stable(setup: Awaited<ReturnType<typeof mount>>['setup']): Promise<string> {
+	let last = '';
+	let same = 0;
+	for (let pass = 0; pass < 100 && same < 4; pass += 1) {
+		await setup.renderOnce();
+		const frame = frameOf(setup);
+		same = frame === last ? same + 1 : 0;
+		last = frame;
+		await new Promise((resolve) => setTimeout(resolve, 30));
+	}
+	return last;
 }
 
 /** The characters of the frame, then the colors of every span, so a highlight shows in the comparison. */
@@ -486,4 +498,49 @@ describe('what the transcript builds', () => {
 		await draw(view, { exchanges: 40, expanded: ['6'], selected: '11' });
 		expect(spy).toHaveBeenCalledTimes(2);
 	});
+});
+
+describe('the body of a message', () => {
+	it('shows Markdown with the markers concealed, below the header', async () => {
+		const view = await mount();
+		const text = [
+			'# Plan',
+			'',
+			'Use **bold** and `code` here.',
+			'',
+			'- one',
+			'- two',
+			'',
+			`Long ${'word '.repeat(40)}end`,
+		].join('\n');
+		const message = { seq: 1, kind: 'said', from: 'engineer', text, at: AT };
+		const blocks = buildTimeline({
+			messages: [message],
+			exchanges: [],
+			open: undefined,
+			humans: new Set(['priya']),
+			working: [],
+			expanded: new Set(),
+			tail: [],
+			failures: new Map(),
+		} as never);
+		view.transcript.render(blocks, undefined, undefined, undefined, true);
+		// Highlighting runs in a worker, so the frame settles after a few passes.
+		for (let pass = 0; pass < 30; pass += 1) {
+			await new Promise((resolve) => setTimeout(resolve, 50));
+			await view.setup.renderOnce();
+		}
+		const frame = view.setup.captureCharFrame();
+		expect(frame).toContain('engineer');
+		expect(frame).toContain('bold');
+		expect(frame).not.toContain('**bold**');
+		expect(frame).not.toContain('`code`');
+		expect(frame).not.toContain('# Plan');
+		expect(frame).toContain('Plan');
+		expect(frame).toContain('- one');
+		expect(frame).toContain('- two');
+		const widest = Math.max(...frame.split('\n').map((line) => line.trimEnd().length));
+		expect(widest).toBeLessThanOrEqual(100);
+		expect(frame.split('\n').filter((line) => line.includes('word')).length).toBeGreaterThan(1);
+	}, 20_000);
 });
