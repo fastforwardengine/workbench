@@ -4,13 +4,12 @@ import type { Attention } from '@ambionframework/ambion';
 import { packageDirectory } from './package-root.ts';
 
 /**
- * The seats of a room with no seats of its own. The three specialists hear
+ * The seats of a room with no seats of its own. The two specialists hear
  * every message, at `broadcast`. The Engineer needs every message to keep its
  * view of the bench current.
  */
 export const seats: Record<string, Attention> = {
-	datasheets: 'broadcast',
-	experiments: 'broadcast',
+	researcher: 'broadcast',
 	engineer: 'broadcast',
 };
 
@@ -43,8 +42,7 @@ export const scenarios: Scenario[] = [
 			'List the parts of the kit from the notes, and name the facts we must settle before the build.',
 		seats: {
 			engineer: 'broadcast',
-			datasheets: 'broadcast',
-			experiments: 'named',
+			researcher: 'broadcast',
 		},
 	},
 	{
@@ -57,8 +55,7 @@ export const scenarios: Scenario[] = [
 		prompt: 'Plan path A: how the Pico presses CH+ and CH−, and how the camera reads the display.',
 		seats: {
 			engineer: 'broadcast',
-			experiments: 'broadcast',
-			datasheets: 'named',
+			researcher: 'broadcast',
 		},
 	},
 	{
@@ -72,8 +69,7 @@ export const scenarios: Scenario[] = [
 			'Write the build procedure of the second kit as steps, with a check for each polarized part.',
 		seats: {
 			engineer: 'broadcast',
-			datasheets: 'named',
-			experiments: 'named',
+			researcher: 'named',
 		},
 	},
 	{
@@ -86,8 +82,7 @@ export const scenarios: Scenario[] = [
 		prompt: 'List what path C needs: the compiler, the flasher, the pins, and the spare chip.',
 		seats: {
 			engineer: 'broadcast',
-			datasheets: 'broadcast',
-			experiments: 'named',
+			researcher: 'broadcast',
 		},
 	},
 ];

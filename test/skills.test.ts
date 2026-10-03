@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
 import { agentSkills, skillsDirectory } from '../src/domain/skills.ts';
 
-const specialists = ['datasheets', 'experiments', 'engineer'];
+const specialists = ['researcher', 'engineer'];
 
 /** The names of the skill folders of one agent. */
 const skillNames = async (agent: string) =>

@@ -18,7 +18,7 @@ flowchart LR
     s3["s3ObjectBackend"]
   end
   subgraph box["Container: sshd on 127.0.0.1:2222"]
-    agents["datasheets, experiments, engineer,<br/>workbench-host"]
+    agents["researcher, engineer,<br/>workbench-host"]
     repos["workbench-git<br/>~/repos"]
   end
   subgraph store["Container: silo on 127.0.0.1:9000"]
@@ -226,8 +226,8 @@ native, and `make usb` does nothing.
   `.workstation/`:
 
   ```sh
-  ssh -p 2222 -i .workstation/keys/experiments -o IdentitiesOnly=yes \
-    -o UserKnownHostsFile=.workstation/known_hosts experiments@127.0.0.1
+  ssh -p 2222 -i .workstation/keys/researcher -o IdentitiesOnly=yes \
+    -o UserKnownHostsFile=.workstation/known_hosts researcher@127.0.0.1
   ```
 
   The git account refuses a shell for an agent key. The host key of

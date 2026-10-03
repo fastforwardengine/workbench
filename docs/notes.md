@@ -69,11 +69,11 @@ the format of the folder, splits a file that grows long, and merges
 duplicate claims with their sources intact. The steward settles the
 disputes of its area when evidence exists.
 
-| Folder                             | Steward     |
-| ---------------------------------- | ----------- |
-| `parts/`, `circuit/`               | Datasheets  |
-| `instruments/`, `radio/`, `build/` | Engineer    |
-| `decisions/`, `questions/`         | Experiments |
+| Folder                             | Steward    |
+| ---------------------------------- | ---------- |
+| `parts/`, `circuit/`               | Researcher |
+| `instruments/`, `radio/`, `build/` | Engineer   |
+| `decisions/`, `questions/`         | Researcher |
 
 The assistant has no file or git tool. It cites the commits and the
 branches of the notes in its summaries.

@@ -30,7 +30,7 @@ const FILE = 'file:///library/cell-18650.md';
 const MISSING = 'file:///library/missing.md';
 const HOST_FILE = 'file:///etc/passwd';
 const SNAPSHOT = snapshotUri('workbench', 'ab'.repeat(32), '/shared/readings.csv');
-const COMMIT = commitUri('workbench', 'experiments/plan', 'cd'.repeat(20), { branch: 'led' });
+const COMMIT = commitUri('workbench', 'researcher/plan', 'cd'.repeat(20), { branch: 'led' });
 
 /** A room with a closed exchange of two messages, then two messages that cite. */
 function room(host: FakeHost, cite = true): void {
@@ -41,7 +41,7 @@ function room(host: FakeHost, cite = true): void {
 			messages: [
 				said(1, 'priya'),
 				said(2, 'design', cite ? [FILE, 'ambion://room/characterization/message/1'] : undefined),
-				said(3, 'datasheets'),
+				said(3, 'researcher'),
 				said(4, 'priya', cite ? ['ambion://room/characterization/message/3', MISSING] : undefined),
 				said(
 					5,

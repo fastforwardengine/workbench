@@ -30,7 +30,7 @@ function room(count: number) {
 	for (let at = 0; at < count; at += 1) {
 		const from = seq;
 		messages.push({ seq: seq++, kind: 'said', from: 'priya', text: `Question ${at}`, at: AT });
-		for (const who of ['datasheets', 'experiments', 'engineer'])
+		for (const who of ['researcher', 'engineer', 'researcher'])
 			messages.push({ seq: seq++, kind: 'said', from: who, text: `${who} on ${at}`, at: AT });
 		const through = seq - 1;
 		const summary = {

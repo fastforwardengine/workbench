@@ -9,8 +9,8 @@ description: Turn a question into a numbered, repeatable test plan on the test-p
 3. Fill each section of `plan.md`: the question, the setup, the variable,
    the controls, the measurement, the limits, the procedure, and the pass
    criterion. A section holds one topic.
-4. Give each limit a value and a source. Ask Datasheets for a limit that
-   `/library` covers. Do not invent a value.
+4. Give each limit a value and a source. Follow the cite-a-limit skill for a
+   limit that `/library` covers. Do not invent a value.
 5. Mark each value that you cannot give yet with `TBD`. Name the limit and
    the datasheet that must supply it, for example the maximum rated
    current from the datasheet of the part.
