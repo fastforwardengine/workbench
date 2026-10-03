@@ -65,7 +65,7 @@ async function runRoom(built: Awaited<ReturnType<typeof build>>, script: Script,
 		assistant: built.assistant,
 		runtime: createRuntime(),
 		execution: scripted(script),
-		seats: { research: 'named', engineer: 'named' },
+		seats: { researcher: 'named', engineer: 'named' },
 	});
 	cleanups.push(() => room.stop());
 	await (await room.visit(person)).send({ text });
@@ -97,8 +97,8 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const path = `/shared/handoff-${token()}.md`;
 		const marker = `LED limit ${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Write it.', 'research') : quiet()),
-			research: (_step, _seat, call) => {
+			assistant: (_step, _seat, call) => (call === 1 ? say('Write it.', 'researcher') : quiet()),
+			researcher: (_step, _seat, call) => {
 				if (call === 1) return callTool('write', { path, content: marker });
 				if (call === 2) return say('Written.', 'engineer');
 				return quiet();
@@ -114,7 +114,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		expect(
 			said.some((message) => message.from === 'engineer' && message.text.includes(marker)),
 		).toBe(true);
-		await built.workspace.use({ name: 'research' }, async (env) => {
+		await built.workspace.use({ name: 'researcher' }, async (env) => {
 			await env.remove(path, { recursive: false });
 		});
 	}, 120_000);
@@ -155,7 +155,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const built = await build();
 		// The image assigns uids by position in workstation/accounts. Run `make reset` after an account moves.
 		const uids: Record<string, number> = {
-			research: 1000,
+			researcher: 1000,
 			engineer: 1001,
 		};
 		expect(built.specialists.map((seat) => seat.name).sort()).toEqual(Object.keys(uids).sort());
@@ -204,17 +204,17 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		expect(report).toContain('engineer');
 	}, 120_000);
 
-	it('lets Research fork the test-plan template, and push a branch through the git account', async () => {
+	it('lets the Researcher fork the test-plan template, and push a branch through the git account', async () => {
 		const built = await build();
 		const name = `plan-${token()}`;
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'research') : quiet()),
-			research: (step, _seat, call) => {
+			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'researcher') : quiet()),
+			researcher: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', { source: 'templates/test-plan', name, clone: `~/${name}` });
 				if (call === 2)
 					return callTool('bash', {
-						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git -c user.name=research -c user.email=research@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
+						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git -c user.name=researcher -c user.email=researcher@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
 						wait: 60,
 					});
 				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
@@ -222,14 +222,14 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 			},
 		});
 		const room = await runRoom(built, script, 'Plan a test.');
-		const fork = await built.workspace.git?.use({ name: 'research' }, (env) =>
-			env.get(`research/${name}`),
+		const fork = await built.workspace.git?.use({ name: 'researcher' }, (env) =>
+			env.get(`researcher/${name}`),
 		);
 		expect(fork?.source).toBe('templates/test-plan');
 		expect(Object.keys(fork?.branches ?? {}).sort()).toEqual(['led', 'main']);
 		expect(fork?.branches.led).not.toBe(fork?.branches.main);
 		const said = (await room.read()).messages.flatMap((message) =>
-			message.kind === 'said' && message.from === 'research' ? [message.text] : [],
+			message.kind === 'said' && message.from === 'researcher' ? [message.text] : [],
 		);
 		expect(said.at(-1)).toContain('pushed');
 	}, 120_000);

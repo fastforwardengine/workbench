@@ -9,7 +9,7 @@ import { packageDirectory } from './package-root.ts';
  * view of the bench current.
  */
 export const seats: Record<string, Attention> = {
-	research: 'broadcast',
+	researcher: 'broadcast',
 	engineer: 'broadcast',
 };
 
@@ -42,7 +42,7 @@ export const scenarios: Scenario[] = [
 			'List the parts of the kit from the notes, and name the facts we must settle before the build.',
 		seats: {
 			engineer: 'broadcast',
-			research: 'broadcast',
+			researcher: 'broadcast',
 		},
 	},
 	{
@@ -55,7 +55,7 @@ export const scenarios: Scenario[] = [
 		prompt: 'Plan path A: how the Pico presses CH+ and CH−, and how the camera reads the display.',
 		seats: {
 			engineer: 'broadcast',
-			research: 'broadcast',
+			researcher: 'broadcast',
 		},
 	},
 	{
@@ -69,7 +69,7 @@ export const scenarios: Scenario[] = [
 			'Write the build procedure of the second kit as steps, with a check for each polarized part.',
 		seats: {
 			engineer: 'broadcast',
-			research: 'named',
+			researcher: 'named',
 		},
 	},
 	{
@@ -82,7 +82,7 @@ export const scenarios: Scenario[] = [
 		prompt: 'List what path C needs: the compiler, the flasher, the pins, and the spare chip.',
 		seats: {
 			engineer: 'broadcast',
-			research: 'broadcast',
+			researcher: 'broadcast',
 		},
 	},
 ];

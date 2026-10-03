@@ -52,7 +52,7 @@ describe('Session mentions', () => {
 		await session.refresh();
 		expect(session.suggestions('@').map((row) => [row.label, row.detail])).toEqual([
 			['@assistant', 'not seated'],
-			['@research', 'not seated'],
+			['@researcher', 'not seated'],
 			['@engineer', 'named'],
 		]);
 	});
@@ -717,7 +717,7 @@ describe('Session commands', () => {
 			'characterization',
 			view('characterization', {
 				participants: [{ name: 'priya', kind: 'person' }],
-				messages: [said(1, 'priya'), said(2, 'design'), said(3, 'research'), said(4, 'priya')],
+				messages: [said(1, 'priya'), said(2, 'design'), said(3, 'researcher'), said(4, 'priya')],
 				exchanges: [closedExchange(1, { through: 3 })],
 			}),
 		);

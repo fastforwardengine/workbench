@@ -41,13 +41,13 @@ async function refusesRewrite(workspace: Workspace, path: string) {
 	const tip = () =>
 		shell(
 			workspace,
-			'research',
+			'researcher',
 			`cd ${path} && git fetch >/dev/null 2>&1 && git rev-parse origin/main`,
 		);
 	const before = (await tip()).trim();
 	await shell(
 		workspace,
-		'research',
+		'researcher',
 		`cd ${path} && git switch main && git reset --hard HEAD~1 && echo 'diverged' > diverged.md && git add . && git commit -m 'questions: diverge' && git push --force origin main`,
 		1,
 	);
@@ -56,12 +56,12 @@ async function refusesRewrite(workspace: Workspace, path: string) {
 
 async function collaboration(workspace: Workspace) {
 	const path = `~/notes-test-${crypto.randomUUID()}`;
-	await clone(workspace, 'research', path);
+	await clone(workspace, 'researcher', path);
 	await clone(workspace, 'engineer', path);
 	const file = `questions/test-${crypto.randomUUID()}.md`;
 	await shell(
 		workspace,
-		'research',
+		'researcher',
 		`cd ${path} && echo 'first evidence' > ${file} && git add . && git commit -m 'questions: first evidence' && git push origin main`,
 	);
 	await shell(
@@ -79,13 +79,13 @@ async function collaboration(workspace: Workspace) {
 		'engineer',
 		`cd ${path} && echo 'second evidence' >> ${file} && git commit -am 'questions: second evidence' && git push origin main`,
 	);
-	await shell(workspace, 'research', `cd ${path} && git pull --rebase && cat ${file}`).then(
+	await shell(workspace, 'researcher', `cd ${path} && git pull --rebase && cat ${file}`).then(
 		(output) => expect(output).toContain('second evidence'),
 	);
 	const branch = `dispute/test-${crypto.randomUUID()}`;
 	await shell(
 		workspace,
-		'research',
+		'researcher',
 		`cd ${path} && git switch -c ${branch} && echo 'disputed evidence' >> ${file} && git commit -am 'questions: dispute' && git push origin ${branch}`,
 	);
 	await shell(
@@ -140,8 +140,8 @@ describe('the shared notes', () => {
 				env.resolve('shared/notes', { branch: 'main' }),
 			),
 		).toBe(tip);
-		await clone(restarted, 'research');
-		await shell(restarted, 'research', 'cd ~/notes && cat decisions/test.md').then((output) =>
+		await clone(restarted, 'researcher');
+		await shell(restarted, 'researcher', 'cd ~/notes && cat decisions/test.md').then((output) =>
 			expect(output).toBe('team decision\n'),
 		);
 	}, 20_000);

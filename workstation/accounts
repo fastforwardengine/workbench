@@ -8,6 +8,6 @@
 # above another one changes the uid of that account. The next start repairs the
 # home of the account, but the files that it owns in /shared and in the audit
 # log keep the old uid.
-research
+researcher
 engineer
 workbench-host

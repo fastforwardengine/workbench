@@ -11,7 +11,7 @@ describe('Workbench executor families', () => {
 	it('puts every seat on Pi', () => {
 		expect(seatFamilies).toEqual({
 			assistant: 'pi',
-			research: 'pi',
+			researcher: 'pi',
 			engineer: 'pi',
 		});
 	});
@@ -52,7 +52,7 @@ describe('Workbench executor families', () => {
 		const executors = Object.fromEntries(
 			built.specialists.map((seat) => [seat.name, seat.executor]),
 		);
-		for (const name of ['research', 'engineer']) {
+		for (const name of ['researcher', 'engineer']) {
 			expect(executors[name], name).toMatchObject({
 				kind: 'pi',
 				model: piModel(),
@@ -79,7 +79,7 @@ describe('Workbench with no key', () => {
 		opened.push({ lab, directory });
 		expect((await lab.read('radio-kit', 0)).unavailable).toEqual([
 			'assistant',
-			'research',
+			'researcher',
 			'engineer',
 		]);
 		await lab.join('radio-kit', person);

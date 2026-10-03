@@ -59,11 +59,11 @@ const shape = (blocks: Block[]) =>
 // The cycling room's exchange: a person answers an agent inside the exchange.
 const thread = [
 	said(98, 'noor'),
-	said(102, 'assistant', 'research'),
+	said(102, 'assistant', 'researcher'),
 	said(121, 'assistant', 'noor'),
 	said(125, 'noor'),
-	said(128, 'assistant', 'research'),
-	said(134, 'research'),
+	said(128, 'assistant', 'researcher'),
+	said(134, 'researcher'),
 	summaryOf(145, 'noor'),
 ];
 const closed: Exchange = {
@@ -90,7 +90,7 @@ describe('buildTimeline', () => {
 			[128, 'said'],
 			[134, 'said'],
 		]);
-		expect(discussion.voices).toEqual(['assistant', 'noor', 'research']);
+		expect(discussion.voices).toEqual(['assistant', 'noor', 'researcher']);
 		expect(discussion.flag).toBe('');
 	});
 

@@ -80,11 +80,11 @@ layout, and the tests.
 **Two specialists hear every message in a new room, at `broadcast`. The
 assistant writes the closing summary.** Every seat runs on Pi.
 
-| Seat      | Work                                                                   | Tools     |
-| --------- | ---------------------------------------------------------------------- | --------- |
-| Assistant | Seats and unseats specialists, and summarizes                          | None      |
-| Research  | States limits from `/library`, with the source, and writes a test plan | Workspace |
-| Engineer  | Watches the bench, runs the bench scripts, and guides a build          | Workspace |
+| Seat       | Work                                                                   | Tools     |
+| ---------- | ---------------------------------------------------------------------- | --------- |
+| Assistant  | Seats and unseats specialists, and summarizes                          | None      |
+| Researcher | States limits from `/library`, with the source, and writes a test plan | Workspace |
+| Engineer   | Watches the bench, runs the bench scripts, and guides a build          | Workspace |
 
 **The workspace tools are the only tools.** They read and write files,
 run shell commands as background processes, fork the git templates, and
@@ -100,12 +100,12 @@ needs one. A bench script comes from a template.
   addresses them. The Engineer owns every phase. `/new` adds a room with
   the two default seats, all at `broadcast`.
 
-  | Room             | Phase                                          | Owners             |
-  | ---------------- | ---------------------------------------------- | ------------------ |
-  | `radio-kit`      | Know the kit, and support the first hand build | Engineer, Research |
-  | `radio-tune`     | Hear the radio, tune it: path A and path B     | Engineer, Research |
-  | `radio-build`    | Guide the build of the second kit              | Engineer           |
-  | `radio-firmware` | Path C: new firmware                           | Engineer, Research |
+  | Room             | Phase                                          | Owners               |
+  | ---------------- | ---------------------------------------------- | -------------------- |
+  | `radio-kit`      | Know the kit, and support the first hand build | Engineer, Researcher |
+  | `radio-tune`     | Hear the radio, tune it: path A and path B     | Engineer, Researcher |
+  | `radio-build`    | Guide the build of the second kit              | Engineer             |
+  | `radio-firmware` | Path C: new firmware                           | Engineer, Researcher |
 
 - **State of the bench:** the Git repository `shared/notes` holds facts,
   decisions, and questions with their sources and confidence. Every specialist

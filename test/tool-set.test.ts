@@ -47,7 +47,7 @@ describe('the Workbench tool set', () => {
 		const built = await build();
 		expect(built.agents.map((seat) => [seat.name, seat.executor.kind])).toEqual([
 			['assistant', 'pi'],
-			['research', 'pi'],
+			['researcher', 'pi'],
 			['engineer', 'pi'],
 		]);
 	});
@@ -74,8 +74,8 @@ describe('the Workbench filesystem', () => {
 		const marker = 'LED limit 20 mA';
 		const script = byAgent({
 			assistant: (_step, _seat, call) =>
-				call === 1 ? say('Please state the limit.', 'research') : quiet(),
-			research: (_step, _seat, call) => {
+				call === 1 ? say('Please state the limit.', 'researcher') : quiet(),
+			researcher: (_step, _seat, call) => {
 				if (call === 1) return callTool('write', { path: '/shared/handoff.md', content: marker });
 				if (call === 2) return say('Written.', 'engineer');
 				return quiet();
@@ -93,7 +93,7 @@ describe('the Workbench filesystem', () => {
 			assistant: built.assistant,
 			runtime: createRuntime(),
 			execution: scripted(script),
-			seats: { research: 'named', engineer: 'named' },
+			seats: { researcher: 'named', engineer: 'named' },
 		});
 		cleanups.push(() => room.stop());
 		await (await room.visit(person)).send({ text: 'Share a file.' });
@@ -107,13 +107,13 @@ describe('the Workbench filesystem', () => {
 });
 
 describe('the Workbench repositories', () => {
-	it('lets the Research seat fork the test-plan template and push a branch', async () => {
+	it('lets the Researcher seat fork the test-plan template and push a branch', async () => {
 		const built = await build();
 		const person = people[0];
 		if (!person) throw new Error('No person.');
 		const script = byAgent({
-			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'research') : quiet()),
-			research: (step, _seat, call) => {
+			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'researcher') : quiet()),
+			researcher: (step, _seat, call) => {
 				if (call === 1)
 					return callTool('fork', { source: 'templates/test-plan', name: 'plan', clone: '~/plan' });
 				if (call === 2)
@@ -132,13 +132,13 @@ describe('the Workbench repositories', () => {
 			assistant: built.assistant,
 			runtime: createRuntime(),
 			execution: scripted(script),
-			seats: { research: 'named', engineer: 'named' },
+			seats: { researcher: 'named', engineer: 'named' },
 		});
 		cleanups.push(() => room.stop());
 		await (await room.visit(person)).send({ text: 'Plan a test.' });
 		await settled(room);
-		const fork = await built.workspace.git?.use({ name: 'research' }, (env) =>
-			env.get('research/plan'),
+		const fork = await built.workspace.git?.use({ name: 'researcher' }, (env) =>
+			env.get('researcher/plan'),
 		);
 		expect(fork?.source).toBe('templates/test-plan');
 		expect(Object.keys(fork?.branches ?? {}).sort()).toEqual(['led', 'main']);

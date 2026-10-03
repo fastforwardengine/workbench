@@ -81,7 +81,7 @@ function processes(): FakeHost {
 		{
 			handle: 'bash-bbb222',
 			kind: 'bash',
-			agent: 'research',
+			agent: 'researcher',
 			command: 'echo done',
 			state: 'exited',
 			exitCode: 0,
@@ -165,7 +165,7 @@ describe('the processes panel', () => {
 		const text = await frame();
 		expect(text).toContain('Processes   1 running, 2 in all');
 		expect(text).toMatch(/● ▸ scan\s+engineer\s+running 1m 5s/);
-		expect(text).toMatch(/●\s+bash-bbb222\s+research\s+exit 0 after 4s/);
+		expect(text).toMatch(/●\s+bash-bbb222\s+researcher\s+exit 0 after 4s/);
 		expect(text).toContain('scan (bash-aaa111)');
 		expect(text).toContain('$ python3 scan/scan.py');
 		expect(text).toContain('output of bash-aaa111');

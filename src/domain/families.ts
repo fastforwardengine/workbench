@@ -17,7 +17,7 @@ export type Environment = Readonly<Record<string, string | undefined>>;
 /** The seats that run on a family. Every seat is Pi today. */
 export const seatFamilies: Readonly<Record<string, Family>> = {
 	assistant: 'pi',
-	research: 'pi',
+	researcher: 'pi',
 	engineer: 'pi',
 };
 

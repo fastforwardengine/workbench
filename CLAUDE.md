@@ -71,7 +71,7 @@ Rules that carry the most weight here:
    seat is where one agent sits in it; an activation is the room waking one
    seat; an exchange is a person's question and every activation until the
    room goes quiet. This project adds its own terms on top: a
-   **specialist** is a named agent role (Research, Engineer); a **family**
+   **specialist** is a named agent role (Researcher, Engineer); a **family**
    is the executor a seat runs on (Pi, Claude, Codex); a **resource** is a
    shared tool implementation (the workspace).
    Do not use "agent" where "specialist" or "seat" names the thing more

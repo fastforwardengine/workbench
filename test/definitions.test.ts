@@ -28,7 +28,7 @@ const instructionsOf = (seat: { executor: unknown }): string =>
 describe('the Engineer', () => {
 	it('listens at broadcast in a room with no seats of its own, like the other specialists', () => {
 		expect(seats).toEqual({
-			research: 'broadcast',
+			researcher: 'broadcast',
 			engineer: 'broadcast',
 		});
 	});
@@ -40,7 +40,7 @@ describe('the Engineer', () => {
 				'engineer',
 			]);
 		expect(templateInstructions('engineer')).toContain('the build-procedure template');
-		for (const other of ['research'])
+		for (const other of ['researcher'])
 			for (const name of owned) expect(templateInstructions(other)).not.toContain(name);
 	});
 
@@ -93,7 +93,7 @@ describe('the Engineer', () => {
 				'Ask the person for a photo with /attach only when the camera cannot show the part.',
 			])
 				expect(rules).toContain(rule);
-			expect(built.specialists.map((seat) => seat.name)).toEqual(['research', 'engineer']);
+			expect(built.specialists.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);
 		} finally {
 			await workspace.dispose();
 		}

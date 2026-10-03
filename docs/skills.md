@@ -24,9 +24,9 @@ specialist. The assistant has no file or shell tool, so it has no folder.
 
 | Specialist | Skill                    | Task                                                             |
 | ---------- | ------------------------ | ---------------------------------------------------------------- |
-| Research   | `cite-a-limit`           | State a limit with its source, or say the library has none       |
-| Research   | `compare-parts`          | Compare the specifications of parts, and name the deciding limit |
-| Research   | `write-a-test-plan`      | Fill the `test-plan` template, and push it                       |
+| Researcher | `cite-a-limit`           | State a limit with its source, or say the library has none       |
+| Researcher | `compare-parts`          | Compare the specifications of parts, and name the deciding limit |
+| Researcher | `write-a-test-plan`      | Fill the `test-plan` template, and push it                       |
 | Engineer   | `scan-the-bench`         | Find the devices with the `device-scan` template                 |
 | Engineer   | `drive-the-power-supply` | Run a power supply with the `psu` template, within its limits    |
 | Engineer   | `observe-the-camera`     | Capture and keep a camera frame with the `usb-camera` template   |

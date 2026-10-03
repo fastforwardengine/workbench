@@ -84,10 +84,10 @@ describe('resolveRef', () => {
 	});
 
 	it('resolves a commit ref of this workspace, and labels it with its short hash', () => {
-		const ref = commitUri('workbench', 'research/plan', HASH, { branch: 'led' });
+		const ref = commitUri('workbench', 'researcher/plan', HASH, { branch: 'led' });
 		expect(resolveRef(ref, known)).toMatchObject({
 			kind: 'commit',
-			label: 'research/plan led a1b2c3d',
+			label: 'researcher/plan led a1b2c3d',
 			target: { kind: 'commit', ref },
 		});
 	});
