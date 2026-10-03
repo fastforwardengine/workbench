@@ -95,10 +95,14 @@ needs one. A bench script comes from a template.
 ## The lab
 
 - **Rooms:** the seeded room `build` holds every phase of the FM radio, in
-  order: know the kit and support the first hand build, tune the radio (path A
-  and path B), guide the build of the second kit, and write new firmware
-  (path C). Every room seats both specialists at `broadcast`. `/new` adds a
-  room with the same two seats.
+  this order:
+  1. Know the kit, and support the first hand build.
+  2. Tune the radio: path A and path B.
+  3. Guide the build of the second kit.
+  4. Write new firmware: path C.
+
+  Every room seats both specialists at `broadcast`. `/new` adds a room with
+  the same two seats.
 
 - **State of the bench:** the Git repository `shared/notes` holds facts,
   decisions, and questions with their sources and confidence. Every specialist
