@@ -4,9 +4,14 @@
  * every step and on a fresh one that sees this step alone, and the two frames
  * must be equal. The counts of built nodes show that the reuse happens.
  */
-import { TextRenderable } from '@opentui/core';
+import {
+	CodeRenderable,
+	getTreeSitterClient,
+	type Renderable,
+	TextRenderable,
+} from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Marks, Transcript } from '../src/terminal/widgets/transcript.ts';
 import type { RefItem } from '../src/view/refs.ts';
 import { type Block, buildTimeline } from '../src/view/timeline.ts';
@@ -18,6 +23,11 @@ interface Builder {
 
 const AT = '2026-01-01T00:00:00Z';
 const cleanups: (() => void)[] = [];
+/** The first highlight in a process starts the worker. Start it once, before any frame is compared. */
+beforeAll(async () => {
+	await getTreeSitterClient().highlightOnce('# x', 'markdown');
+}, 30_000);
+
 afterEach(() => {
 	for (const cleanup of cleanups.splice(0)) cleanup();
 });
@@ -199,17 +209,26 @@ async function draw(
 		state.marks,
 	);
 	await settle();
-	return stable(view.setup);
+	return stable(view.setup, view.transcript.root);
 }
 
-/** Highlighting of Markdown bodies is asynchronous: draw until the frame holds for four passes. */
-async function stable(setup: Awaited<ReturnType<typeof mount>>['setup']): Promise<string> {
+/** Whether a code block under the node still waits for the highlight worker. */
+function highlighting(node: Renderable): boolean {
+	if (node instanceof CodeRenderable && node.isHighlighting) return true;
+	return node.getChildren().some(highlighting);
+}
+
+/** Highlighting of Markdown bodies is asynchronous: draw until no block waits and the frame holds for four passes. */
+async function stable(
+	setup: Awaited<ReturnType<typeof mount>>['setup'],
+	root: Renderable,
+): Promise<string> {
 	let last = '';
 	let same = 0;
-	for (let pass = 0; pass < 100 && same < 4; pass += 1) {
+	for (let pass = 0; pass < 200 && same < 4; pass += 1) {
 		await setup.renderOnce();
 		const frame = frameOf(setup);
-		same = frame === last ? same + 1 : 0;
+		same = frame === last && !highlighting(root) ? same + 1 : 0;
 		last = frame;
 		await new Promise((resolve) => setTimeout(resolve, 30));
 	}
@@ -525,11 +544,7 @@ describe('the body of a message', () => {
 			failures: new Map(),
 		} as never);
 		view.transcript.render(blocks, undefined, undefined, undefined, true);
-		// Highlighting runs in a worker, so the frame settles after a few passes.
-		for (let pass = 0; pass < 30; pass += 1) {
-			await new Promise((resolve) => setTimeout(resolve, 50));
-			await view.setup.renderOnce();
-		}
+		await stable(view.setup, view.transcript.root);
 		const frame = view.setup.captureCharFrame();
 		expect(frame).toContain('engineer');
 		expect(frame).toContain('bold');
@@ -539,8 +554,10 @@ describe('the body of a message', () => {
 		expect(frame).toContain('Plan');
 		expect(frame).toContain('- one');
 		expect(frame).toContain('- two');
-		const widest = Math.max(...frame.split('\n').map((line) => line.trimEnd().length));
-		expect(widest).toBeLessThanOrEqual(100);
-		expect(frame.split('\n').filter((line) => line.includes('word')).length).toBeGreaterThan(1);
+		const lines = frame.split('\n');
+		const long = lines.filter((line) => line.includes('word'));
+		expect(long.length).toBeGreaterThan(1);
+		// The rail and its padding take two cells, and the scrollbar side padding takes two more.
+		for (const line of long) expect(line.trimEnd().length).toBeLessThanOrEqual(100 - 4);
 	}, 20_000);
 });
