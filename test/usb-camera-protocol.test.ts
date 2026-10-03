@@ -8,6 +8,7 @@ import { sensorConformance } from '@ambionframework/workspace/conformance';
 import { createSensorClient } from '@ambionframework/workspace/sensors';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { templatesDirectory } from '../src/domain/templates.ts';
+import { python } from './python.ts';
 
 const directory = join(templatesDirectory, 'usb-camera');
 const at = '2026-01-01T00:00:00.123Z';
@@ -22,22 +23,15 @@ server = camera.open_server(cam)
 print(server.server_port, flush=True)
 server.serve_forever()
 `;
-const python = (() => {
-	try {
-		execFileSync('python3', ['--version']);
-		return true;
-	} catch {
-		return false;
-	}
-})();
-// The conformance cases need the expected bytes at collection time.
+// The conformance cases need the expected bytes at collection time. Without python3 the suite
+// skips, and two different placeholders keep the digests of the fixture apart.
 const bytes = python
 	? execFileSync(
 			'python3',
 			['-B', '-c', 'import camera,sys; sys.stdout.buffer.write(camera.demo_png())'],
 			{ cwd: directory },
 		)
-	: Buffer.alloc(0);
+	: Buffer.from('png');
 const digest = createHash('sha256').update(bytes).digest('hex');
 // The demo clip and the level series of its 10 ms windows.
 const clip = python
@@ -52,7 +46,7 @@ const clip = python
 				{ cwd: directory, encoding: 'utf8' },
 			),
 		) as { wav: string; values: number[] })
-	: { wav: '', values: [] };
+	: { wav: Buffer.from('wav').toString('base64'), values: [] };
 const wavBytes = Buffer.from(clip.wav, 'base64');
 const wavDigest = createHash('sha256').update(wavBytes).digest('hex');
 let root: string;

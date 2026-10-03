@@ -16,6 +16,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The ruff version of every run. `pnpm check` lints the Python with it.
+  RUFF_VERSION: 0.15.20
+
 jobs:
   check:
     name: Format, types, lint, and scripted tests
@@ -33,6 +37,8 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The runner image has python3 3.12 and pipx. The python stage needs ruff.
+      - run: pipx install ruff==${{ env.RUFF_VERSION }}
       # The scripted tier needs no key and no network.
       - run: pnpm run check
       # The npm package: the bundle builds, and the tarball holds what ships.

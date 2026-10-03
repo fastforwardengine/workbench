@@ -42,9 +42,15 @@ unused import or variable.
 - `pnpm start` — run the terminal.
 - `make` — bring up the local workstation in `workstation/`, and run the
   terminal on it. The `Makefile` lists the other targets.
-- `pnpm check` — format, types, lint, knip, and the scripted test tier. The
-  stages run at once. A failed run reports every failed stage.
-- `pnpm test` — the scripted tier: no key, no network.
+- `pnpm check` — format, types, lint, knip, the scripted test tier, and the
+  `python` stage. The stage runs `ruff check` on the Python and the Python
+  suites. It needs `ruff` and Python 3.11 or newer on PATH. The floor is the
+  `target-version` in `pyproject.toml`. No tool formats the Python, because
+  a fork starts with the files of its template. The stages run at once. A
+  failed run reports every failed stage.
+- `pnpm test` — the scripted tier: no key, no network. The Python suites run
+  in `pnpm check`. A test that needs `python3` skips on a Python below the
+  floor.
 - `pnpm test:live` — the live tier: evals on `@ambionframework/simulator`.
   Needs a real model key, and costs money.
 - `pnpm format` — write formatting and lint fixes.
