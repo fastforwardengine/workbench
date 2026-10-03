@@ -3,15 +3,10 @@
 
 Run it from the root of the clone:
 
-    python3 scan/scan.py                          # USB, serial, VISA, cameras, microphones
-    python3 scan/scan.py --identify               # also ask each VISA instrument *IDN?
-    python3 scan/scan.py --subnet 192.168.1.0/24  # also look for SCPI ports on a subnet
+    python3 scan/scan.py                          # USB, serial, cameras, microphones
 
 The scan writes scans/<UTC time>.json and scans/<UTC time>.md, and prints the
-Markdown. It changes no setting of a device. `--identify` sends the query
-`*IDN?`, which only reads. `--subnet` connects to a few TCP ports of each
-address: use it only on the network of the bench, and only when the person
-names the subnet.
+Markdown. It changes no setting of a device.
 """
 
 import argparse
@@ -45,10 +40,6 @@ SERIAL_CHIPS = {
     "1a86": "WCH CH340/CH341 USB-serial",
     "067b": "Prolific PL2303 USB-serial",
 }
-
-# TCP ports of instruments: raw SCPI, SCPI over telnet, HiSLIP, and the
-# portmapper of VXI-11.
-SCPI_PORTS = "5025,5024,4880,111"
 
 
 def read(path):
@@ -135,36 +126,6 @@ def serial_ports():
     ]
 
 
-def visa_resources(identify):
-    try:
-        import pyvisa
-    except ImportError:
-        return {"error": "pyvisa is not installed"}
-    try:
-        manager = pyvisa.ResourceManager("@py")
-        names = list(manager.list_resources())
-    except Exception as error:  # A backend fault is a finding of the scan.
-        return {"error": str(error)}
-    found = []
-    for name in names:
-        entry = {"resource": name}
-        if identify:
-            entry["idn"] = query_idn(manager, name)
-        found.append(entry)
-    return found
-
-
-def query_idn(manager, name):
-    try:
-        instrument = manager.open_resource(name, open_timeout=2000)
-        instrument.timeout = 2000
-        answer = instrument.query("*IDN?").strip()
-        instrument.close()
-        return answer
-    except Exception as error:  # An instrument that does not answer is a finding.
-        return f"no answer: {error}"
-
-
 def run(command):
     """The output of a command, or why it did not run."""
     if not shutil.which(command[0]):
@@ -192,12 +153,6 @@ def microphones():
     return run(["arecord", "-l"])
 
 
-def network(subnet):
-    if not subnet:
-        return None
-    return run(["nmap", "-Pn", "-p", SCPI_PORTS, "--open", "-oG", "-", subnet])
-
-
 def markdown(report):
     lines = [f"# Device scan, {report['time']}", "", f"Host: {report['host']}", "", "## USB", ""]
     if not report["usb"]:
@@ -212,18 +167,13 @@ def markdown(report):
         access = "read and write" if usbfs["writable"] else "no write access"
         lines.append(f"  - libusb: `{usbfs['path']}`, {access}" if usbfs["here"] else f"  - libusb: `{usbfs['path']}` is not in the container")
     lines += ["", "## Serial ports", "", "```", json.dumps(report["serial"], indent=2), "```"]
-    lines += ["", "## VISA resources (pyvisa-py)", "", "```", json.dumps(report["visa"], indent=2), "```"]
     lines += ["", "## Cameras", "", "```", report["v4l2"], "", report["gphoto2"], "```"]
     lines += ["", "## Microphones", "", "```", report["arecord"], "```"]
-    if report["network"] is not None:
-        lines += ["", f"## SCPI ports on {report['subnet']}", "", "```", report["network"], "```"]
     return "\n".join(lines) + "\n"
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--identify", action="store_true", help="ask each VISA instrument *IDN?")
-    parser.add_argument("--subnet", help="look for SCPI ports on this subnet, such as 192.168.1.0/24")
     parser.add_argument("--out", default="scans", help="the folder of the reports")
     args = parser.parse_args()
 
@@ -233,12 +183,9 @@ def main():
         "host": os.uname().nodename,
         "usb": usb_devices(),
         "serial": serial_ports(),
-        "visa": visa_resources(args.identify),
         "v4l2": cameras(),
         "gphoto2": run(["gphoto2", "--auto-detect"]),
         "arecord": microphones(),
-        "subnet": args.subnet,
-        "network": network(args.subnet),
     }
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

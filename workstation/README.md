@@ -144,14 +144,13 @@ ACL again. It also installs the public key of each account from
 The `device-scan` template runs them all, and writes one report
 (`templates/device-scan`).
 
-| Tool                                   | Finds                                              |
-| -------------------------------------- | -------------------------------------------------- |
-| `lsusb`, sysfs                         | Each USB device, its ID, and its interface class   |
-| `python3-serial`                       | The serial ports: a USB-serial chip, or CDC-ACM    |
-| `pyvisa`, `pyvisa-py`, `pyusb`, libusb | USBTMC instruments, with no kernel driver          |
-| `v4l2-ctl`, `gphoto2`                  | USB cameras (UVC), and cameras that gphoto2 drives |
-| `arecord`                              | USB microphones (ALSA sound cards)                 |
-| `nmap`                                 | The SCPI ports of the instruments on a subnet      |
+| Tool                  | Finds                                              |
+| --------------------- | -------------------------------------------------- |
+| `lsusb`, sysfs        | Each USB device, its ID, and its interface class   |
+| `python3-serial`      | The serial ports: a USB-serial chip, or CDC-ACM    |
+| sysfs                 | USBTMC instruments, by their interface class       |
+| `v4l2-ctl`, `gphoto2` | USB cameras (UVC), and cameras that gphoto2 drives |
+| `arecord`             | USB microphones (ALSA sound cards)                 |
 
 **Engineer is in the groups `dialout`, `video`, `audio`, and `plugdev`.** The
 container mounts `/dev/bus/usb` with a rule for every USB device file, so

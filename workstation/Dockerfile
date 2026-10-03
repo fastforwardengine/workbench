@@ -19,20 +19,17 @@ RUN apt-get update -q \
 # The tools that find and drive the instruments of the bench:
 #   usbutils          lsusb, the USB devices and their classes
 #   python3-serial    serial ports: a USB-serial chip or CDC-ACM (/dev/tty*)
-#   libusb, pyusb,    USBTMC and other USB instruments through libusb, with
-#   pyvisa, pyvisa-py no kernel driver; psutil and zeroconf let pyvisa-py
-#   psutil, zeroconf  list the instruments on the network too
+#   libusb            the USB library that a driver of a USB instrument uses
 #   v4l-utils         v4l2-ctl, the USB cameras (UVC), their formats and controls
 #   fswebcam          one frame of a V4L2 camera, as a JPEG
 #   alsa-utils        arecord, the USB microphones: sound cards and one clip
 #   numpy, pil        a frame as numbers: the brightness of each step
 #   gphoto2           the cameras that gphoto2 drives, such as a DSLR
-#   nmap              the SCPI ports of the instruments on a subnet
 RUN apt-get update -q \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
-		usbutils python3-serial libusb-1.0-0 python3-usb python3-pyvisa \
-		python3-pyvisa-py python3-psutil python3-zeroconf v4l-utils fswebcam alsa-utils \
-		python3-numpy python3-pil gphoto2 nmap \
+		usbutils python3-serial libusb-1.0-0 \
+		v4l-utils fswebcam alsa-utils \
+		python3-numpy python3-pil gphoto2 \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY accounts /etc/workbench-accounts

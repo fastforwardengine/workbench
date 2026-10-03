@@ -101,7 +101,6 @@ describe('the Engineer', () => {
 				'follow the scan-the-bench skill',
 				'Follow the drive-the-power-supply skill to run a power supply.',
 				'ask the person before the first run that drives an output',
-				'Scan a network with `--subnet` only when the person names the subnet.',
 				'Start a long script with a `name`, and read its end with `wait` or `status`.',
 				'follow the observe-the-camera skill',
 				'Ask the person for a photo with /attach only when the camera cannot show the part.',
