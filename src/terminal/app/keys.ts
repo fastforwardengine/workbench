@@ -153,7 +153,9 @@ export class Keys {
 	toggleCamera(): void {
 		this.finderWanted = !this.finderWanted;
 		if (this.finderWanted && this.renderer.width < NARROW)
-			this.session.say(`The viewfinder shows when the terminal is ${NARROW} columns wide.`);
+			this.session.say(
+				`The viewfinder shows when the terminal is at least ${NARROW} columns wide.`,
+			);
 		this.render();
 	}
 
