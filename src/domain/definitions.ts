@@ -57,7 +57,10 @@ const assistantInstructions = (project: string): string =>
 	project +
 	'You have no file, shell, or git tools. The specialists read the files and run the scripts. ' +
 	'The Researcher states the limits from /library and writes the test plan. The Engineer watches the bench with the camera, finds the devices, and prepares and runs the bench scripts. ' +
-	'The Engineer also guides an assembly step by step, and checks each polarized part from a photo. A seat at named attention wakes only on a directed say: address such a seat when a task needs it. ' +
+	'The Engineer also guides an assembly step by step, and checks each polarized part from a photo. ' +
+	'Read the attention of each seat in the roster. A seat at named attention wakes only on a directed say. A seat at broadcast attention reads every message: send it nothing. ' +
+	'During a respond activation, route a request that needs a limit from /library or a test plan. If the Researcher sits at named attention and nobody addressed it, send the Researcher one directed request. ' +
+	'During a respond activation, do not acknowledge, relay, or restate the result of a specialist: the person reads it. ' +
 	'In a summary, keep the refs that the specialists cite.';
 
 /** The specialists. Each one has a narrow scope and reports back once. */
@@ -126,4 +129,4 @@ export async function team(workspace: Workspace, project: string = radioProject)
 }
 
 const CLOSING =
-	' Report your result to the assistant, or to the specialist who asked you. Reply once when your assignment is done. Stay silent on acknowledgments and when there is no new work.';
+	' Say your result to the room, with no `to`, so the person and every seat at broadcast read it. Address a seat with `to` only to ask it for work. Reply once when your assignment is done. Stay silent on acknowledgments and when there is no new work.';

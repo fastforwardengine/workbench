@@ -4,7 +4,8 @@
  * stay cheap and stable. The rooms of the product follow the FM radio.
  * The evals give this project to `team` and this kit to `seedWorkspace`.
  */
-import { type RoomPlan, seats } from '../../src/domain/room.ts';
+import type { Attention } from '@ambionframework/ambion';
+import type { RoomPlan } from '../../src/domain/room.ts';
 
 /** The paragraph that opens the instructions of every seat. */
 export const ledProject =
@@ -44,12 +45,12 @@ bullet, with its source and its confidence.
 };
 
 /** The room of the LED sweep, with the seats of the first version of Workbench. */
-export const ledSweepRoom: RoomPlan & { seats: typeof seats } = {
+export const ledSweepRoom: RoomPlan & { seats: Record<string, Attention> } = {
 	name: 'led-sweep',
 	goal:
 		'Sweep the drive current of an LED with a bench power supply, and measure the light ' +
 		'at each step with a camera. Keep the current within the limit of the LED datasheet.',
 	pattern: 'Datasheet limits → test plan → sweep',
 	prompt: 'Plan the LED current sweep, and name the limits that it must respect.',
-	seats,
+	seats: { researcher: 'broadcast', engineer: 'broadcast' },
 };

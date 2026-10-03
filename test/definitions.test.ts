@@ -26,9 +26,9 @@ const instructionsOf = (seat: { executor: unknown }): string =>
 	(seat.executor as { instructions: string }).instructions;
 
 describe('the Engineer', () => {
-	it('listens at broadcast in every room, like the other specialists', () => {
+	it('listens at broadcast in every room, and the Researcher waits at named', () => {
 		expect(seats).toEqual({
-			researcher: 'broadcast',
+			researcher: 'named',
 			engineer: 'broadcast',
 		});
 	});
@@ -51,8 +51,22 @@ describe('the Engineer', () => {
 			const briefing = instructionsOf(built.assistant);
 			expect(briefing).toContain('The Engineer watches the bench with the camera');
 			expect(briefing).toContain('The Engineer also guides an assembly step by step');
-			expect(briefing).toContain('directed say');
+			expect(briefing).toContain('If the Researcher sits at named attention');
+			expect(briefing).toContain('do not acknowledge, relay, or restate');
 			expect(briefing).not.toMatch(/\b(Builder|Instruments)\b/);
+		} finally {
+			await workspace.dispose();
+		}
+	});
+
+	it('tells each specialist to say its result to the room, not to the assistant', async () => {
+		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		try {
+			const built = await team(workspace);
+			for (const seat of built.specialists) {
+				expect(instructionsOf(seat)).not.toMatch(/to the assistant/);
+				expect(instructionsOf(seat)).toContain('Say your result to the room, with no `to`');
+			}
 		} finally {
 			await workspace.dispose();
 		}

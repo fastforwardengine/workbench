@@ -1,11 +1,13 @@
 import type { Attention } from '@ambionframework/ambion';
 
 /**
- * The seats of every room. Both specialists hear every message, at
- * `broadcast`. The Engineer needs every message to keep its view of the bench current.
+ * The seats of every room. The Engineer hears every message, at `broadcast`,
+ * to keep its view of the bench current. The Researcher waits at `named`.
+ * It wakes only on a directed say from the assistant, the Engineer, or the
+ * person (`@researcher`).
  */
 export const seats: Record<string, Attention> = {
-	researcher: 'broadcast',
+	researcher: 'named',
 	engineer: 'broadcast',
 };
 

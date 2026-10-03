@@ -520,6 +520,17 @@ describe('Workbench host, a message to one seat', () => {
 		expect((await lab.read('build', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
 	});
 
+	it('seats the Researcher at named and the Engineer at broadcast in the build room', async () => {
+		const lab = await open(await freshDirectory(), listeningStream(new Set()));
+		const view = await lab.read('build', 0);
+		expect(view.participants).toContainEqual(
+			expect.objectContaining({ name: 'researcher', attention: 'named' }),
+		);
+		expect(view.participants).toContainEqual(
+			expect.objectContaining({ name: 'engineer', attention: 'broadcast' }),
+		);
+	});
+
 	it('seats a specialist that the room has not seated, at named, and wakes it', async () => {
 		const directory = await freshDirectory();
 		const database = new DatabaseSync(joinPath(directory, 'rooms.db'));
