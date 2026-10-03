@@ -64,6 +64,10 @@ pnpm start ./bench                # another directory
 - **Ambion 0.5.0 opens no journal of 0.4.0.** Move an older data directory
   away, and start again. A workstation needs `workstation/setup.sh` again:
   `workstation.json` names the `snapshots` folder now.
+- **A room from before the removal of the assistant does not resume.**
+  Its journal seats the assistant, and Ambion stops with `agent
+  'assistant' has no binding`. Move the data directory away, and start
+  again.
 
 ## Run on a local workstation
 
@@ -125,10 +129,10 @@ A bench script comes from a template.
   `/shared`, `/attachments`, and a home for each specialist.
 - **Addressing:** start a message with `@name` to wake one specialist.
   A message with no mention wakes the Engineer. Type `@` to list the
-  specialists with their attention in the room. The host seats a specialist at `named` first when the room has not
-  seated it. Start with `@@` to send a
-  leading at sign. A message takes one mention, and a second one stays
-  in the text.
+  specialists with their attention in the room. The host seats a
+  specialist at `named` first when the room has not seated it. Start with
+  `@@` to send a leading at sign. A message takes one mention, and a
+  second one stays in the text.
 - **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into
   `/attachments`, snapshots it, and cites the snapshot in your next
   message. Paste the path of a picture into an empty composer, and it fills
