@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import type { WorkspaceLayout } from '@ambionframework/workspace';
+import type { Workspace, WorkspaceLayout } from '@ambionframework/workspace';
 import type { WorkspaceAgent } from '@ambionframework/workspace/resource';
 import { s3ObjectBackend } from '@ambionframework/workspace/s3';
 import { workstationBackend, workstationGitBackend } from '@ambionframework/workstation';
@@ -99,12 +99,37 @@ async function loadObjects(raw: unknown, folder: string): Promise<ObjectsConfig 
 	};
 }
 
+/** The message of a caught value. */
+function reason(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+/** The parsed text of `workstation.json`. A failure names the path. */
+async function readConfig(path: string): Promise<Record<string, unknown>> {
+	let source: string;
+	try {
+		source = await readFile(path, 'utf8');
+	} catch (error) {
+		throw new Error(
+			`Workbench cannot read workstation.json at ${path}: ${reason(error)}. Run make, or run workstation/setup.sh, to write it.`,
+			{ cause: error },
+		);
+	}
+	try {
+		return JSON.parse(source) as Record<string, unknown>;
+	} catch (error) {
+		throw new Error(`workstation.json at ${path} is not JSON: ${reason(error)}`, {
+			cause: error,
+		});
+	}
+}
+
 /**
  * Read `workstation.json`. The key folder resolves against the folder of the
  * file, so the whole state folder can move.
  */
 export async function loadWorkstation(path: string): Promise<WorkstationConfig> {
-	const raw = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
+	const raw = await readConfig(path);
 	const layout = (raw.layout ?? {}) as Record<string, unknown>;
 	const port = raw.port ?? 22;
 	if (typeof port !== 'number' || !Number.isInteger(port))
@@ -129,10 +154,15 @@ export async function loadWorkstation(path: string): Promise<WorkstationConfig> 
 	};
 }
 
+/** The file of the private key of one account, in the key folder. */
+function keyPath(config: WorkstationConfig, name: string): string {
+	if (!ACCOUNT.test(name)) throw new Error(`The workstation has no account named ${name}.`);
+	return resolve(config.keys, name);
+}
+
 /** The private key of one account, from the key folder. */
 async function keyOf(config: WorkstationConfig, name: string): Promise<string> {
-	if (!ACCOUNT.test(name)) throw new Error(`The workstation has no account named ${name}.`);
-	const path = resolve(config.keys, name);
+	const path = keyPath(config, name);
 	try {
 		return await readFile(path, 'utf8');
 	} catch {
@@ -173,4 +203,26 @@ export async function workstationBackends(
 		}),
 		...(config.objects ? { objects: s3ObjectBackend(config.objects) } : {}),
 	};
+}
+
+/**
+ * Check that the host account reaches the workstation. Without the check, an
+ * SSH failure surfaces at the first workspace operation, with no host, port,
+ * account, or key. The workstation check of Ambion replaces this probe when
+ * it exists.
+ */
+export async function probeWorkstation(
+	workspace: Pick<Workspace, 'use' | 'mirrorAgent'>,
+	config: WorkstationConfig,
+): Promise<void> {
+	const account = workspace.mirrorAgent.name;
+	try {
+		const found = await workspace.use(workspace.mirrorAgent, (env) => env.exists('/'));
+		if (!found.ok) throw found.error;
+	} catch (error) {
+		throw new Error(
+			`Workbench cannot reach the workstation at ${config.host}:${config.port} as ${account} with the key ${keyPath(config, account)}: ${reason(error)}`,
+			{ cause: error },
+		);
+	}
 }
