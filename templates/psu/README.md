@@ -118,5 +118,32 @@ The data directory holds three kinds of file:
 - `blobs/<sha256>` holds each `recent.json` document that `observe`
   returned.
 
+**A controller drives a channel and turns it off at its end.**
+`start.py ramp` brings a channel to a voltage in steps, under a current
+limit. It holds the voltage, and then it turns the channel off:
+
+```sh
+python3 start.py ramp --channel ch1 --voltage 5 --current 0.1 --seconds 10 --hold 60
+```
+
+`--trip A` gives an abnormal current below the limit. `--tolerance V`
+gives the allowed distance from the target. The controller takes the drive
+lock of its channel. When another process holds it, the controller logs
+`gave_up` with the holder, and touches nothing.
+
+1. Read the log. The controller appends one JSON line for each event to
+   `events.jsonl`, or to the file in `ACTUATOR_EVENTS`. The `state` events
+   carry one of six words: `acting`, `reached`, `holding`, `stopping`,
+   `safe`, and `gave_up`. The `observe` and `drive` events come once for
+   each second, and at each change of state.
+2. Trust exit 0 as safe. Every channel that the process holds is off, also
+   after `gave_up` and after SIGTERM or SIGINT. Exit 1 means an error.
+3. Run `python3 finally.py --channel ch1` after an unclean end: an exit
+   code other than 0, a kill, or a lost process. It takes no drive lock.
+   A second run changes nothing.
+4. Start the controller with the `bash` call. Set `grace` to the time that
+   the process needs to turn the output off, and `timeout` above `seconds`
+   plus `hold`. The turn-off takes milliseconds, so `grace: 2` is enough.
+
 **Run the tests** with `python3 -B -m unittest` in this directory. They
 need python3 and no hardware.

@@ -254,6 +254,11 @@ class Guard:
         self._within(channel, amps, "max_current", "current", "A", what)
         self._within(channel, volts * amps, "max_power", "power", "W", what)
 
+    def check(self, channel, voltage, current):
+        """Refuse a voltage and a current that break the limits. It writes nothing."""
+        self.known(channel)
+        self._check_pair(channel, voltage, current, "The target")
+
     def mode(self, setting, reading):
         """The mode of a channel: from the driver, else derived from the current."""
         if setting.mode is not None:

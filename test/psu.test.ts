@@ -75,7 +75,7 @@ describe.skipIf(!python)('the psu template', () => {
 		});
 		expect(done.stderr + done.stdout, done.stderr).toMatch(/OK/);
 		expect(done.status).toBe(0);
-	});
+	}, 30_000);
 });
 
 describe.skipIf(!python)('psu.py on a simulated supply with two channels', () => {

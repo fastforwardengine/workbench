@@ -66,13 +66,17 @@ def parser():
     return top
 
 
+def choose_channel(channels, wanted):
+    """The channel of a command: the option, else the only channel."""
+    if wanted:
+        return wanted
+    if len(channels) == 1:
+        return channels[0]
+    raise SupplyError(f"The supply has several channels: use --channel with one of {', '.join(channels)}.")
+
+
 def pick_channel(guard, args):
-    """The channel of the command: the option, else the only channel."""
-    if args.channel:
-        return args.channel
-    if len(guard.channels) == 1:
-        return guard.channels[0]
-    raise SupplyError(f"The supply has several channels: use --channel with one of {', '.join(guard.channels)}.")
+    return choose_channel(guard.channels, args.channel)
 
 
 def summary(setting):

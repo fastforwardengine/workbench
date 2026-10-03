@@ -1,0 +1,4 @@
+events.jsonl
+sim.json
+sim.json.lock
+sim.json.*.tmp
