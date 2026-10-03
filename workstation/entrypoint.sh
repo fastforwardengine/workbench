@@ -53,7 +53,13 @@ done
 install -d -m 2770 -o root -g workbench /srv/workbench/audit /shared
 setfacl -R -m g::rwX /srv/workbench/audit /shared
 setfacl -d -m g::rwx /srv/workbench/audit /shared
-install -d -m 2750 -o workbench-host -g workbench /srv/workbench/rooms /srv/workbench/snapshots /library /attachments
+HOST_TREES=(/srv/workbench/rooms /srv/workbench/snapshots /library /attachments)
+install -d -m 2750 -o workbench-host -g workbench "${HOST_TREES[@]}"
+# The uid of the host account shifts when the account list changes, and the
+# files of an older uid stay on the volumes. The host account then cannot
+# write them. Give them back to the host account, as for each home above.
+find "${HOST_TREES[@]}" ! -user workbench-host -exec chown -h workbench-host {} + ||
+	echo "workstation: could not give every file of the host account back to it." >&2
 
 # The USB devices of the machine, when compose.yaml mounts /dev/bus/usb. The
 # container runs no udev, so each device file comes in as root's. The group
