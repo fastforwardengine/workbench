@@ -111,8 +111,9 @@ needs one. A bench script comes from a template.
   3. Guide the build of the second kit.
   4. Write new firmware: path C.
 
-  Every room seats the Engineer at `broadcast` and the Researcher at
-  `named`. `/new` adds a room with the same seats.
+  A new room seats the Engineer at `broadcast` and the Researcher at
+  `named`. `/new` adds a room with the same seats. A room keeps the seats
+  of its journal when the host resumes it.
 
 - **State of the bench:** the Git repository `shared/notes` holds facts,
   decisions, and questions with their sources and confidence. Every specialist

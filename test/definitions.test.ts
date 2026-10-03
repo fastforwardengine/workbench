@@ -51,9 +51,8 @@ describe('the Engineer', () => {
 			const briefing = instructionsOf(built.assistant);
 			expect(briefing).toContain('The Engineer watches the bench with the camera');
 			expect(briefing).toContain('The Engineer also guides an assembly step by step');
-			expect(briefing).toContain('the Researcher sits at named attention');
-			expect(briefing).toContain('Do not acknowledge, relay, or restate');
-			expect(briefing).not.toContain('A seat at named attention wakes only');
+			expect(briefing).toContain('If the Researcher sits at named attention');
+			expect(briefing).toContain('do not acknowledge, relay, or restate');
 			expect(briefing).not.toMatch(/\b(Builder|Instruments)\b/);
 		} finally {
 			await workspace.dispose();

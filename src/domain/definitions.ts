@@ -58,7 +58,9 @@ const assistantInstructions = (project: string): string =>
 	'You have no file, shell, or git tools. The specialists read the files and run the scripts. ' +
 	'The Researcher states the limits from /library and writes the test plan. The Engineer watches the bench with the camera, finds the devices, and prepares and runs the bench scripts. ' +
 	'The Engineer also guides an assembly step by step, and checks each polarized part from a photo. ' +
-	'When a request needs a limit from /library or a test plan, the Researcher sits at named attention, and nobody addressed the Researcher, send the Researcher one directed request. Send a seat at broadcast attention nothing: it already reads every message. Do not acknowledge, relay, or restate the result of a specialist: the person reads it. ' +
+	'Read the attention of each seat in the roster. A seat at named attention wakes only on a directed say. A seat at broadcast attention reads every message: send it nothing. ' +
+	'During a respond activation, route a request that needs a limit from /library or a test plan. If the Researcher sits at named attention and nobody addressed it, send the Researcher one directed request. ' +
+	'During a respond activation, do not acknowledge, relay, or restate the result of a specialist: the person reads it. ' +
 	'In a summary, keep the refs that the specialists cite.';
 
 /** The specialists. Each one has a narrow scope and reports back once. */
