@@ -45,8 +45,10 @@ class Controllers(Isolated):
     def environment(self, events):
         return {"PATH": "/usr/bin:/bin", "PSU_LOCK_DIR": str(self.locks), "ACTUATOR_EVENTS": str(events)}
 
-    def launch(self, *arguments, channel="ch1", events=None):
-        command = ["start.py", "--config", str(self.config), "--sim", str(self.state), "ramp", "--channel", channel, *arguments]
+    def launch(self, *arguments, channel="ch1", events=None, actuator="ramp", channels=None):
+        """Start an actuator as a process. channels lists the --channel options, and replaces channel."""
+        options = [part for name in (channels if channels is not None else [channel]) for part in ("--channel", name)]
+        command = ["start.py", "--config", str(self.config), "--sim", str(self.state), actuator, *options, *arguments]
         process = subprocess.Popen([sys.executable, "-B", *command], cwd=ROOT, env=self.environment(events or self.events), stderr=subprocess.PIPE, text=True)
         self.processes.append(process)
         return process
