@@ -11,8 +11,8 @@ const NEEDS_KITTY = 'The viewfinder needs a terminal with Kitty graphics, such a
 /** The rows that the frame takes before the first layout gives the panel a width. */
 const IMAGE_ROWS = 12;
 
-/** The columns of the border, the padding, and the room for the scrollbar. */
-const FRAME_COLUMNS = 6;
+/** The columns of the border, the padding, the body padding, and the scrollbar. */
+const FRAME_COLUMNS = 7;
 
 /** The shape of a camera frame: 16 wide by 9 high. */
 const FRAME_SHAPE = 9 / 16;
