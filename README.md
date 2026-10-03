@@ -65,9 +65,9 @@ pnpm start ./bench                # another directory
   away, and start again. A workstation needs `workstation/setup.sh` again:
   `workstation.json` names the `snapshots` folder now.
 - **A room from before the removal of the assistant does not resume.**
-  Its journal seats the assistant, and Ambion stops with `agent
-'assistant' has no binding`. Move the data directory away, and start
-  again.
+  Its journal seats the assistant, and Ambion stops with the error
+  `agent 'assistant' has no binding`. Move the data directory away, and
+  start again.
 
 ## Run on a local workstation
 
