@@ -24,7 +24,7 @@ export const templates: readonly Template[] = [
 	{
 		name: 'device-scan',
 		description:
-			'A scan of the devices that the workstation reaches: USB devices, serial ports, VISA instruments, cameras, and the SCPI ports of a subnet. Each scan writes a report, and inventory.md records the bench.',
+			'A scan of the devices that the workstation reaches: USB devices, serial ports, USBTMC instruments, cameras, and microphones. Each scan writes a report, and inventory.md records the bench.',
 		use: 'a scan of the connected devices',
 		specialists: ['engineer'],
 	},
