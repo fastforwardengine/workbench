@@ -81,7 +81,9 @@ describe('the structure of a prompt', () => {
 		const rule = shared.split('\n').find((line) => line.startsWith('- Cite what you rely on'));
 		expect(rule).toContain('Cite a file of /library, which is read-only');
 		expect(rule).toContain('file:///<path>');
-		expect(rule).toContain('Cite a file that can change, such as /shared/kit.md, by its snapshot ref');
+		expect(rule).toContain(
+			'Cite a file that can change, such as /shared/kit.md, by its snapshot ref',
+		);
 		expect(rule).toContain('Inside a note, write the library/ path');
 	});
 
@@ -141,8 +143,12 @@ describe('the Engineer', () => {
 				'Record each step that the person completes in the build folder of the notes',
 			])
 				expect(rules).toContain(rule);
-			expect(rules).toContain('Ask the person before the first run that turns on an output of a device.');
-			expect(groupOf(rules, 'Speaking').join('\n')).toContain('The Researcher hears only a directed say. Hand it a result that it needs with `to`.');
+			expect(rules).toContain(
+				'Ask the person before the first run that turns on an output of a device.',
+			);
+			expect(groupOf(rules, 'Speaking').join('\n')).toContain(
+				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
+			);
 			for (const copy of ['a transistor', 'pass, fail, or unclear', 'The power stays off', 'TBD'])
 				expect(rules).not.toContain(copy);
 			expect(built.specialists.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);
