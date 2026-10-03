@@ -1,14 +1,16 @@
 name: CI
 
+# CI runs on each push to each branch. A pull request gets the run of its
+# head commit. A pull request from a fork gets no run.
 on:
   push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
+# A new push to a branch cancels the older run on that branch. Runs on main
+# always finish, so each commit on main has a result.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
