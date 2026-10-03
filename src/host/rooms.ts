@@ -102,8 +102,8 @@ async function workspaceBackends(directory: string, workstation?: WorkstationCon
 /**
  * The execution every seat runs on. Every seat is Pi today, so this is a
  * single Pi execution, not a composition. A test's `stream` scripts it and
- * needs no login. A live run reads the sign-ins of the credential file, and
- * falls back to the key variable. A live run with no login gets an execution
+ * needs no login. A live run reads the sign-ins of the credential file. It
+ * reads the key variable when the file holds no sign-in. A live run with no login gets an execution
  * that fails its seats with the way to log in, so the room keeps running and
  * reports why, instead of a bare provider error.
  */

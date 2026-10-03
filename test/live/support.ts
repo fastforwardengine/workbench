@@ -41,7 +41,7 @@ export const JUDGE_THINKING = THINKING;
 const credentials = fileCredentials(piCredentialsPath());
 
 /** The Pi services of the judge, with the same credentials as the seats. */
-export const JUDGE_SERVICES = createExecutionServices({ credentials });
+export const JUDGE_SERVICES = createExecutionServices({ credentials, sessions: 'memory' });
 
 /** `describe` when the model and the judge have a login; a skipped block when either has none. */
 export const live: ReturnType<typeof describe.skipIf> = describe.skipIf(

@@ -50,8 +50,8 @@ pnpm start ./bench                # another directory
   `src/domain/families.ts`).
 - **Sign in with ChatGPT.** `workbench login` signs in with a ChatGPT
   Plus or Pro subscription through the `openai-codex` provider of Pi. It
-  offers a browser login, or a device-code login for a host with no
-  browser. The sign-in goes to `~/.ambion/pi/credentials.json`, or to the
+  asks for a browser login (`1`) or a device-code login (`2`) for a host
+  with no browser. The sign-in goes to `~/.ambion/pi/credentials.json`, or to the
   file that `WORKBENCH_PI_CREDENTIALS` names.
 - **A seat with no login does not run.** A login is the key variable of
   the model provider, or a sign-in in the credential file. The header
