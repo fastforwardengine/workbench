@@ -212,8 +212,9 @@ evidence.
 
 ### 7. Guide the build of the second kit
 
-- [ ] The build procedure as a template: the parts of each step, their
-      places, their orientation, and the check of the step.
+- [ ] The build procedure in the notes file `notes/build/<kit>.md`: the
+      parts of each step, their places, their orientation, the check of
+      the step, and its record.
 - [ ] The team follows the assembly from the camera, and checks the
       placement and the orientation of each polarized part before it is
       soldered.

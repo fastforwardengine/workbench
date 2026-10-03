@@ -22,13 +22,6 @@ export interface Template {
 /** The templates, in the order that `repos` lists them. */
 export const templates: readonly Template[] = [
 	{
-		name: 'test-plan',
-		description:
-			'A numbered test plan: the question, the setup, the variable, the controls, the measurement, the limits, and the pass criterion.',
-		use: 'a test plan',
-		specialists: ['researcher'],
-	},
-	{
 		name: 'device-scan',
 		description:
 			'A scan of the devices that the workstation reaches: USB devices, serial ports, VISA instruments, cameras, and the SCPI ports of a subnet. Each scan writes a report, and inventory.md records the bench.',
@@ -40,13 +33,6 @@ export const templates: readonly Template[] = [
 		description:
 			'A Linux USB camera and microphone sensor. A foreground server that the specialist owns captures a PNG frame from the camera and a WAV clip with a level series from the microphone for each observation. The snapshot store keeps each observed frame and clip. The demo mode makes synthetic data and labels it.',
 		use: 'retained images from a USB camera and sound clips from its microphone',
-		specialists: ['engineer'],
-	},
-	{
-		name: 'build-procedure',
-		description:
-			'A build procedure for a kit: each step with its parts, their places and orientation, the risk, the check, and the evidence, and the first power-on.',
-		use: 'a build procedure',
 		specialists: ['engineer'],
 	},
 	{

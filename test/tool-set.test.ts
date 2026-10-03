@@ -107,7 +107,7 @@ describe('the Workbench filesystem', () => {
 });
 
 describe('the Workbench repositories', () => {
-	it('lets the Researcher seat fork the test-plan template and push a branch', async () => {
+	it('lets the Researcher seat fork the device-scan template and push a branch', async () => {
 		const built = await build();
 		const person = people[0];
 		if (!person) throw new Error('No person.');
@@ -115,11 +115,15 @@ describe('the Workbench repositories', () => {
 			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'researcher') : quiet()),
 			researcher: (step, _seat, call) => {
 				if (call === 1)
-					return callTool('fork', { source: 'templates/test-plan', name: 'plan', clone: '~/plan' });
+					return callTool('fork', {
+						source: 'templates/device-scan',
+						name: 'plan',
+						clone: '~/plan',
+					});
 				if (call === 2)
 					return callTool('bash', {
 						command:
-							"cd ~/plan && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git commit -am 'Name the plan' && git push origin led",
+							"cd ~/plan && git switch -c led && sed -i 's/^# Device scan/# Device scan: LED sweep/' README.md && git commit -am 'Name the plan' && git push origin led",
 					});
 				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
 				return quiet();
@@ -140,7 +144,7 @@ describe('the Workbench repositories', () => {
 		const fork = await built.workspace.git?.use({ name: 'researcher' }, (env) =>
 			env.get('researcher/plan'),
 		);
-		expect(fork?.source).toBe('templates/test-plan');
+		expect(fork?.source).toBe('templates/device-scan');
 		expect(Object.keys(fork?.branches ?? {}).sort()).toEqual(['led', 'main']);
 		expect(fork?.branches.led).not.toBe(fork?.branches.main);
 	}, 20_000);

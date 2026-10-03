@@ -9,14 +9,14 @@ holds the contract, the tools, and the credentials.
 
 ## Where each part lives
 
-| Part                     | Where                      | What it holds                                          |
-| ------------------------ | -------------------------- | ------------------------------------------------------ |
-| The files                | `templates/<name>/`        | The files that a fork starts with, text only           |
-| The registry             | `src/domain/templates.ts`  | The name, description, use, and specialists of each    |
-| The git backend          | `src/host/repositories.ts` | `labRepositories`, which registers every template      |
-| The wiring               | `src/host/rooms.ts`        | The `git` backend of the workspace, in `<data>/git.db` |
-| The registry check       | `test/templates.test.ts`   | The check of directories to entries                    |
-| The flow of a specialist | `test/tool-set.test.ts`    | A scripted seat forks `test-plan` and pushes a branch  |
+| Part                     | Where                      | What it holds                                           |
+| ------------------------ | -------------------------- | ------------------------------------------------------- |
+| The files                | `templates/<name>/`        | The files that a fork starts with, text only            |
+| The registry             | `src/domain/templates.ts`  | The name, description, use, and specialists of each     |
+| The git backend          | `src/host/repositories.ts` | `labRepositories`, which registers every template       |
+| The wiring               | `src/host/rooms.ts`        | The `git` backend of the workspace, in `<data>/git.db`  |
+| The registry check       | `test/templates.test.ts`   | The check of directories to entries                     |
+| The flow of a specialist | `test/tool-set.test.ts`    | A scripted seat forks `device-scan` and pushes a branch |
 
 **The host runs the git server in its own process.** The bash backend is
 the local just-bash directory under `<data>/workspace`, and its `git`
@@ -31,7 +31,7 @@ reaches the server in process. No network takes part.
 3. Add the other files. Mark each value the specialist fills in with `TBD`.
 4. Add an entry to `templates` in `src/domain/templates.ts`. The
    `description` shows in `repos`. The `use` is a noun phrase, such as "a
-   test plan". The `specialists` get one instruction line that names the
+   scan of the connected devices". The `specialists` get one instruction line that names the
    template.
 
 ## Change a template
