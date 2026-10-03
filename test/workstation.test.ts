@@ -199,17 +199,17 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		expect(report).toContain('engineer');
 	}, 120_000);
 
-	it('lets the Researcher fork the test-plan template, and push a branch through the git account', async () => {
+	it('lets the Researcher fork the device-scan template, and push a branch through the git account', async () => {
 		const built = await build();
 		const name = `plan-${token()}`;
 		const script = byAgent({
 			assistant: (_step, _seat, call) => (call === 1 ? say('Plan it.', 'researcher') : quiet()),
 			researcher: (step, _seat, call) => {
 				if (call === 1)
-					return callTool('fork', { source: 'templates/test-plan', name, clone: `~/${name}` });
+					return callTool('fork', { source: 'templates/device-scan', name, clone: `~/${name}` });
 				if (call === 2)
 					return callTool('bash', {
-						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Test plan: TBD/# Test plan: LED sweep/' plan.md && git -c user.name=researcher -c user.email=researcher@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
+						command: `cd ~/${name} && git switch -c led && sed -i 's/^# Device scan/# Device scan: LED sweep/' README.md && git -c user.name=researcher -c user.email=researcher@workbench commit -qam 'Name the plan' && git push -q origin led && echo pushed`,
 						wait: 60,
 					});
 				if (call === 3) return say(`Pushed: ${step.results.at(-1)?.text}`, 'assistant');
@@ -220,7 +220,7 @@ describe.skipIf(!CONFIG)('the workspace on a workstation', () => {
 		const fork = await built.workspace.git?.use({ name: 'researcher' }, (env) =>
 			env.get(`researcher/${name}`),
 		);
-		expect(fork?.source).toBe('templates/test-plan');
+		expect(fork?.source).toBe('templates/device-scan');
 		expect(Object.keys(fork?.branches ?? {}).sort()).toEqual(['led', 'main']);
 		expect(fork?.branches.led).not.toBe(fork?.branches.main);
 		const said = (await room.read()).messages.flatMap((message) =>

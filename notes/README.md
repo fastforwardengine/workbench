@@ -13,7 +13,8 @@ library file that it rests on. The `keep-notes` skill states the git steps.
 | `circuit/`     | Nets and blocks: power, I²C, buttons, audio, display  | Researcher |
 | `instruments/` | One file for each device on the bench                 | Engineer   |
 | `radio/`       | What the radio does: bands, stations, current         | Engineer   |
-| `build/`       | One file for each kit and its steps                   | Engineer   |
+| `build/`       | One file for each kit: the plan and record of steps   | Engineer   |
+| `plans/`       | One file for each test plan                           | Researcher |
 | `decisions/`   | One file for each decision, named by date and subject | Researcher |
 | `questions/`   | One file for each open question                       | Researcher |
 
@@ -23,7 +24,8 @@ intact.
 
 ## A claim
 
-One claim is one bullet:
+The files of `plans/` and `build/` follow the format of the README of
+their folder. In every other file, one claim is one bullet:
 
 ```markdown
 - **The four buttons sit on P3.1, P3.0, P5.4, and P5.5.** Source:

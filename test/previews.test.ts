@@ -125,11 +125,11 @@ describe('the preview of a commit ref', () => {
 	it('shows the commit of a template with its message, its changes, and its branch', async () => {
 		const workspace = open();
 		await workspace.git?.use(workspace.mirrorAgent, (env) => env.list());
-		const ref = await workspace.commitRef('templates/test-plan', { branch: 'main' });
+		const ref = await workspace.commitRef('templates/device-scan', { branch: 'main' });
 		const file = await readCommitFile(workspace, ref);
 		expect(file.path).toBe(ref);
-		expect(file.text).toContain('templates/test-plan, branch main');
-		expect(file.text).toContain('plan.md');
+		expect(file.text).toContain('templates/device-scan, branch main');
+		expect(file.text).toContain('inventory.md');
 		expect(file.text).toContain('The branch main still names this commit.');
 	});
 

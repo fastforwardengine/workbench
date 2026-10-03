@@ -68,6 +68,8 @@ async function build(width = 120) {
 	const processes = new ProcessBrowser(host, render);
 	const cameraPanel = new ViewfinderPanel(renderer);
 	const camera = new ViewfinderBrowser(host, render);
+	// Stop the poll before the renderer goes, so no tick draws on a destroyed buffer.
+	cleanups.unshift(() => camera.watch(false));
 	const kitty = { on: false };
 	const composer = new Composer(renderer, { submit: () => {}, change: () => {} });
 	const palette = new Palette(composer);
