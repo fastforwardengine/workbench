@@ -3,7 +3,7 @@
 import dataclasses
 
 from drivers import SupplyError
-from drivers.hm310p import OCP, OVP, SET_I, SET_V, Hm310p
+from drivers.hm310p import SET_I, SET_V, Hm310p
 from guard import DriveLocks, Guard, hold_drive_locks, lock_directory
 
 from .fake_hm310p import FakeBus

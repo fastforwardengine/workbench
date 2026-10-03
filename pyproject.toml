@@ -1,0 +1,4 @@
+# Ruff only lints. No tool rewrites a template: its files are the files a fork starts with.
+# `scripts/check.ts` reads the Python floor from `target-version`.
+[tool.ruff]
+target-version = "py311"

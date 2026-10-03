@@ -448,7 +448,9 @@ class MicrophoneTests(unittest.TestCase):
         self.assertEqual([path.name for path in Path(self.folder.name).iterdir()], ["blobs"])
 
     def test_index_lists_only_configured_sensors(self):
-        names = lambda: [sensor["name"] for sensor in self.request("/")[1]["sensors"]]
+        def names():
+            return [sensor["name"] for sensor in self.request("/")[1]["sensors"]]
+
         self.start_server(self.live())
         self.assertEqual(names(), ["microphone"])
         self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 404)
