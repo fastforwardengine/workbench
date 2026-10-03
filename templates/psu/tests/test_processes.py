@@ -34,3 +34,14 @@ class Processes(Isolated):
             seen = [value for name, key, value in writes if name == channel]
             self.assertEqual(seen, [n / 10 for n in range(1, 16)])
         self.assertEqual(len(writes), 30)
+
+    def test_several_samples_print_one_json_line_each(self):
+        config = self.directory / "psu.json"
+        config.write_text(json.dumps(CONFIG_TWO))
+        command = ["psu.py", "--config", str(config), "--sim", str(self.state), "measure", "--count", "2", "--interval", "0"]
+        env = {"PATH": "/usr/bin:/bin", "PSU_LOCK_DIR": str(self.locks)}
+        done = subprocess.run([sys.executable, "-B", *command], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        rows = [json.loads(line) for line in done.stdout.splitlines()]
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(sorted(rows[0]["channels"]), ["ch1", "ch2"])

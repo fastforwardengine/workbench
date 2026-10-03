@@ -51,10 +51,13 @@ def load_config(path):
     if not isinstance(channels, dict) or not channels:
         raise SupplyError(f"{path} must list at least one channel in channels.")
     for channel, limits in channels.items():
+        if not isinstance(limits, dict):
+            raise SupplyError(f"The channel {channel} in {path} must be an object.")
         for key in ("max_voltage", "max_current", "max_power"):
             if key == "max_power" and key not in limits:
                 continue
-            if not isinstance(limits.get(key), (int, float)):
+            value = limits.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise SupplyError(f"The channel {channel} in {path} needs a number for {key}.")
     return config
 
