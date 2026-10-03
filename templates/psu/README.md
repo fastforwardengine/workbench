@@ -149,10 +149,26 @@ current limit means constant current, and the ramp ends. With
 `--trip A`, a reading above that current also ends the ramp.
 `--tolerance V` sets the allowed distance from the target voltage.
 
-**The controller takes the drive lock of its channel.** When another
+**Four actuators drive channels.** Each one takes `--channel` once for
+each channel, in the order that the options of the actuator use.
+
+| Actuator   | Channels | What it does                                         | It gives up when                                                       |
+| ---------- | -------- | ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| `ramp`     | one      | Brings the channel to a voltage in steps             | The channel is in constant current, or above `--trip`                  |
+| `sweep`    | one      | Visits each voltage of `--voltages`, and logs it     | The output goes off, or a current is above `--trip`                    |
+| `hold`     | one up   | Turns the outputs on, and watches them for `--seconds` | A current is at its limit or above `--trip`, a voltage leaves `--tolerance`, or an output goes off |
+| `sequence` | two up   | Brings the rails up in order, and down in reverse    | A rail does not settle in `--settle` s, or a rail leaves its band      |
+
+`--voltage`, `--current`, and `--trip` of `hold` and `sequence` take one
+value for each channel. One value serves every channel. A point of `sweep`
+in constant current is a valid point, and `sweep` logs it. The turn-off of
+`sequence` takes `--down-dwell` seconds between two rails, and the total
+stays below 2 s.
+
+**The controller takes the drive lock of each of its channels.** When another
 process holds it, the controller logs `gave_up` with the holder, and
-touches nothing. After the controller takes the lock, every end turns the
-channel off. This includes a refused option or a limit, so a channel that
+touches nothing. After the controller takes the locks, every end turns the
+channels off. This includes a refused option or a limit, so a channel that
 `psu.py` left on is off after a refused ramp.
 
 **Run the tests** with `python3 -B -m unittest` in this directory. They

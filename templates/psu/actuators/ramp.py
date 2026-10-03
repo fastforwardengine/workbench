@@ -1,14 +1,14 @@
 """Bring a channel to a voltage in steps under a current limit, hold, and turn off."""
 
-import math
 import time
 
 from controller import GaveUp
 from drivers import SupplyError
-from guard import CC_BAND
 
-MIN_PERIOD = 0.05
+from .common import finite, judge_current, least_period, off_reason, power_on, refuse_unless
+
 SETTLE_PERIODS = 3
+CHANNELS = (1, 1)
 
 
 def add_arguments(parser):
@@ -21,26 +21,12 @@ def add_arguments(parser):
     parser.add_argument("--tolerance", type=float, default=0.05, help="the allowed distance from the target, in V")
 
 
-def refuse_unless(condition, note):
-    if not condition:
-        raise GaveUp(note)
-
-
 def check_numbers(args):
-    for name in ("voltage", "current", "seconds", "hold", "tolerance"):
-        refuse_unless(math.isfinite(getattr(args, name)), f"The option --{name} must be a finite number.")
-    refuse_unless(args.trip is None or math.isfinite(args.trip), "The option --trip must be a finite number.")
+    finite(args, ("voltage", "current", "seconds", "hold", "tolerance", "trip"))
     for name in ("current", "seconds", "steps", "tolerance"):
         refuse_unless(getattr(args, name) > 0, f"The option --{name} must be above 0.")
     refuse_unless(args.voltage >= 0 and args.hold >= 0, "The options --voltage and --hold must not be negative.")
     refuse_unless(args.trip is None or 0 < args.trip <= args.current, "The option --trip must be above 0 and at or below --current.")
-
-
-def off_reason(setting):
-    """Why a channel is off, or None when it is on."""
-    if setting.on:
-        return None
-    return f"The output is off ({', '.join(setting.tripped)} tripped)." if setting.tripped else "The output is off."
 
 
 class Ramp:
@@ -59,7 +45,7 @@ class Ramp:
 
     def validate(self):
         """Refuse before any write: the limits, and a period that the supply can follow."""
-        floor = max(4 * self.guard.describe().measure_seconds, MIN_PERIOD)
+        floor = least_period(self.guard)
         refuse_unless(self.period >= floor, f"The period {self.period:g} s (--seconds / --steps) is below the least period {floor:g} s.")
         try:
             self.guard.check(self.channel, max(self.start, self.target), self.current)
@@ -75,20 +61,11 @@ class Ramp:
 
     def power_on(self):
         """Set the current limit first. An output that is off starts at 0 V."""
-        if self.setting.on:
-            if self.setting.current != self.current:
-                self.setting = self.guard.set(self.channel, current=self.current)
-            return
-        self.guard.set(self.channel, voltage=0.0, current=self.current)
-        self.setting = self.guard.output(self.channel, True)
+        self.setting = power_on(self.guard, self.channel, self.current, self.setting)
 
     def judge(self, reading):
         """Give up on a reading at the current limit, or above the trip current."""
-        where = f"{reading.current:g} A at {reading.voltage:g} V"
-        if reading.current >= self.setting.current * (1 - CC_BAND):
-            raise GaveUp(f"The channel is in constant current: {where}, at the limit {self.setting.current:g} A.")
-        if self.args.trip is not None and reading.current > self.args.trip:
-            raise GaveUp(f"The current is abnormal: {where}, above the trip current {self.args.trip:g} A.")
+        judge_current(reading, self.setting, self.args.trip)
 
     def measure(self):
         reading = self.guard.measure()[self.channel]
