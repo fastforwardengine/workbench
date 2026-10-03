@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { Room } from '@ambionframework/ambion';
 import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
-import { buildRoom } from '../domain/scenarios.ts';
+import { buildRoom } from '../domain/room.ts';
 import type { ActivationSteps } from '../view/steps.ts';
 import {
 	type Attachment,

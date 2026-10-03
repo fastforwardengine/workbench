@@ -1,10 +1,45 @@
 import type { Workspace } from '@ambionframework/workspace';
-import { type SeedContent, seedFiles } from '../domain/scenarios.ts';
+import { packageDirectory, packageFiles } from '../domain/package-root.ts';
 
 /** The environment of one workspace operation. */
 type Env = Parameters<Parameters<Workspace['use']>[1]>[0];
 
 const LIBRARY = '/library/';
+
+/** The content of a seed file: text for Markdown, bytes for a figure. */
+type SeedContent = string | Uint8Array;
+
+/**
+ * The files under one directory of the package, by workspace path. A
+ * Markdown file is text. Every other file, such as a figure, is bytes. The
+ * ignore rule of `packageFiles` applies: `.DS_Store`, `.git`, `__pycache__`,
+ * and `.pyc` files stay out. The seed keeps another dot file.
+ */
+function directoryFiles(directory: string, prefix: string): Record<string, SeedContent> {
+	return Object.fromEntries(
+		Object.entries(packageFiles(packageDirectory(directory))).map(([name, bytes]) => [
+			`${prefix}${name}`,
+			name.endsWith('.md') ? Buffer.from(bytes).toString('utf8') : bytes,
+		]),
+	);
+}
+
+/**
+ * The seed of a workspace: each file by its workspace path. `library/` of
+ * the package gives `/library/...`. `seed/` of the package gives every other
+ * file, so `seed/shared/kit.md` becomes `/shared/kit.md`. The host writes
+ * each file of `/library` at every start, because the package owns them. It
+ * writes every other file only when the workspace does not hold it, so an
+ * edit always remains. `overrides` replaces files of the seed by path, as an
+ * eval of another project does.
+ */
+export function seedFiles(overrides: Record<string, string> = {}): Record<string, SeedContent> {
+	return {
+		...directoryFiles('library', '/library/'),
+		...directoryFiles('seed', '/'),
+		...overrides,
+	};
+}
 
 /**
  * Write one file. A file of `/library` is written every time, because the

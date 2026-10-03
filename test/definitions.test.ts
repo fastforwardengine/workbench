@@ -2,7 +2,7 @@ import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { shared, team } from '../src/domain/definitions.ts';
-import { seats } from '../src/domain/scenarios.ts';
+import { seats } from '../src/domain/room.ts';
 import { templateInstructions, templates } from '../src/domain/templates.ts';
 import { resolveRef } from '../src/view/refs.ts';
 

@@ -17,7 +17,7 @@ import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
 import { type Environment, missingLogin, piCredentialsPath } from '../domain/model.ts';
 import { sharedRegistrations } from '../domain/notes.ts';
-import { buildRoom, seats } from '../domain/scenarios.ts';
+import { buildRoom, seats } from '../domain/room.ts';
 import { WORKSPACE } from '../view/refs.ts';
 import { stepLog } from '../view/steps.ts';
 import { labRepositories } from './repositories.ts';

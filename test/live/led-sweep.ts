@@ -4,7 +4,7 @@
  * stay cheap and stable. The rooms of the product follow the FM radio.
  * The evals give this project to `team` and this kit to `seedWorkspace`.
  */
-import { type RoomPlan, seats } from '../../src/domain/scenarios.ts';
+import { type RoomPlan, seats } from '../../src/domain/room.ts';
 
 /** The paragraph that opens the instructions of every seat. */
 export const ledProject =
