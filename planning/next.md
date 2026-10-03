@@ -38,6 +38,18 @@ person connects to it over SSH, as it connects to the local container of
   and the folders follow `workstation/Dockerfile` and
   `workstation/entrypoint.sh`, in a container or on the host.
 
+## The first bench, in the garage
+
+**The person sets up the first physical bench in the garage.** The date is
+open, possibly the weekend of 2026-10-03.
+
+- [ ] **Test the `psu` template on the real HM310P first.** The HM310P
+      driver and the controller have run only on the `sim` driver. Run
+      `status`, then each actuator, on the real supply.
+
+**Done when** each command of the `psu` template gives the same result on
+the HM310P as on the simulator.
+
 ## The microscope: a TOMLOV TM4K-AF
 
 **A TOMLOV TM4K-AF autofocus digital microscope is the next key hardware
