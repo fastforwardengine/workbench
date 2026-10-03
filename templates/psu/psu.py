@@ -156,6 +156,11 @@ def show(result, as_json):
     if as_json:
         print(json.dumps(result, indent=2))
         return
+    if isinstance(result, list):
+        # Several samples: one JSON line for each sample.
+        for row in result:
+            print(json.dumps(row))
+        return
     for key, value in result.items():
         print(f"{key}: {json.dumps(value) if isinstance(value, (dict, list)) else value}")
 
@@ -176,7 +181,9 @@ def main(argv=None):
         # pyserial's SerialException is an OSError: a missing, busy, or lost port.
         print(f"psu: The supply failed: {error}", file=sys.stderr)
         return 1
-    except ImportError:
+    except ImportError as error:
+        if error.name != "serial":
+            raise
         print("psu: pyserial is not installed. The workstation has it: python3-serial.", file=sys.stderr)
         return 1
     finally:
