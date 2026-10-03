@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { Room } from '@ambionframework/ambion';
 import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
-import { buildRoom } from '../domain/scenarios.ts';
+import { buildRoom } from '../domain/room.ts';
 import type { ActivationSteps } from '../view/steps.ts';
 import {
 	type Attachment,
@@ -48,7 +48,7 @@ interface Addressable {
 export interface Lab {
 	readonly people: readonly Person[];
 	/** The seats a person can address with `@name`: the assistant and every specialist. */
-	readonly agents: readonly Addressable[];
+	readonly team: readonly Addressable[];
 	rooms(): Promise<RoomView[]>;
 	/** Read one room. Messages come back only after `since`, an exclusive position. */
 	read(room: string, since: number): Promise<RoomView>;
@@ -96,7 +96,7 @@ export interface Lab {
 	/** Copy a local file into the workspace and snapshot it, so a message can cite it as a ref. */
 	attach(localPath: string): Promise<Attachment>;
 	/**
-	 * The background processes of the agents that used the workspace in this
+	 * The background processes of the seats that used the workspace in this
 	 * run: the running processes first, then the newest start first.
 	 */
 	processes(): Promise<ProcessView[]>;
@@ -224,7 +224,7 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		rooms.withRoom(name, (entry) => operation(liveRoom(entry)));
 	return {
 		people,
-		agents: rooms.agents,
+		team: rooms.team,
 		rooms: () => rooms.list(),
 		read: (room, since) => rooms.read(room, since),
 		watch: (room, changed) => rooms.watch(room, changed),
@@ -242,7 +242,7 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		async send(room, person, key, text, refs = [], to) {
 			const who = personNamed(person);
 			if (!key || !text.trim()) fail('Supply a nonempty key and message.');
-			if (to !== undefined && !rooms.agents.some((agent) => agent.name === to))
+			if (to !== undefined && !rooms.team.some((seat) => seat.name === to))
 				fail(`No seat or specialist named '${to}'.`);
 			await inRoom(room, async (live) => {
 				await deliver(live, who, { key, text, refs, to });

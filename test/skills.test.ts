@@ -7,27 +7,34 @@ import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
-import { agentSkills, skillsDirectory } from '../src/domain/skills.ts';
+import { SHARED_SKILLS, skillsDirectory, specialistSkills } from '../src/domain/skills.ts';
 
 const specialists = ['researcher', 'engineer'];
 
-/** The names of the skill folders of one agent. */
-const skillNames = async (agent: string) =>
-	(await agentSkills(agent)).skills.map((skill) => skill.name).sort();
+/** The names of the skill folders of one specialist. */
+const skillNames = async (specialist: string) =>
+	(await specialistSkills(specialist)).skills.map((skill) => skill.name).sort();
 
 describe('the Workbench skills', () => {
-	it('holds one directory of skills for each specialist, and nothing else', () => {
+	it('holds one directory of skills for each specialist, and the shared one', () => {
 		const directories = readdirSync(skillsDirectory, { withFileTypes: true })
 			.filter((entry) => entry.isDirectory())
 			.map((entry) => entry.name)
 			.sort();
-		expect(directories).toEqual([...specialists].sort());
+		expect(directories).toEqual([...specialists, SHARED_SKILLS].sort());
 	});
 
-	it.each(specialists)('loads the skills of %s, each with a description', async (agent) => {
-		const set = await agentSkills(agent);
+	it.each(specialists)('loads the skills of %s, each with a description', async (specialist) => {
+		const set = await specialistSkills(specialist);
 		expect(set.skills.length).toBeGreaterThan(0);
 		for (const skill of set.skills) expect(skill.description, skill.name).toMatch(/\bUse it\b/);
+	});
+
+	it('gives every specialist the shared skills', async () => {
+		const shared = await skillNames(SHARED_SKILLS);
+		expect(shared).toContain('keep-notes');
+		for (const specialist of specialists)
+			expect(await skillNames(specialist), specialist).toEqual(expect.arrayContaining(shared));
 	});
 
 	it('lists the skills of a specialist in its guidance, and no skill of another', async () => {
@@ -38,7 +45,7 @@ describe('the Workbench skills', () => {
 				const guidance = seat.executor.guidance ?? '';
 				const own = await skillNames(seat.name);
 				for (const name of own) expect(guidance, seat.name).toContain(`~/.skills/${name}/SKILL.md`);
-				for (const other of specialists.filter((agent) => agent !== seat.name))
+				for (const other of specialists.filter((other) => other !== seat.name))
 					for (const name of (await skillNames(other)).filter((skill) => !own.includes(skill)))
 						expect(guidance, seat.name).not.toContain(`~/.skills/${name}/`);
 			}
@@ -84,9 +91,34 @@ describe('the Workbench skills', () => {
 		}
 	});
 
+	it('lets a skill of a specialist replace a shared skill of the same name', async () => {
+		const directory = mkdtempSync(join(tmpdir(), 'workbench-skills-'));
+		const skill = (name: string, text: string) =>
+			`---\nname: ${name}\ndescription: ${text}. Use it now.\n---\nSteps.\n`;
+		try {
+			for (const [folder, name, text] of [
+				['shared', 'notes', 'Shared notes'],
+				['shared', 'rules', 'Shared rules'],
+				['engineer', 'notes', 'Own notes'],
+			] as const) {
+				mkdirSync(join(directory, folder, name), { recursive: true });
+				writeFileSync(join(directory, folder, name, 'SKILL.md'), skill(name, text));
+			}
+			const set = await specialistSkills('engineer', directory);
+			const described = Object.fromEntries(set.skills.map((s) => [s.name, s.description]));
+			expect(described).toEqual({
+				notes: 'Own notes. Use it now.',
+				rules: 'Shared rules. Use it now.',
+			});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
 	it('skips a file that a tool writes beside the skills', async () => {
 		const directory = mkdtempSync(join(tmpdir(), 'workbench-skills-'));
 		try {
+			mkdirSync(join(directory, 'shared'), { recursive: true });
 			mkdirSync(join(directory, 'engineer', 'scan'), { recursive: true });
 			writeFileSync(join(directory, 'engineer', '.DS_Store'), 'x');
 			mkdirSync(join(directory, 'engineer', 'scan', 'scripts', '__pycache__'), { recursive: true });
@@ -95,7 +127,7 @@ describe('the Workbench skills', () => {
 				join(directory, 'engineer', 'scan', 'SKILL.md'),
 				'---\nname: scan\ndescription: Scan. Use it now.\n---\nSteps.\n',
 			);
-			const set = await agentSkills('engineer', directory);
+			const set = await specialistSkills('engineer', directory);
 			expect(set.skills.map((skill) => skill.name)).toEqual(['scan']);
 			expect(Object.keys(set.files).filter((path) => path.includes('__pycache__'))).toEqual([]);
 		} finally {

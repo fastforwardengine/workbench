@@ -3,8 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
-import { seedFiles } from '../src/domain/scenarios.ts';
-import { seedWorkspace } from '../src/host/seed.ts';
+import { seedFiles, seedWorkspace } from '../src/host/seed.ts';
 
 const library = resolve(import.meta.dirname, '../library');
 const markdown = readdirSync(library).filter((name) => name.endsWith('.md'));

@@ -5,13 +5,13 @@ import { packageDirectory, packageFiles } from './package-root.ts';
 export const templatesDirectory = packageDirectory('templates');
 
 /**
- * One read-only template on the git server of the workspace. An agent forks
+ * One read-only template on the git server of the workspace. A specialist forks
  * it, clones the fork into its home, and pushes its branch.
  */
 export interface Template {
 	/** The name on the git server, `templates/<name>`, and the directory under `templates/`. */
 	readonly name: string;
-	/** What the template holds. The `repos` tool shows it to every agent. */
+	/** What the template holds. The `repos` tool shows it to every specialist. */
 	readonly description: string;
 	/** The work the template starts, as a noun phrase, such as "a test plan". */
 	readonly use: string;
@@ -38,7 +38,7 @@ export const templates: readonly Template[] = [
 	{
 		name: 'usb-camera',
 		description:
-			'A Linux USB camera and microphone sensor. An agent-owned foreground server captures a PNG frame from the camera and a WAV clip with a level series from the microphone for each observation. The snapshot store keeps each observed frame and clip. The demo mode makes synthetic data and labels it.',
+			'A Linux USB camera and microphone sensor. A foreground server that the specialist owns captures a PNG frame from the camera and a WAV clip with a level series from the microphone for each observation. The snapshot store keeps each observed frame and clip. The demo mode makes synthetic data and labels it.',
 		use: 'retained images from a USB camera and sound clips from its microphone',
 		specialists: ['engineer'],
 	},

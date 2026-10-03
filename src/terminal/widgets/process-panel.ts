@@ -31,7 +31,7 @@ function outputNote(output: ProcessOutput, process: ProcessView): string {
 	return output.truncated ? `The last part of ${size} of output.` : `${size} of output.`;
 }
 
-/** The processes panel: the background processes of the agents, and the output of the chosen one. */
+/** The processes panel: the background processes of the seats, and the output of the chosen one. */
 export class ProcessesPanel extends SidePanel {
 	private readonly heading: TextRenderable;
 	private readonly list: TextRenderable;
@@ -71,18 +71,18 @@ export class ProcessesPanel extends SidePanel {
 		const processes = browser.processes;
 		if (processes.length === 0)
 			return new StyledText([
-				fg(palette.muted)('No process yet. An agent starts one with its bash tool.'),
+				fg(palette.muted)('No process yet. A specialist starts one with its bash tool.'),
 			]);
 		const start = windowStart(browser.index, processes.length);
 		const labels = processes.map((process) => process.name ?? process.handle);
 		const width = Math.max(...labels.map((text) => text.length));
-		const agents = Math.max(...processes.map((process) => process.agent.length));
+		const seatWidth = Math.max(...processes.map((process) => process.agent.length));
 		return new StyledText(
 			processes.slice(start, start + LIST_ROWS).flatMap((process, offset) => {
 				const chosen = start + offset === browser.index;
 				const cancelling = browser.cancelling.has(process.handle) ? 'cancelling ' : '';
 				const state = `${cancelling}${stateText(process, now)}`;
-				const line = `${chosen ? '▸ ' : '  '}${(labels[start + offset] ?? '').padEnd(width)}  ${process.agent.padEnd(agents)}  ${state.padEnd(20)}  ${clip(oneLine(process.command), COMMAND_WIDTH)}`;
+				const line = `${chosen ? '▸ ' : '  '}${(labels[start + offset] ?? '').padEnd(width)}  ${process.agent.padEnd(seatWidth)}  ${state.padEnd(20)}  ${clip(oneLine(process.command), COMMAND_WIDTH)}`;
 				const tail = offset === LIST_ROWS - 1 ? '' : '\n';
 				const text = chosen
 					? bg(palette.selected)(fg(palette.accent)(line))

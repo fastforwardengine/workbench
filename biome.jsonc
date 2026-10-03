@@ -54,20 +54,7 @@
 				}
 			}
 		},
-		// `src/` is laid out in layers, and an import points down only:
-		//
-		//   domain/     the vocabulary: people, specialists, rooms, the lab schema, the instruments
-		//   view/       formatting the record for display: text, steps, a timeline, refs, a database preview
-		//   host/       what a host owns: the room catalog, approvals, files, the Lab facade — over domain and view
-		//   terminal/   the OpenTUI terminal — over host, domain, and view — in three layers of its own:
-		//     state/      what the terminal knows and does: the session, the commands, the browsers. No OpenTUI.
-		//     widgets/    what it draws: the transcript, the composer, the panels. Over state.
-		//     app/        what wires and drives them: the keys, the painter, the surfaces, the entry. Over both.
-		//   main.ts     the entry point, which composes domain and terminal
-		//
-		// The overrides below refuse the imports a layer may not make. A pattern
-		// with `**` also refuses the same import written another way, such as
-		// `./../widgets/x` or `../../terminal/widgets/x`.
+		// One override per layer of `src/` refuses the imports it may not make. CLAUDE.md names the layers.
 		{
 			"includes": ["src/domain/**"],
 			"linter": {

@@ -22,10 +22,10 @@ capability that is about the bench goes into Workbench.
 ## The workstation: a Lambda Vector
 
 **A Lambda Vector becomes the workstation of the workspace.** It has two
-RTX 4090 GPUs and 128 GB of RAM. The agents' shells, the git repositories,
-and the perception of images and sound run on it. The terminal of the
-person connects to it over SSH, as it connects to the local container of
-`workstation/` today.
+RTX 4090 GPUs and 128 GB of RAM. The shells of the specialists, the git
+repositories, and the perception of images and sound run on it. The
+terminal of the person connects to it over SSH, as it connects to the
+local container of `workstation/` today.
 
 - **The bench devices plug into it.** The HM310P, the BRIO, the USB
   microphone, the Pico, and the radio connect to its USB ports. Linux sees

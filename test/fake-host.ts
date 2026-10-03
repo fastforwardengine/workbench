@@ -33,7 +33,7 @@ export const view = (name: string, extra: Record<string, unknown> = {}) =>
 /** A host that records each call and answers from a table. */
 export class FakeHost implements Lab {
 	readonly people = [person('priya', 'Hardware lead'), person('noor', 'Electrochemistry lead')];
-	readonly agents = [
+	readonly team = [
 		{ name: 'assistant', identity: 'Room assistant.' },
 		{ name: 'researcher', identity: 'Researcher.' },
 		{ name: 'engineer', identity: 'Engineer.' },

@@ -42,8 +42,8 @@ export function refusal(action: RoomAction, view: RoomView | undefined): string 
 	return view.status === 'running' ? `${view.name} is already running.` : undefined;
 }
 
-/** The agents that are at work in a room now. */
-export const workingAgents = (view: RoomView | undefined): string[] =>
+/** The seats that are at work in a room now. */
+export const workingSeats = (view: RoomView | undefined): string[] =>
 	(view?.participants ?? []).flatMap((participant: Participant) =>
 		participant.kind === 'agent' && participant.status === 'active' ? [participant.name] : [],
 	);
@@ -75,11 +75,11 @@ function pendingLine(say: ScheduledSay): string {
 }
 
 /** The seats that `@` completes to, each with its attention in the open room. */
-export function agentChoices(
-	agents: readonly { name: string }[],
+export function seatChoices(
+	team: readonly { name: string }[],
 	view: RoomView | undefined,
 ): { name: string; state: string }[] {
-	return agents.map(({ name }) => {
+	return team.map(({ name }) => {
 		const seat = (view?.participants ?? []).find(
 			(participant) => participant.kind === 'agent' && participant.name === name,
 		);
@@ -90,10 +90,10 @@ export function agentChoices(
 /** The reason a mention cannot go out, or undefined when it can. */
 export function mentionRefusal(
 	message: { text: string; to?: string },
-	agents: readonly { name: string }[],
+	team: readonly { name: string }[],
 	staged = 0,
 ): string | undefined {
-	const known = agents.map((agent) => agent.name);
+	const known = team.map((seat) => seat.name);
 	if (!message.to || !known.includes(message.to))
 		return `No seat or specialist named @${message.to}. Type @ to list them, or @@ to send an at sign.`;
 	const rest = message.text.replace(/^@\S+/, '').trim();

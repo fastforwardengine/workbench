@@ -8,11 +8,11 @@ exports[`the help text > lists every command and key, as the person reads them 1
   /files            search the workspace files and read one in a side panel
   /open <path>      open the files panel on one file
   /attach <path>    copy a local file into the workspace and cite it in your next message
-  /ps               show the background processes of the agents, their output,
+  /ps               show the background processes of the specialists, their output,
                     and cancel one with x, twice
   /try              fill the composer with the room’s suggested question
   /abort            cancel the open exchange in this room
-  /dismiss <n>      dismiss the say n that waits to return. The agent does not come back to it.
+  /dismiss <n>      dismiss the say n that waits to return. The seat does not come back to it.
   /stop             stop the room. /resume starts it again.
   /steps [n]        show the steps of the newest activation of exchange n, oldest first.
                     Without n, the latest exchange. /steps off hides them.

@@ -16,7 +16,7 @@ type Chunks = ConstructorParameters<typeof StyledText>[0];
 /** The cells that the border and the padding take from the panel width. */
 const CHROME = 4;
 
-/** True when an agent is at work or a person is present. */
+/** True when a seat is at work or a person is present. */
 function lit(participant: Participant): boolean {
 	return participant.kind === 'agent'
 		? participant.status === 'active'
@@ -33,7 +33,7 @@ function participantColor(participant: Participant): string {
 const label = (participant: Participant, unavailable: readonly string[] = []): string =>
 	`${lit(participant) ? '●' : '○'} ${participant.name}${noLogin(participant, unavailable)}`;
 
-/** The mark beside an agent that has no login. */
+/** The mark beside a seat that has no login. */
 function noLogin(participant: Participant, unavailable: readonly string[]): string {
 	return participant.kind === 'agent' && unavailable.includes(participant.name)
 		? ' (no login)'

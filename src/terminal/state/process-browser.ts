@@ -5,7 +5,7 @@ type ProcessHost = Pick<Lab, 'processes' | 'processOutput' | 'cancelProcess' | '
 
 /**
  * The processes panel, without drawing: the background processes of the
- * agents, the chosen one, and the end of its output. The output loads as the
+ * seats, the chosen one, and the end of its output. The output loads as the
  * selection moves. While the panel is open, a start or an end of a process
  * reads the list again.
  */

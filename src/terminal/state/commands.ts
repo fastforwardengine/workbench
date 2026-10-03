@@ -54,9 +54,9 @@ export const COMMANDS = [
 	},
 	{
 		name: 'ps',
-		summary: 'Show the background processes of the agents',
+		summary: 'Show the background processes of the specialists',
 		help: [
-			'  /ps               show the background processes of the agents, their output,',
+			'  /ps               show the background processes of the specialists, their output,',
 			'                    and cancel one with x, twice',
 		],
 	},
@@ -75,7 +75,7 @@ export const COMMANDS = [
 		summary: 'Dismiss a say that waits to return: /dismiss <n>',
 		argument: 'say',
 		help: [
-			'  /dismiss <n>      dismiss the say n that waits to return. The agent does not come back to it.',
+			'  /dismiss <n>      dismiss the say n that waits to return. The seat does not come back to it.',
 		],
 	},
 	{
@@ -162,7 +162,7 @@ interface FileChoice {
 }
 
 /** A seat that a message can address. `state` is its attention in the open room, or `not seated`. */
-interface AgentChoice {
+interface SeatChoice {
 	name: string;
 	state: string;
 }
@@ -170,7 +170,7 @@ interface AgentChoice {
 /** Everything a command argument can complete to. */
 export interface Choices {
 	/** The seats that `@` completes to. */
-	agents: readonly AgentChoice[];
+	seats: readonly SeatChoice[];
 	rooms: readonly RoomChoice[];
 	people: readonly PersonChoice[];
 	files: readonly FileChoice[];
@@ -179,7 +179,7 @@ export interface Choices {
 }
 
 /** What a palette row completes to. It names the palette. */
-type Kind = 'command' | 'room' | 'person' | 'file' | 'say' | 'agent';
+type Kind = 'command' | 'room' | 'person' | 'file' | 'say' | 'seat';
 
 /** The palette of each command that takes a choice. `/room` lists the rooms, and any other command completes to nothing. */
 const KINDS: Readonly<Record<string, Kind>> = { user: 'person', open: 'file', dismiss: 'say' };
@@ -210,14 +210,14 @@ function commandSuggestions(prefix: string): Suggestion[] {
 	);
 }
 
-function agentSuggestions(prefix: string, choices: Choices): Suggestion[] {
-	return choices.agents
-		.filter((agent) => agent.name.startsWith(prefix.toLowerCase()))
-		.map((agent) => ({
-			kind: 'agent' as const,
-			label: `@${agent.name}`,
-			detail: agent.state,
-			insert: `@${agent.name} `,
+function seatSuggestions(prefix: string, choices: Choices): Suggestion[] {
+	return choices.seats
+		.filter((seat) => seat.name.startsWith(prefix.toLowerCase()))
+		.map((seat) => ({
+			kind: 'seat' as const,
+			label: `@${seat.name}`,
+			detail: seat.state,
+			insert: `@${seat.name} `,
 			run: false,
 		}));
 }
@@ -257,7 +257,7 @@ function argumentSuggestions(name: string, wanted: string, choices: Choices): Su
  * and `/dismiss ` list what they can take.
  */
 export function suggest(input: string, choices: Choices): Suggestion[] {
-	if (/^@[a-z0-9-]*$/i.test(input)) return agentSuggestions(input.slice(1), choices);
+	if (/^@[a-z0-9-]*$/i.test(input)) return seatSuggestions(input.slice(1), choices);
 	if (!input.startsWith('/') || input.startsWith('//') || input.includes('\n')) return [];
 	const space = input.indexOf(' ');
 	if (space === -1) return commandSuggestions(input.slice(1));
