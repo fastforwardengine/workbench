@@ -85,7 +85,7 @@ describe('the Engineer', () => {
 			const rules = engineer ? instructionsOf(engineer) : '';
 			for (const rule of [
 				'follow the scan-the-bench skill',
-				'Follow the drive-the-power-supply skill to run the HM310P.',
+				'Follow the drive-the-power-supply skill to run a power supply.',
 				'ask the person before the first run that drives an output',
 				'Scan a network with `--subnet` only when the person names the subnet.',
 				'Start a long script with a `name`, and read its end with `wait` or `status`.',

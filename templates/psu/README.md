@@ -165,6 +165,11 @@ in constant current is a valid point, and `sweep` logs it. The turn-off of
 `sequence` takes `--down-dwell` seconds between two rails, and the total
 stays below 2 s.
 
+**A `sequence` needs `--trip` below `--current` for each rail.** While a
+rail settles, the sequence ignores a current at the limit. Only a current
+above `--trip`, or the end of `--settle`, stops a shorted rail that sits at
+its current limit.
+
 **The controller takes the drive lock of each of its channels.** When another
 process holds it, the controller logs `gave_up` with the holder, and
 touches nothing. After the controller takes the locks, every end turns the

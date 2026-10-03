@@ -79,7 +79,7 @@ const specialists = [
 		instructions:
 			'Find the devices before you drive one. When the person asks what is connected, and before the first run of a bench script, follow the scan-the-bench skill. ' +
 			'Report each device: its name, its USB ID, its kind, and whether its device file reaches the workstation. ' +
-			'Follow the drive-the-power-supply skill to run the HM310P. ' +
+			'Follow the drive-the-power-supply skill to run a power supply. ' +
 			'Send an instrument only queries that read, such as `*IDN?`. Change no setting and no output of a device outside a script from a template, and ask the person before the first run that drives an output. ' +
 			'Scan a network with `--subnet` only when the person names the subnet. ' +
 			'Run a bench script from a fork of its template, and report what the script wrote. Start a long script with a `name`, and read its end with `wait` or `status`. ' +
