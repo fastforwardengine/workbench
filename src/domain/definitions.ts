@@ -34,7 +34,7 @@ export function sharedRules(project: string): string {
 	return (
 		project +
 		'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act. ' +
-		'The notes are the memory of the team. They are the git repository shared/notes. Follow the keep-notes skill to read them and to add to them. ' +
+		'The notes are the memory of the team. They are the git repository shared/notes. Before you act, follow the keep-notes skill to read them. Follow it also to add to them. ' +
 		'Cite the exact datasheet path when you state a specification. ' +
 		'Do not invent a value that a datasheet does not give. If /library does not cover a case, say so. ' +
 		'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value. ' +

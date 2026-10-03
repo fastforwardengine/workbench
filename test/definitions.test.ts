@@ -6,6 +6,10 @@ import { seats } from '../src/domain/room.ts';
 import { resolveRef } from '../src/view/refs.ts';
 
 describe('the team instructions', () => {
+	it('tell every seat to read the notes before it acts', () => {
+		expect(shared).toContain('Before you act, follow the keep-notes skill to read them.');
+	});
+
 	it('name the URI form of a workspace file', () => {
 		expect(shared).toContain('file:///<path>');
 	});

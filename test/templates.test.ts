@@ -18,13 +18,11 @@ describe('the Workbench templates', () => {
 		expect(Object.keys(templateFiles(name))).toContain('README.md');
 	});
 
-	it.each([
-		['device-scan', 'scan-the-bench'],
-		['usb-camera', 'observe-the-camera'],
-		['psu', 'drive-the-power-supply'],
-	])('names the %s template in the %s skill of the Engineer', (name, skill) => {
-		const text = readFileSync(join(skillsDirectory, 'engineer', skill, 'SKILL.md'), 'utf8');
-		expect(text).toContain(`\`${name}\``);
+	it.each(templates)('names the $name template in a skill', ({ name }) => {
+		const texts = readdirSync(skillsDirectory, { recursive: true, encoding: 'utf8' })
+			.filter((path) => path.endsWith('SKILL.md'))
+			.map((path) => readFileSync(join(skillsDirectory, path), 'utf8'));
+		expect(texts.some((text) => text.includes(`\`${name}\``))).toBe(true);
 	});
 
 	it.each(['psu', 'usb-camera'])('registers the ignore file of %s as .gitignore', (name) => {
