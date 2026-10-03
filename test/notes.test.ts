@@ -122,13 +122,13 @@ describe('the shared notes', () => {
 				},
 			});
 		const workspace = open();
-		await clone(workspace, 'builder');
+		await clone(workspace, 'engineer');
 		await shell(
 			workspace,
-			'builder',
+			'engineer',
 			"cd ~/notes && echo 'team decision' > decisions/test.md && git add . && git commit -m 'decisions: keep team state' && git push origin main",
 		);
-		const tip = await workspace.git?.use({ name: 'builder' }, (env) =>
+		const tip = await workspace.git?.use({ name: 'engineer' }, (env) =>
 			env.resolve('shared/notes', { branch: 'main' }),
 		);
 		await workspace.dispose();
@@ -136,12 +136,12 @@ describe('the shared notes', () => {
 		const restarted = open();
 		cleanups.push(() => restarted.dispose());
 		expect(
-			await restarted.git?.use({ name: 'builder' }, (env) =>
+			await restarted.git?.use({ name: 'engineer' }, (env) =>
 				env.resolve('shared/notes', { branch: 'main' }),
 			),
 		).toBe(tip);
-		await clone(restarted, 'instruments');
-		await shell(restarted, 'instruments', 'cd ~/notes && cat decisions/test.md').then((output) =>
+		await clone(restarted, 'datasheets');
+		await shell(restarted, 'datasheets', 'cd ~/notes && cat decisions/test.md').then((output) =>
 			expect(output).toBe('team decision\n'),
 		);
 	}, 20_000);

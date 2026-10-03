@@ -69,7 +69,7 @@ function processes(): FakeHost {
 			handle: 'bash-aaa111',
 			name: 'scan',
 			kind: 'bash',
-			agent: 'instruments',
+			agent: 'engineer',
 			command: 'python3 scan/scan.py\nsecond line',
 			state: 'running',
 			output: '/x/out',
@@ -164,7 +164,7 @@ describe('the processes panel', () => {
 		const { frame } = await opened();
 		const text = await frame();
 		expect(text).toContain('Processes   1 running, 2 in all');
-		expect(text).toMatch(/● ▸ scan\s+instruments\s+running 1m 5s/);
+		expect(text).toMatch(/● ▸ scan\s+engineer\s+running 1m 5s/);
 		expect(text).toMatch(/●\s+bash-bbb222\s+experiments\s+exit 0 after 4s/);
 		expect(text).toContain('scan (bash-aaa111)');
 		expect(text).toContain('$ python3 scan/scan.py');

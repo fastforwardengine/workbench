@@ -42,7 +42,7 @@ frequency only from the display, so the camera and its digit reading
 carry path A.
 
 The [`usb-camera` template](../templates/usb-camera/README.md) supplies
-saved still frames for this check. Instruments owns the foreground server.
+saved still frames for this check. The Engineer owns the foreground server.
 Each specialist can `observe` its connection and cite the manifest snapshot
 ref that it returns. Aim the camera at the bench so that the display is
 legible. The template has no digit recognition, change detection,

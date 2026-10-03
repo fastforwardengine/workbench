@@ -109,7 +109,7 @@ item when it ships, and remove an activity when every item is done.
 - [ ] Prepare the accounts, the groups, and the folders of the workspace,
       as `workstation/` does, and write its `workstation.json`.
 - [ ] Connect the HM310P, the BRIO, and the USB microphone to its USB
-      ports, and give Instruments their device files.
+      ports, and give the Engineer their device files.
 - [ ] Serve a vision model and an audio model on its GPUs, reachable from
       the perception service.
 

@@ -369,13 +369,13 @@ describe('bodyOf', () => {
 
 	it('keeps a text that asks something', () => {
 		expect(bodyOf('Look at these.', undefined, two)).toBe('Look at these.');
-		expect(bodyOf('@builder check pin 3', 'builder', two)).toBe('@builder check pin 3');
+		expect(bodyOf('@engineer check pin 3', 'engineer', two)).toBe('@engineer check pin 3');
 	});
 
 	it('sends the note for an empty text, and adds it to a bare mention', () => {
 		expect(bodyOf('', undefined, two)).toBe('Attached a.png, b.png.');
-		expect(bodyOf('@builder', 'builder', two)).toBe('@builder Attached a.png, b.png.');
-		expect(bodyOf('@builder,', 'builder', two)).toBe('@builder, Attached a.png, b.png.');
+		expect(bodyOf('@engineer', 'engineer', two)).toBe('@engineer Attached a.png, b.png.');
+		expect(bodyOf('@engineer,', 'engineer', two)).toBe('@engineer, Attached a.png, b.png.');
 	});
 
 	it('sends nothing for an empty text with no files', () => {
@@ -387,18 +387,18 @@ describe('Session, with attachments', () => {
 	it('sends staged files to one seat with a bare @name', async () => {
 		const { host, session } = await started();
 		await session.submit('/attach /tmp/one.png');
-		await session.submit('@builder');
+		await session.submit('@engineer');
 		expect(session.error).toBeUndefined();
-		expect(host.calls.at(-1)).toBe('send:characterization:priya:@builder Attached 1-one.png.');
-		expect(host.sentTo).toEqual(['builder']);
+		expect(host.calls.at(-1)).toBe('send:characterization:priya:@engineer Attached 1-one.png.');
+		expect(host.sentTo).toEqual(['engineer']);
 		expect(session.pendingRefs).toEqual([]);
 	});
 
 	it('still asks for a question after a bare @name when no file is staged', async () => {
 		const { host, session } = await started();
 		host.calls.length = 0;
-		await session.submit('@builder');
-		expect(session.error).toBe('Say what to ask @builder.');
+		await session.submit('@engineer');
+		expect(session.error).toBe('Say what to ask @engineer.');
 		expect(host.calls).toEqual([]);
 	});
 

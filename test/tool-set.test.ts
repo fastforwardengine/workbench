@@ -49,8 +49,7 @@ describe('the Workbench tool set', () => {
 			['assistant', 'pi'],
 			['datasheets', 'pi'],
 			['experiments', 'pi'],
-			['instruments', 'pi'],
-			['builder', 'pi'],
+			['engineer', 'pi'],
 		]);
 	});
 

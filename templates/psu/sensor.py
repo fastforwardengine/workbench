@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Sensor server for a programmable supply, sensor API v1. Python 3.11+.
 
-    AMBION_SENSOR_REPOSITORY=instruments/bench-psu \\
+    AMBION_SENSOR_REPOSITORY=engineer/bench-psu \\
     AMBION_SENSOR_DATA_DIR=$HOME/sensor-data/bench-psu \\
     python3 -u -B sensor.py [--config psu.json] [--sim FILE] [--port 0]
 
@@ -75,7 +75,7 @@ def wall_clock():
 
 def launch_source(checkout, repository):
     if not re.fullmatch(r"(?!templates/)[a-z][a-z0-9-]*/[a-z0-9][a-z0-9._-]{0,63}", repository):
-        raise ValueError("Set AMBION_SENSOR_REPOSITORY to your fork ID, such as instruments/bench-psu.")
+        raise ValueError("Set AMBION_SENSOR_REPOSITORY to your fork ID, such as engineer/bench-psu.")
 
     def git(*args):
         return subprocess.check_output(["git", "-C", str(checkout), *args], text=True).strip()

@@ -4,16 +4,14 @@ import type { Attention } from '@ambionframework/ambion';
 import { packageDirectory } from './package-root.ts';
 
 /**
- * The seats of a room with no seats of its own. Three specialists hear every
- * message, at `broadcast`. The Builder listens at `named`. Only a directed say
- * from the assistant or a specialist wakes it, because a message from a person
- * names no seat.
+ * The seats of a room with no seats of its own. The three specialists hear
+ * every message, at `broadcast`. The Engineer needs every message to keep its
+ * view of the bench current.
  */
 export const seats: Record<string, Attention> = {
 	datasheets: 'broadcast',
 	experiments: 'broadcast',
-	instruments: 'broadcast',
-	builder: 'named',
+	engineer: 'broadcast',
 };
 
 /** One room of the project: what it is for, how the header names it, and who listens. */
@@ -44,10 +42,9 @@ export const scenarios: Scenario[] = [
 		prompt:
 			'List the parts of the kit from the notes, and name the facts we must settle before the build.',
 		seats: {
-			builder: 'broadcast',
+			engineer: 'broadcast',
 			datasheets: 'broadcast',
 			experiments: 'named',
-			instruments: 'named',
 		},
 	},
 	{
@@ -59,10 +56,9 @@ export const scenarios: Scenario[] = [
 		pattern: 'Hear → press (A) → I²C (B) → station map',
 		prompt: 'Plan path A: how the Pico presses CH+ and CH−, and how the camera reads the display.',
 		seats: {
-			instruments: 'broadcast',
+			engineer: 'broadcast',
 			experiments: 'broadcast',
 			datasheets: 'named',
-			builder: 'named',
 		},
 	},
 	{
@@ -75,8 +71,7 @@ export const scenarios: Scenario[] = [
 		prompt:
 			'Write the build procedure of the second kit as steps, with a check for each polarized part.',
 		seats: {
-			builder: 'broadcast',
-			instruments: 'broadcast',
+			engineer: 'broadcast',
 			datasheets: 'named',
 			experiments: 'named',
 		},
@@ -90,10 +85,9 @@ export const scenarios: Scenario[] = [
 		pattern: 'Toolchain → pins → firmware → flash',
 		prompt: 'List what path C needs: the compiler, the flasher, the pins, and the spare chip.',
 		seats: {
-			instruments: 'broadcast',
+			engineer: 'broadcast',
 			datasheets: 'broadcast',
 			experiments: 'named',
-			builder: 'named',
 		},
 	},
 ];

@@ -36,7 +36,7 @@ export class FakeHost implements Lab {
 	readonly agents = [
 		{ name: 'assistant', identity: 'Room assistant.' },
 		{ name: 'datasheets', identity: 'Datasheets.' },
-		{ name: 'builder', identity: 'Builder.' },
+		{ name: 'engineer', identity: 'Engineer.' },
 	];
 	readonly calls: string[] = [];
 	/** The `to` of each directed send. */

@@ -11,9 +11,9 @@ library file that it rests on. The `keep-notes` skill states the git steps.
 | -------------- | ----------------------------------------------------- | ----------- |
 | `parts/`       | One file for each part                                | Datasheets  |
 | `circuit/`     | Nets and blocks: power, I²C, buttons, audio, display  | Datasheets  |
-| `instruments/` | One file for each device on the bench                 | Instruments |
-| `radio/`       | What the radio does: bands, stations, current         | Instruments |
-| `build/`       | One file for each kit and its steps                   | Builder     |
+| `instruments/` | One file for each device on the bench                 | Engineer    |
+| `radio/`       | What the radio does: bands, stations, current         | Engineer    |
+| `build/`       | One file for each kit and its steps                   | Engineer    |
 | `decisions/`   | One file for each decision, named by date and subject | Experiments |
 | `questions/`   | One file for each open question                       | Experiments |
 
