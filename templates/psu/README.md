@@ -100,9 +100,9 @@ the Unix epoch, so a gap shows as a missing slot.
 **A reading counts when it ends inside its slot.** Once each second, the
 sensor also reads the settings, which can overrun the slot. The next
 reading then starts late, and it counts when it ends before its slot ends.
-A reading that ends after its slot is dropped. On the HM310P the sensor
-holds the bus for about 525 ms of each second: four readings of 75 ms and
-one settings read of three exchanges.
+The sensor drops a reading that ends after its slot. On the HM310P the
+sensor holds the bus for about 525 ms of each second. That is four readings
+of 75 ms and one settings read of three exchanges.
 
 **Each `recent` observation writes one small file to `blobs/`.** No
 process removes them. Delete old blobs while the sensor is stopped.
