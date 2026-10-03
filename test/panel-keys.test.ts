@@ -12,7 +12,7 @@ import { ProcessesSurface } from '../src/terminal/app/process-surface.ts';
 import { ViewfinderSurface } from '../src/terminal/app/viewfinder-surface.ts';
 import { PictureCache } from '../src/terminal/state/picture-cache.ts';
 import { ProcessBrowser } from '../src/terminal/state/process-browser.ts';
-import { ViewfinderBrowser } from '../src/terminal/state/viewfinder-browser.ts';
+import { TICK_MS, ViewfinderBrowser } from '../src/terminal/state/viewfinder-browser.ts';
 import { Composer } from '../src/terminal/widgets/composer.ts';
 import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { Header } from '../src/terminal/widgets/header.ts';
@@ -75,8 +75,8 @@ async function build(width = 120) {
 	const surfaces = {
 		files: new FilesSurface(session.browser, panel),
 		processes: new ProcessesSurface(processes, processPanel, render),
-		camera: new ViewfinderSurface(camera, cameraPanel, () => kitty.on),
 	};
+	const viewfinder = new ViewfinderSurface(camera, cameraPanel, () => kitty.on);
 	const painter = new Painter({
 		session,
 		transcript,
@@ -107,6 +107,7 @@ async function build(width = 120) {
 		palette,
 		painter,
 		surfaces,
+		viewfinder,
 		transcript,
 		render,
 		quit,
@@ -145,6 +146,7 @@ async function build(width = 120) {
 		render,
 		painter,
 		surfaces,
+		viewfinder,
 		frame: async () => {
 			await setup.renderOnce();
 			await setup.renderOnce();
@@ -183,55 +185,131 @@ async function openProcesses(built: Built): Promise<void> {
 	await wait(20);
 }
 
-describe('the camera panel', () => {
-	it('opens beside the conversation, says that it needs Kitty graphics, and polls nothing without them', async () => {
+describe('the camera viewfinder', () => {
+	it('shows beside the conversation, says that it needs Kitty graphics, and polls nothing without them', async () => {
 		const built = await build(120);
-		built.keys.openCamera();
+		built.keys.toggleCamera();
 		await wait(20);
-		expect(built.keys.mode).toBe('camera');
+		expect(built.keys.mode).toBe('compose');
 		expect(built.camera.open).toBe(true);
 		expect(built.host.finders).toHaveLength(0);
 		expect(await built.frame()).toContain('needs a terminal with Kitty graphics');
-		expect(built.composer.input.focused).toBe(false);
+		expect(built.transcript.root.visible).toBe(true);
+		expect(built.composer.input.focused).toBe(true);
 	});
 
-	it('polls while it is open on a Kitty terminal, and Esc closes it and stops the poll', async () => {
+	it('leaves the keys to the composer while it shows', async () => {
 		const built = await build(120);
 		built.kitty.on = true;
-		built.keys.openCamera();
+		built.keys.toggleCamera();
+		await wait(20);
+		built.composer.setText('/');
+		built.render();
+		expect(built.palette.open).toBe(true);
+		built.press('down');
+		expect(built.prevented.count).toBe(1);
+		built.press('q');
+		built.press('escape');
+		expect(built.prevented.count).toBe(2);
+		expect(built.camera.open).toBe(true);
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('hides on the second toggle, and stops the poll', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
 		await wait(20);
 		expect(built.host.finders).toHaveLength(1);
 		expect(built.host.finders[0]?.closed).toBe(false);
 		expect(await built.frame()).toContain('Camera');
-		built.press('escape');
-		expect(built.keys.mode).toBe('compose');
+		built.keys.toggleCamera();
 		expect(built.camera.open).toBe(false);
 		expect(built.host.finders[0]?.closed).toBe(true);
-		expect(built.composer.input.focused).toBe(true);
+		expect(built.cameraPanel.root.visible).toBe(false);
+		expect(built.keys.mode).toBe('compose');
+	});
+
+	it('shows beside browse mode too', async () => {
+		const built = await build(120);
+		built.keys.toggleCamera();
+		built.keys.mode = 'browse';
+		built.render();
+		expect(built.camera.open).toBe(true);
 	});
 
 	it('stops the poll when the terminal ends, without a draw', async () => {
 		const built = await build(120);
 		built.kitty.on = true;
-		built.keys.openCamera();
+		built.keys.toggleCamera();
 		await wait(20);
-		const draws = built.renders.count;
+		expect(built.host.finders[0]?.closed).toBe(false);
 		built.keys.release();
 		expect(built.host.finders[0]?.closed).toBe(true);
 		expect(built.camera.open).toBe(false);
-		expect(built.renders.count).toBe(draws + 1);
 	});
 
-	it('gives the panel the whole width on a narrow terminal, and swaps with another panel', async () => {
+	it('hides while a side panel is open, and shows again with a new poll when it closes', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
+		await wait(20);
+		await openFiles(built);
+		expect(built.camera.open).toBe(false);
+		expect(built.cameraPanel.root.visible).toBe(false);
+		expect(built.host.finders[0]?.closed).toBe(true);
+		built.press('escape');
+		await wait(20);
+		expect(built.keys.mode).toBe('compose');
+		expect(built.camera.open).toBe(true);
+		expect(built.host.finders).toHaveLength(2);
+		expect(built.host.finders[1]?.closed).toBe(false);
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('stays hidden after a panel closes when the person closed it meanwhile', async () => {
+		const built = await build(120);
+		built.keys.toggleCamera();
+		await openProcesses(built);
+		built.keys.toggleCamera();
+		built.press('escape');
+		expect(built.camera.open).toBe(false);
+	});
+
+	it('never replaces the conversation: a narrow terminal hides it, and a wide one shows it', async () => {
 		const built = await build(80);
 		built.kitty.on = true;
-		built.keys.openCamera();
+		built.keys.toggleCamera();
 		await wait(20);
-		expect(built.transcript.root.visible).toBe(false);
-		built.keys.openProcesses();
+		expect(built.camera.open).toBe(false);
+		expect(built.host.finders).toHaveLength(0);
+		expect(built.transcript.root.visible).toBe(true);
+		expect(built.session.notice ?? '').toContain('100 columns');
+		built.setup.resize(120, 30);
+		built.render();
 		await wait(20);
-		expect(built.keys.mode).toBe('processes');
-		expect(built.host.finders[0]?.closed).toBe(true);
+		expect(built.camera.open).toBe(true);
+		expect(built.host.finders).toHaveLength(1);
+		expect(built.transcript.root.visible).toBe(true);
+	});
+
+	it('leaves no tick or poll running after the terminal ends', async () => {
+		vi.useFakeTimers();
+		try {
+			const built = await build(120);
+			built.kitty.on = true;
+			built.keys.toggleCamera();
+			vi.advanceTimersByTime(TICK_MS);
+			expect(built.host.finders[0]?.closed).toBe(false);
+			built.keys.release();
+			const draws = built.renders.count;
+			vi.advanceTimersByTime(10 * TICK_MS);
+			expect(built.host.finders[0]?.closed).toBe(true);
+			expect(built.renders.count).toBe(draws);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 

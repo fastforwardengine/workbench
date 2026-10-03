@@ -62,10 +62,11 @@ export const COMMANDS = [
 	},
 	{
 		name: 'camera',
-		summary: 'Show the camera viewfinder in the side panel',
+		summary: 'Show or hide the camera viewfinder beside the conversation',
 		help: [
-			'  /camera           show the latest frame of the camera in a side panel. It needs',
-			'                    a terminal with Kitty graphics, such as Ghostty.',
+			'  /camera           show the latest frame of the camera beside the conversation, and',
+			'                    hide it when it shows. The composer stays active. It needs a',
+			'                    terminal with Kitty graphics, such as Ghostty.',
 		],
 	},
 	{

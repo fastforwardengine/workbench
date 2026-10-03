@@ -70,12 +70,12 @@ class EngineTui {
 			processes: new ProcessesSurface(this.processes, new ProcessesPanel(renderer), () =>
 				this.render(),
 			),
-			camera: new ViewfinderSurface(
-				new ViewfinderBrowser(host, () => this.render()),
-				new ViewfinderPanel(renderer),
-				() => drawsKitty(renderer),
-			),
 		};
+		const viewfinder = new ViewfinderSurface(
+			new ViewfinderBrowser(host, () => this.render()),
+			new ViewfinderPanel(renderer),
+			() => drawsKitty(renderer),
+		);
 		const body = new BoxRenderable(renderer, {
 			flexDirection: 'row',
 			flexGrow: 1,
@@ -108,6 +108,7 @@ class EngineTui {
 			palette: this.palette,
 			painter: this.painter,
 			surfaces,
+			viewfinder,
 			transcript,
 			render: () => this.render(),
 			quit: () => this.renderer.destroy(),
@@ -124,7 +125,7 @@ class EngineTui {
 		body.add(transcript.root);
 		body.add(surfaces.files.root);
 		body.add(surfaces.processes.root);
-		body.add(surfaces.camera.root);
+		body.add(viewfinder.root);
 		root.add(body);
 		root.add(this.composer.root);
 		renderer.root.add(root);
@@ -206,7 +207,7 @@ class EngineTui {
 		if (intent.type === 'quit') this.renderer.destroy();
 		else if (intent.type === 'compose') this.composer.setText(intent.text);
 		else if (intent.type === 'processes') this.keys.openProcesses();
-		else if (intent.type === 'camera') this.keys.openCamera();
+		else if (intent.type === 'camera') this.keys.toggleCamera();
 		else this.keys.openFiles();
 	}
 }
