@@ -41,8 +41,8 @@ unused import or variable.
 - `pnpm start` — run the terminal.
 - `make` — bring up the local workstation in `workstation/`, and run the
   terminal on it. The `Makefile` lists the other targets.
-- `pnpm check` — format, types, lint, and the scripted test tier, in that
-  order.
+- `pnpm check` — format, types, lint, knip, and the scripted test tier. The
+  stages run at once. A failed run reports every failed stage.
 - `pnpm test` — the scripted tier: no key, no network.
 - `pnpm test:live` — the live tier: evals on `@ambionframework/simulator`.
   Needs a real model key, and costs money.

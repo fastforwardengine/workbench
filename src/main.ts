@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --experimental-ffi
+#!/usr/bin/env -S node --experimental-ffi --disable-warning=ExperimentalWarning
 import { existsSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { parseArgs } from 'node:util';

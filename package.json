@@ -36,13 +36,10 @@
 		"access": "public"
 	},
 	"scripts": {
-		"start": "node --experimental-ffi src/main.ts",
+		"start": "node --experimental-ffi --disable-warning=ExperimentalWarning src/main.ts",
 		"build": "tsdown",
 		"release": "node scripts/release.ts",
-		"check:types": "tsc --noEmit",
-		"check:format": "prettier . --cache --check",
-		"check:lint": "biome lint . --error-on-warnings && knip",
-		"check": "pnpm run check:format && pnpm run check:types && pnpm run check:lint && pnpm run test",
+		"check": "node scripts/check.ts",
 		"format": "pnpm run format:lint && pnpm run format:style",
 		"format:lint": "biome check . --write",
 		"format:style": "prettier . --cache --write --list-different",
