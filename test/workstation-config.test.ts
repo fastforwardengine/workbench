@@ -3,10 +3,11 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { memoryBackend } from '@ambionframework/just-bash';
+import type { Workspace } from '@ambionframework/workspace';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
 import { team } from '../src/domain/definitions.ts';
-import { loadWorkstation } from '../src/host/workstation.ts';
+import { loadWorkstation, probeWorkstation } from '../src/host/workstation.ts';
 
 const directories: string[] = [];
 
@@ -95,6 +96,22 @@ describe('the workstation config', () => {
 		await expect(loadWorkstation(await config(change))).rejects.toThrow(error);
 	});
 
+	it('names the path when the file is not JSON', async () => {
+		const path = await config();
+		await writeFile(path, '{ "host": ');
+		const error = await loadWorkstation(path).catch((caught: unknown) => caught);
+		expect((error as Error).message).toContain(`workstation.json at ${path} is not JSON: `);
+	});
+
+	it('names the path and the step when the file is missing', async () => {
+		const path = join(tmpdir(), 'workbench-absent', 'workstation.json');
+		const error = await loadWorkstation(path).catch((caught: unknown) => caught);
+		expect(error).toBeInstanceOf(Error);
+		expect((error as Error).message).toContain(`cannot read workstation.json at ${path}`);
+		expect((error as Error).message).toContain('workstation/setup.sh');
+		expect((error as Error).cause).toBeDefined();
+	});
+
 	it('holds an account for each specialist and for the host, in workstation/accounts', async () => {
 		const accounts = readFileSync(new URL('../workstation/accounts', import.meta.url), 'utf8')
 			.split('\n')
@@ -104,5 +121,49 @@ describe('the workstation config', () => {
 		expect(accounts.sort()).toEqual(
 			[...built.specialists.map((seat) => seat.name), workspace.mirrorAgent.name].sort(),
 		);
+	});
+});
+
+describe('the workstation probe', () => {
+	const mirrorAgent = { name: 'workbench-host' };
+
+	async function loaded() {
+		return loadWorkstation(await config());
+	}
+
+	function fake(use: Workspace['use']): Pick<Workspace, 'use' | 'mirrorAgent'> {
+		return { use, mirrorAgent };
+	}
+
+	it('names the server, both accounts with their keys, and the cause when SSH fails', async () => {
+		const cause = new Error('connection refused');
+		const settings = await loaded();
+		const error = await probeWorkstation(
+			fake(() => Promise.reject(cause)),
+			settings,
+		).catch((caught: unknown) => caught);
+		expect(error).toBeInstanceOf(Error);
+		expect((error as Error).message).toBe(
+			`Workbench cannot open the workstation at 127.0.0.1:2222. The host account is workbench-host with the key ${join(settings.keys, 'workbench-host')}. The git account is ${settings.gitAccount} with the key ${join(settings.keys, settings.gitAccount)}. connection refused`,
+		);
+		expect((error as Error).cause).toBe(cause);
+	});
+
+	it('names the failure that a file result carries', async () => {
+		const use = (async (_agent: unknown, operation: (env: unknown) => unknown) =>
+			operation({
+				exists: async () => ({ ok: false, error: new Error('no route') }),
+			})) as unknown as Workspace['use'];
+		await expect(probeWorkstation(fake(use), await loaded())).rejects.toThrow(
+			/127\.0\.0\.1:2222.*no route/,
+		);
+	});
+
+	it('passes when the root exists', async () => {
+		const use = (async (_agent: unknown, operation: (env: unknown) => unknown) =>
+			operation({
+				exists: async () => ({ ok: true, value: true }),
+			})) as unknown as Workspace['use'];
+		await expect(probeWorkstation(fake(use), await loaded())).resolves.toBeUndefined();
 	});
 });

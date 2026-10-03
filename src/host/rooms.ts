@@ -29,7 +29,7 @@ import { stepLog } from '../view/steps.ts';
 import { labRepositories } from './repositories.ts';
 import { seedWorkspace } from './seed.ts';
 import { unavailable } from './unavailable.ts';
-import { type WorkstationConfig, workstationBackends } from './workstation.ts';
+import { probeWorkstation, type WorkstationConfig, workstationBackends } from './workstation.ts';
 
 /** What a person can do to a room's work. Abort ends the open exchange. Stop and resume end and start a run. */
 export type RoomAction = 'abort' | 'stop' | 'resume';
@@ -154,6 +154,7 @@ export async function openRooms(
 	const workspace = openWorkspace({ name: WORKSPACE, backend, audit: {} });
 	let roomTeam: HostedRoom['team'];
 	try {
+		if (options.workstation) await probeWorkstation(workspace, options.workstation);
 		await seedWorkspace(workspace);
 		// Register the templates and notes now, so a template that fails to register
 		// stops the start with an error that names it.
