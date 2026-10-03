@@ -12,7 +12,7 @@ import argparse
 from array import array
 import datetime as dt
 import hashlib
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
 import json
 import math
@@ -24,6 +24,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import wave
 import zlib
 
@@ -146,6 +147,15 @@ def valid_request(body):
     return span["from"] < span["to"]
 
 
+class Capture:
+    """One capture in flight. Each request that waits for it receives its result."""
+
+    def __init__(self):
+        self.done = threading.Event()
+        self.observation = None
+        self.error = None
+
+
 class Camera:
     """One USB device, two sensors: `camera` (frames) and `microphone` (clips)."""
 
@@ -157,6 +167,9 @@ class Camera:
         self.demo = demo
         self.audio_device = audio_device
         self.seconds = seconds
+        self.lock = threading.Lock()  # Guards `flights`.
+        self.flights = {}  # The capture in flight of each sensor.
+        self.writing = threading.Lock()  # One writer at a time for the blobs and the log.
         (self.data / "blobs").mkdir(parents=True, exist_ok=True)
 
     def sensors(self):
@@ -187,11 +200,43 @@ class Camera:
 
     def keep(self, sensor, at, parts, digest, blob):
         """Store the blob and append the observation to the log."""
-        self.store(digest, blob)
         observation = {"at": at, "parts": parts}
-        with (self.data / "observations.jsonl").open("a") as output:
-            output.write(json.dumps({"source": self.source, "sensor": sensor, "observation": observation}) + "\n")
+        with self.writing:
+            self.store(digest, blob)
+            with (self.data / "observations.jsonl").open("a") as output:
+                output.write(json.dumps({"source": self.source, "sensor": sensor, "observation": observation}) + "\n")
         return observation
+
+    def observe(self, sensor):
+        """Serve one request. A request that arrives while a capture of the same sensor
+        runs waits for that capture and receives its observation. Each sensor has its own
+        device, so a camera capture and a microphone clip run in parallel."""
+        with self.lock:
+            flight = self.flights.get(sensor)
+            leader = flight is None
+            if leader:
+                flight = self.flights[sensor] = Capture()
+        if leader:
+            try:
+                flight.observation = self.acquire(sensor)
+            except BaseException as error:
+                flight.error = error
+            finally:
+                with self.lock:
+                    del self.flights[sensor]
+                flight.done.set()
+        else:
+            flight.done.wait()
+        if flight.error is not None:
+            raise flight.error
+        return flight.observation
+
+    def drain(self):
+        """Wait for the captures in flight. The subprocess timeouts bound the wait."""
+        with self.lock:
+            flights = list(self.flights.values())
+        for flight in flights:
+            flight.done.wait()
 
     def acquire(self, sensor="camera"):
         if sensor == "microphone":
@@ -294,15 +339,17 @@ def open_server(camera, port=0, timeout=10):
             if "span" in body:
                 return self.error(422, "unavailable", "History is not supported.")
             try:
-                observation = camera.acquire(sensor)
+                observation = camera.observe(sensor)
             except (OSError, ValueError, subprocess.SubprocessError):
                 return self.error(503, "unavailable", f"{sensor.capitalize()} capture failed; check device access and status.")
             self.json(200, {"api": 1, "observations": [observation]})
 
     # StreamRequestHandler applies this timeout to the socket before it reads the headers.
     Handler.timeout = timeout
-    # Single request at a time: no overlapping capture of the same device.
-    return HTTPServer(("127.0.0.1", port), Handler)
+    # One thread for each request. `Camera.observe` joins the requests of one sensor to one capture.
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.daemon_threads = True
+    return server
 
 
 def main():
@@ -348,6 +395,9 @@ def main():
         pass
     finally:
         server.server_close()
+        # A handler thread is a daemon. Wait for its capture, so that no fswebcam or arecord
+        # keeps the device and no temporary folder stays in the data directory.
+        camera.drain()
 
 
 if __name__ == "__main__":

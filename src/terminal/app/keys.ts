@@ -138,6 +138,16 @@ export class Keys {
 		this.openPanel('processes');
 	}
 
+	/** Open the camera viewfinder. A narrow terminal gives it the whole width. */
+	openCamera(): void {
+		this.openPanel('camera');
+	}
+
+	/** End the open side panel without drawing, when the terminal ends. Its polls and timers stop. */
+	release(): void {
+		if (isPanel(this.mode)) this.surfaces[this.mode].release();
+	}
+
 	private openPanel(mode: PanelMode): void {
 		const surface = this.surfaces[mode];
 		// The surface opens first, so the first draw shows the panel.

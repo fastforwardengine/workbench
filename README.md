@@ -132,6 +132,13 @@ needs one. A bench script comes from a template.
   picture. The files panel shows a picture, also from a snapshot ref. A
   terminal with Kitty graphics also shows up to four thumbnails under a
   message that cites a picture or a sensor manifest.
+- **Camera viewfinder:** `/camera` opens a side panel with the latest frame
+  of the connected `camera` sensor, its age, and the sensor name. The panel
+  reads the sensor every 3 seconds while it is open, and Esc closes it. Each
+  read is a normal `observe`, which the sensor server logs. The workspace
+  keeps no snapshot of it. When no camera is connected, the panel asks you to
+  have the Engineer connect one. The panel needs a terminal with Kitty
+  graphics, such as Ghostty.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
   waits for its goal. In a side panel it closes the panel. Ctrl+D leaves
   the terminal when the composer is empty, and `/quit` also leaves. The

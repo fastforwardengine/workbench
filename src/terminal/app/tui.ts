@@ -11,6 +11,7 @@ import { parse } from '../state/commands.ts';
 import { PictureCache } from '../state/picture-cache.ts';
 import { ProcessBrowser } from '../state/process-browser.ts';
 import { type Intent, Session } from '../state/session.ts';
+import { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import { tui as palette } from '../widgets/brand.ts';
 import { Composer } from '../widgets/composer.ts';
 import { FilesPanel } from '../widgets/files-panel.ts';
@@ -18,10 +19,12 @@ import { Header } from '../widgets/header.ts';
 import { Palette } from '../widgets/palette.ts';
 import { ProcessesPanel } from '../widgets/process-panel.ts';
 import { Transcript } from '../widgets/transcript.ts';
+import { ViewfinderPanel } from '../widgets/viewfinder-panel.ts';
 import { Painter } from './draw.ts';
 import { FilesSurface } from './files-surface.ts';
 import { Keys } from './keys.ts';
 import { ProcessesSurface } from './process-surface.ts';
+import { ViewfinderSurface } from './viewfinder-surface.ts';
 
 /** How often the slow fallback reads the room list and a stopped room. */
 const SLOW_MS = 4_000;
@@ -29,7 +32,7 @@ const SLOW_MS = 4_000;
 /** The cells between the terminal edge and the content, on each side. */
 const PADDING = 1;
 
-/** True when the terminal draws Kitty graphics. Thumbnails need it. */
+/** True when the terminal draws Kitty graphics. Thumbnails and the viewfinder need it. */
 const drawsKitty = (renderer: CliRenderer): boolean =>
 	resolveImageRenderProtocol('auto', renderer.capabilities, Boolean(renderer.resolution)) ===
 	'kitty';
@@ -66,6 +69,11 @@ class EngineTui {
 			files: new FilesSurface(this.session.browser, new FilesPanel(renderer)),
 			processes: new ProcessesSurface(this.processes, new ProcessesPanel(renderer), () =>
 				this.render(),
+			),
+			camera: new ViewfinderSurface(
+				new ViewfinderBrowser(host, () => this.render()),
+				new ViewfinderPanel(renderer),
+				() => drawsKitty(renderer),
 			),
 		};
 		const body = new BoxRenderable(renderer, {
@@ -116,6 +124,7 @@ class EngineTui {
 		body.add(transcript.root);
 		body.add(surfaces.files.root);
 		body.add(surfaces.processes.root);
+		body.add(surfaces.camera.root);
 		root.add(body);
 		root.add(this.composer.root);
 		renderer.root.add(root);
@@ -141,6 +150,7 @@ class EngineTui {
 		await new Promise<void>((resolve) => {
 			this.renderer.once('destroy', () => {
 				this.stopped = true;
+				this.keys.release();
 				clearInterval(slow);
 				resolve();
 			});
@@ -196,6 +206,7 @@ class EngineTui {
 		if (intent.type === 'quit') this.renderer.destroy();
 		else if (intent.type === 'compose') this.composer.setText(intent.text);
 		else if (intent.type === 'processes') this.keys.openProcesses();
+		else if (intent.type === 'camera') this.keys.openCamera();
 		else this.keys.openFiles();
 	}
 }

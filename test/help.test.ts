@@ -16,6 +16,7 @@ describe('the help text', () => {
 			'open',
 			'attach',
 			'ps',
+			'camera',
 			'try',
 			'abort',
 			'dismiss',

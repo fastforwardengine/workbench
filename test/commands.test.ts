@@ -210,3 +210,12 @@ describe('the steps command', () => {
 		expect(suggest('/st', choices).map((row) => row.label)).toContain('/steps');
 	});
 });
+
+describe('the camera command', () => {
+	it('parses with no argument and appears in the palette', () => {
+		expect(parse('/camera')).toEqual({ kind: 'command', name: 'camera', argument: '' });
+		expect(suggest('/cam', choices)).toEqual([
+			expect.objectContaining({ label: '/camera', insert: '/camera', run: true }),
+		]);
+	});
+});

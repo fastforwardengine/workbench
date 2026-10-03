@@ -183,6 +183,141 @@ def wav_bytes(samples, channels=1, rate=48000):
     return output.getvalue()
 
 
+class ConcurrencyTests(unittest.TestCase):
+    """Requests overlap. A request waits only for a capture of its own sensor."""
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        source = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
+        self.camera = camera.Camera(source, self.folder.name, None, demo=True)
+        self.server = camera.open_server(self.camera)
+        self.thread = threading.Thread(target=self.server.serve_forever, args=(0.01,), daemon=True)
+        self.thread.start()
+        self.addCleanup(self.stop_server)
+        self.root = f"http://127.0.0.1:{self.server.server_port}"
+        self.release = threading.Event()
+        self.addCleanup(self.release.set)
+        self.captures = []
+        self.entered = threading.Semaphore(0)
+        self.arrivals = threading.Semaphore(0)
+        original_acquire = camera.Camera.acquire
+        original_observe = camera.Camera.observe
+
+        def acquire(served, sensor="camera"):
+            self.captures.append(sensor)
+            self.entered.release()
+            if sensor in self.held:
+                self.assertTrue(self.release.wait(10))
+            if self.failing:
+                raise OSError("device lost")
+            return original_acquire(served, sensor)
+
+        def observe(served, sensor):
+            self.arrivals.release()
+            return original_observe(served, sensor)
+
+        self.held = {"camera", "microphone"}
+        self.failing = False
+        for name, function in (("acquire", acquire), ("observe", observe)):
+            patcher = patch.object(camera.Camera, name, function)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def stop_server(self):
+        self.release.set()
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
+
+    def request(self, path, body):
+        request = urllib.request.Request(self.root + path, data=json.dumps(body).encode())
+        try:
+            response = urllib.request.urlopen(request, timeout=10)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
+            return response.status, json.loads(response.read())
+
+    def ask(self, sensor, results):
+        thread = threading.Thread(target=lambda: results.append(self.request(f"/{sensor}/observe", {"api": 1})))
+        thread.start()
+        self.addCleanup(thread.join)
+        return thread
+
+    def wait_for(self, semaphore, count=1):
+        for _ in range(count):
+            self.assertTrue(semaphore.acquire(timeout=5))
+
+    def test_requests_for_one_sensor_share_the_capture_in_flight(self):
+        results = []
+        self.ask("camera", results)
+        self.wait_for(self.entered)
+        self.ask("camera", results)
+        self.wait_for(self.arrivals, 2)
+        self.release.set()
+        self.assertTrue(self.wait_for_result(results, 2))
+        self.assertEqual(self.captures, ["camera"])
+        self.assertEqual([status for status, _body in results], [200, 200])
+        self.assertEqual(results[0][1], results[1][1])
+        log = (Path(self.folder.name) / "observations.jsonl").read_text().splitlines()
+        self.assertEqual(len(log), 1)
+
+    def wait_for_result(self, results, count):
+        for _ in range(500):
+            if len(results) >= count:
+                return True
+            threading.Event().wait(0.01)
+        return False
+
+    def test_a_request_after_the_capture_ends_starts_a_new_capture(self):
+        self.held = set()
+        self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 200)
+        self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 200)
+        self.assertEqual(self.captures, ["camera", "camera"])
+
+    def test_a_camera_request_does_not_wait_for_a_microphone_clip(self):
+        clip = []
+        self.held = {"microphone"}
+        self.ask("microphone", clip)
+        self.wait_for(self.entered)
+        status, body = self.request("/camera/observe", {"api": 1})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["observations"][0]["parts"][1]["kind"], "frame")
+        self.assertEqual(clip, [])
+        self.release.set()
+        self.assertTrue(self.wait_for_result(clip, 1))
+        self.assertEqual(clip[0][0], 200)
+
+    def test_drain_waits_for_the_captures_in_flight(self):
+        results = []
+        self.ask("camera", results)
+        self.wait_for(self.entered)
+        drained = threading.Event()
+        waiter = threading.Thread(target=lambda: (self.camera.drain(), drained.set()))
+        waiter.start()
+        self.addCleanup(waiter.join)
+        self.assertFalse(drained.wait(0.2))
+        self.release.set()
+        self.assertTrue(drained.wait(5))
+        self.assertTrue(self.wait_for_result(results, 1))
+
+    def test_drain_returns_at_once_when_no_capture_runs(self):
+        self.camera.drain()
+
+    def test_a_failed_capture_gives_503_to_every_waiting_request(self):
+        results = []
+        self.failing = True
+        self.ask("camera", results)
+        self.wait_for(self.entered)
+        self.ask("camera", results)
+        self.wait_for(self.arrivals, 2)
+        self.release.set()
+        self.assertTrue(self.wait_for_result(results, 2))
+        self.assertEqual([status for status, _body in results], [503, 503])
+        self.assertEqual(self.captures, ["camera"])
+
+
 class LevelTests(unittest.TestCase):
     def test_demo_clip_is_a_valid_deterministic_wav(self):
         clip = camera.demo_wav()

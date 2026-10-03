@@ -19,6 +19,8 @@ export interface Surface {
 	open(): void;
 	/** Close the state of the panel, and draw it hidden. */
 	hide(): void;
+	/** Stop the work of the panel when the terminal ends. It draws nothing. */
+	release(): void;
 	/** Draw the state of the panel. */
 	draw(): void;
 	/** Give the panel the whole width, or a share of it beside the conversation. */

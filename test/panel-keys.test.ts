@@ -9,14 +9,17 @@ import { Painter } from '../src/terminal/app/draw.ts';
 import { FilesSurface } from '../src/terminal/app/files-surface.ts';
 import { Keys } from '../src/terminal/app/keys.ts';
 import { ProcessesSurface } from '../src/terminal/app/process-surface.ts';
+import { ViewfinderSurface } from '../src/terminal/app/viewfinder-surface.ts';
 import { PictureCache } from '../src/terminal/state/picture-cache.ts';
 import { ProcessBrowser } from '../src/terminal/state/process-browser.ts';
+import { ViewfinderBrowser } from '../src/terminal/state/viewfinder-browser.ts';
 import { Composer } from '../src/terminal/widgets/composer.ts';
 import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { Header } from '../src/terminal/widgets/header.ts';
 import { Palette } from '../src/terminal/widgets/palette.ts';
 import { ProcessesPanel } from '../src/terminal/widgets/process-panel.ts';
 import { Transcript } from '../src/terminal/widgets/transcript.ts';
+import { ViewfinderPanel } from '../src/terminal/widgets/viewfinder-panel.ts';
 import { started, view } from './fake-host.ts';
 import { PNG } from './png.ts';
 
@@ -63,12 +66,16 @@ async function build(width = 120) {
 	const panel = new FilesPanel(renderer);
 	const processPanel = new ProcessesPanel(renderer);
 	const processes = new ProcessBrowser(host, render);
+	const cameraPanel = new ViewfinderPanel(renderer);
+	const camera = new ViewfinderBrowser(host, render);
+	const kitty = { on: false };
 	const composer = new Composer(renderer, { submit: () => {}, change: () => {} });
 	const palette = new Palette(composer);
 	const header = new Header(renderer);
 	const surfaces = {
 		files: new FilesSurface(session.browser, panel),
 		processes: new ProcessesSurface(processes, processPanel, render),
+		camera: new ViewfinderSurface(camera, cameraPanel, () => kitty.on),
 	};
 	const painter = new Painter({
 		session,
@@ -89,7 +96,8 @@ async function build(width = 120) {
 		width: '100%',
 		height: BODY_ROWS,
 	});
-	for (const part of [transcript.root, panel.root, processPanel.root]) body.add(part);
+	for (const part of [transcript.root, panel.root, processPanel.root, cameraPanel.root])
+		body.add(part);
 	renderer.root.add(body);
 	renderer.root.add(composer.root);
 	keys = new Keys({
@@ -129,6 +137,9 @@ async function build(width = 120) {
 		panel,
 		processPanel,
 		processes,
+		camera,
+		cameraPanel,
+		kitty,
 		composer,
 		renders,
 		render,
@@ -171,6 +182,58 @@ async function openProcesses(built: Built): Promise<void> {
 	built.keys.openProcesses();
 	await wait(20);
 }
+
+describe('the camera panel', () => {
+	it('opens beside the conversation, says that it needs Kitty graphics, and polls nothing without them', async () => {
+		const built = await build(120);
+		built.keys.openCamera();
+		await wait(20);
+		expect(built.keys.mode).toBe('camera');
+		expect(built.camera.open).toBe(true);
+		expect(built.host.finders).toHaveLength(0);
+		expect(await built.frame()).toContain('needs a terminal with Kitty graphics');
+		expect(built.composer.input.focused).toBe(false);
+	});
+
+	it('polls while it is open on a Kitty terminal, and Esc closes it and stops the poll', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.openCamera();
+		await wait(20);
+		expect(built.host.finders).toHaveLength(1);
+		expect(built.host.finders[0]?.closed).toBe(false);
+		expect(await built.frame()).toContain('Camera');
+		built.press('escape');
+		expect(built.keys.mode).toBe('compose');
+		expect(built.camera.open).toBe(false);
+		expect(built.host.finders[0]?.closed).toBe(true);
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('stops the poll when the terminal ends, without a draw', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.openCamera();
+		await wait(20);
+		const draws = built.renders.count;
+		built.keys.release();
+		expect(built.host.finders[0]?.closed).toBe(true);
+		expect(built.camera.open).toBe(false);
+		expect(built.renders.count).toBe(draws + 1);
+	});
+
+	it('gives the panel the whole width on a narrow terminal, and swaps with another panel', async () => {
+		const built = await build(80);
+		built.kitty.on = true;
+		built.keys.openCamera();
+		await wait(20);
+		expect(built.transcript.root.visible).toBe(false);
+		built.keys.openProcesses();
+		await wait(20);
+		expect(built.keys.mode).toBe('processes');
+		expect(built.host.finders[0]?.closed).toBe(true);
+	});
+});
 
 describe('opening a panel', () => {
 	it('shows the files panel beside the conversation on a wide terminal, and gives up the composer', async () => {
