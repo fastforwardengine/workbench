@@ -65,7 +65,8 @@ controller. It serves three sensors:
 1. Fork and clone the template, as in `templates/usb-camera/README.md`.
    Run the sensor from a second clone of the fork at a pushed commit. Then
    a later edit in your working clone leaves the launch metadata of the
-   evidence unchanged.
+   evidence unchanged. The sensor needs a git checkout and stops at start
+   without one.
 2. Start one foreground server with the process tools. Use your fork ID
    and an absolute data directory outside the clone:
 

@@ -73,16 +73,33 @@ def wall_clock():
     return time.time_ns() // 1_000_000
 
 
+class CheckoutError(ValueError):
+    """The sensor does not sit in a git checkout that has a commit."""
+
+
 def launch_source(checkout, repository):
     if not re.fullmatch(r"(?!templates/)[a-z][a-z0-9-]*/[a-z0-9][a-z0-9._-]{0,63}", repository):
         raise ValueError("Set AMBION_SENSOR_REPOSITORY to your fork ID, such as engineer/bench-psu.")
 
     def git(*args):
-        return subprocess.check_output(["git", "-C", str(checkout), *args], text=True).strip()
+        done = subprocess.run(["git", "-C", str(checkout), *args], text=True, capture_output=True, check=True)
+        return done.stdout.strip()
 
-    source = {"repository": repository, "commit": git("rev-parse", "HEAD"),
-              "dirty": bool(git("status", "--porcelain", "--untracked-files=all"))}
-    branch = git("branch", "--show-current")
+    try:
+        if git("rev-parse", "--is-inside-work-tree") != "true":
+            raise subprocess.CalledProcessError(1, "git", stderr="git: the folder is not a work tree.")
+        source = {"repository": repository, "commit": git("rev-parse", "--verify", "HEAD"),
+                  "dirty": bool(git("status", "--porcelain", "--untracked-files=all"))}
+        branch = git("branch", "--show-current")
+    except OSError as error:
+        raise CheckoutError(f"psu needs git on PATH to read the commit of your fork at {checkout}.") from error
+    except subprocess.CalledProcessError as error:
+        lines = (error.stderr or "").strip().splitlines()
+        raise CheckoutError(
+            f"psu needs a git checkout of your fork at {checkout}. "
+            "Clone your fork, then start the sensor from the clone (README, sensor step 1)."
+            + (f" Git says: {lines[0]}" if lines else "")
+        ) from error
     if branch:
         source["branch"] = branch
     return source
@@ -634,6 +651,9 @@ def main(argv=None):
     try:
         try:
             source = launch_source(HERE, os.environ.get("AMBION_SENSOR_REPOSITORY", ""))
+        except CheckoutError as error:
+            print(error, file=sys.stderr)
+            return 2
         except ValueError as error:
             parser.error(str(error))
         config = load_config(args.config)

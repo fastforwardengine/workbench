@@ -40,6 +40,9 @@ no captions.
    bash({ command: 'cd ~/bench-camera && git switch -c capture' });
    ```
 
+   The sensor needs a git checkout of the fork and stops at start without
+   one.
+
 5. Change `camera.py` when the capture needs it. Keep the data outside the
    checkout. Run `python3 -B -m unittest -v test_camera.py` in the clone.
    The tests open no camera. Commit your changes, if there are any. Then
