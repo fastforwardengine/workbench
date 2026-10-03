@@ -132,7 +132,8 @@ class Hold(Actuators):
         self.wait_for_state("holding")
         self.assertEqual(self.run_finally("--channel", "ch1").returncode, 0)
         self.assertEqual(self.finish(process), 0)
-        self.assertEqual(self.states()[:3] + self.states()[4:], ["acting", "reached", "holding", "gave_up", "safe"])
+        mine = [event["value"] for event in self.read() if event["kind"] == "state" and event["actuator"] == "hold"]
+        self.assertEqual(mine, ["acting", "reached", "holding", "gave_up", "safe"])
         self.assertIn("outside the controller", self.note("gave_up"))
         self.assertFalse(self.channel_on())
 

@@ -127,10 +127,10 @@ class Controller:
         if self.pending and value != "safe":
             self._pair()
 
-    def _ordered_off(self, guard):
-        """Turn off the channels of stop_order one at a time. An error ends the steps, and the sweep that follows is the safe action."""
+    def _ordered_off(self, guard, held):
+        """Turn off the held channels of stop_order one at a time. An error ends the steps, and the sweep that follows is the safe action."""
         try:
-            for step, channel in enumerate(self.stop_order or []):
+            for step, channel in enumerate([name for name in self.stop_order or [] if name in held]):
                 if step:
                     time.sleep(self.stop_dwell)  # a plain sleep: the stop flag is already set
                 for name, setting in guard.off([channel]).items():
@@ -140,7 +140,7 @@ class Controller:
 
     def safe(self, guard, channels):
         """Turn off the channels that this process holds, log their drive lines, and return the channels that stay on."""
-        self._ordered_off(guard)
+        self._ordered_off(guard, channels)
         settings = guard.off(channels)
         for channel, setting in settings.items():
             self._drive(channel, setting)
