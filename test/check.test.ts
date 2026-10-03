@@ -74,6 +74,10 @@ describe('the unittest guard', () => {
 		expect(ranTests('.\n----\nRan 1 test in 0.001s\n\nOK\n')).toBe(true);
 	});
 
+	it('reads the last count, which is the count of unittest itself', () => {
+		expect(ranTests('Ran 0 tests in 0.000s\n.\n----\nRan 1 test in 0.001s\n\nOK\n')).toBe(true);
+	});
+
 	it('rejects a run of no test, and an output with no count', () => {
 		expect(ranTests('\n----------\nRan 0 tests in 0.000s\n\nOK\n')).toBe(false);
 		expect(ranTests('')).toBe(false);

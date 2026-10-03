@@ -21,8 +21,8 @@
  */
 import { execFile, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { parseArgs, promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { parseArgs, promisify } from 'node:util';
 
 /**
  * One command. It runs in `cwd`, a path from the repository root. A binary of `node_modules/.bin`
@@ -63,7 +63,7 @@ const PYTHON_TIMEOUT_MS = 120_000;
 
 /** True when the output of `unittest` says that it ran one test or more. */
 export const ranTests = (output: string): boolean =>
-	Number(/^Ran (\d+) tests? in /m.exec(output)?.[1] ?? 0) >= 1;
+	Number([...output.matchAll(/^Ran (\d+) tests? in /gm)].at(-1)?.[1] ?? 0) >= 1;
 
 /**
  * A Python suite: `python3 -B -m unittest` in the directory of the suite. Python 3.11 exits with 0
@@ -114,6 +114,8 @@ export const configFiles = [
 	'pyproject.toml',
 	'scripts/check.ts',
 	'knip.json',
+	'.gitignore',
+	'.node-version',
 ];
 
 /** A step that checks `files` and not the whole repository. `flags` go before the files. */
@@ -237,6 +239,18 @@ export function report(
 const root = new URL('../', import.meta.url);
 const rootPath = fileURLToPath(root);
 
+/**
+ * The environment of each command. Git quotes a path with a non-ASCII character by default, and
+ * vitest then finds no file for `--changed`. The extra git setting turns the quotes off.
+ */
+const gitConfigs = Number(process.env.GIT_CONFIG_COUNT ?? 0);
+const stepEnv = {
+	...process.env,
+	GIT_CONFIG_COUNT: String(gitConfigs + 1),
+	[`GIT_CONFIG_KEY_${gitConfigs}`]: 'core.quotePath',
+	[`GIT_CONFIG_VALUE_${gitConfigs}`]: 'false',
+};
+
 /** What one command did: the exit code, and its stdout and stderr together. */
 type StepResult = { code: number | undefined; output: string };
 
@@ -247,6 +261,7 @@ function spawnStep({ bin, args, cwd, onPath, timeout }: Step): Promise<StepResul
 		const file = onPath ? bin : fileURLToPath(new URL(`node_modules/.bin/${bin}`, root));
 		const child = spawn(file, args, {
 			cwd: cwd === undefined ? rootPath : fileURLToPath(new URL(`${cwd}/`, root)),
+			env: stepEnv,
 			stdio: ['ignore', 'pipe', 'pipe'],
 			timeout,
 		});
