@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRuntime, startRoom } from '@ambionframework/ambion';
@@ -14,6 +14,24 @@ const specialists = ['researcher', 'engineer'];
 /** The names of the skill folders of one specialist. */
 const skillNames = async (specialist: string) =>
 	(await specialistSkills(specialist)).skills.map((skill) => skill.name).sort();
+
+/** The text of one SKILL.md. */
+const skillText = (specialist: string, skill: string): string =>
+	readFileSync(join(skillsDirectory, specialist, skill, 'SKILL.md'), 'utf8');
+
+describe('the rules that a skill holds', () => {
+	it.each([
+		['engineer', 'check-a-photo', 'a transistor, a voltage'],
+		['engineer', 'check-a-photo', 'pass, fail, or unclear'],
+		['engineer', 'check-a-photo', 'a photo or a measurement that you'],
+		['engineer', 'guide-a-build-step', 'The power stays off until the person confirms'],
+		['engineer', 'guide-a-build-step', 'one small step at a time'],
+		['researcher', 'write-a-test-plan', 'Write the outline of the plan even when'],
+		['researcher', 'write-a-test-plan', 'also when another specialist already answered'],
+	])('puts the rule in %s/%s: %s', (specialist, skill, rule) => {
+		expect(skillText(specialist, skill).replace(/\s+/g, ' ')).toContain(rule);
+	});
+});
 
 describe('the Workbench skills', () => {
 	it('holds one directory of skills for each specialist, and the shared one', () => {

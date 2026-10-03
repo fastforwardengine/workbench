@@ -1,11 +1,8 @@
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-	templateFiles,
-	templateInstructions,
-	templates,
-	templatesDirectory,
-} from '../src/domain/templates.ts';
+import { skillsDirectory } from '../src/domain/skills.ts';
+import { templateFiles, templates, templatesDirectory } from '../src/domain/templates.ts';
 
 describe('the Workbench templates', () => {
 	it('registers each directory under templates/ once, and nothing else', () => {
@@ -21,11 +18,11 @@ describe('the Workbench templates', () => {
 		expect(Object.keys(templateFiles(name))).toContain('README.md');
 	});
 
-	it('names each template in the instructions of its specialists alone', () => {
-		expect(templateInstructions('researcher')).toBe('');
-		for (const name of ['usb-camera', 'device-scan', 'psu'])
-			expect(templateInstructions('engineer')).toContain(`the ${name} template`);
-		expect(templateInstructions('design')).toBe('');
+	it.each(templates)('names the $name template in a skill', ({ name }) => {
+		const texts = readdirSync(skillsDirectory, { recursive: true, encoding: 'utf8' })
+			.filter((path) => path.endsWith('SKILL.md'))
+			.map((path) => readFileSync(join(skillsDirectory, path), 'utf8'));
+		expect(texts.some((text) => text.includes(`\`${name}\``))).toBe(true);
 	});
 
 	it.each(['psu', 'usb-camera'])('registers the ignore file of %s as .gitignore', (name) => {

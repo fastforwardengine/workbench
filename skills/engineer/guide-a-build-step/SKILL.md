@@ -9,13 +9,16 @@ description: Guide the person through one step of a build, with the parts, the p
    `# Build: <kit>`. When the file has no plan for the step, fill it from the
    datasheets in `/library` and the photos of the kit. Mark each value that
    you cannot give with `TBD`.
-2. Find the next step that is not done. Tell the person its parts, with
-   the name and the value of each, the place of each part (the silkscreen
-   label), and its orientation.
+2. Give one small step at a time: find the next step that is not done.
+   Tell the person its parts, with the name and the value of each, the
+   place of each part (the silkscreen label), and its orientation.
 3. Name the risk of the step: heat, reversed polarity, or a short between
    pins. Say what the person does first, such as switching the power off.
-4. Ask the person to do the step and to report. Do not go on until the
-   person says that the step is done.
+   The power stays off until the person confirms the checks of the step.
+4. Ask the person to do the step and to report, and say what the person
+   must check before the next step. For a polarized part, run the check of
+   step 5 before the person solders it. Do not go on until the person says
+   that the step is done.
 5. Run the check of the step. For a polarized part, apply `check-a-photo`:
    read `~/.skills/check-a-photo/SKILL.md`.
 6. Record the step in `~/notes/build/<kit>.md`: its state and its evidence,

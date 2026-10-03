@@ -26,16 +26,9 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
    a short message that cites that ref. The person then sees the photo
    while you continue the work. Other specialists observe through
    the same connection. Do not share your home or the server URL.
-5. Read the frame before you describe the bench or the display. Report
-   unclear when you cannot read a marking or a digit. For FM radio path A,
-   the camera must show every digit of the display. No tool reads the
-   digits for you.
-   Read a clip through its `level` series. It holds the RMS level in dBFS
-   of each 10 ms window. A pulsed tone that is louder than the room shows
-   high and low levels in turn. Room sound can hide that pattern. Then
-   analyze the exported WAV file in the band around the tone, with
-   `python3` and numpy in your home. Tell the people at the bench before
-   you record.
+5. Read the frame before you describe the bench or the display. Read a
+   frame and a clip as step 12 of the README of the clone says. No tool
+   reads the digits of the display for you.
 6. A synthetic demo observation proves the workflow. It is no reading of a
    device. When a capture fails, check the device and observe again.
    Do not use an earlier image or clip in its place.

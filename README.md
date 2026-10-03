@@ -99,8 +99,7 @@ closing summary.** Every seat runs on Pi.
 **The workspace tools are the only tools.** They read and write files,
 run shell commands as background processes, fork the git templates, and
 snapshot a file into a stable ref.
-The shell has `sqlite3`, so a specialist makes a database when a result
-needs one. A bench script comes from a template.
+A bench script comes from a template.
 
 ## The lab
 
