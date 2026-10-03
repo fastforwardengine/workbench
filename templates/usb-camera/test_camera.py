@@ -362,7 +362,7 @@ class MainTests(unittest.TestCase):
             copy.write_bytes((TEMPLATE / "camera.py").read_bytes())
             env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
             env.update({"AMBION_SENSOR_REPOSITORY": "engineer/bench-camera", "AMBION_SENSOR_DATA_DIR": data,
-                        "GIT_CEILING_DIRECTORIES": folder, **changes})
+                        "GIT_CEILING_DIRECTORIES": str(Path(folder).resolve().parent), **changes})
             done = subprocess.run([sys.executable, "-B", "camera.py", "--demo"], cwd=folder, env=env,
                                   capture_output=True, text=True, timeout=10)
         return done, copy.parent
