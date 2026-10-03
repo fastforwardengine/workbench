@@ -12,10 +12,16 @@ import {
 import type { Execution } from '@ambionframework/ambion/hosting';
 import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journal';
 import { directoryBackend } from '@ambionframework/just-bash';
-import { type PiExecutionOptions, piExecution } from '@ambionframework/pi';
+import { fileCredentials, type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 import { openWorkspace, type RoomMirror } from '@ambionframework/workspace';
 import { team } from '../domain/definitions.ts';
-import { type Environment, hasKey, keyVariable, unavailableSeats } from '../domain/families.ts';
+import {
+	describeMissingLogin,
+	type Environment,
+	hasLogin,
+	piCredentialsPath,
+	unavailableSeats,
+} from '../domain/families.ts';
 import { sharedRegistrations } from '../domain/notes.ts';
 import { scenarios, seats } from '../domain/scenarios.ts';
 import { WORKSPACE } from '../view/refs.ts';
@@ -62,7 +68,7 @@ interface HostedRoom extends CatalogEntry {
 	watchers: Set<() => void>;
 }
 
-/** What the rooms run on. A test passes `stream` and needs no key. */
+/** What the rooms run on. A test passes `stream` and needs no login. */
 export interface RoomsOptions {
 	/** A model stream for the Pi seats. */
 	stream?: PiExecutionOptions['stream'];
@@ -96,15 +102,18 @@ async function workspaceBackends(directory: string, workstation?: WorkstationCon
 /**
  * The execution every seat runs on. Every seat is Pi today, so this is a
  * single Pi execution, not a composition. A test's `stream` scripts it and
- * needs no key. A live run with no key gets an execution that fails its
- * seats with the name of the missing variable, so the room keeps running and
+ * needs no login. A live run reads the sign-ins of the credential file, and
+ * falls back to the key variable. A live run with no login gets an execution
+ * that fails its seats with the way to log in, so the room keeps running and
  * reports why, instead of a bare provider error.
  */
 function familyExecutions(options: RoomsOptions = {}): Execution {
 	const { stream, env = process.env } = options;
 	if (stream !== undefined) return piExecution({ stream });
-	if (hasKey('pi', env)) return piExecution({});
-	return unavailable('pi', `${keyVariable('pi', env)} is not set, and the pi family needs it.`);
+	if (hasLogin('pi', env)) {
+		return piExecution({ credentials: fileCredentials(piCredentialsPath(env)) });
+	}
+	return unavailable('pi', describeMissingLogin('pi', env));
 }
 
 /** The catalog records hosting intent. Collaboration state stays in each room journal. */
@@ -119,7 +128,7 @@ export async function openRooms(
 		},
 		all: (query, ...params) => database.prepare(query).all(...params) as Record<string, SqlValue>[],
 	};
-	// A test that supplies a stream runs no live family, so no seat lacks a key.
+	// A test that supplies a stream runs no live family, so no seat lacks a login.
 	const missing = options.stream
 		? []
 		: unavailableSeats(options.env ?? process.env).map(({ seat }) => seat);
@@ -356,7 +365,7 @@ function roomView(
 ) {
 	return {
 		...snapshot,
-		/** The seats that cannot run because their family has no key. */
+		/** The seats that cannot run because their family has no login. */
 		unavailable,
 		goal: snapshot.initialized ? snapshot.goal : entry.goal,
 		status: entry.lifecycle.status,

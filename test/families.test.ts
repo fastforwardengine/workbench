@@ -1,13 +1,25 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
-import { describeUnavailable, keyVariable, piModel, seatFamilies } from '../src/domain/families.ts';
+import {
+	describeUnavailable,
+	hasLogin,
+	keyVariable,
+	piCredentialsPath,
+	piModel,
+	seatFamilies,
+} from '../src/domain/families.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
 import { buildTimeline } from '../src/view/timeline.ts';
 
+/** An environment whose credential file does not exist, so no test reads the real home. */
+const none = { HOME: '/nonexistent', WORKBENCH_PI_CREDENTIALS: '/nonexistent/credentials.json' };
+
 describe('Workbench executor families', () => {
+	afterEach(() => vi.unstubAllEnvs());
+
 	it('puts every seat on Pi', () => {
 		expect(seatFamilies).toEqual({
 			assistant: 'pi',
@@ -18,32 +30,102 @@ describe('Workbench executor families', () => {
 		});
 	});
 
-	it('switches the model between the anthropic and openai presets', () => {
-		expect(piModel({})).toBe('anthropic/claude-sonnet-4-5');
-		expect(piModel({ WORKBENCH_MODEL: 'anthropic' })).toBe('anthropic/claude-sonnet-4-5');
-		expect(piModel({ WORKBENCH_MODEL: 'openai' })).toBe('openai/gpt-5.6-luna');
+	it('switches the model between the anthropic, openai, and chatgpt presets', () => {
+		expect(piModel({ ...none })).toBe('anthropic/claude-sonnet-4-5');
+		expect(piModel({ ...none, WORKBENCH_MODEL: 'anthropic' })).toBe('anthropic/claude-sonnet-4-5');
+		expect(piModel({ ...none, WORKBENCH_MODEL: 'openai' })).toBe('openai/gpt-5.6-luna');
+		expect(piModel({ ...none, WORKBENCH_MODEL: 'chatgpt' })).toBe('openai-codex/gpt-6-luna');
 		// Any other value passes through as a full Pi model id.
-		expect(piModel({ WORKBENCH_MODEL: 'openai-codex/gpt-5' })).toBe('openai-codex/gpt-5');
+		expect(piModel({ ...none, WORKBENCH_MODEL: 'openai-codex/gpt-5' })).toBe('openai-codex/gpt-5');
 	});
 
 	it('names the key of the model WORKBENCH_MODEL selects', () => {
-		expect(keyVariable('pi', {})).toBe('ANTHROPIC_API_KEY');
-		expect(keyVariable('pi', { WORKBENCH_MODEL: 'openai' })).toBe('OPENAI_API_KEY');
-		expect(keyVariable('pi', { WORKBENCH_MODEL: 'openai-codex/gpt-5' })).toBe(
+		expect(keyVariable('pi', none)).toBe('ANTHROPIC_API_KEY');
+		expect(keyVariable('pi', { ...none, WORKBENCH_MODEL: 'openai' })).toBe('OPENAI_API_KEY');
+		expect(keyVariable('pi', { ...none, WORKBENCH_MODEL: 'openai-codex/gpt-5' })).toBe(
 			'OPENAI_CODEX_API_KEY',
 		);
 	});
 
-	it('says which seat cannot run and why, and lists only the seats without a key', () => {
-		expect(describeUnavailable({ ANTHROPIC_API_KEY: 'k' })).toEqual([]);
-		expect(describeUnavailable({ WORKBENCH_MODEL: 'openai', OPENAI_API_KEY: 'k' })).toEqual([]);
-		expect(describeUnavailable({})).toHaveLength(5);
-		expect(describeUnavailable({})[0]).toBe(
-			"Seat 'assistant' cannot run: ANTHROPIC_API_KEY is not set, and the pi family needs it.",
+	it('says which seat cannot run and why, and lists only the seats without a login', () => {
+		expect(describeUnavailable({ ...none, ANTHROPIC_API_KEY: 'k' })).toEqual([]);
+		expect(
+			describeUnavailable({ ...none, WORKBENCH_MODEL: 'openai', OPENAI_API_KEY: 'k' }),
+		).toEqual([]);
+		expect(describeUnavailable(none)).toHaveLength(5);
+		expect(describeUnavailable(none)[0]).toBe(
+			"Seat 'assistant' cannot run: The pi family has no login. Set ANTHROPIC_API_KEY in the environment or in .env, or run `workbench login` for ChatGPT.",
+		);
+		expect(describeUnavailable({ ...none, WORKBENCH_MODEL: 'chatgpt' })[0]).toBe(
+			"Seat 'assistant' cannot run: The pi family has no login. Run `workbench login`.",
 		);
 	});
 
+	it('defaults the credential file to a path under the home directory', () => {
+		expect(piCredentialsPath({ HOME: '/home/someone' })).toBe(
+			'/home/someone/.ambion/pi/credentials.json',
+		);
+		expect(
+			piCredentialsPath({ HOME: '/home/someone', WORKBENCH_PI_CREDENTIALS: '/x/c.json' }),
+		).toBe('/x/c.json');
+	});
+
+	describe('with a credential file', () => {
+		let directory = '';
+		const envWith = async (content: string | undefined, extra: Record<string, string> = {}) => {
+			const path = join(directory, 'credentials.json');
+			if (content !== undefined) await writeFile(path, content);
+			return { HOME: directory, WORKBENCH_PI_CREDENTIALS: path, ...extra };
+		};
+
+		beforeEach(async () => {
+			directory = await mkdtemp(join(tmpdir(), 'workbench-credentials-'));
+		});
+		afterEach(() => rm(directory, { recursive: true, force: true }));
+
+		it('defaults to the chatgpt model after a ChatGPT sign-in', async () => {
+			const env = await envWith(JSON.stringify({ 'openai-codex': { type: 'oauth' } }));
+			expect(piModel(env)).toBe('openai-codex/gpt-6-luna');
+			expect(hasLogin('pi', env)).toBe(true);
+			expect(describeUnavailable(env)).toEqual([]);
+		});
+
+		it('lets WORKBENCH_MODEL win over the sign-in', async () => {
+			const env = await envWith(JSON.stringify({ 'openai-codex': { type: 'oauth' } }), {
+				WORKBENCH_MODEL: 'anthropic',
+			});
+			expect(piModel(env)).toBe('anthropic/claude-sonnet-4-5');
+			expect(hasLogin('pi', env)).toBe(false);
+		});
+
+		it('keeps the anthropic default when the file holds another provider', async () => {
+			const env = await envWith(JSON.stringify({ anthropic: { type: 'oauth' } }));
+			expect(piModel(env)).toBe('anthropic/claude-sonnet-4-5');
+			expect(hasLogin('pi', env)).toBe(true);
+		});
+
+		it('counts a sign-in for the provider of an explicit model as a login', async () => {
+			const env = await envWith(JSON.stringify({ openai: { type: 'oauth' } }), {
+				WORKBENCH_MODEL: 'openai',
+			});
+			expect(hasLogin('pi', env)).toBe(true);
+		});
+
+		it.each([
+			['a missing file', undefined],
+			['invalid JSON', '{not json'],
+			['a JSON array', '[]'],
+			['a JSON null', 'null'],
+			['an empty entry', JSON.stringify({ 'openai-codex': null })],
+		])('treats %s as no sign-in, and does not throw', async (_name, content) => {
+			const env = await envWith(content);
+			expect(piModel(env)).toBe('anthropic/claude-sonnet-4-5');
+			expect(hasLogin('pi', env)).toBe(false);
+		});
+	});
+
 	it('gives every specialist the Pi executor, on the model WORKBENCH_MODEL selects', async () => {
+		vi.stubEnv('WORKBENCH_PI_CREDENTIALS', none.WORKBENCH_PI_CREDENTIALS);
 		const workspace = { tools: () => ({ name: 'workspace', guidance: '', tools: [] }) } as never;
 		const built = await team(workspace);
 		expect(built.assistant.executor).toMatchObject({
@@ -64,7 +146,7 @@ describe('Workbench executor families', () => {
 	});
 });
 
-describe('Workbench with no key', () => {
+describe('Workbench with no login', () => {
 	const opened: { lab: Lab; directory: string }[] = [];
 	const person = people[0]?.name ?? '';
 
@@ -75,9 +157,9 @@ describe('Workbench with no key', () => {
 		}
 	});
 
-	it('marks every seat, fails an activation with the missing key, and keeps the room running', async () => {
-		const directory = await mkdtemp(join(tmpdir(), 'workbench-nokey-'));
-		const lab = await openLab({ directory: join(directory, 'run'), env: {} });
+	it('marks every seat, fails an activation with the missing login, and keeps the room running', async () => {
+		const directory = await mkdtemp(join(tmpdir(), 'workbench-nologin-'));
+		const lab = await openLab({ directory: join(directory, 'run'), env: none });
 		opened.push({ lab, directory });
 		expect((await lab.read('radio-kit', 0)).unavailable).toEqual([
 			'assistant',
@@ -87,16 +169,16 @@ describe('Workbench with no key', () => {
 			'builder',
 		]);
 		await lab.join('radio-kit', person);
-		await lab.send('radio-kit', person, 'nokey-1', 'Plan a test.');
+		await lab.send('radio-kit', person, 'nologin-1', 'Plan a test.');
 		await vi.waitFor(async () => {
 			const view = await lab.read('radio-kit', 0);
 			const errors = view.activity.filter((item) => item.type === 'error');
 			expect(errors.map((item) => item.text).join('\n')).toContain(
-				"Seat 'assistant' cannot run: ANTHROPIC_API_KEY is not set",
+				"Seat 'assistant' cannot run: The pi family has no login",
 			);
 			expect(view.status).toBe('running');
 		});
-		// The exchange closes on the failure. The seats of `radio-kit` that hold a key wake,
+		// The exchange closes on the failure. The seats of `radio-kit` that hold a login wake,
 		// and the note names the last seat that failed, with its reason.
 		await vi.waitFor(async () => {
 			const view = await lab.read('radio-kit', 0);
@@ -113,7 +195,7 @@ describe('Workbench with no key', () => {
 			expect(blocks).toContainEqual({
 				type: 'note',
 				text: expect.stringMatching(
-					/^Closed, (\S+) failed, the room does not retry this: Seat '\1' cannot run: ANTHROPIC_API_KEY is not set/,
+					/^Closed, (\S+) failed, the room does not retry this: Seat '\1' cannot run: The pi family has no login/,
 				),
 			});
 		});

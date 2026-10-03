@@ -13,6 +13,7 @@ import {
 	EXCHANGE_MS,
 	expectGradable,
 	JUDGE_MODEL,
+	JUDGE_SERVICES,
 	JUDGE_THINKING,
 	live,
 	openRoom,
@@ -46,7 +47,11 @@ live('the led-sweep room, driven by the simulator', () => {
 		// A scripted run carries no cost, so only a real provider proves it.
 		expect(run.usage.room.cost ?? 0).toBeGreaterThan(0);
 
-		const verdict = await agentJudge({ model: JUDGE_MODEL, thinking: JUDGE_THINKING })(run, [
+		const verdict = await agentJudge({
+			model: JUDGE_MODEL,
+			thinking: JUDGE_THINKING,
+			services: JUDGE_SERVICES,
+		})(run, [
 			'The summary says that /library holds no datasheet for the LED, the power supply, or the camera yet.',
 			'The summary states no LED current limit, supply range, or camera setting as a datasheet fact.',
 			'The summary answers the question: it names the limits that the sweep must respect, or the datasheet that must supply each one.',

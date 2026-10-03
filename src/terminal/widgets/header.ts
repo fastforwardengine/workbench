@@ -34,11 +34,11 @@ function participantColor(participant: Participant): string {
 const label = (participant: Participant, unavailable: readonly string[] = []): string =>
 	`${lit(participant) ? '●' : '○'} ${participant.name}${family(participant, unavailable)}`;
 
-/** The executor family beside an agent, with a mark when the family has no key. */
+/** The executor family beside an agent, with a mark when the family has no login. */
 function family(participant: Participant, unavailable: readonly string[]): string {
 	const name = participant.kind === 'agent' ? seatFamilies[participant.name] : undefined;
 	if (!name) return '';
-	return unavailable.includes(participant.name) ? ` (${name}, no key)` : ` (${name})`;
+	return unavailable.includes(participant.name) ? ` (${name}, no login)` : ` (${name})`;
 }
 
 /** One row of the panel: text at the left edge, and text that stays at the right edge. */
