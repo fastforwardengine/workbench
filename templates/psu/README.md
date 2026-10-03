@@ -142,8 +142,8 @@ limit. It holds the voltage, and then it turns the channel off.
 3. Trust exit 0 as safe. Every channel that the process holds is off at
    exit 0. Exit 1 means an error, and the state of the channel is unknown.
 4. Run `python3 finally.py --channel ch1` after an unclean end: an exit
-   code other than 0, the state `cancelled`, a kill, or a lost process. It takes no drive lock.
-   A second run changes nothing.
+   code other than 0, the state `cancelled`, a kill, or a lost process.
+   It takes no drive lock. A second run changes nothing.
 
 **The ramp gives up on an abnormal current.** A reading within 2 % of the
 current limit means constant current, and the ramp ends. With
