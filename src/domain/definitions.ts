@@ -4,7 +4,7 @@ import { defineAssistant } from '@ambionframework/assistant';
 import { pi } from '@ambionframework/pi';
 import type { Workspace } from '@ambionframework/workspace';
 import { piModel, THINKING } from './model.ts';
-import { agentSkills } from './skills.ts';
+import { specialistSkills } from './skills.ts';
 import { templateInstructions } from './templates.ts';
 
 /** The name of the account running this process. The one person of Workbench uses it. */
@@ -110,7 +110,7 @@ export async function team(workspace: Workspace, project: string = radioProject)
 	});
 	const definitions = await Promise.all(
 		specialists.map(async ({ instructions, ...definition }) => {
-			const skills = await agentSkills(definition.name);
+			const skills = await specialistSkills(definition.name);
 			return defineAgent({
 				...definition,
 				executor: pi({

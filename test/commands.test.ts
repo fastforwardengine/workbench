@@ -8,7 +8,7 @@ const rooms: RoomChoice[] = [
 ];
 
 const choices: Choices = {
-	agents: [
+	seats: [
 		{ name: 'assistant', state: 'broadcast' },
 		{ name: 'engineer', state: 'named' },
 		{ name: 'researcher', state: 'not seated' },

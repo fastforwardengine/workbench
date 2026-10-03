@@ -19,13 +19,13 @@ import {
 import { dismissCommand } from './dismiss.ts';
 import { RoomReader } from './room-reader.ts';
 import {
-	agentChoices,
 	DONE,
 	HELP,
 	mentionRefusal,
 	notesOf,
 	refusal,
-	workingAgents,
+	seatChoices,
+	workingSeats,
 } from './session-text.ts';
 
 /** What the terminal does after a command, beyond what the session already changed. */
@@ -192,7 +192,7 @@ export class Session {
 					.filter((participant) => participant.kind === 'person')
 					.map((participant) => participant.name),
 			),
-			working: workingAgents(view),
+			working: workingSeats(view),
 			activity: activity ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
 			expanded: this.expanded,
 			tail: this.tail(view),
@@ -211,7 +211,7 @@ export class Session {
 			people: this.host.people.map((person) => ({ name: person.name, role: person.role })),
 			files: this.files,
 			says: this.view?.scheduled ?? [],
-			agents: agentChoices(this.host.agents, this.view),
+			seats: seatChoices(this.host.team, this.view),
 		};
 	}
 
@@ -277,7 +277,7 @@ export class Session {
 	private async execute(parsed: Parsed): Promise<Intent | undefined> {
 		if (parsed.kind === 'message') {
 			const refusal = parsed.to
-				? mentionRefusal(parsed, this.host.agents, this.pendingRefs.length)
+				? mentionRefusal(parsed, this.host.team, this.pendingRefs.length)
 				: undefined;
 			if (refusal) this.fail(new Error(refusal));
 			else await this.send(parsed.text, parsed.to);

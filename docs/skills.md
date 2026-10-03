@@ -10,28 +10,21 @@ holds the contract.
 
 ## Where each part lives
 
-| Part       | Where                          | What it holds                                           |
-| ---------- | ------------------------------ | ------------------------------------------------------- |
-| The skills | `skills/<specialist>/<skill>/` | `SKILL.md`, and any scripts, references, and assets     |
-| The loader | `src/domain/skills.ts`         | `agentSkills`, which reads one folder with `loadSkills` |
-| The wiring | `src/domain/definitions.ts`    | `workspace.tools({ skills })` in each specialist        |
-| The check  | `test/skills.test.ts`          | The folders, the guidance, and the copy into the home   |
+| Part       | Where                          | What it holds                                                 |
+| ---------- | ------------------------------ | ------------------------------------------------------------- |
+| The skills | `skills/<specialist>/<skill>/` | `SKILL.md`, and any scripts, references, and assets           |
+| The shared | `skills/shared/<skill>/`       | A skill that every specialist receives                        |
+| The loader | `src/domain/skills.ts`         | `specialistSkills`, which reads two folders with `loadSkills` |
+| The wiring | `src/domain/definitions.ts`    | `workspace.tools({ skills })` in each specialist              |
+| The check  | `test/skills.test.ts`          | The folders, the guidance, and the copy into the home         |
 
 **Each specialist has its own folder.** The folder name is the name of the
 specialist. The assistant has no file or shell tool, so it has no folder.
 
-## The skills today
-
-| Specialist | Skill                    | Task                                                              |
-| ---------- | ------------------------ | ----------------------------------------------------------------- |
-| Researcher | `cite-a-limit`           | State a limit with its source, or say the library has none        |
-| Researcher | `compare-parts`          | Compare the specifications of parts, and name the deciding limit  |
-| Researcher | `write-a-test-plan`      | Fill the `test-plan` template, and push it                        |
-| Engineer   | `scan-the-bench`         | Find the devices with the `device-scan` template                  |
-| Engineer   | `drive-the-power-supply` | Drive a power supply and read its sensor, with the `psu` template |
-| Engineer   | `observe-the-camera`     | Capture and keep a camera frame with the `usb-camera` template    |
-| Engineer   | `guide-a-build-step`     | Guide one step of a build, with the `build-procedure` template    |
-| Engineer   | `check-a-photo`          | Check the placement and orientation of a part from a photo        |
+**The folder `skills/shared/` holds the skills of every specialist.** It
+holds `keep-notes`. A specialist receives its own skills and the shared
+skills. A skill of the specialist replaces a shared skill of the same name.
+The folder `shared` names no specialist.
 
 ## How a specialist reads a skill
 
@@ -51,7 +44,8 @@ skills, and the skill names the template.
 
 ## Add a skill
 
-1. Make a folder `skills/<specialist>/<skill>/`. The name has 1 to 64
+1. Make a folder `skills/<specialist>/<skill>/`, or `skills/shared/<skill>/`
+   for a skill of every specialist. The name has 1 to 64
    characters of `a-z`, `0-9`, and single hyphens.
 2. Add a `SKILL.md`. It starts with a frontmatter that holds `name`, which
    equals the folder name, and `description`. The description states the task
@@ -60,7 +54,8 @@ skills, and the skill names the template.
    start it with a `#!` line.
 4. Name the skill in the instructions of the specialist in
    `src/domain/definitions.ts`, when a rule must hold on every activation.
-5. Add the skill to the table above.
+5. Run `pnpm test`. `test/skills.test.ts` checks each folder and each
+   description.
 
 **A script runs in the shell of the specialist.** On a workstation, it runs
 as the account of the specialist, with the programs of the server. Write

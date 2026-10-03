@@ -48,7 +48,7 @@ export const live: ReturnType<typeof describe.skipIf> = describe.skipIf(
 	!modelHasLogin(MODEL) || !modelHasLogin(JUDGE_MODEL),
 );
 
-/** Real milliseconds for one exchange and its summary. Three specialists hear every message. */
+/** Real milliseconds for one exchange and its summary. Both specialists hear every message. */
 export const EXCHANGE_MS = 150_000;
 
 /** The one person of Workbench. */

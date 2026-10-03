@@ -6,7 +6,7 @@ import type { Block } from './timeline.ts';
 /**
  * The refs of a message, as the terminal shows and opens them.
  *
- * A ref is untrusted text from an agent. The room stores it and never reads
+ * A ref is untrusted text from a seat. The room stores it and never reads
  * behind it. The terminal chooses four forms and resolves each one against
  * a list the host gives, so no ref reaches a host file:
  *

@@ -318,7 +318,7 @@ export async function openRooms(
 	}
 	return {
 		/** The assistant and the specialists that a room can seat. */
-		agents: roomTeam.agents.map(({ name, identity }) => ({ name, identity })),
+		team: roomTeam.agents.map(({ name, identity }) => ({ name, identity })),
 		create,
 		withRoom,
 		watch,

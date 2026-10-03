@@ -118,7 +118,7 @@ needs one. A bench script comes from a template.
   clones it, reads its README.md, and commits and pushes changes.
   [Notes](docs/notes.md) describes the layout and workflow.
 - **Workspace:** one directory for every room. It holds `/library`,
-  `/shared`, `/attachments`, and a home for each agent.
+  `/shared`, `/attachments`, and a home for each specialist.
 - **Addressing:** start a message with `@name` to wake one seat: the
   assistant or a specialist. Type `@` to list them with their attention in
   the room. The host seats a specialist at `named` first when the room has not
@@ -139,13 +139,13 @@ needs one. A bench script comes from a template.
   alone, with the text `Attached <names>`. A bare `@name` sends them to
   that seat. A failed send keeps the files staged. Ctrl+C on an empty
   composer drops the attachments, and so does a switch to another room.
-- **Templates:** git repositories that an agent forks and pushes to. See
+- **Templates:** git repositories that a specialist forks and pushes to. See
   [`docs/templates.md`](docs/templates.md).
 - **Skills:** a folder of skills for each specialist, in `skills/`. See
   [`docs/skills.md`](docs/skills.md).
 
-The library holds no datasheet yet, and no real hardware is connected.
-Every measurement is a planned value.
+The library holds the datasheets and the manual of the kit parts, and no
+real hardware is connected. Every measurement is a planned value.
 
 ## Develop
 
@@ -157,18 +157,8 @@ Every measurement is a planned value.
 | `pnpm test:live` | The evals on the simulator: needs a key, and costs money |
 | `pnpm build`     | Writes the bundle of the npm package, `dist/main.mjs`    |
 
-**`src/` has four layers, and an import points down only.** Biome holds
-the rule.
-
-```text
-domain/     the person, the specialists, the room, the templates, and the skills
-view/       projections of the room record: steps, timeline, refs
-host/       rooms, files, processes, and the git backend
-terminal/   the OpenTUI terminal, in three layers of its own
-  state/      what it knows and does: the session, the commands, the browsers. No OpenTUI.
-  widgets/    what it draws: the transcript, the composer, the panels
-  app/        what wires and drives them: the keys, the painter, the surfaces, the entry
-```
+**The layers of `src/` and their import rules are in [CLAUDE.md](CLAUDE.md).**
+Biome holds the rules.
 
 ## Release
 

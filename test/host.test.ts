@@ -448,7 +448,7 @@ describe('Workbench host steps, says, and processes', () => {
 		});
 	});
 
-	it('lists the processes that an agent starts with bash, reads an output, and cancels a running one', async () => {
+	it('lists the processes that a seat starts with bash, reads an output, and cancels a running one', async () => {
 		// Engineer starts a short process that ends in its window, then a long one that it leaves running.
 		const stream = scriptedStream((agent, call, closing) => {
 			const start = (command: string, name: string, wait: number) =>
@@ -572,6 +572,6 @@ describe('Workbench host, a message to one seat', () => {
 
 	it('lists the assistant and the specialists as the seats to address', async () => {
 		const lab = await open(await freshDirectory(), listeningStream(new Set()));
-		expect(lab.agents.map((agent) => agent.name)).toEqual(['assistant', 'researcher', 'engineer']);
+		expect(lab.team.map((seat) => seat.name)).toEqual(['assistant', 'researcher', 'engineer']);
 	});
 });

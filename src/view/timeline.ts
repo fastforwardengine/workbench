@@ -6,7 +6,7 @@ type ClosedView = Extract<Exchange, { status: 'closed' }>;
 /**
  * How a message reads in the conversation. A steer is a person's message
  * inside a thread. A post is a message of the system: the host posted it, or
- * the room gave an agent's say back to it.
+ * the room gave the say of a seat back to it.
  */
 export type Role = 'question' | 'said' | 'summary' | 'steer' | 'posted';
 
@@ -53,7 +53,7 @@ export interface StepsBlock {
 export interface LiveBlock {
 	type: 'live';
 	text: string;
-	/** The latest work an agent reported, when there is one. */
+	/** The latest work a seat reported, when there is one. */
 	detail?: string;
 }
 
@@ -63,10 +63,10 @@ export interface TimelineInput {
 	messages: readonly Message[];
 	exchanges: readonly Exchange[];
 	open?: { person?: string };
-	/** The latest work an agent reported in the open exchange. */
+	/** The latest work a seat reported in the open exchange. */
 	activity?: string;
 	humans: ReadonlySet<string>;
-	/** The agents that are working now. */
+	/** The seats that are working now. */
 	working: readonly string[];
 	/** The keys of the discussions the person opened. */
 	expanded: ReadonlySet<string>;
@@ -161,7 +161,7 @@ function groupsOf(input: TimelineInput): Group[] {
 				exchange,
 				source,
 				summary: published ? exchange.summary.summary : undefined,
-				// One agent reply shows directly. A lone person's message is not a reply, so an
+				// One reply of a seat shows directly. A lone person's message is not a reply, so an
 				// exchange that holds only that, such as an aborted one, keeps its closing mark.
 				direct: source.length === 1 && !input.humans.has(source[0]?.from ?? ''),
 			};
@@ -301,9 +301,9 @@ function liveBlock(
 	working: readonly string[],
 	activity?: string,
 ): LiveBlock {
-	const agents = working.length > 0 ? ` with ${working.join(', ')}` : '';
+	const seats = working.length > 0 ? ` with ${working.join(', ')}` : '';
 	const work = person === undefined ? 'the room’s work' : `${person}’s question`;
-	return { type: 'live', text: `Working on ${work}${agents}`, detail: activity };
+	return { type: 'live', text: `Working on ${work}${seats}`, detail: activity };
 }
 
 /** The keys of the discussions in the blocks, top to bottom. */
