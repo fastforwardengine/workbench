@@ -163,13 +163,14 @@ real hardware is connected. Every measurement is a planned value.
 
 ## Develop
 
-| Command          | What it does                                                         |
-| ---------------- | -------------------------------------------------------------------- |
-| `pnpm check`     | Format, types, lint, the scripted tests, and the Python. CI runs it. |
-| `pnpm format`    | Writes the formatting and the lint fixes                             |
-| `pnpm test`      | The scripted tests: no key, no network                               |
-| `pnpm test:live` | The evals on the simulator: needs a key, and costs money             |
-| `pnpm build`     | Writes the bundle of the npm package, `dist/main.mjs`                |
+| Command                | What it does                                                         |
+| ---------------------- | -------------------------------------------------------------------- |
+| `pnpm check`           | Format, types, lint, the scripted tests, and the Python. CI runs it. |
+| `pnpm check --changed` | The same stages on the changed files. For a small change.            |
+| `pnpm format`          | Writes the formatting and the lint fixes                             |
+| `pnpm test`            | The scripted tests: no key, no network                               |
+| `pnpm test:live`       | The evals on the simulator: needs a key, and costs money             |
+| `pnpm build`           | Writes the bundle of the npm package, `dist/main.mjs`                |
 
 `pnpm check` needs `ruff` and Python 3.11 or newer on PATH. Run
 `pipx install ruff` or `brew install ruff` to install `ruff`.

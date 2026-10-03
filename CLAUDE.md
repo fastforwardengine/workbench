@@ -48,6 +48,12 @@ unused import or variable.
   `target-version` in `pyproject.toml`. No tool formats the Python, because
   a fork starts with the files of its template. The stages run at once. A
   failed run reports every failed stage.
+- `pnpm check --changed` — the same stages on the files that differ from
+  the merge base with `origin/main`, plus staged, unstaged, and untracked
+  files. Use it after a small change, and run `pnpm check` before you
+  finish. The types and knip stages stay whole. The tests are the ones that
+  import a changed file. A change to a config file runs every stage in full.
+  It needs `origin/main`: run `git fetch origin main`.
 - `pnpm test` — the scripted tier: no key, no network. The Python suites run
   in `pnpm check`. A test that needs `python3` skips on a Python below the
   floor.
