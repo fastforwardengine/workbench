@@ -71,7 +71,7 @@ controller. It serves three sensors:
 
    ```ts
    bash({
-     command: 'cd ~/bench-psu-sensor && AMBION_SENSOR_REPOSITORY=instruments/bench-psu AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-psu" python3 -u -B sensor.py',
+     command: 'cd ~/bench-psu-sensor && AMBION_SENSOR_REPOSITORY=engineer/bench-psu AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-psu" python3 -u -B sensor.py',
      name: 'bench-psu-sensor', wait: 0, timeout: 86400,
    });
    ```

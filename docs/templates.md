@@ -65,7 +65,7 @@ The `usb-camera` template follows the
 [Ambion 0.5.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.5.0/examples/camera-chat).
 It captures frames with Python and V4L2 on the workstation. It records
 clips from the microphone of the camera with ALSA. One process owns the
-USB device and serves two sensors, `camera` and `microphone`. Instruments forks and
+USB device and serves two sensors, `camera` and `microphone`. The Engineer forks and
 saves the server, starts it with `bash`, waits for READY, and then uses
 `connect` and `observe`. Each successful observation saves a manifest and a
 frame or a clip in the snapshot store. The in-process just-bash backend has no sensor

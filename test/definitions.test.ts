@@ -35,7 +35,7 @@ describe('the Engineer', () => {
 	});
 
 	it('owns every template, and no other specialist is told to fork one of its own', () => {
-		const owned = ['device-scan', 'usb-camera', 'hm310p', 'build-procedure'];
+		const owned = ['device-scan', 'usb-camera', 'psu', 'build-procedure'];
 		for (const name of owned)
 			expect(templates.find((template) => template.name === name)?.specialists).toEqual([
 				'engineer',

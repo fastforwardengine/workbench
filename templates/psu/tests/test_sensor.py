@@ -21,7 +21,7 @@ from .support import CONFIG_ONE, CONFIG_TWO, Isolated
 
 ROOT = Path(__file__).resolve().parent.parent
 T0 = 1767225600000  # 2026-01-01T00:00:00.000Z
-SOURCE = {"repository": "instruments/bench-psu", "commit": "a" * 40, "dirty": False}
+SOURCE = {"repository": "engineer/bench-psu", "commit": "a" * 40, "dirty": False}
 
 
 class Clock:
@@ -338,7 +338,7 @@ class Process(Isolated):
     def run_sensor(self, data, *args):
         config = self.directory / "psu.json"
         config.write_text(json.dumps(CONFIG_TWO))
-        env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "instruments/bench-psu", "AMBION_SENSOR_DATA_DIR": str(data)}
+        env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-psu", "AMBION_SENSOR_DATA_DIR": str(data)}
         command = [sys.executable, "-u", "-B", "sensor.py", "--config", str(config), "--sim", str(self.state), *args]
         return subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -355,7 +355,7 @@ class Process(Isolated):
             response = connection.getresponse()
             body = json.loads(response.read())
             self.assertEqual(response.status, 200)
-            self.assertEqual(body["source"]["repository"], "instruments/bench-psu")
+            self.assertEqual(body["source"]["repository"], "engineer/bench-psu")
             self.assertEqual([s["name"] for s in body["sensors"]], ["output", "recent", "settings"])
             connection.request("POST", "/output/observe", json.dumps({"api": 1}))
             self.assertEqual(len(json.loads(connection.getresponse().read())["observations"]), 1)

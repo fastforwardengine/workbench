@@ -32,7 +32,7 @@ channels = {
 }
 config = {'name': 'psu', 'driver': 'sim', 'channels': channels}
 guard = Guard(Sim(base + '/sim.json', list(channels)), config, actuator='sensor.py')
-source = {'repository': 'instruments/bench-psu', 'commit': 'a' * 40, 'dirty': False}
+source = {'repository': 'engineer/bench-psu', 'commit': 'a' * 40, 'dirty': False}
 probe = sensor.Sensor(guard, config, base + '/data', source, clock=lambda: T0 + 4750)
 guard.set('ch1', 5.0, 0.5)
 guard.output('ch1', True)
@@ -257,7 +257,7 @@ describe.skipIf(!python)('the psu sensor API v1', () => {
 
 	it('works with the standard digest-verifying Ambion client', async () => {
 		const client = createSensorClient(root);
-		expect((await client.index()).source.repository).toBe('instruments/bench-psu');
+		expect((await client.index()).source.repository).toBe('engineer/bench-psu');
 		expect((await client.observe('output')).observations).toEqual([run1, run2]);
 		expect(Buffer.from((await client.file(digest)).bytes)).toEqual(bytes);
 	});
