@@ -103,19 +103,24 @@ def launch_source(checkout, repository):
     if not re.fullmatch(r"(?!templates/)[a-z][a-z0-9-]*/[a-z0-9][a-z0-9._-]{0,63}", repository):
         raise ValueError("Set AMBION_SENSOR_REPOSITORY to your fork ID, such as engineer/bench-camera.")
     def git(*args):
-        return subprocess.check_output(["git", "-C", str(checkout), *args], text=True, stderr=subprocess.DEVNULL).strip()
+        done = subprocess.run(["git", "-C", str(checkout), *args], text=True, capture_output=True, check=True)
+        return done.stdout.strip()
 
     try:
-        git("rev-parse", "--is-inside-work-tree")
-        git("rev-parse", "--verify", "HEAD")
-    except (OSError, subprocess.CalledProcessError) as error:
+        if git("rev-parse", "--is-inside-work-tree") != "true":
+            raise subprocess.CalledProcessError(1, "git", stderr="git: the folder is not a work tree.")
+        source = {"repository": repository, "commit": git("rev-parse", "--verify", "HEAD"),
+                  "dirty": bool(git("status", "--porcelain", "--untracked-files=all"))}
+        branch = git("branch", "--show-current")
+    except OSError as error:
+        raise CheckoutError(f"camera needs git on PATH to read the commit of your fork at {checkout}.") from error
+    except subprocess.CalledProcessError as error:
+        lines = (error.stderr or "").strip().splitlines()
         raise CheckoutError(
             f"camera needs a git checkout of your fork at {checkout}. "
             "Clone your fork, then start the sensor from the clone (README step 4)."
+            + (f" Git says: {lines[0]}" if lines else "")
         ) from error
-    source = {"repository": repository, "commit": git("rev-parse", "HEAD"),
-              "dirty": bool(git("status", "--porcelain", "--untracked-files=all"))}
-    branch = git("branch", "--show-current")
     if branch:
         source["branch"] = branch
     return source

@@ -356,20 +356,31 @@ class MainTests(unittest.TestCase):
             process.send_signal(signal.SIGTERM)
             self.assertEqual(process.wait(timeout=10), 0)
 
-    def test_outside_a_git_checkout_exits_with_one_line(self):
+    def run_copy(self, **changes):
         with tempfile.TemporaryDirectory() as folder, tempfile.TemporaryDirectory() as data:
             copy = Path(folder).resolve() / "camera.py"
             copy.write_bytes((TEMPLATE / "camera.py").read_bytes())
-            env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-camera", "AMBION_SENSOR_DATA_DIR": data}
+            env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+            env.update({"AMBION_SENSOR_REPOSITORY": "engineer/bench-camera", "AMBION_SENSOR_DATA_DIR": data,
+                        "GIT_CEILING_DIRECTORIES": folder, **changes})
             done = subprocess.run([sys.executable, "-B", "camera.py", "--demo"], cwd=folder, env=env,
                                   capture_output=True, text=True, timeout=10)
+        return done, copy.parent
+
+    def test_outside_a_git_checkout_exits_with_one_line(self):
+        done, folder = self.run_copy()
         self.assertEqual(done.returncode, 2)
         self.assertEqual(done.stdout, "")
-        self.assertEqual(
-            done.stderr,
-            f"camera needs a git checkout of your fork at {copy.parent}. "
-            "Clone your fork, then start the sensor from the clone (README step 4).\n",
-        )
+        self.assertTrue(done.stderr.startswith(
+            f"camera needs a git checkout of your fork at {folder}. "
+            "Clone your fork, then start the sensor from the clone (README step 4)."), done.stderr)
+        self.assertEqual(len(done.stderr.splitlines()), 1)
+
+    def test_missing_git_exits_with_one_line(self):
+        with tempfile.TemporaryDirectory() as empty:
+            done, folder = self.run_copy(PATH=empty)
+        self.assertEqual(done.returncode, 2)
+        self.assertEqual(done.stderr, f"camera needs git on PATH to read the commit of your fork at {folder}.\n")
 
     def test_data_directory_inside_checkout_exits_with_2(self):
         process = self.run_main("--demo", data=str(TEMPLATE / "inside-data"))

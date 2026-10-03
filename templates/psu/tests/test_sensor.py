@@ -376,18 +376,28 @@ class Process(Isolated):
         self.assertIn("outside the checkout", error)
         self.assertFalse((ROOT / "sensor-data-refused").exists())
 
-    def test_main_stops_with_one_line_outside_a_git_checkout(self):
+    def run_copy(self, **changes):
         with tempfile.TemporaryDirectory() as folder:
             copy = Path(folder) / "bench-psu"
             shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns("tests", "__pycache__"))
-            env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-psu",
-                   "AMBION_SENSOR_DATA_DIR": str(self.directory / "data")}
+            env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+            env.update({"AMBION_SENSOR_REPOSITORY": "engineer/bench-psu", "GIT_CEILING_DIRECTORIES": folder,
+                        "AMBION_SENSOR_DATA_DIR": str(self.directory / "data"), **changes})
             done = subprocess.run([sys.executable, "-B", "sensor.py", "--sim", str(self.state)], cwd=copy, env=env,
                                   capture_output=True, text=True, timeout=30)
+        return done, copy.resolve()
+
+    def test_main_stops_outside_a_git_checkout(self):
+        done, copy = self.run_copy()
         self.assertEqual(done.returncode, 2)
         self.assertEqual(done.stdout, "")
-        self.assertEqual(
-            done.stderr,
-            f"psu needs a git checkout of your fork at {copy.resolve()}. "
-            "Clone your fork, then start the sensor from the clone (README step 1).\n",
-        )
+        self.assertTrue(done.stderr.startswith(
+            f"psu needs a git checkout of your fork at {copy}. "
+            "Clone your fork, then start the sensor from the clone (README, sensor step 1)."), done.stderr)
+        self.assertEqual(len(done.stderr.splitlines()), 1)
+
+    def test_main_stops_when_git_is_missing(self):
+        with tempfile.TemporaryDirectory() as empty:
+            done, copy = self.run_copy(PATH=empty)
+        self.assertEqual(done.returncode, 2)
+        self.assertEqual(done.stderr, f"psu needs git on PATH to read the commit of your fork at {copy}.\n")
