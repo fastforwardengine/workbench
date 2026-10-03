@@ -204,7 +204,7 @@ the display shows the frequency that the team set.
 ### 9. The eval of awareness
 
 - [ ] A simulated bench: recorded frames, recorded clips, simulated device
-      events, and the `hm310p` simulator.
+      events, and the `psu` simulator.
 - [ ] Cases of a bench that disagrees with itself: an open circuit, a
       lead in the ground terminal, a device that the host lost, and a lit
       part at 0 mA.

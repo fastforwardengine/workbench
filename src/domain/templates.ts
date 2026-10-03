@@ -51,10 +51,10 @@ export const templates: readonly Template[] = [
 		specialists: ['builder'],
 	},
 	{
-		name: 'hm310p',
+		name: 'psu',
 		description:
-			'psu.py, a command-line tool for the HANMATEK HM310P power supply over USB: the output, the setpoints, the readings, the protection limits, the presets, and the buzzer, within limits.json. A simulated supply runs with no hardware.',
-		use: 'control of the HM310P power supply',
+			'psu.py, a command-line tool for a programmable power supply: the outputs, the setpoints, the readings, and the protection limits of each channel, within the limits of psu.json. A guard enforces the limits and the locks. A driver for the HANMATEK HM310P and a simulated supply with several channels come with it. A simulated supply runs with no hardware.',
+		use: 'control of a programmable power supply',
 		specialists: ['instruments'],
 	},
 ];
