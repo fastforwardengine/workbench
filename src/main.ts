@@ -2,20 +2,32 @@
 import { existsSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { parseArgs } from 'node:util';
-import { describeUnavailable } from './domain/families.ts';
+import { fileCredentials, loginPi } from '@ambionframework/pi';
+import { CHATGPT_PROVIDER, describeUnavailable, piCredentialsPath } from './domain/families.ts';
 import { runEngine } from './terminal/app/tui.ts';
 
-const USAGE = 'Usage: workbench [directory]';
+const USAGE = 'Usage: workbench [directory]\n       workbench login';
 
 /**
- * Say which seats cannot run for want of a key. Workbench still
+ * Say which seats cannot run for want of a login. Workbench still
  * starts and runs the other seats. The terminal shows the same fact beside
  * each seat name.
  */
-function reportMissingKeys(): void {
-	for (const line of describeUnavailable()) {
-		console.error(`${line} Set it in the environment or in .env.`);
-	}
+function reportMissingLogins(): void {
+	for (const line of describeUnavailable()) console.error(line);
+}
+
+/**
+ * Sign in with a ChatGPT Plus or Pro subscription. Pi offers a browser login
+ * or a device-code login for a host with no browser. The credential goes to
+ * the file that `piCredentialsPath` names, and the seats then default to the
+ * ChatGPT model.
+ */
+async function login(): Promise<void> {
+	const path = piCredentialsPath();
+	await loginPi(CHATGPT_PROVIDER, fileCredentials(path));
+	console.log(`Signed in. The credential is in ${path}.`);
+	console.log('The seats now run on the ChatGPT model, unless WORKBENCH_MODEL names another.');
 }
 
 /**
@@ -29,8 +41,12 @@ function loadEnvironment(): void {
 try {
 	loadEnvironment();
 	const { positionals } = parseArgs({ allowPositionals: true });
+	if (positionals[0] === 'login' && positionals.length === 1) {
+		await login();
+		process.exit(0);
+	}
 	if (positionals.length > 1) throw new Error(USAGE);
-	reportMissingKeys();
+	reportMissingLogins();
 	await runEngine({
 		directory: positionals[0] ?? '.data',
 		// The one person of Workbench has the name of this account

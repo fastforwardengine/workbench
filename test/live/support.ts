@@ -21,12 +21,12 @@ import {
 } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
 import { directoryBackend } from '@ambionframework/just-bash';
-import { piExecution } from '@ambionframework/pi';
+import { createExecutionServices, fileCredentials, piExecution } from '@ambionframework/pi';
 import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
-import { piModel, THINKING } from '../../src/domain/families.ts';
+import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/domain/families.ts';
 import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
@@ -37,12 +37,15 @@ export const JUDGE_MODEL = process.env.JUDGE_MODEL || MODEL;
 /** The judge thinks at the level of the seats. */
 export const JUDGE_THINKING = THINKING;
 
-const keyOf = (model: string) =>
-	`${(model.split('/')[0] ?? '').toUpperCase().replace(/-/g, '_')}_API_KEY`;
+/** The sign-ins of `workbench login`, which the seats and the judge use before a key variable. */
+const credentials = fileCredentials(piCredentialsPath());
 
-/** `describe` when the keys of the model and the judge are set; a skipped block when either is not. */
+/** The Pi services of the judge, with the same credentials as the seats. */
+export const JUDGE_SERVICES = createExecutionServices({ credentials, sessions: 'memory' });
+
+/** `describe` when the model and the judge have a login; a skipped block when either has none. */
 export const live: ReturnType<typeof describe.skipIf> = describe.skipIf(
-	!process.env[keyOf(MODEL)] || !process.env[keyOf(JUDGE_MODEL)],
+	!modelHasLogin(MODEL) || !modelHasLogin(JUDGE_MODEL),
 );
 
 /** Real milliseconds for one exchange and its summary. Three specialists hear every message. */
@@ -83,7 +86,7 @@ export const WORKSPACE_TOOLS = [
  * a test of this support.
  */
 export async function openRoom(
-	execution: Execution = piExecution(),
+	execution: Execution = piExecution({ credentials }),
 ): Promise<{ room: Room; workspace: Workspace }> {
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-eval-'));
 	const workspace = openWorkspace({

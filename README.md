@@ -27,6 +27,7 @@ npm install -g @fastforwardengine/workbench
 export ANTHROPIC_API_KEY=...       # or put it in .env in the working directory
 workbench                         # data in ./.data
 workbench ./bench                 # another directory
+workbench login                   # or sign in with a ChatGPT subscription
 ```
 
 **The `workbench` command reads `.env` in the working directory.** A
@@ -42,11 +43,19 @@ pnpm start ./bench                # another directory
 ```
 
 - **`WORKBENCH_MODEL`** selects the model of every seat: `anthropic`
-  (the default, `anthropic/claude-sonnet-4-5`), `openai`
-  (`openai/gpt-5.6-luna`), or a full Pi model ID. Every seat thinks at
-  the `low` level (`THINKING` in `src/domain/families.ts`).
-- **A seat whose key is not set does not run.** The header marks it
-  `no key`, and the other seats keep running.
+  (`anthropic/claude-sonnet-4-5`), `openai` (`openai/gpt-5.6-luna`),
+  `chatgpt` (`openai-codex/gpt-6-luna`), or a full Pi model ID. With no
+  value, the default is `chatgpt` after `workbench login`, and `anthropic`
+  before it. Every seat thinks at the `low` level (`THINKING` in
+  `src/domain/families.ts`).
+- **Sign in with ChatGPT.** `workbench login` signs in with a ChatGPT
+  Plus or Pro subscription through the `openai-codex` provider of Pi. It
+  asks for a browser login (`1`) or a device-code login (`2`) for a host
+  with no browser. The sign-in goes to `~/.ambion/pi/credentials.json`, or to the
+  file that `WORKBENCH_PI_CREDENTIALS` names.
+- **A seat with no login does not run.** A login is the key variable of
+  the model provider, or a sign-in in the credential file. The header
+  marks the seat `no login`, and the other seats keep running.
 - **The terminal opens as the person named for your OS account.** That
   person is the one person of Workbench.
 - **A new data directory gets the `build` room and the library.** An
