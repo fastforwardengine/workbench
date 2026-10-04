@@ -43,11 +43,12 @@ pnpm start ./bench                # another directory
 ```
 
 - **`WORKBENCH_MODEL`** selects the model of every seat: `anthropic`
-  (`anthropic/claude-sonnet-4-5`), `openai` (`openai/gpt-5.6-luna`),
-  `chatgpt` (`openai-codex/gpt-6-luna`), or a full Pi model ID. With no
-  value, the default is `chatgpt` after `workbench login`, and `anthropic`
-  before it. Every seat thinks at the `low` level (`THINKING` in
-  `src/domain/model.ts`).
+  (`anthropic/claude-sonnet-4-5`), `openai` (`openai/gpt-6.1-sol`),
+  `chatgpt` (`openai-codex/gpt-6.1-sol`), `luna`
+  (`openai-codex/gpt-6-luna`), or a full Pi model ID. With no value, the
+  default is `chatgpt` after `workbench login`, and `anthropic` before it.
+  The live tier (`pnpm test:live`) defaults to `luna`. Every seat thinks
+  at the `low` level (`THINKING` in `src/domain/model.ts`).
 - **Sign in with ChatGPT.** `workbench login` signs in with a ChatGPT
   Plus or Pro subscription through the `openai-codex` provider of Pi. It
   asks for a browser login (`1`) or a device-code login (`2`) for a host

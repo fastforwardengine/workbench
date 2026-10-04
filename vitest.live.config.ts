@@ -7,5 +7,7 @@ export default defineConfig({
 		retry: 0,
 		testTimeout: 180_000,
 		hookTimeout: 60_000,
+		// The live tier runs on the `luna` preset. A value of the person wins.
+		env: { WORKBENCH_MODEL: process.env.WORKBENCH_MODEL || 'luna' },
 	},
 });
