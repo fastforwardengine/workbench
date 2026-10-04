@@ -3,6 +3,7 @@ import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { PREFERENCE, people, shared, team } from '../src/domain/definitions.ts';
 import { seats } from '../src/domain/room.ts';
+import { labRepositories } from '../src/host/repositories.ts';
 import { resolveRef } from '../src/view/refs.ts';
 
 describe('the team instructions', () => {
@@ -36,7 +37,10 @@ const groupOf = (prompt: string, header: string): string[] => {
 
 /** Build the team, and give the instructions of each specialist by name. */
 async function prompts(project?: string): Promise<Record<string, string>> {
-	const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+	const workspace = openWorkspace({
+		name: 'workbench',
+		backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+	});
 	try {
 		const built = await team(workspace, project);
 		return Object.fromEntries(built.specialists.map((seat) => [seat.name, instructionsOf(seat)]));
@@ -105,7 +109,10 @@ describe('the Engineer', () => {
 	});
 
 	it('asks the Researcher with a directed say, because the Researcher waits at named', async () => {
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
 		try {
 			const built = await team(workspace);
 			const engineer = built.specialists.find((seat) => seat.name === 'engineer');
@@ -127,7 +134,10 @@ describe('the Engineer', () => {
 	});
 
 	it('names the skills and the hard rules of the Engineer, and copies no step of a skill', async () => {
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
 		try {
 			const built = await team(workspace);
 			const engineer = built.specialists.find((seat) => seat.name === 'engineer');
@@ -158,7 +168,10 @@ describe('the Engineer', () => {
 	});
 
 	it('names the skills of the Researcher, and keeps its datasheet rule', async () => {
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
 		try {
 			const built = await team(workspace);
 			const researcher = built.specialists.find((seat) => seat.name === 'researcher');

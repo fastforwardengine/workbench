@@ -13,6 +13,7 @@ import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
 import { attachFile } from '../src/host/files.ts';
+import { labRepositories } from '../src/host/repositories.ts';
 import { PNG } from './png.ts';
 
 const cleanups: (() => Promise<unknown>)[] = [];
@@ -27,7 +28,10 @@ describe('a picture that the person attaches', () => {
 		const directory = await mkdtemp(join(tmpdir(), 'workbench-model-'));
 		cleanups.push(() => rm(directory, { recursive: true, force: true }));
 		await writeFile(join(directory, 'bench.png'), PNG);
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
 		cleanups.push(() => workspace.dispose());
 		const attached = await attachFile(workspace, join(directory, 'bench.png'));
 		const built = await team(workspace);

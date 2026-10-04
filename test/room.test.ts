@@ -3,6 +3,7 @@ import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { radioProject, sharedRules, team } from '../src/domain/definitions.ts';
 import { buildRoom, seats } from '../src/domain/room.ts';
+import { labRepositories } from '../src/host/repositories.ts';
 
 describe('the build room', () => {
 	it('is the one seeded room, and carries a goal, a header pattern, and a prompt for /try', () => {
@@ -33,7 +34,10 @@ const instructionsOf = (seat: { executor: unknown }): string =>
 
 describe('the project of a team', () => {
 	it('opens the instructions of every seat, and defaults to the radio', async () => {
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
 		try {
 			const other = await team(workspace, 'The project is a test project. ');
 			const radio = await team(workspace);
