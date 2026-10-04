@@ -31,4 +31,5 @@ one against the kit. The datasheets, the manual, and the schematic are in
 
 - The first power-on of the second kit goes through the HM310P, with a current
   limit. Stop at once on an abnormal current.
+- The power stays off until the checks of the build pass.
 - Record a decision in the notes, in `decisions/`, unless the person told you not to edit files.

@@ -136,9 +136,9 @@ frames each second. This server has no preview and no captions.
     A pulsed tone that is louder than the room shows high and low levels
     in turn in the level series. Room sound, such as speech or a fan, can
     hide that pattern, because the series measures all frequencies. To
-    find the tone, analyze the WAV file in the band around it. `fetch` of `/files/<sha256>` saves the WAV file under
-    `~/.fetch/camera/` and names that path. Analyze it there with
-    `python3` and numpy.
+    find the tone, analyze the WAV file in the band around it. `fetch` of
+    `/files/<sha256>` saves the WAV file under `~/.fetch/camera/` and names
+    that path. Analyze it there with `python3` and numpy.
 13. Replace the server in this order:
     1. `cancel({ handle })` stops the server.
     2. Edit the checkout. Validate, commit, and push.

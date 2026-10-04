@@ -475,7 +475,7 @@ class Process(Isolated):
         self.assertEqual(done.stdout, "")
         self.assertTrue(done.stderr.startswith(
             f"psu needs a git checkout of your fork at {copy}. "
-            "Clone your fork, then start the sensor from the clone (README, the section on the sensor)."), done.stderr)
+            "Clone your fork, then start the sensor from the clone (README, sensor step 1)."), done.stderr)
         self.assertEqual(len(done.stderr.splitlines()), 1)
 
     def test_main_stops_when_git_is_missing(self):

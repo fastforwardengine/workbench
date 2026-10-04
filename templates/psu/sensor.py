@@ -104,7 +104,7 @@ def launch_source(checkout, repository):
         lines = (error.stderr or "").strip().splitlines()
         raise CheckoutError(
             f"psu needs a git checkout of your fork at {checkout}. "
-            "Clone your fork, then start the sensor from the clone (README, the section on the sensor)."
+            "Clone your fork, then start the sensor from the clone (README, sensor step 1)."
             + (f" Git says: {lines[0]}" if lines else "")
         ) from error
     if branch:

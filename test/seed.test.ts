@@ -11,6 +11,10 @@ describe('the seed of the workspace', () => {
 		expect(kit).toContain('FM radio kit');
 		expect(kit).toContain('shared/notes');
 		expect(kit).toContain('STC8G1K17');
+		expect(kit).toContain('The power stays off until the checks of the build pass.');
+		expect(String(kit).replace(/\s+/g, ' ')).toContain(
+			'goes through the HM310P, with a current limit',
+		);
 		expect(Object.keys(files)).not.toContain('/shared/bench.md');
 		expect(Object.keys(files)).not.toContain('/shared/notes.md');
 	});

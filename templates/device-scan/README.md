@@ -4,8 +4,8 @@ This template finds the devices that the workstation can reach: USB devices,
 serial ports, USBTMC instruments, cameras, and microphones. Each scan writes
 a report to `scans/`.
 
-1. Run the scan from the root of the clone, with a `name`, such as `scan`:
-   `python3 scan/scan.py`. Read its end with `wait`.
+Run the scan from the root of the clone, with a `name`, such as `scan`:
+`python3 scan/scan.py`. Read its end with `wait`.
 
 **A report names each device.** It holds the name, the USB ID, the kind, and
 whether the device file reaches the workstation. The workstation makes the
