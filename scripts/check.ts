@@ -26,8 +26,9 @@ import { parseArgs, promisify } from 'node:util';
 
 /**
  * One command. It runs in `cwd`, a path from the repository root. A binary of `node_modules/.bin`
- * is the default. A step with `onPath` finds its binary on PATH. A step with `timeout` stops
- * after that many milliseconds.
+ * is the default. A step with `onPath` finds its binary on PATH. A step that runs longer than its
+ * `timeout` in milliseconds fails, and the script stops its process tree. The default `timeout`
+ * is `STEP_TIMEOUT_MS`.
  */
 export type Step = {
 	bin: string;
@@ -58,8 +59,17 @@ export type StageResult = {
 	output: string;
 };
 
-/** The longest run of a Python suite. A suite that hangs fails the stage. */
+/**
+ * The longest run of a step. The slowest stage, the tests, takes about 40 s. The limit leaves
+ * room for a slow machine. A step that hangs fails the stage.
+ */
+export const STEP_TIMEOUT_MS = 300_000;
+
+/** The longest run of a Python suite. The suites take a few seconds. */
 const PYTHON_TIMEOUT_MS = 120_000;
+
+/** The time between SIGTERM and SIGKILL when a step passes its limit. */
+const KILL_GRACE_MS = 5_000;
 
 /** True when the output of `unittest` says that it ran one test or more. */
 export const ranTests = (output: string): boolean =>
@@ -252,27 +262,87 @@ const stepEnv = {
 };
 
 /** What one command did: the exit code, and its stdout and stderr together. */
-type StepResult = { code: number | undefined; output: string };
+export type StepResult = { code: number | undefined; output: string };
 
-/** Run one command and buffer its output. A spawn error counts as a stopped command. */
-function spawnStep({ bin, args, cwd, onPath, timeout }: Step): Promise<StepResult> {
+/** The process groups of the steps that run. The script stops them when it exits. */
+const liveGroups = new Set<number>();
+
+/** Send `signal` to every process of the group of `pid`. A group that has ended is not an error. */
+function signalGroup(pid: number, signal: NodeJS.Signals): void {
+	try {
+		process.kill(-pid, signal);
+	} catch {
+		// The group has no process left.
+	}
+}
+
+/** The line that says why a step stopped: its command and its limit. */
+export function timeoutMessage(step: Step, ms: number): string {
+	return `\`${commandOf(step)}\` ran longer than ${ms / 1000} s and was stopped.`;
+}
+
+/**
+ * Run one command and buffer its output. The command leads its own process group. A command that
+ * runs past its limit gets SIGTERM for its group, then SIGKILL after `graceMs`. A spawn error
+ * counts as a stopped command.
+ */
+export function spawnStep(step: Step, graceMs = KILL_GRACE_MS): Promise<StepResult> {
+	const { bin, args, cwd, onPath, timeout = STEP_TIMEOUT_MS } = step;
 	return new Promise((resolve) => {
 		let output = '';
+		let timedOut = false;
 		const file = onPath ? bin : fileURLToPath(new URL(`node_modules/.bin/${bin}`, root));
 		const child = spawn(file, args, {
 			cwd: cwd === undefined ? rootPath : fileURLToPath(new URL(`${cwd}/`, root)),
 			env: stepEnv,
 			stdio: ['ignore', 'pipe', 'pipe'],
-			timeout,
+			detached: true,
 		});
+		const group = child.pid;
+		if (group !== undefined) liveGroups.add(group);
+		let killer: NodeJS.Timeout | undefined;
+		const limit = setTimeout(() => {
+			timedOut = true;
+			if (group === undefined) return;
+			signalGroup(group, 'SIGTERM');
+			killer = setTimeout(() => signalGroup(group, 'SIGKILL'), graceMs);
+		}, timeout);
+		const done = (result: StepResult): void => {
+			clearTimeout(limit);
+			clearTimeout(killer);
+			if (group !== undefined) {
+				signalGroup(group, 'SIGKILL');
+				liveGroups.delete(group);
+			}
+			resolve(result);
+		};
 		child.stdout.on('data', (chunk: Buffer) => (output += chunk));
 		child.stderr.on('data', (chunk: Buffer) => (output += chunk));
 		child.on('error', (error: Error) => {
 			const hint = onPath ? `Install ${bin}.` : 'Run pnpm install, then run the check again.';
-			resolve({ code: undefined, output: `${output}${error.message}\n${hint}\n` });
+			done({ code: undefined, output: `${output}${error.message}\n${hint}\n` });
 		});
-		child.on('close', (code) => resolve({ code: code ?? undefined, output }));
+		child.on('close', (code) =>
+			done(
+				timedOut
+					? { code: undefined, output: `${timeoutMessage(step, timeout)}\n${output}` }
+					: { code: code ?? undefined, output },
+			),
+		);
 	});
+}
+
+/** Stop the process groups of the steps that run, when the script exits or a signal ends it. */
+function stopStepsOnExit(): void {
+	const stopAll = (): void => {
+		for (const group of liveGroups) signalGroup(group, 'SIGKILL');
+	};
+	process.on('exit', stopAll);
+	for (const signal of ['SIGINT', 'SIGTERM'] as const)
+		process.on(signal, () => {
+			stopAll();
+			process.exit(1);
+		});
 }
 
 /** The output of a failed step of a stage with several steps: its command, its fix, and its text. */
@@ -282,7 +352,7 @@ function blockOf(step: Step, { output }: StepResult): string {
 }
 
 /** The result of a step. A step that exits with 0 fails when its `verify` function gives a reason. */
-async function runStep(step: Step): Promise<StepResult> {
+export async function runStep(step: Step): Promise<StepResult> {
 	const result = await spawnStep(step);
 	const reason = result.code === 0 ? step.verify?.(result.output) : undefined;
 	return reason === undefined ? result : { code: 1, output: `${reason}\n${result.output}` };
@@ -409,6 +479,7 @@ async function main(): Promise<void> {
 		return;
 	}
 	const start = Date.now();
+	stopStepsOnExit();
 	const chosen = await plan();
 	if (typeof chosen === 'string') {
 		console.log(chosen);

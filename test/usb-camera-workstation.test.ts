@@ -6,6 +6,9 @@ import { loadWorkstation, workstationBackends } from '../src/host/workstation.ts
 
 const config = process.env.WORKBENCH_WORKSTATION;
 
+/** The longest wait for the camera server to listen. The test limit is longer than all its waits. */
+const LISTEN_DEADLINE_MS = 20_000;
+
 describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 	it('forks, saves, starts, fetches from another account, and restores after shutdown', async () => {
 		const workspace = openWorkspace({
@@ -29,18 +32,25 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 		};
 		const text = (result: Awaited<ReturnType<typeof invoke>>) =>
 			result.content.map((part) => (part.type === 'text' ? part.text : '')).join('\n');
-		/** Fetch the index until the server listens, and return its JSON text. */
+		/** Fetch the index until the server listens, and return its JSON text. The wait ends at a deadline. */
 		const fetchWhenListening = async (process: string): Promise<string> => {
-			for (let attempts = 0; attempts < 100; attempts++) {
+			const deadline = Date.now() + LISTEN_DEADLINE_MS;
+			let last: unknown;
+			while (Date.now() < deadline) {
 				try {
 					const result = await invoke('fetch', { process, path: '/' });
 					const file = (result.details as { file: string }).file;
 					return text(await invoke('read', { path: file }));
-				} catch {
+				} catch (error) {
+					last = error;
 					await new Promise((resolve) => setTimeout(resolve, 500));
 				}
 			}
-			throw new Error('The camera server did not listen');
+			throw new Error(
+				`The camera server did not listen within ${LISTEN_DEADLINE_MS / 1000} s. Last error: ${
+					last instanceof Error ? last.message : String(last)
+				}`,
+			);
 		};
 		try {
 			await invoke('fork', { source: 'templates/usb-camera', name, clone: `~/${name}` });
@@ -118,5 +128,5 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 			if (handle) await invoke('cancel', { handle }).catch(() => undefined);
 			await workspace.dispose();
 		}
-	}, 60_000);
+	}, 120_000);
 });
