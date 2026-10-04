@@ -51,12 +51,6 @@ export interface ImageContent {
 	mimeType: string;
 }
 
-/** One frame of a sensor manifest: its picture, and a caption with the sensor and the time. */
-export interface FrameContent {
-	image: ImageContent;
-	caption: string;
-}
-
 /** One file: its text, or for a SQLite database its tables, with a text copy in `text`. */
 export interface FileContent {
 	path: string;
@@ -65,8 +59,6 @@ export interface FileContent {
 	tables?: TableView[];
 	/** Set in place of `text` for a file that the panel previews as a picture. */
 	image?: ImageContent;
-	/** Set for a sensor manifest that holds frames. `text` keeps the manifest JSON. */
-	frames?: FrameContent[];
 }
 
 /** The environment of one workspace operation. */

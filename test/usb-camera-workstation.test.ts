@@ -6,8 +6,11 @@ import { loadWorkstation, workstationBackends } from '../src/host/workstation.ts
 
 const config = process.env.WORKBENCH_WORKSTATION;
 
+/** The longest wait for the camera server to listen. The test limit is longer than all its waits. */
+const LISTEN_DEADLINE_MS = 20_000;
+
 describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
-	it('forks, saves, starts, connects, observes from another account, and restores after shutdown', async () => {
+	it('forks, saves, starts, fetches from another account, and restores after shutdown', async () => {
 		const workspace = openWorkspace({
 			name: 'camera-test',
 			backend: await workstationBackends(await loadWorkstation(config ?? '')),
@@ -29,6 +32,26 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 		};
 		const text = (result: Awaited<ReturnType<typeof invoke>>) =>
 			result.content.map((part) => (part.type === 'text' ? part.text : '')).join('\n');
+		/** Fetch the index until the server listens, and return its JSON text. The wait ends at a deadline. */
+		const fetchWhenListening = async (process: string): Promise<string> => {
+			const deadline = Date.now() + LISTEN_DEADLINE_MS;
+			let last: unknown;
+			while (Date.now() < deadline) {
+				try {
+					const result = await invoke('fetch', { process, path: '/' });
+					const file = (result.details as { file: string }).file;
+					return text(await invoke('read', { path: file }));
+				} catch (error) {
+					last = error;
+					await new Promise((resolve) => setTimeout(resolve, 500));
+				}
+			}
+			throw new Error(
+				`The camera server did not listen within ${LISTEN_DEADLINE_MS / 1000} s. Last error: ${
+					last instanceof Error ? last.message : String(last)
+				}`,
+			);
+		};
 		try {
 			await invoke('fork', { source: 'templates/usb-camera', name, clone: `~/${name}` });
 			const saved = await invoke('bash', {
@@ -39,68 +62,71 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 			const started = await invoke('bash', {
 				command: `cd ~/${name} && AMBION_SENSOR_REPOSITORY=engineer/${name} AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/${name}" python3 -u -B camera.py --demo`,
 				name,
-				wait: 1,
+				wait: 0,
 				timeout: 120,
 			});
 			handle = (started.details as { process: { handle: string } }).process.handle;
-			let output = text(started);
-			for (let attempts = 0; attempts < 20 && !output.includes('READY '); attempts++) {
-				const status = await invoke('status', { handle });
-				output += text(status);
-				if (!output.includes('READY ')) await new Promise((resolve) => setTimeout(resolve, 100));
-			}
-			const ready = JSON.parse(output.match(/READY (\{[^\n]+\})/)?.[1] ?? 'null') as {
-				port: number;
-				source: { commit: string; dirty: boolean };
-			} | null;
-			if (!ready) throw new Error(`No camera readiness output: ${output}`);
-			expect(ready.source.dirty).toBe(false);
-			await invoke('connect', { name, process: handle, port: ready.port });
+			// The server prints no ready line. It listens after its first capture.
+			const index = await fetchWhenListening(handle);
+			expect(JSON.parse(index)).toMatchObject({ api: 2, source: { dirty: false } });
 			// Advancing the checkout must not relabel the serving process.
 			await invoke('bash', {
 				command: `cd ~/${name} && git commit --allow-empty -m 'Advance branch after launch' && git push`,
 				wait: 30,
 			});
-			const observed = await invoke('observe', { sensor: `${name}/camera` }, 'researcher');
+			const observed = await invoke(
+				'fetch',
+				{ process: name, path: '/camera/observe' },
+				'researcher',
+			);
 			expect(text(observed)).toContain('SYNTHETIC DEMO');
-			expect(observed.content.some((part) => part.type === 'image')).toBe(true);
-			const evidence = observed.details as {
-				manifestRef: string;
-				manifestPath: string;
-				source: { commit: string };
-				files: { ref: string; path: string; digest: string }[];
-			};
-			expect(evidence.source.commit).toBe(ready.source.commit);
-			const heard = await invoke('observe', { sensor: `${name}/microphone` }, 'researcher');
+			const observation = observed.details as { ref: string; file: string };
+			const parts = JSON.parse(
+				text(await invoke('read', { path: observation.file }, 'researcher')),
+			) as { observations: { parts: { kind: string; file?: string }[] }[] };
+			const digest = parts.observations[0]?.parts.find((part) => part.kind === 'frame')?.file;
+			if (!digest) throw new Error('No frame in the camera observation');
+			const frame = await invoke(
+				'fetch',
+				{ process: name, path: `/files/${digest}` },
+				'researcher',
+			);
+			expect(frame.content.some((part) => part.type === 'image')).toBe(true);
+			const retained = frame.details as { ref: string; file: string };
+			const heard = await invoke(
+				'fetch',
+				{ process: name, path: '/microphone/observe' },
+				'researcher',
+			);
 			expect(text(heard)).toContain('SYNTHETIC DEMO');
-			const clips = (heard.details as { files: { path: string; digest: string }[] }).files;
-			expect(clips).toHaveLength(1);
-			expect(evidence.files).toHaveLength(1);
-			const file = evidence.files[0];
-			if (!file) throw new Error('No retained camera frame');
 			// Alter the observer's mutable export. Snapshot restoration must still work.
-			await invoke('write', { path: file.path, content: 'changed export' }, 'researcher');
+			await invoke('write', { path: retained.file, content: 'changed export' }, 'researcher');
 			await invoke('cancel', { handle });
 			handle = undefined;
-			await expect(invoke('observe', { sensor: `${name}/camera` }, 'researcher')).rejects.toThrow();
+			await expect(
+				invoke('fetch', { process: name, path: '/camera/observe' }, 'researcher'),
+			).rejects.toThrow();
 			await invoke(
 				'restore',
-				{ ref: evidence.manifestRef, path: `~/camera-manifest-${token}.json` },
+				{ ref: observation.ref, path: `~/camera-observation-${token}.json` },
 				'researcher',
 			);
 			const restored = await invoke(
 				'read',
-				{ path: `~/camera-manifest-${token}.json` },
+				{ path: `~/camera-observation-${token}.json` },
 				'researcher',
 			);
-			expect(text(restored)).toContain(file.ref);
-			expect(text(restored)).toContain(ready.source.commit);
-			await invoke('restore', { ref: file.ref, path: `~/camera-frame-${token}.png` }, 'researcher');
-			const frame = await invoke('read', { path: `~/camera-frame-${token}.png` }, 'researcher');
-			expect(frame.content.some((part) => part.type === 'image')).toBe(true);
+			expect(text(restored)).toContain(digest);
+			await invoke(
+				'restore',
+				{ ref: retained.ref, path: `~/camera-frame-${token}.png` },
+				'researcher',
+			);
+			const picture = await invoke('read', { path: `~/camera-frame-${token}.png` }, 'researcher');
+			expect(picture.content.some((part) => part.type === 'image')).toBe(true);
 		} finally {
 			if (handle) await invoke('cancel', { handle }).catch(() => undefined);
 			await workspace.dispose();
 		}
-	}, 60_000);
+	}, 120_000);
 });

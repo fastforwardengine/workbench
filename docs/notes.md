@@ -6,7 +6,7 @@ facts of the bench, the decisions, and the questions that stay open. A
 disagreement between two seats lives on a branch until evidence or the
 person settles it.
 
-**Status: implemented.** Ambion 0.5.0 registers `shared/notes` on the local
+**Status: implemented.** Ambion 0.6.0 registers `shared/notes` on the local
 and workstation backends. The package supplies the first files. Registration
 keeps all later commits and branches when Workbench starts again.
 
@@ -34,9 +34,9 @@ keeps all later commits and branches when Workbench starts again.
 
 ## How a seat reaches the notes
 
-1. `repos` lists `shared/notes` with its description.
-2. `clone` puts a working copy in the home, such as `~/notes`. The `origin`
-   of the clone accepts pushes from every seat.
+1. `repos` lists `shared/notes` with its description and its clone URL.
+2. `git clone <url> ~/notes` in `bash` puts a working copy in the home. The
+   `origin` of the clone accepts pushes from every seat.
 3. The seat works with `git` in `bash`, and with `read`, `write`, and `edit`.
 4. A push persists the work. A seat pushes before it finishes.
 

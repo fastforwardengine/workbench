@@ -52,8 +52,8 @@ commands: `info`, `status`, `measure`, `set`, `output`, `protect`, and
 `read`. The `read` command needs a driver with raw registers.
 
 **The sensor reads the supply and never writes to it.** `sensor.py` is a
-sensor server for the sensor API of Ambion. It follows the lifecycle of
-`templates/usb-camera`. It takes no drive lock, so it runs beside a
+sensor server for the sensor protocol, version 2, of Ambion. It follows the
+lifecycle of `templates/usb-camera`. It takes no drive lock, so it runs beside a
 controller. It serves three sensors:
 
 | Sensor     | Spans | Answer                                                    |
@@ -67,32 +67,38 @@ controller. It serves three sensors:
    a later edit in your working clone leaves the launch metadata of the
    evidence unchanged. The sensor needs a git checkout and stops at start
    without one.
-2. Start one foreground server with the process tools. Use your fork ID
-   and an absolute data directory outside the clone:
+2. Start one foreground server with `bash`. Use your fork ID and an
+   absolute data directory outside the clone. The workspace sets `$PORT`
+   for the process, and the sensor listens on that port. Name the process
+   `psu-sensor`:
 
    ```ts
    bash({
      command: 'cd ~/bench-psu-sensor && AMBION_SENSOR_REPOSITORY=engineer/bench-psu AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-psu" python3 -u -B sensor.py',
-     name: 'bench-psu-sensor', wait: 0, timeout: 86400,
+     name: 'psu-sensor', wait: 0, timeout: 86400,
    });
    ```
 
-3. Read `status({ handle })` until `READY {"port": ...}` appears. The
-   sensor takes one sample and one settings read before it prints READY.
-   A failed read prints the error and no READY.
-4. Connect with the process handle and the printed port. The connection
-   name is `name` from `psu.json`:
+3. Check that the sensor runs with `wait({ handles: [handle], timeout: 0 })`.
+   The sensor prints no ready line. It takes one sample and one settings
+   read before it listens, so `fetch` fails until those reads end. A failed
+   read makes the sensor exit, and the output holds the error.
+4. Read the sensor with `fetch`. The `process` is the handle:
 
    ```ts
-   connect({ name: 'psu', process: handle, port });
-   observe({ sensor: 'psu/output' });
+   fetch({ process: handle, path: '/' });
+   fetch({ process: handle, path: '/output/observe' });
+   fetch({ process: handle, path: '/output/observe?from=2026-01-01T00:00:00.000Z&to=2026-01-01T00:00:10.000Z' });
    ```
 
+   The index at `/` names each sensor. Only `output` takes a span, with
+   `from` and `to` together. Cite the snapshot ref that `fetch` returns.
 5. Replace the sensor in this order: `cancel({ handle })`, edit and push,
-   start a new handle, and connect again. After a restart the sensor
-   refills its memory of the last 60 s from the data directory.
+   and start a new handle with `bash`. The new process receives a new
+   port. After a restart the sensor refills its memory of the last 60 s
+   from the data directory.
 
-The command takes `--config psu.json`, `--sim FILE`, and `--port 0`. The
+The command takes `--config psu.json` and `--sim FILE`. The
 sample period follows the cost of one read: 250 ms for the HM310P and for
 the simulator. The constants at the top of `sensor.py` set the period, the
 windows, and the memory. Each sample time is a multiple of the period since
@@ -116,8 +122,8 @@ The data directory holds three kinds of file:
   status 422.
 - `settings.jsonl` holds one line for each change of the settings. The
   first line is the baseline.
-- `blobs/<sha256>` holds each `recent.json` document that `observe`
-  returned.
+- `blobs/<sha256>` holds each `recent.json` document that an observation
+  named.
 
 **A controller drives a channel and turns it off at its end.**
 `start.py ramp` brings a channel to a voltage in steps, under a current

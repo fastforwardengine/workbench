@@ -1,5 +1,7 @@
-import { globSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { globSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
 	atLeast,
@@ -11,7 +13,11 @@ import {
 	pythonMessage,
 	ranTests,
 	report,
+	runStep,
+	STEP_TIMEOUT_MS,
 	type StageResult,
+	type Step,
+	spawnStep,
 	stages,
 	suiteDirectories,
 } from '../scripts/check.ts';
@@ -199,5 +205,73 @@ describe('the report', () => {
 		const { text } = report([result('types', undefined, 'spawn ENOENT')], 100);
 		expect(text).toContain('==> types stopped in 1.5s.');
 		expect(text).toContain('spawn ENOENT');
+	});
+});
+
+/** True while the operating system lists the process. A zombie that waits for its parent does not count. */
+const alive = (pid: number): boolean => {
+	try {
+		return !execFileSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8' })
+			.trim()
+			.startsWith('Z');
+	} catch {
+		return false;
+	}
+};
+
+/** A shell step. The script starts a background child, writes its pid to `pidfile`, and waits. */
+const shell = (script: string, timeout: number): Step => ({
+	bin: 'sh',
+	args: ['-c', script],
+	onPath: true,
+	timeout,
+});
+
+describe('the time limit of a step', () => {
+	it('gives every step a limit', () => {
+		for (const stage of stages)
+			for (const step of stage.steps) expect(step.timeout ?? STEP_TIMEOUT_MS).toBeGreaterThan(0);
+		expect(STEP_TIMEOUT_MS).toBeGreaterThanOrEqual(60_000);
+	});
+
+	it('stops a step that runs too long, names the limit, and leaves no child', async () => {
+		const directory = mkdtempSync(join(tmpdir(), 'check-timeout-'));
+		const pidfile = join(directory, 'pid');
+		try {
+			const step = shell(`sleep 30 & echo $! > ${pidfile}; wait`, 300);
+			const outcome = await spawnStep(step);
+			expect(outcome.code).toBeUndefined();
+			expect(outcome.output).toContain('`sh -c');
+			expect(outcome.output).toContain('ran longer than 0.3 s and was stopped.');
+			expect(alive(Number(readFileSync(pidfile, 'utf8')))).toBe(false);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('sends SIGKILL to a group that ignores SIGTERM', async () => {
+		const directory = mkdtempSync(join(tmpdir(), 'check-timeout-'));
+		const pidfile = join(directory, 'pid');
+		try {
+			const script = `trap '' TERM; (trap '' TERM; exec sleep 30) & echo $! > ${pidfile}; while :; do sleep 1; done`;
+			const outcome = await spawnStep(shell(script, 300), 200);
+			expect(outcome.code).toBeUndefined();
+			expect(alive(Number(readFileSync(pidfile, 'utf8')))).toBe(false);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('fails the step with the reason, and does not call a step that stopped a pass', async () => {
+		const outcome = await runStep({ ...shell('sleep 30', 200), verify: () => undefined });
+		expect(outcome.code).toBeUndefined();
+		expect(outcome.output).toMatch(/^`sh -c sleep 30` ran longer than 0\.2 s and was stopped\./);
+	});
+
+	it('keeps the exit code of a step that ends in time', async () => {
+		expect(await spawnStep(shell('echo done; exit 3', 5000))).toEqual({
+			code: 3,
+			output: 'done\n',
+		});
 	});
 });

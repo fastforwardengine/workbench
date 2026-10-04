@@ -9,8 +9,7 @@ const MAX_BYTES = 64 * 1_048_576;
 /** A loaded ref: its strip, or `null` when it holds no picture or did not load. */
 type Slot = Strip | null;
 
-const bytesOf = (slot: Slot): number =>
-	slot?.pictures.reduce((sum, picture) => sum + picture.data.byteLength, 0) ?? 0;
+const bytesOf = (slot: Slot): number => slot?.picture.data.byteLength ?? 0;
 
 /**
  * The pictures of snapshot refs, loaded in the background. A snapshot ref

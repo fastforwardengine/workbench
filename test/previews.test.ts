@@ -1,7 +1,6 @@
-import { parseSnapshotUri } from '@ambionframework/ambion';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { readCommitFile, readSnapshotFile } from '../src/host/previews.ts';
 import { labRepositories } from '../src/host/repositories.ts';
 import { WORKSPACE } from '../src/view/refs.ts';
@@ -46,78 +45,46 @@ describe('the preview of a snapshot ref', () => {
 	});
 });
 
-describe('the preview of a sensor manifest ref', () => {
-	async function retain(
-		workspace: ReturnType<typeof open>,
-		manifest: (refs: readonly string[]) => unknown,
-	) {
-		const paths = ['/shared/a.png', '/shared/b.png'];
+describe('the preview of what a fetch of a sensor retains', () => {
+	/** Write the two bodies that `fetch` keeps for one read of a camera, and snapshot them. */
+	async function retain(workspace: ReturnType<typeof open>, observation: string) {
+		const paths = [
+			'/shared/.fetch/camera/0a1b2c3d4e5f.json',
+			'/shared/.fetch/camera/6a7b8c9d0e1f.png',
+		];
 		await workspace.use(workspace.mirrorAgent, async (env) => {
-			await env.writeFile(paths[0] ?? '', PNG);
-			await env.writeFile(paths[1] ?? '', Buffer.concat([PNG, Buffer.from([0])]));
+			await env.writeFile(paths[0] ?? '', observation);
+			await env.writeFile(paths[1] ?? '', PNG);
 		});
-		const refs = await workspace.snapshot(paths);
-		const json = JSON.stringify(manifest(refs));
-		await workspace.use(workspace.mirrorAgent, (env) =>
-			env.writeFile('/shared/manifest.json', json),
-		);
-		const [ref = ''] = await workspace.snapshot(['/shared/manifest.json']);
-		return { ref, refs, json };
+		return workspace.snapshot(paths);
 	}
 
-	const frame = (ref: string, at: string) => ({
-		at,
-		parts: [{ kind: 'frame', file: parseSnapshotUri(ref)?.digest, mediaType: 'image/png' }],
-	});
-
-	it('shows each frame with its caption, and keeps the JSON as text', async () => {
+	it('shows an observation as its JSON text', async () => {
 		const workspace = open();
-		const { ref, json } = await retain(workspace, ([a = '', b = '']) => ({
-			api: 1,
-			sensor: 'bench-camera/camera',
-			observations: [frame(a, '2026-10-03T10:00:00Z'), frame(b, '2026-10-03T10:00:05Z')],
-			files: [a, b].map((one) => ({ digest: parseSnapshotUri(one)?.digest, ref: one })),
-		}));
-		const file = await readSnapshotFile(workspace, ref);
-		expect(file.text).toBe(json);
-		expect(file.frames?.map((one) => one.caption)).toEqual([
-			'bench-camera/camera · 2026-10-03T10:00:00Z',
-			'bench-camera/camera · 2026-10-03T10:00:05Z',
-		]);
-		expect(file.frames?.map((one) => one.image.data.byteLength)).toEqual([
-			PNG.byteLength,
-			PNG.byteLength + 1,
-		]);
-		expect(file.frames?.[0]?.image.mimeType).toBe('image/png');
-	});
-
-	it('reads a ref that repeats once', async () => {
-		const workspace = open();
-		const { ref } = await retain(workspace, ([a = '']) => ({
-			api: 1,
-			sensor: 'bench-camera/camera',
-			observations: [frame(a, '2026-10-03T10:00:00Z'), frame(a, '2026-10-03T10:00:05Z')],
-			files: [{ digest: parseSnapshotUri(a)?.digest, ref: a }],
-		}));
-		const read = vi.fn((one: string) => workspace.readSnapshot(one));
-		const file = await readSnapshotFile({ ...workspace, readSnapshot: read }, ref);
-		expect(file.frames).toHaveLength(2);
-		expect(read).toHaveBeenCalledTimes(2);
-	});
-
-	it('keeps the text of a manifest that holds no frame', async () => {
-		const workspace = open();
-		const { ref, json } = await retain(workspace, () => ({
-			api: 1,
-			sensor: 'bench-camera/camera',
-			observations: [],
-			files: [],
-		}));
+		const observation = JSON.stringify({
+			api: 2,
+			observations: [
+				{
+					at: '2026-10-03T10:00:00.000Z',
+					parts: [{ kind: 'frame', file: '0'.repeat(64), mediaType: 'image/png' }],
+				},
+			],
+		});
+		const [ref = ''] = await retain(workspace, observation);
 		expect(await readSnapshotFile(workspace, ref)).toEqual({
 			path: ref,
-			text: json,
+			text: observation,
 			truncated: false,
 		});
+	});
+
+	it('shows a frame as a picture', async () => {
+		const workspace = open();
+		const [, ref = ''] = await retain(workspace, '{}');
+		const file = await readSnapshotFile(workspace, ref);
+		expect(file.text).toBe('');
+		expect(file.image?.mimeType).toBe('image/png');
+		expect(file.image?.data.byteLength).toBe(PNG.byteLength);
 	});
 });
 

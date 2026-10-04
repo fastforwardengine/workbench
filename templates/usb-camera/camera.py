@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Agent-owned Linux USB camera and microphone, sensor API v1.
+"""Agent-owned Linux USB camera and microphone, sensor API v2.
 
 Python 3.11+, fswebcam for the camera, arecord (alsa-utils) for the
 microphone. One process owns the USB device and serves two sensors: `camera`
 (one PNG frame) and `microphone` (one WAV clip with its level series).
 
-Lifecycle adapted from Ambion v0.5.0 examples/camera-chat. No daemon,
+The server listens on 127.0.0.1 at the port of the PORT variable, which the
+workspace sets for each process that bash starts. It prints nothing. A reader
+calls `fetch` with `GET /`, `GET /<sensor>/observe`, and `GET /files/<sha256>`.
+
+Lifecycle adapted from Ambion v0.6.0 examples/camera-chat. No daemon,
 preview, captions, automatic device selection, or framework dependency.
 """
 import argparse
@@ -25,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from urllib.parse import parse_qsl, urlsplit
 import wave
 import zlib
 
@@ -42,6 +47,8 @@ def demo_png():
             + chunk(b"IEND", b""))
 
 
+API = 2  # The sensor protocol version. Every JSON body carries it.
+STAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z")
 RATE = 48000
 WINDOW = 480  # Samples in 10 ms at 48 kHz.
 FLOOR = -120.0
@@ -127,24 +134,22 @@ def launch_source(checkout, repository):
     return source
 
 
-def valid_request(body):
-    if not isinstance(body, dict) or type(body.get("api")) is not int or body["api"] != 1:
+def valid_query(query):
+    """True when the query is empty, or holds one `from` and one `to` that make a span."""
+    pairs = parse_qsl(query, keep_blank_values=True)
+    if not pairs:
+        return query == ""
+    values = dict(pairs)
+    if len(pairs) != 2 or set(values) != {"from", "to"}:
         return False
-    if set(body) - {"api", "span"}:
-        return False
-    if "span" not in body:
-        return True
-    span = body["span"]
-    if not isinstance(span, dict) or set(span) != {"from", "to"}:
-        return False
-    for value in span.values():
-        if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z", value):
+    for value in values.values():
+        if not STAMP.fullmatch(value):
             return False
         try:
             dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return False
-    return span["from"] < span["to"]
+    return values["from"] < values["to"]
 
 
 class Capture:
@@ -302,47 +307,49 @@ def open_server(camera, port=0, timeout=10):
             self.wfile.write(data)
 
         def error(self, status, code, message):
-            self.json(status, {"api": 1, "code": code, "message": message})
+            self.json(status, {"api": API, "code": code, "message": message})
 
         def do_GET(self):
-            if self.path == "/":
-                return self.json(200, {"api": 1, "source": camera.source, "sensors": [
+            url = urlsplit(self.path)
+            if url.path == "/":
+                return self.json(200, {"api": API, "source": camera.source, "sensors": [
                     {"name": name, "description": text, "spans": False} for name, text in camera.sensors().items()]})
-            if re.fullmatch(r"/files/[a-f0-9]{64}", self.path):
-                try:
-                    data = (camera.data / "blobs" / self.path[7:]).read_bytes()
-                except FileNotFoundError:
-                    return self.error(404, "unknown", "Unknown file.")
-                self.send_response(200)
-                kind = "image/png" if data.startswith(b"\x89PNG") else "audio/wav"
-                self.send_header("Content-Type", kind)
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-                return
+            if re.fullmatch(r"/files/[a-f0-9]{64}", url.path):
+                return self.file(url.path[7:])
+            found = re.fullmatch(r"/([a-z]+)/observe", url.path)
+            if found:
+                return self.observe(found.group(1), url.query)
             self.error(404, "unknown", "Unknown path.")
 
-        def do_POST(self):
-            found = re.fullmatch(r"/([a-z]+)/observe", self.path)
-            sensor = found.group(1) if found else None
+        def file(self, digest):
+            try:
+                data = (camera.data / "blobs" / digest).read_bytes()
+            except FileNotFoundError:
+                return self.error(404, "unknown", "Unknown file.")
+            self.send_response(200)
+            kind = "image/png" if data.startswith(b"\x89PNG") else "audio/wav"
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def observe(self, sensor, query):
             if sensor not in camera.sensors():
                 return self.error(404, "unknown", "Unknown sensor.")
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                if not 0 < length <= 4096 or self.headers.get("Transfer-Encoding"):
-                    raise ValueError("Invalid body length.")
-                body = json.loads(self.rfile.read(length))
-                if not valid_request(body):
-                    raise ValueError("Invalid request.")
-            except (ValueError, OSError):
-                return self.error(400, "invalid", "Invalid observation request.")
-            if "span" in body:
+            if not valid_query(query):
+                return self.error(400, "invalid", "The query is empty, or holds one from and one to that make a span.")
+            if query:
                 return self.error(422, "unavailable", "History is not supported.")
             try:
                 observation = camera.observe(sensor)
             except (OSError, ValueError, subprocess.SubprocessError):
-                return self.error(503, "unavailable", f"{sensor.capitalize()} capture failed; check device access and status.")
-            self.json(200, {"api": 1, "observations": [observation]})
+                return self.error(503, "unavailable", f"{sensor.capitalize()} capture failed; check the device and its access.")
+            self.json(200, {"api": API, "observations": [observation]})
+
+        def unsupported(self):
+            self.error(404, "unknown", "Unknown path.")
+
+        do_HEAD = do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = unsupported
 
     # StreamRequestHandler applies this timeout to the socket before it reads the headers.
     Handler.timeout = timeout
@@ -352,6 +359,13 @@ def open_server(camera, port=0, timeout=10):
     return server
 
 
+def port_of(value):
+    """The port that the workspace gave this process, or a reason that it gave none."""
+    if value is None or not re.fullmatch(r"[0-9]{1,5}", value) or not 1 <= int(value) <= 65535:
+        raise ValueError("Set PORT to an integer from 1 to 65535. The workspace sets it for each process that bash starts.")
+    return int(value)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", help="Explicit V4L2 capture node from device-scan, e.g. /dev/video0")
@@ -359,7 +373,6 @@ def main():
     parser.add_argument("--seconds", type=int, default=5, help="Length of each clip, 1 to 30")
     parser.add_argument("--resolution", default="1280x720")
     parser.add_argument("--demo", action="store_true")
-    parser.add_argument("--port", type=int, default=0)
     args = parser.parse_args()
     if not (args.demo or args.device or args.audio_device):
         parser.error("Select --device or --audio-device from the bench scan, or use --demo for synthetic evidence.")
@@ -369,6 +382,10 @@ def main():
         parser.error("--seconds must be from 1 to 30.")
     if not re.fullmatch(r"[1-9][0-9]{0,3}x[1-9][0-9]{0,3}", args.resolution):
         parser.error("Invalid resolution.")
+    try:
+        port = port_of(os.environ.get("PORT"))
+    except ValueError as error:
+        parser.error(str(error))
     checkout = Path(__file__).resolve().parent
     data = Path(os.environ.get("AMBION_SENSOR_DATA_DIR", "")).expanduser()
     if not data.is_absolute() or data.resolve().is_relative_to(checkout):
@@ -382,13 +399,16 @@ def main():
         parser.error(str(error))
     camera = Camera(source, data, args.device, args.resolution, args.demo, args.audio_device, args.seconds)
     for sensor in camera.sensors():
-        camera.acquire(sensor)  # No READY or connection before usable evidence.
-    server = open_server(camera, args.port)
+        camera.acquire(sensor)  # The server listens only after the first usable evidence.
+    try:
+        server = open_server(camera, port)
+    except OSError as error:
+        print(f"camera cannot listen on port {port}: {error}. Start it again to get a new port.", file=sys.stderr)
+        sys.exit(1)
     def stop(_signal, _frame):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
-    print("READY " + json.dumps({"port": server.server_port, "source": source}), flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

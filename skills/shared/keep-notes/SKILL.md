@@ -6,8 +6,9 @@ description: Read, add to, or dispute the notes of the team, the shared git repo
 The notes are the memory of the team. Read `README.md` in the notes for the
 layout, the form of a claim, and the stewards.
 
-1. Get a working copy. If `~/notes` does not exist, run `clone` with source
-   `shared/notes` and path `~/notes`. Then run
+1. Get a working copy. If `~/notes` does not exist, take the clone URL of
+   `shared/notes` from `repos`, and run `git clone <url> ~/notes` with
+   `bash`. Then run
    `git config user.name <your name>` and
    `git config user.email <your name>@ambion.invalid` in it.
 2. Pull before you act: `cd ~/notes && git pull --rebase`. Read `README.md`

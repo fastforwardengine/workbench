@@ -86,10 +86,10 @@ describe('the viewfinder browser', () => {
 		expect(browser.age).toBeUndefined();
 		const finder = host.finders[0];
 		if (!finder) throw new Error('No viewfinder.');
-		finder.state = { sensor: 'bench/camera', frame: frame(now), note: undefined };
+		finder.state = { process: 'engineer/camera', frame: frame(now), note: undefined };
 		finder.changed();
 		expect(changed).toHaveBeenCalledTimes(1);
-		expect(browser.state.sensor).toBe('bench/camera');
+		expect(browser.state.process).toBe('engineer/camera');
 		now += 2_000;
 		vi.advanceTimersByTime(TICK_MS);
 		expect(changed).toHaveBeenCalledTimes(2);

@@ -23,9 +23,8 @@ import { planRows } from './row-diff.ts';
 const CHIP_MARGIN = 8;
 const CHIP_MIN = 20;
 
-/** The rows of one thumbnail, and the cells between two thumbnails. */
+/** The rows of one thumbnail. */
 const THUMB_ROWS = 8;
-const THUMB_GAP = 1;
 /** A thumbnail box has the shape of a 4:3 picture. */
 const THUMB_SHAPE = 4 / 3;
 /** The cell height over the cell width, when the terminal reports no pixel size. */
@@ -315,36 +314,23 @@ export class Transcript {
 		});
 	}
 
-	/** A row of thumbnails, then one caption line. A strip that does not fit shows fewer pictures and a count. */
+	/** One thumbnail, then one caption line. A thumbnail wider than the transcript shrinks to fit. */
 	private addStrip(box: BoxRenderable, strip: Strip, width: number, aspect: number): void {
-		const cells = Math.max(1, Math.round(THUMB_ROWS * aspect * THUMB_SHAPE));
-		const fits = Math.max(1, Math.floor((width + THUMB_GAP) / (cells + THUMB_GAP)));
-		const shown = strip.pictures.slice(0, fits);
-		const more = strip.more + strip.pictures.length - shown.length;
+		const cells = Math.min(width, Math.max(1, Math.round(THUMB_ROWS * aspect * THUMB_SHAPE)));
 		const row = new BoxRenderable(this.renderer, {
 			flexDirection: 'row',
-			gap: THUMB_GAP,
 			height: THUMB_ROWS,
 			alignItems: 'flex-end',
 		});
-		for (const picture of shown)
-			row.add(
-				new ImageRenderable(this.renderer, {
-					width: cells,
-					height: THUMB_ROWS,
-					fit: 'fit',
-					protocol: 'kitty',
-					source: picture.data,
-				}),
-			);
-		if (more > 0)
-			row.add(
-				new TextRenderable(this.renderer, {
-					content: new StyledText([paint(`+${more} more`, { color: palette.dim })]),
-					wrapMode: 'none',
-					flexShrink: 0,
-				}),
-			);
+		row.add(
+			new ImageRenderable(this.renderer, {
+				width: cells,
+				height: THUMB_ROWS,
+				fit: 'fit',
+				protocol: 'kitty',
+				source: strip.picture.data,
+			}),
+		);
 		box.add(row);
 		box.add(
 			new TextRenderable(this.renderer, {

@@ -25,22 +25,26 @@ async function build() {
 const shapeOf = (tools: readonly { name: string; parameters: unknown }[]) =>
 	tools.map(({ name, parameters }) => ({ name, parameters: JSON.stringify(parameters) }));
 
-/** The tools of the workspace: files, processes, snapshots, and the git server. */
+/**
+ * The tools of the workspace on a backend with no endpoints: files, processes,
+ * snapshots, and the git server. A backend with endpoints adds `fetch`.
+ */
 const WORKSPACE_TOOLS = [
 	'read',
 	'write',
 	'edit',
 	'bash',
 	'ps',
-	'status',
 	'wait',
 	'cancel',
 	'snapshot',
 	'restore',
 	'repos',
 	'fork',
-	'clone',
 ];
+
+/** The tools that every Pi seat holds beside the tools of its bundles. */
+const CODE_TOOLS = ['compose', 'describe'];
 
 describe('the Workbench tool set', () => {
 	it('puts every seat on the Pi executor', async () => {
@@ -51,10 +55,12 @@ describe('the Workbench tool set', () => {
 		]);
 	});
 
-	it('gives every specialist the workspace tools alone, with the same schemas', async () => {
+	it('gives every specialist the workspace tools and the code tools, with the same schemas', async () => {
 		const [first, ...rest] = (await build()).specialists;
 		const expected = shapeOf(first?.executor.tools ?? []);
-		expect(expected.map((tool) => tool.name).sort()).toEqual([...WORKSPACE_TOOLS].sort());
+		expect(expected.map((tool) => tool.name).sort()).toEqual(
+			[...WORKSPACE_TOOLS, ...CODE_TOOLS].sort(),
+		);
 		for (const agent of rest) {
 			expect(shapeOf(agent.executor.tools), agent.name).toEqual(expected);
 		}
@@ -86,6 +92,7 @@ describe('the Workbench filesystem', () => {
 			runtime: createRuntime(),
 			execution: scripted(script),
 			seats: { researcher: 'named', engineer: 'named' },
+			seating: false,
 		});
 		cleanups.push(() => room.stop());
 		await (await room.visit(person)).send({ text: 'Share a file.', to: 'researcher' });
@@ -127,6 +134,7 @@ describe('the Workbench repositories', () => {
 			runtime: createRuntime(),
 			execution: scripted(script),
 			seats: { researcher: 'named', engineer: 'named' },
+			seating: false,
 		});
 		cleanups.push(() => room.stop());
 		await (await room.visit(person)).send({ text: 'Plan a test.', to: 'researcher' });

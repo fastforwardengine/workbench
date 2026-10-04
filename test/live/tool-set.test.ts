@@ -50,7 +50,7 @@ const NATIVE = [
  * The tools that the room gives each seat in each activation. A model lists
  * them or leaves them out, so the comparison of the lists leaves them out.
  */
-const ROOM_TOOLS = new Set(['say', 'seat', 'unseat', 'dismiss']);
+const ROOM_TOOLS = new Set(['say', 'dismiss']);
 
 /** The tools that read or run a host file, by any prefix. */
 const HOST_READERS = [...NATIVE, 'exec_command', 'write_stdin', 'Task', 'WebFetch'];

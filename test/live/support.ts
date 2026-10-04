@@ -88,6 +88,7 @@ export async function openRoom(
 		goal: sweep.goal,
 		agents: built.specialists,
 		seats: sweep.seats,
+		seating: false,
 		runtime: createRuntime({ execution }),
 	});
 	onTestFinished(async () => {

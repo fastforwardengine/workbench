@@ -5,7 +5,7 @@ serial ports, USBTMC instruments, cameras, and microphones. Each scan writes
 a report to `scans/`.
 
 1. Run the scan from the root of the clone, with a `name`, such as `scan`:
-   `python3 scan/scan.py`. Read its end with `wait` or `status`.
+   `python3 scan/scan.py`. Read its end with `wait`.
 2. Report each device: its name, its USB ID, its kind, and whether its
    device file reaches the container. The workstation makes the file of a
    camera, a microphone, a serial port, or a USBTMC instrument within 5

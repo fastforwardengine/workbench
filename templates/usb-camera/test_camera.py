@@ -46,8 +46,8 @@ class CameraTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join()
 
-    def request(self, path, body=None):
-        request = urllib.request.Request(self.root + path, data=None if body is None else json.dumps(body).encode())
+    def request(self, path, method="GET"):
+        request = urllib.request.Request(self.root + path, method=method)
         try:
             response = urllib.request.urlopen(request, timeout=5)
         except urllib.error.HTTPError as error:
@@ -58,9 +58,14 @@ class CameraTests(unittest.TestCase):
 
     def test_discovery_and_evidence_survive_later_capture_and_shutdown(self):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
-        self.assertEqual(self.request("/")[1]["source"], self.source)
-        status, body = self.request("/camera/observe", {"api": 1})
+        status, index = self.request("/")
         self.assertEqual(status, 200)
+        self.assertEqual(index["api"], 2)
+        self.assertEqual(index["source"], self.source)
+        self.assertEqual([(sensor["name"], sensor["spans"]) for sensor in index["sensors"]], [("camera", False), ("microphone", False)])
+        status, body = self.request("/camera/observe")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["api"], 2)
         observation = body["observations"][0]
         self.assertIn("SYNTHETIC", observation["parts"][0]["text"])
         digest = observation["parts"][1]["file"]
@@ -79,27 +84,29 @@ class CameraTests(unittest.TestCase):
         self.assertEqual((Path(self.folder.name) / "blobs" / digest).read_bytes(), png)
         self.assertEqual(len((Path(self.folder.name) / "observations.jsonl").read_text().splitlines()), 3)
 
-    def test_invalid_requests_unknown_paths_and_unsupported_spans(self):
-        for body in [{}, {"api": True}, {"api": 2}, {"api": 1, "extra": 1},
-                     {"api": 1, "span": {"from": "x", "to": "y"}},
-                     {"api": 1, "span": {"from": "2026-01-02T00:00:00.000Z", "to": "2026-01-01T00:00:00.000Z"}}]:
-            self.assertEqual(self.request("/camera/observe", body)[0], 400)
-        self.assertEqual(self.request("/camera/observe", {"api": 1, "span": {
-            "from": "2026-01-01T00:00:00.000Z", "to": "2026-01-02T00:00:00.000Z"}})[0], 422)
-        self.assertEqual(self.request("/missing", {"api": 1})[0], 404)
-        self.assertEqual(self.request("/files/" + "0" * 64)[0], 404)
-        self.assertEqual(self.request("/files/../../camera.py")[0], 404)
-        request = urllib.request.Request(self.root + "/camera/observe", data=b"not json")
-        with self.assertRaises(urllib.error.HTTPError) as error:
-            urllib.request.urlopen(request)
-        self.assertEqual(error.exception.code, 400)
-        error.exception.close()
+    def test_invalid_queries_unknown_paths_and_unsupported_spans(self):
+        first, second = "2026-01-01T00:00:00.000Z", "2026-01-02T00:00:00.000Z"
+        for query in [f"from={second}&to={first}", f"from={first}&to={first}", f"from={first}", f"to={second}",
+                      "from=x&to=y", "from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z",
+                      "from=2026-02-30T00:00:00.000Z&to=2026-03-01T00:00:00.000Z",
+                      f"from={first}&to={second}&limit=1", f"from={first}&from={first}&to={second}", "from&to", "x=1"]:
+            status, body = self.request("/camera/observe?" + query)
+            self.assertEqual((status, body["code"], body["api"]), (400, "invalid", 2), query)
+        status, body = self.request(f"/camera/observe?from={first}&to={second}")
+        self.assertEqual((status, body["code"], body["api"]), (422, "unavailable", 2))
+        self.assertEqual(self.request("/camera/observe?")[0], 200)
+        for path, method in [("/missing", "GET"), ("/camera", "GET"), ("/radio/observe", "GET"),
+                             ("/files/" + "0" * 64, "GET"), ("/files/../../camera.py", "GET"),
+                             ("/files/" + "A" * 64, "GET"), ("/camera/observe", "POST"), ("/", "DELETE")]:
+            status, body = self.request(path, method)
+            self.assertEqual((status, body["code"], body["api"]), (404, "unknown", 2), f"{method} {path}")
+            self.assertIsInstance(body["message"], str)
 
     def test_truncated_blob_is_replaced_atomically(self):
         digest = hashlib.sha256(camera.demo_png()).hexdigest()
         blobs = Path(self.folder.name) / "blobs"
         (blobs / digest).write_bytes(camera.demo_png()[:10])
-        self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 200)
+        self.assertEqual(self.request("/camera/observe")[0], 200)
         self.assertEqual((blobs / digest).read_bytes(), camera.demo_png())
         self.assertEqual([path.name for path in blobs.iterdir()], [digest])
 
@@ -107,7 +114,7 @@ class CameraTests(unittest.TestCase):
         self.stop_server()
         self.start_server(timeout=0.5)
         with socket.create_connection(("127.0.0.1", self.server.server_port)):
-            self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 200)
+            self.assertEqual(self.request("/camera/observe")[0], 200)
 
     def check_capture_failure(self, run):
         live = camera.Camera(self.source, self.folder.name, "/dev/video4")
@@ -116,9 +123,9 @@ class CameraTests(unittest.TestCase):
         log = Path(self.folder.name) / "observations.jsonl"
         before = log.read_text() if log.exists() else ""
         with patch("camera.subprocess.run", side_effect=run):
-            status, body = self.request("/camera/observe", {"api": 1})
+            status, body = self.request("/camera/observe")
         self.assertEqual(status, 503)
-        self.assertEqual(body["code"], "unavailable")
+        self.assertEqual((body["code"], body["api"]), ("unavailable", 2))
         self.assertNotIn("observations", body)
         self.assertEqual(log.read_text() if log.exists() else "", before)
         self.assertEqual([path.name for path in Path(self.folder.name).iterdir() if path.is_dir()], ["blobs"])
@@ -230,17 +237,16 @@ class ConcurrencyTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join()
 
-    def request(self, path, body):
-        request = urllib.request.Request(self.root + path, data=json.dumps(body).encode())
+    def request(self, path):
         try:
-            response = urllib.request.urlopen(request, timeout=10)
+            response = urllib.request.urlopen(self.root + path, timeout=10)
         except urllib.error.HTTPError as error:
             response = error
         with response:
             return response.status, json.loads(response.read())
 
     def ask(self, sensor, results):
-        thread = threading.Thread(target=lambda: results.append(self.request(f"/{sensor}/observe", {"api": 1})))
+        thread = threading.Thread(target=lambda: results.append(self.request(f"/{sensor}/observe")))
         thread.start()
         self.addCleanup(thread.join)
         return thread
@@ -272,8 +278,8 @@ class ConcurrencyTests(unittest.TestCase):
 
     def test_a_request_after_the_capture_ends_starts_a_new_capture(self):
         self.held = set()
-        self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 200)
-        self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 200)
+        self.assertEqual(self.request("/camera/observe")[0], 200)
+        self.assertEqual(self.request("/camera/observe")[0], 200)
         self.assertEqual(self.captures, ["camera", "camera"])
 
     def test_a_camera_request_does_not_wait_for_a_microphone_clip(self):
@@ -281,7 +287,7 @@ class ConcurrencyTests(unittest.TestCase):
         self.held = {"microphone"}
         self.ask("microphone", clip)
         self.wait_for(self.entered)
-        status, body = self.request("/camera/observe", {"api": 1})
+        status, body = self.request("/camera/observe")
         self.assertEqual(status, 200)
         self.assertEqual(body["observations"][0]["parts"][1]["kind"], "frame")
         self.assertEqual(clip, [])
@@ -375,10 +381,9 @@ class MicrophoneTests(unittest.TestCase):
             self.server.server_close()
             self.thread.join()
 
-    def request(self, path, body=None):
-        request = urllib.request.Request(self.root + path, data=None if body is None else json.dumps(body).encode())
+    def request(self, path):
         try:
-            response = urllib.request.urlopen(request, timeout=5)
+            response = urllib.request.urlopen(self.root + path, timeout=5)
         except urllib.error.HTTPError as error:
             response = error
         with response:
@@ -389,7 +394,7 @@ class MicrophoneTests(unittest.TestCase):
 
     def test_demo_observation_has_text_file_and_series(self):
         self.start_server(camera.Camera(self.source, self.folder.name, None, demo=True))
-        status, body = self.request("/microphone/observe", {"api": 1})
+        status, body = self.request("/microphone/observe")
         self.assertEqual(status, 200)
         text, file, series = body["observations"][0]["parts"]
         self.assertTrue(text["text"].startswith("SYNTHETIC DEMO:"))
@@ -439,11 +444,11 @@ class MicrophoneTests(unittest.TestCase):
             def fake(command, **_kwargs):
                 Path(command[-1]).write_bytes(clip)
             with patch("camera.subprocess.run", side_effect=fake):
-                status, body = self.request("/microphone/observe", {"api": 1})
-            self.assertEqual((status, body["code"]), (503, "unavailable"))
+                status, body = self.request("/microphone/observe")
+            self.assertEqual((status, body["code"], body["api"]), (503, "unavailable", 2))
             self.assertIn("Microphone", body["message"])
         with patch("camera.subprocess.run", side_effect=subprocess.TimeoutExpired("arecord", 20)):
-            self.assertEqual(self.request("/microphone/observe", {"api": 1})[0], 503)
+            self.assertEqual(self.request("/microphone/observe")[0], 503)
         self.assertFalse((Path(self.folder.name) / "observations.jsonl").exists())
         self.assertEqual([path.name for path in Path(self.folder.name).iterdir()], ["blobs"])
 
@@ -453,45 +458,104 @@ class MicrophoneTests(unittest.TestCase):
 
         self.start_server(self.live())
         self.assertEqual(names(), ["microphone"])
-        self.assertEqual(self.request("/camera/observe", {"api": 1})[0], 404)
+        self.assertEqual(self.request("/camera/observe")[0], 404)
         self.stop_server()
         self.start_server(camera.Camera(self.source, self.folder.name, "/dev/video4"))
         self.assertEqual(names(), ["camera"])
-        self.assertEqual(self.request("/microphone/observe", {"api": 1})[0], 404)
-        self.assertEqual(self.request("/radio/observe", {"api": 1})[0], 404)
+        self.assertEqual(self.request("/microphone/observe")[0], 404)
+        self.assertEqual(self.request("/radio/observe")[0], 404)
         self.stop_server()
         self.start_server(camera.Camera(self.source, self.folder.name, None, demo=True))
         self.assertEqual(names(), ["camera", "microphone"])
 
     def test_span_gives_422(self):
         self.start_server(camera.Camera(self.source, self.folder.name, None, demo=True))
-        span = {"from": "2026-01-01T00:00:00.000Z", "to": "2026-01-02T00:00:00.000Z"}
-        self.assertEqual(self.request("/microphone/observe", {"api": 1, "span": span})[0], 422)
+        span = "from=2026-01-01T00:00:00.000Z&to=2026-01-02T00:00:00.000Z"
+        self.assertEqual(self.request("/microphone/observe?" + span)[0], 422)
 
 
 TEMPLATE = Path(__file__).resolve().parent
 
 
-class MainTests(unittest.TestCase):
-    def run_main(self, *args, data, wait=10):
-        env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-camera",
-               "AMBION_SENSOR_DATA_DIR": data}
-        return subprocess.Popen([sys.executable, "-u", "-B", "camera.py", *args], cwd=TEMPLATE, env=env,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+def free_port():
+    """A port that no process holds now."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
 
-    def test_demo_prints_ready_serves_and_stops_on_sigterm(self):
+
+class MainTests(unittest.TestCase):
+    def run_main(self, *args, data, port=None, **env):
+        """Start camera.py as bash does: with PORT set, and with no READY line to wait for."""
+        port = free_port() if port is None else port
+        variables = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-camera",
+                     "AMBION_SENSOR_DATA_DIR": data, "PORT": str(port), **env}
+        process = subprocess.Popen([sys.executable, "-u", "-B", "camera.py", *args], cwd=TEMPLATE, env=variables,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process.port = port
+        return process
+
+    def listening(self, process):
+        """Poll the index until it answers, as a reader of the process does."""
+        for _ in range(200):
+            if process.poll() is not None:
+                self.fail(f"camera.py exited with {process.returncode}: {process.stderr.read()}")
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{process.port}/", timeout=1) as response:
+                    return json.load(response)
+            except OSError:
+                threading.Event().wait(0.05)
+        self.fail("camera.py did not listen.")
+
+    def stop(self, process):
+        process.send_signal(signal.SIGTERM)
+        self.assertEqual(process.wait(timeout=10), 0)
+        self.assertEqual(process.stdout.read(), "")
+
+    def test_demo_listens_on_port_prints_nothing_and_stops_on_sigterm(self):
         with tempfile.TemporaryDirectory() as data:
             process = self.run_main("--demo", data=data)
             self.addCleanup(process.kill)
             self.addCleanup(process.communicate)
-            line = process.stdout.readline()
-            self.assertTrue(line.startswith("READY "))
-            ready = json.loads(line[6:])
-            self.assertEqual(ready["source"]["repository"], "engineer/bench-camera")
-            with urllib.request.urlopen(f"http://127.0.0.1:{ready['port']}/", timeout=5) as response:
-                self.assertEqual(json.load(response)["source"], ready["source"])
-            process.send_signal(signal.SIGTERM)
-            self.assertEqual(process.wait(timeout=10), 0)
+            index = self.listening(process)
+            self.assertEqual(index["api"], 2)
+            self.assertEqual(index["source"]["repository"], "engineer/bench-camera")
+            self.stop(process)
+
+    def test_demo_serves_both_sensors(self):
+        with tempfile.TemporaryDirectory() as data:
+            process = self.run_main("--demo", data=data)
+            self.addCleanup(process.kill)
+            self.addCleanup(process.communicate)
+            index = self.listening(process)
+            self.assertEqual([one["name"] for one in index["sensors"]], ["camera", "microphone"])
+            self.assertEqual(len((Path(data) / "observations.jsonl").read_text().splitlines()), 2)
+            self.stop(process)
+
+    def test_a_port_in_use_exits_with_one_line(self):
+        with socket.socket() as holder, tempfile.TemporaryDirectory() as data:
+            holder.bind(("127.0.0.1", 0))
+            holder.listen()
+            process = self.run_main("--demo", data=data, port=holder.getsockname()[1])
+            out, err = process.communicate(timeout=10)
+        self.assertEqual(process.returncode, 1)
+        self.assertEqual(out, "")
+        self.assertIn("camera cannot listen on port", err)
+        self.assertEqual(len(err.splitlines()), 1)
+
+    def test_a_missing_or_bad_port_exits_with_2(self):
+        for value in (None, "", "0", "65536", "http", "-1"):
+            with tempfile.TemporaryDirectory() as data:
+                env = {key: item for key, item in os.environ.items() if key != "PORT"}
+                env.update({"AMBION_SENSOR_REPOSITORY": "engineer/bench-camera", "AMBION_SENSOR_DATA_DIR": data})
+                if value is not None:
+                    env["PORT"] = value
+                done = subprocess.run([sys.executable, "-B", "camera.py", "--demo"], cwd=TEMPLATE, env=env,
+                                      capture_output=True, text=True, timeout=10)
+                self.assertEqual(done.returncode, 2, value)
+                self.assertEqual(done.stdout, "")
+                self.assertIn("Set PORT to an integer from 1 to 65535", done.stderr)
+                self.assertFalse((Path(data) / "observations.jsonl").exists())
 
     def run_copy(self, **changes):
         with tempfile.TemporaryDirectory() as folder, tempfile.TemporaryDirectory() as data:
@@ -499,6 +563,7 @@ class MainTests(unittest.TestCase):
             copy.write_bytes((TEMPLATE / "camera.py").read_bytes())
             env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
             env.update({"AMBION_SENSOR_REPOSITORY": "engineer/bench-camera", "AMBION_SENSOR_DATA_DIR": data,
+                        "PORT": str(free_port()),
                         "GIT_CEILING_DIRECTORIES": str(Path(folder).resolve().parent), **changes})
             done = subprocess.run([sys.executable, "-B", "camera.py", "--demo"], cwd=folder, env=env,
                                   capture_output=True, text=True, timeout=10)
@@ -523,7 +588,7 @@ class MainTests(unittest.TestCase):
         process = self.run_main("--demo", data=str(TEMPLATE / "inside-data"))
         out, _err = process.communicate(timeout=10)
         self.assertEqual(process.returncode, 2)
-        self.assertNotIn("READY", out)
+        self.assertEqual(out, "")
         self.assertFalse((TEMPLATE / "inside-data").exists())
 
     def test_no_device_and_no_demo_exits_with_2(self):
@@ -531,31 +596,19 @@ class MainTests(unittest.TestCase):
             process = self.run_main(data=data)
             out, _err = process.communicate(timeout=10)
             self.assertEqual(process.returncode, 2)
-            self.assertNotIn("READY", out)
+            self.assertEqual(out, "")
 
     def check_exit(self, *args):
         with tempfile.TemporaryDirectory() as data:
             process = self.run_main(*args, data=data)
             out, _err = process.communicate(timeout=10)
             self.assertEqual(process.returncode, 2)
-            self.assertNotIn("READY", out)
+            self.assertEqual(out, "")
 
     def test_invalid_audio_options_exit_with_2(self):
         self.check_exit("--audio-device", "x;rm")
         self.check_exit("--demo", "--seconds", "0")
         self.check_exit("--demo", "--seconds", "31")
-
-    def test_demo_serves_both_sensors(self):
-        with tempfile.TemporaryDirectory() as data:
-            process = self.run_main("--demo", data=data)
-            self.addCleanup(process.kill)
-            self.addCleanup(process.communicate)
-            ready = json.loads(process.stdout.readline()[6:])
-            with urllib.request.urlopen(f"http://127.0.0.1:{ready['port']}/", timeout=5) as response:
-                self.assertEqual([one["name"] for one in json.load(response)["sensors"]], ["camera", "microphone"])
-            self.assertEqual(len((Path(data) / "observations.jsonl").read_text().splitlines()), 2)
-            process.send_signal(signal.SIGTERM)
-            self.assertEqual(process.wait(timeout=10), 0)
 
 
 if __name__ == "__main__":

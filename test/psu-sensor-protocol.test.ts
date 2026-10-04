@@ -5,11 +5,18 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { sensorConformance } from '@ambionframework/workspace/conformance';
-import { createSensorClient } from '@ambionframework/workspace/sensors';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { templatesDirectory } from '../src/domain/templates.ts';
 import { python } from './python.ts';
+import {
+	expectIndex,
+	expectSensor,
+	expectUnknown,
+	fileOf,
+	observationsOf,
+	type SensorExpectation,
+	send,
+} from './sensor-protocol.ts';
 
 const directory = join(templatesDirectory, 'psu');
 const T0 = Date.UTC(2026, 0, 1);
@@ -64,7 +71,7 @@ function collect(mode: 'recent' | 'text'): Buffer {
 	}
 }
 
-// The conformance cases need the expected bytes at collection time.
+// The checks need the expected bytes at collection time.
 const bytes = collect('recent');
 const recentText = collect('text').toString('utf8');
 const digest = createHash('sha256').update(bytes).digest('hex');
@@ -149,60 +156,57 @@ const settingsText = [
 	'ch2 (led): output off. Setpoints 0.000 V, 0.000 A. OVP 33.000 V, OCP 10.500 A. Tripped: none. Driven by: nobody.',
 ].join('\n');
 
-describe.skipIf(!python)('the psu sensor API v1', () => {
+const SENSORS: SensorExpectation[] = [
+	{ name: 'output', spans: true },
+	{ name: 'recent', spans: false },
+	{ name: 'settings', spans: false },
+];
+const span = `?from=${iso(1000)}&to=${iso(3000)}`;
+
+describe.skipIf(!python)('the psu sensor protocol, version 2', () => {
 	beforeAll(startServer);
 	afterAll(stopServer);
 
-	const cases = sensorConformance(
-		{
-			name: 'PSU',
-			open: async () => ({
-				request: async (method, path, body) => {
-					const response = await fetch(`${root}${path}`, {
-						method,
-						...(body === undefined ? {} : { body: JSON.stringify(body) }),
-					});
-					const contentType = response.headers.get('content-type');
-					return {
-						status: response.status,
-						contentType,
-						...(path.startsWith('/files/') && response.status === 200
-							? { bytes: new Uint8Array(await response.arrayBuffer()) }
-							: { body: await response.json() }),
-					};
-				},
-				dispose: async () => {},
-			}),
-		},
-		{
-			span: { from: iso(1000), to: iso(3000) },
-			sensors: [
-				{ name: 'output', spans: true, withinSpan: [spanRun1, spanRun2], latest: [run1, run2] },
-				{
-					name: 'recent',
-					spans: false,
-					withinSpan: [],
-					latest: [
-						{
-							at: iso(4750),
-							parts: [
-								{ kind: 'text', text: recentText },
-								{ kind: 'file', file: digest, name: 'recent.json', mediaType: 'application/json' },
-							],
-						},
-					],
-				},
-				{
-					name: 'settings',
-					spans: false,
-					withinSpan: [],
-					latest: [{ at: iso(4000), parts: [{ kind: 'text', text: settingsText }] }],
-				},
-			],
-			files: [{ digest, bytes }],
-		},
+	it('lists the three sensors in the index', () =>
+		expectIndex(root, 'engineer/bench-psu', SENSORS));
+
+	it.each(SENSORS)('answers the $name sensor to each query', (sensor) =>
+		expectSensor(root, sensor),
 	);
-	for (const check of cases) it(check.name, check.run);
+
+	it('answers an unknown sensor, path, file, and method with a JSON error', () =>
+		expectUnknown(root));
+
+	it('serves the latest runs of the output sensor', async () => {
+		expect(observationsOf(await send(root, '/output/observe'))).toEqual([run1, run2]);
+	});
+
+	it('serves the runs inside a span of the output sensor', async () => {
+		expect(observationsOf(await send(root, `/output/observe${span}`))).toEqual([
+			spanRun1,
+			spanRun2,
+		]);
+	});
+
+	it('serves the recent observation and the document that it names', async () => {
+		const observations = observationsOf(await send(root, '/recent/observe'));
+		expect(observations).toEqual([
+			{
+				at: iso(4750),
+				parts: [
+					{ kind: 'text', text: recentText },
+					{ kind: 'file', file: digest, name: 'recent.json', mediaType: 'application/json' },
+				],
+			},
+		]);
+		expect(await fileOf(root, digest)).toEqual(bytes);
+	});
+
+	it('serves the settings as text', async () => {
+		expect(observationsOf(await send(root, '/settings/observe'))).toEqual([
+			{ at: iso(4000), parts: [{ kind: 'text', text: settingsText }] },
+		]);
+	});
 
 	it('states the recent windows of ch1 voltage', () => {
 		const document = JSON.parse(bytes.toString('utf8'));
@@ -245,12 +249,5 @@ describe.skipIf(!python)('the psu sensor API v1', () => {
 		expect(lines.some((line) => /^voltage V\s+3 s\s+10\/12\s+4\.000/.test(line))).toBe(true);
 		expect(lines).toContain('Changes in the last 60 s:');
 		expect(lines).toContain('1.75 s ago, ch1 voltage: 5.000 to 4.000. Driven by: nobody.');
-	});
-
-	it('works with the standard digest-verifying Ambion client', async () => {
-		const client = createSensorClient(root);
-		expect((await client.index()).source.repository).toBe('engineer/bench-psu');
-		expect((await client.observe('output')).observations).toEqual([run1, run2]);
-		expect(Buffer.from((await client.file(digest)).bytes)).toEqual(bytes);
 	});
 });

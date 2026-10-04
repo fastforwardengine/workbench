@@ -17,7 +17,7 @@ const FRAME_COLUMNS = 7;
 /** The shape of a camera frame: 16 wide by 9 high. */
 const FRAME_SHAPE = 9 / 16;
 
-/** The viewfinder panel: the sensor name, the age of the latest frame, and the frame. */
+/** The viewfinder panel: the camera process, the age of the latest frame, and the frame. */
 export class ViewfinderPanel extends SidePanel {
 	private readonly heading: ReturnType<typeof lineText>;
 	private readonly image: ImageRenderable;
@@ -45,11 +45,11 @@ export class ViewfinderPanel extends SidePanel {
 	draw(browser: ViewfinderBrowser, kitty: boolean): void {
 		this.root.visible = browser.open;
 		if (!browser.open) return;
-		const { sensor, frame, note } = browser.state;
+		const { process, frame, note } = browser.state;
 		const age = browser.age;
 		this.heading.content = new StyledText([
 			fg(palette.accent)('Camera'),
-			fg(palette.text)(sensor ? ` › ${sensor}` : ''),
+			fg(palette.text)(process ? ` › ${process}` : ''),
 			fg(palette.dim)(age ? `   ${age}` : ''),
 		]);
 		this.fitImage();

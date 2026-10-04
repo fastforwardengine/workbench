@@ -28,14 +28,10 @@ const said = (seq: number, from: string, text: string): Block =>
 	({ type: 'message', role: 'said', message: { seq, kind: 'said', from, text, at: AT } }) as never;
 const blocks = (): Block[] => [said(1, 'priya', 'Look'), said(2, 'engineer', 'The photo')];
 
-const strip = (count: number, more = 0): Strip => ({
-	ref: 'ambion://workspace/workbench/snapshot/x/m.json',
-	pictures: Array.from({ length: count }, () => ({
-		data: new Uint8Array(PNG),
-		mimeType: 'image/png',
-	})),
-	more,
-	caption: 'bench-camera/camera · 2026-10-03T10:00:00Z',
+const strip = (): Strip => ({
+	ref: 'ambion://workspace/workbench/snapshot/x/camera.png',
+	picture: { data: new Uint8Array(PNG), mimeType: 'image/png' },
+	caption: 'camera.png',
 });
 
 async function mount() {
@@ -66,45 +62,39 @@ describe('the thumbnails under a message', () => {
 		const view = await mount();
 		const frame = await draw(view, { refs: new Map() });
 		expect(images(view.transcript.root)).toHaveLength(0);
-		expect(frame).not.toContain('bench-camera');
+		expect(frame).not.toContain('camera.png');
 	});
 
-	it('draws a strip of pictures, a count of the rest, and one caption', async () => {
+	it('draws one thumbnail and one caption under the message', async () => {
 		const view = await mount();
 		const frame = await draw(view, {
 			refs: new Map(),
-			pictures: new Map([[2, [strip(4, 2)]]]),
+			pictures: new Map([[2, [strip()]]]),
 			cellAspect: 2,
 		});
-		expect(images(view.transcript.root)).toHaveLength(4);
+		expect(images(view.transcript.root)).toHaveLength(1);
 		expect(images(view.transcript.root).every((image) => image.protocol === 'kitty')).toBe(true);
-		expect(frame).toContain('+2 more');
-		expect(frame.split('bench-camera/camera · 2026-10-03T10:00:00Z')).toHaveLength(2);
+		expect(frame.split('camera.png')).toHaveLength(2);
 	});
 
-	it('shows fewer pictures on a narrow transcript and counts the ones it leaves out', async () => {
+	it('shrinks the thumbnail on a narrow transcript', async () => {
 		const view = await mount();
-		view.setup.resize(50, 40);
+		view.setup.resize(24, 40);
 		await view.setup.renderOnce();
-		const frame = await draw(view, {
-			refs: new Map(),
-			pictures: new Map([[2, [strip(4)]]]),
-			cellAspect: 2,
-		});
-		const count = images(view.transcript.root).length;
-		expect(count).toBeGreaterThan(0);
-		expect(count).toBeLessThan(4);
-		expect(frame).toContain(`+${4 - count} more`);
+		await draw(view, { refs: new Map(), pictures: new Map([[2, [strip()]]]), cellAspect: 2 });
+		const [image] = images(view.transcript.root);
+		expect(image).toBeDefined();
+		expect(image?.width).toBeLessThan(21);
 	});
 
 	it('draws a picture when it loads, and keeps its node while the marks stay the same', async () => {
 		const view = await mount();
 		await draw(view, { refs: new Map() });
-		await draw(view, { refs: new Map(), pictures: new Map([[2, [strip(1)]]]), cellAspect: 2 });
+		await draw(view, { refs: new Map(), pictures: new Map([[2, [strip()]]]), cellAspect: 2 });
 		const first = images(view.transcript.root);
 		expect(first).toHaveLength(1);
 		// The same marks again keep the node, so the image does not load again.
-		await draw(view, { refs: new Map(), pictures: new Map([[2, [strip(1)]]]), cellAspect: 2 });
+		await draw(view, { refs: new Map(), pictures: new Map([[2, [strip()]]]), cellAspect: 2 });
 		expect(images(view.transcript.root)[0]).toBe(first[0]);
 	});
 });

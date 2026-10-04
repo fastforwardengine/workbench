@@ -2,7 +2,7 @@
 
 **A shared lab workspace where people and specialists work on electrical
 engineering, hardware, and electrochemistry.** It runs on
-[Ambion](https://github.com/ambionframework/ambion) 0.5.0, the
+[Ambion](https://github.com/ambionframework/ambion) 0.6.0, the
 collaboration kernel, and follows
 [Ambion's example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
 **The objective now is an FM radio that the team helps build and then
@@ -62,8 +62,8 @@ pnpm start ./bench                # another directory
 - **A new data directory gets the `build` room and the library.** An
   existing one resumes its rooms and has no `build` room. Move an older
   data directory away, or add a room with `/new bench`.
-- **Ambion 0.5.0 opens no journal of 0.4.0.** Move an older data directory
-  away, and start again. A workstation needs `workstation/setup.sh` again:
+- **Ambion 0.6.0 opens a journal of 0.5.0, and no journal of 0.4.0.** Move
+  an older data directory away, and start again. A workstation needs `workstation/setup.sh` again:
   `workstation.json` names the `snapshots` folder now.
 - **A room from before the removal of the assistant does not resume.**
   Its journal seats the assistant, and Ambion stops with the error
@@ -140,17 +140,18 @@ A bench script comes from a template.
   `/attach` for you. A specialist reads the copy with `read` and receives the
   picture. The files panel shows a picture, also from a snapshot ref. A
   terminal with Kitty graphics also shows up to four thumbnails under a
-  message that cites a picture or a sensor manifest.
+  message that cites a picture, such as a frame that `fetch` saved.
 - **Camera viewfinder:** `/camera` shows a pane beside the conversation with
-  the latest frame of the connected `camera` sensor, its age, and the sensor
-  name. The pane takes one third of the terminal width, and the frame keeps
+  the latest frame of the newest running process named `camera`, its age,
+  and the process name. The pane takes one third of the terminal width, and the frame keeps
   its 16:9 shape. A second `/camera` hides it. The composer stays active while
-  the pane shows. The pane reads the sensor every 3 seconds while it shows.
-  Each read is a normal `observe`, which the sensor server logs. The workspace
+  the pane shows. The pane reads the process every 3 seconds while it shows.
+  Each read is a normal `GET` of `/camera/observe` and of the frame, which
+  the sensor server logs. The workspace
   keeps no snapshot of it. The pane uses the slot of the side panels: the
   files and processes panels cover it and stop the reads, and it shows again
   when they close. A terminal under 100 columns does not show it. When no
-  camera is connected, the pane asks you to have the Engineer connect one. The
+  camera process runs, the pane asks you to have the Engineer start one. The
   pane needs a terminal with Kitty graphics, such as Ghostty.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
   waits for its goal. In a side panel it closes the panel. Ctrl+D leaves

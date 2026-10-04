@@ -48,6 +48,9 @@ unused import or variable.
   `target-version` in `pyproject.toml`. No tool formats the Python, because
   a fork starts with the files of its template. The stages run at once. A
   failed run reports every failed stage.
+  Each step has a time limit of 300 s, and the Python suites 120 s. A step
+  that runs longer stops with its process tree, and the stage fails. A test
+  in the scripted tier has 5 s unless it sets its own limit.
 - `pnpm check --changed` — the same stages on the files that differ from
   the merge base with `origin/main`, plus staged, unstaged, and untracked
   files. Use it after a small change, and run `pnpm check` before you

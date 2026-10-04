@@ -52,13 +52,14 @@ host registers it as `.gitignore`, so a `git add -A` in a fork does not
 commit bytecode.
 
 The `usb-camera` template follows the
-[Ambion 0.5.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.5.0/examples/camera-chat).
+[Ambion 0.6.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.6.0/examples/camera-chat).
 It captures frames with Python and V4L2 on the workstation. It records
 clips from the microphone of the camera with ALSA. One process owns the
-USB device and serves two sensors, `camera` and `microphone`. The Engineer forks and
-saves the server, starts it with `bash`, waits for READY, and then uses
-`connect` and `observe`. Each successful observation saves a manifest and a
-frame or a clip in the snapshot store. The in-process just-bash backend has no sensor
+USB device and serves two sensors, `camera` and `microphone`. The server follows the sensor protocol, version 2. The Engineer forks and
+saves the server, and starts it with `bash` under the name `camera`. The
+workspace gives the process a port in `$PORT`. The Engineer then reads the
+sensors with `fetch`. Each fetched observation, frame, and clip goes into
+the snapshot store. The in-process just-bash backend has no sensor
 endpoints. The [template README](../templates/usb-camera/README.md) gives
 the steps for replacement, rollback, and restoration.
 
@@ -66,16 +67,16 @@ the steps for replacement, rollback, and restoration.
 commands exist in the Workbench repository only.
 
 - `pnpm exec vitest run test/usb-camera-protocol.test.ts` runs Ambion's
-  `sensorConformance` and the standard digest-verifying client against both
-  sensors of the server. The test fixes the clock of the acquisition.
+  the sensor protocol checks of Workbench against both sensors of the
+  server. The test fixes the clock of the acquisition.
 - `WORKBENCH_WORKSTATION=.workstation/workstation.json pnpm exec vitest run
 test/usb-camera-workstation.test.ts` checks these steps: fork, save,
-  start, connect, observation by a second account, cancellation, and
-  restoration after a change to an export.
+  start, `fetch` by a second account, cancellation, and restoration of a
+  snapshot.
 
 **One test validates the `psu` protocol.** `pnpm exec vitest run
-test/psu-sensor-protocol.test.ts` runs Ambion's `sensorConformance` and the
-standard digest-verifying client against `sensor.py`. The test serves a
+test/psu-sensor-protocol.test.ts` runs the sensor protocol checks of
+Workbench against `sensor.py`. The test serves a
 fixed scenario on the simulated supply, with two channels and a fixed set of
 sample times. It opens no hardware. The
 [template README](../templates/psu/README.md) gives the steps to start the

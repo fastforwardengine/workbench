@@ -4,11 +4,17 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { sensorConformance } from '@ambionframework/workspace/conformance';
-import { createSensorClient } from '@ambionframework/workspace/sensors';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { templatesDirectory } from '../src/domain/templates.ts';
 import { python } from './python.ts';
+import {
+	expectIndex,
+	expectSensor,
+	expectUnknown,
+	fileOf,
+	observationsOf,
+	send,
+} from './sensor-protocol.ts';
 
 const directory = join(templatesDirectory, 'usb-camera');
 const at = '2026-01-01T00:00:00.123Z';
@@ -84,97 +90,46 @@ async function stopServer() {
 	if (data) await rm(data, { recursive: true, force: true });
 }
 
-describe.skipIf(!python)('the USB camera sensor API v1', () => {
+const SENSORS = [
+	{ name: 'camera', spans: false },
+	{ name: 'microphone', spans: false },
+];
+
+describe.skipIf(!python)('the USB camera sensor protocol, version 2', () => {
 	beforeAll(startServer);
 	afterAll(stopServer);
 
-	const cases = sensorConformance(
-		{
-			name: 'USB camera and microphone',
-			open: async () => ({
-				request: async (method, path, body) => {
-					const response = await fetch(`${root}${path}`, {
-						method,
-						...(body === undefined ? {} : { body: JSON.stringify(body) }),
-					});
-					const contentType = response.headers.get('content-type');
-					return {
-						status: response.status,
-						contentType,
-						...(contentType === 'image/png' || contentType === 'audio/wav'
-							? { bytes: new Uint8Array(await response.arrayBuffer()) }
-							: { body: await response.json() }),
-					};
-				},
-				dispose: async () => {},
-			}),
-		},
-		{
-			span: { from: '2026-01-01T00:00:00.000Z', to: '2026-01-02T00:00:00.000Z' },
-			sensors: [
-				{
-					name: 'camera',
-					spans: false,
-					withinSpan: [],
-					latest: [
-						{
-							at,
-							parts: [
-								{ kind: 'text', text: 'SYNTHETIC DEMO: not a bench measurement.' },
-								{ kind: 'frame', file: digest, mediaType: 'image/png' },
-							],
-						},
-					],
-				},
-				{
-					name: 'microphone',
-					spans: false,
-					withinSpan: [],
-					latest: [
-						{
-							at,
-							parts: [
-								{
-									kind: 'text',
-									text: 'SYNTHETIC DEMO: not a bench measurement. A 440 Hz tone pulsed at 10 Hz; 1 s clip, 48000 Hz mono 16-bit; peak -6.0 dBFS, RMS -12.0 dBFS.',
-								},
-								{ kind: 'file', file: wavDigest, name: 'clip.wav', mediaType: 'audio/wav' },
-								{
-									kind: 'series',
-									channel: 'level',
-									unit: 'dBFS',
-									from: at,
-									intervalMs: 10,
-									values: clip.values,
-								},
-							],
-						},
-					],
-				},
-			],
-			files: [
-				{ digest, bytes },
-				{ digest: wavDigest, bytes: wavBytes },
-			],
-		},
-	);
-	for (const check of cases) it(check.name, check.run);
+	it('lists the camera and the microphone in the index', () =>
+		expectIndex(root, 'engineer/bench-camera', SENSORS));
 
-	it('works with the standard digest-verifying Ambion client', async () => {
-		const client = createSensorClient(root);
-		expect((await client.index()).source.repository).toBe('engineer/bench-camera');
-		expect((await client.observe('camera')).observations[0]?.at).toBe(at);
-		expect(Buffer.from((await client.file(digest)).bytes)).toEqual(bytes);
+	it.each(SENSORS)('answers the $name sensor to each query', (sensor) =>
+		expectSensor(root, sensor),
+	);
+
+	it('answers an unknown sensor, path, file, and method with a JSON error', () =>
+		expectUnknown(root));
+
+	it('serves the frame that the camera observation names, by its digest', async () => {
+		const [observation] = observationsOf(await send(root, '/camera/observe'));
+		expect(observation?.at).toBe(at);
+		const parts = observation?.parts as { kind: string; file?: string; mediaType?: string }[];
+		expect(parts.map((part) => part.kind)).toEqual(['text', 'frame']);
+		expect(parts[1]).toMatchObject({ file: digest, mediaType: 'image/png' });
+		expect(await fileOf(root, digest)).toEqual(bytes);
 	});
 
-	it('serves the microphone clip through the digest-verifying client', async () => {
-		const client = createSensorClient(root);
-		expect((await client.index()).sensors.map((sensor) => sensor.name)).toEqual([
-			'camera',
-			'microphone',
-		]);
-		const observation = (await client.observe('microphone')).observations[0];
-		expect(observation?.parts.map((part) => part.kind)).toEqual(['text', 'file', 'series']);
-		expect(Buffer.from((await client.file(wavDigest)).bytes)).toEqual(wavBytes);
+	it('serves the microphone clip and its level series', async () => {
+		const [observation] = observationsOf(await send(root, '/microphone/observe'));
+		const parts = observation?.parts as {
+			kind: string;
+			file?: string;
+			values?: number[];
+			intervalMs?: number;
+		}[];
+		expect(parts.map((part) => part.kind)).toEqual(['text', 'file', 'series']);
+		expect(parts[1]?.file).toBe(wavDigest);
+		expect(parts[2]?.values).toEqual(clip.values);
+		expect(parts[2]?.intervalMs).toBe(10);
+		expect(await fileOf(root, wavDigest)).toEqual(wavBytes);
 	});
 });

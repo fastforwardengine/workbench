@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Sensor server for a programmable supply, sensor API v1. Python 3.11+.
+"""Sensor server for a programmable supply, sensor API v2. Python 3.11+.
 
     AMBION_SENSOR_REPOSITORY=engineer/bench-psu \\
     AMBION_SENSOR_DATA_DIR=$HOME/sensor-data/bench-psu \\
-    python3 -u -B sensor.py [--config psu.json] [--sim FILE] [--port 0]
+    python3 -u -B sensor.py [--config psu.json] [--sim FILE]
+
+The server listens on 127.0.0.1 at the port of the PORT variable, which the
+workspace sets for each process that bash starts. It prints nothing. A reader
+calls `fetch` with `GET /`, `GET /<sensor>/observe`, and `GET /files/<sha256>`.
 
 The sensor only reads the supply. It never writes a setpoint, never turns
 an output on, and takes no drive lock. It serves three sensors:
@@ -32,9 +36,12 @@ import time
 from collections import deque
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from urllib.parse import parse_qsl, urlsplit
 
 from drivers import Reading, SupplyError, open_driver
 from guard import DriveLocks, Guard, load_config, lock_directory, natural
+
+API = 2  # The sensor protocol version. Every JSON body carries it.
 
 # The constants that an agent can tune.
 MIN_PERIOD = 0.25  # the shortest sample period, in seconds
@@ -105,24 +112,30 @@ def launch_source(checkout, repository):
     return source
 
 
-def valid_request(body):
-    if not isinstance(body, dict) or type(body.get("api")) is not int or body["api"] != 1:
-        return False
-    if set(body) - {"api", "span"}:
-        return False
-    if "span" not in body:
-        return True
-    span = body["span"]
-    if not isinstance(span, dict) or set(span) != {"from", "to"}:
-        return False
-    for value in span.values():
-        if not isinstance(value, str) or not ISO.fullmatch(value):
-            return False
+def span_of(query):
+    """The span of a query as {"from", "to"}, None for an empty query, or ValueError for a bad one.
+
+    A span holds one `from` and one `to`, as UTC times with three millisecond digits, and `from`
+    comes first.
+    """
+    pairs = parse_qsl(query, keep_blank_values=True)
+    if not pairs:
+        if query:
+            raise ValueError("The query is empty, or holds one from and one to that make a span.")
+        return None
+    values = dict(pairs)
+    if len(pairs) != 2 or set(values) != {"from", "to"}:
+        raise ValueError("The query is empty, or holds one from and one to that make a span.")
+    for value in values.values():
+        if not ISO.fullmatch(value):
+            raise ValueError("A span time is UTC with three millisecond digits, such as 2026-01-01T00:00:00.000Z.")
         try:
             dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return False
-    return span["from"] < span["to"]
+        except ValueError as error:
+            raise ValueError("A span time is not a real date and time.") from error
+    if not values["from"] < values["to"]:
+        raise ValueError("A span starts before it ends.")
+    return values
 
 
 def period_ms(description):
@@ -593,44 +606,46 @@ def open_server(sensor, port=0, timeout=10):
             self.send(status, json.dumps(body).encode())
 
         def error(self, status, code, message):
-            self.json(status, {"api": 1, "code": code, "message": message})
+            self.json(status, {"api": API, "code": code, "message": message})
 
         def do_GET(self):
-            if self.path == "/":
-                return self.json(200, {"api": 1, "source": sensor.source, "sensors": [
+            url = urlsplit(self.path)
+            if url.path == "/":
+                return self.json(200, {"api": API, "source": sensor.source, "sensors": [
                     {"name": name, "description": description, "spans": spans}
                     for name, description, spans in SENSORS]})
-            if re.fullmatch(r"/files/[a-f0-9]{64}", self.path):
+            if re.fullmatch(r"/files/[a-f0-9]{64}", url.path):
                 try:
-                    data = (sensor.data / "blobs" / self.path[7:]).read_bytes()
+                    data = (sensor.data / "blobs" / url.path[7:]).read_bytes()
                 except FileNotFoundError:
                     return self.error(404, "unknown", "Unknown file.")
                 return self.send(200, data)
+            match = re.fullmatch(r"/([a-z]+)/observe", url.path)
+            if match:
+                return self.observe(match[1], url.query)
             self.error(404, "unknown", "Unknown path.")
 
-        def do_POST(self):
-            match = re.fullmatch(r"/([a-z]+)/observe", self.path)
-            if not match or match[1] not in [name for name, _, _ in SENSORS]:
+        def observe(self, name, query):
+            if name not in [known for known, _, _ in SENSORS]:
                 return self.error(404, "unknown", "Unknown sensor.")
-            name = match[1]
             try:
-                length = int(self.headers.get("Content-Length", "0"))
-                if not 0 < length <= 4096 or self.headers.get("Transfer-Encoding"):
-                    raise ValueError("Invalid body length.")
-                body = json.loads(self.rfile.read(length))
-                if not valid_request(body):
-                    raise ValueError("Invalid request.")
-            except (ValueError, OSError):
-                return self.error(400, "invalid", "Invalid observation request.")
-            if "span" in body and name != "output":
+                span = span_of(query)
+            except ValueError as error:
+                return self.error(400, "invalid", str(error))
+            if span and name != "output":
                 return self.error(422, "unavailable", f"The sensor {name} has no history. Use output for a span.")
             try:
-                observations = sensor.observe(name, body.get("span"))
+                observations = sensor.observe(name, span)
             except SpanTooLarge as error:
                 return self.error(422, "unavailable", str(error))
             except OSError:
                 return self.error(503, "unavailable", "The sensor cannot read its data directory.")
-            self.json(200, {"api": 1, "observations": observations})
+            self.json(200, {"api": API, "observations": observations})
+
+        def unsupported(self):
+            self.error(404, "unknown", "Unknown path.")
+
+        do_HEAD = do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = unsupported
 
     # StreamRequestHandler applies this timeout to the socket before it reads the headers.
     Handler.timeout = timeout
@@ -638,12 +653,22 @@ def open_server(sensor, port=0, timeout=10):
     return HTTPServer(("127.0.0.1", port), Handler)
 
 
+def port_of(value):
+    """The port that the workspace gave this process, or a reason that it gave none."""
+    if value is None or not re.fullmatch(r"[0-9]{1,5}", value) or not 1 <= int(value) <= 65535:
+        raise ValueError("Set PORT to an integer from 1 to 65535. The workspace sets it for each process that bash starts.")
+    return int(value)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default=str(HERE / "psu.json"), help="the file of the supply and its limits")
     parser.add_argument("--sim", metavar="FILE", help="use the simulated supply, with its state in FILE")
-    parser.add_argument("--port", type=int, default=0)
     args = parser.parse_args(argv)
+    try:
+        port = port_of(os.environ.get("PORT"))
+    except ValueError as error:
+        parser.error(str(error))
     data = Path(os.environ.get("AMBION_SENSOR_DATA_DIR", "")).expanduser()
     if not data.is_absolute() or data.resolve().is_relative_to(HERE):
         parser.error("Set AMBION_SENSOR_DATA_DIR to an absolute directory outside the checkout.")
@@ -660,14 +685,19 @@ def main(argv=None):
         guard = Guard(open_driver(config, args.sim), config, actuator="sensor.py")
         sensor = Sensor(guard, config, data, source)
         now = sensor.clock() // sensor.period_ms * sensor.period_ms
-        sensor.sample(now)  # No READY before a usable read.
+        sensor.sample(now)  # The server listens only after a usable read.
         sensor.observe_settings(now)
     except (SupplyError, OSError, subprocess.SubprocessError) as error:
         print(f"The sensor cannot start: {error}", file=sys.stderr)
         if guard:
             guard.close()
         return 1
-    server = open_server(sensor, args.port)
+    try:
+        server = open_server(sensor, port)
+    except OSError as error:
+        print(f"The sensor cannot listen on port {port}: {error}. Start it again to get a new port.", file=sys.stderr)
+        guard.close()
+        return 1
     stop = threading.Event()
     sampler = threading.Thread(target=sensor.run, args=(stop,), daemon=True)
 
@@ -677,7 +707,6 @@ def main(argv=None):
     signal.signal(signal.SIGTERM, interrupt)
     signal.signal(signal.SIGINT, interrupt)
     sampler.start()
-    print("READY " + json.dumps({"port": server.server_port, "source": source}), flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
