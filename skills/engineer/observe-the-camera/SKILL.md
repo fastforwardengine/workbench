@@ -5,7 +5,7 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
 
 1. Follow `scan-the-bench` before you open a camera or a microphone.
    Find the capture node, the resolution, and the card id as the README of
-   the `usb-camera` clone says. Do not assume that `/dev/video0` is the
+   the `usb-camera` template says. Do not assume that `/dev/video0` is the
    camera.
 2. Fork `usb-camera` with `fork`, with `clone` set to a path in your home. Follow the
    README of the clone for the offline tests, the push, and the start of
