@@ -10,7 +10,7 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
    before each start. For the microphone, run
    `arecord -l` and use `plughw:CARD=<id>,DEV=0` with the card id, such as
    `BRIO`. The card number changes after a reconnect.
-2. Fork `usb-camera` with `fork` and `clone`, into your home. Follow the
+2. Fork `usb-camera` with `fork`, with `clone` set to a path in your home. Follow the
    README of the clone for the offline tests, the push, and the start of
    the foreground server. One process owns one USB device and serves its
    camera and its microphone. Keep the data outside the checkout.

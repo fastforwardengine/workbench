@@ -144,6 +144,8 @@ class Poller implements Viewfinder {
 	/** The read in flight. Aborting it, or replacing it, drops its result. */
 	private inflight: AbortController | undefined;
 	private closed = false;
+	/** True once the first list of processes has settled. Until then, an event only updates the list. */
+	private seeded = false;
 	private readonly unwatch: (() => void) | undefined;
 	private readonly timer: ReturnType<typeof setInterval> | undefined;
 
@@ -191,6 +193,7 @@ class Poller implements Viewfinder {
 			this.agents.map((agent) => this.workspace.processes.list({ agent, running: true })),
 		);
 		if (this.closed) return;
+		this.seeded = true;
 		const found = lists
 			.flatMap((list) => (list.status === 'fulfilled' ? list.value.filter(isCamera) : []))
 			.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
@@ -207,7 +210,7 @@ class Poller implements Viewfinder {
 		if (this.closed) return;
 		const others = this.running.filter((known) => known.handle !== process.handle);
 		this.running = type === 'started' && isCamera(process) ? [...others, process] : others;
-		this.choose();
+		if (this.seeded) this.choose();
 	}
 
 	/** Read the newest camera process. A change of process clears the frame. */

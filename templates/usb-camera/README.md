@@ -123,7 +123,7 @@ frames each second. This server has no preview and no captions.
     just-bash backend has no endpoints and no camera runtime.
 11. Cite the **snapshot refs** that `fetch` returns for the observation and
     for the frame. `fetch` saves each body in the snapshot store under
-    `~/.fetch/<handle>/`, so no manual snapshot is necessary. Compare the
+    `~/.fetch/camera/`, so no manual snapshot is necessary. Compare the
     digest in the observation with the digest in the path of the frame
     that you fetch. Other specialists fetch from the same process and
     keep snapshots in their own homes. They need no access to the Engineer
@@ -142,7 +142,7 @@ frames each second. This server has no preview and no captions.
     such as speech or a fan, can hide that pattern, because the series
     measures all frequencies. Then analyze the WAV file in the band around
     the tone. `fetch` of `/files/<sha256>` saves the WAV file under
-    `~/.fetch/<handle>/` and names that path. Analyze it there with
+    `~/.fetch/camera/` and names that path. Analyze it there with
     `python3` and numpy.
 13. Replace the server in this order:
     1. `cancel({ handle })` stops the server.

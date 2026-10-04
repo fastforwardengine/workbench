@@ -4,7 +4,7 @@ description: Read, set, and drive a programmable power supply within its limits,
 compatibility: Needs python3. A real supply needs python3-serial and a USB serial port. The tool runs a simulated supply with --sim.
 ---
 
-1. Fork the `psu` template with `fork` and `clone`, into your home. The
+1. Fork the `psu` template with `fork`, with `clone` set to a path in your home. The
    `README.md` of the clone holds every command and option.
 2. Try each command on the simulator first, with no hardware. Put
    `--sim sim.json` before the command or the actuator, as in

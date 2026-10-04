@@ -3,7 +3,7 @@ name: scan-the-bench
 description: Find the devices that the workstation reaches, and report each one. Use it when a person asks what is connected, and before the first run of a bench script.
 ---
 
-1. Fork the `device-scan` template with `fork` and `clone`, into your home.
+1. Fork the `device-scan` template with `fork`, with `clone` set to a path in your home.
    The `README.md` of the clone holds the commands.
 2. Run `python3 scan/scan.py` with `bash` and a `name`, such as `scan`. Read
    its end with `wait`.
