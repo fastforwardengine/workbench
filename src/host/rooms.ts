@@ -146,7 +146,7 @@ export async function openRooms(
 	);
 	let closing = false;
 	const { backend, roots } = await workspaceBackends(directory, options.workstation);
-	const workspace = openWorkspace({ name: WORKSPACE, backend, audit: {} });
+	const workspace = openWorkspace({ name: WORKSPACE, backend, audit: {}, rooms: true });
 	let roomTeam: HostedRoom['team'];
 	try {
 		if (options.workstation) await probeWorkstation(workspace, options.workstation);
@@ -210,6 +210,9 @@ export async function openRooms(
 					name: entry.name,
 					goal: entry.goal,
 					seats,
+					// The room seats both specialists. The reserve is empty, so no seat needs
+					// the `seat` and `unseat` tools.
+					seating: false,
 				});
 		// The handle is owned before subscription. A later host failure leaves a
 		// usable running room that shutdown can still clean up.

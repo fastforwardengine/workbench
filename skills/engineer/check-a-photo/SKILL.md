@@ -11,7 +11,8 @@ description: Check the placement and the orientation of a part from a photo of t
    view.
 2. Read the frame or the file with `read`. The tool sends the picture to
    you. The snapshot ref of an attachment names its path under
-   `/attachments`.
+   `/attachments`. The snapshot ref of a frame names its path under
+   `~/.fetch/camera/`.
 3. A polarized part is any part with a right way round: a diode, an LED,
    an electrolytic or tantalum capacitor, a transistor, a voltage
    regulator, a chip with or without a socket, a module or a header with a

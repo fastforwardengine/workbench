@@ -197,10 +197,10 @@ container. `arecord -l` still works.
 To keep the frames and the clips as evidence, the Engineer forks the
 [`usb-camera` template](../templates/usb-camera/README.md). The template
 uses the Python, `fswebcam`, and `arecord` tools of the image, so the image
-needs no change. The server listens on the loopback address of the workstation.
-Ambion 0.5.0 carries the sensor API through SSH forwarding. Each
-`observe` saves the frame or clip and the manifest in the snapshot store. Docker
-publishes no sensor port. Other seats observe through the connection and
+needs no change. The server listens on the loopback address of the workstation, on the
+port of `$PORT`. Ambion 0.6.0 carries each `fetch` through SSH forwarding.
+`fetch` saves the observation and the frame or clip in the snapshot store.
+Docker publishes no sensor port. Other seats fetch from the same process and
 need no access to the home of Engineer.
 
 **OrbStack's Linux has the drivers of the bench as modules:** `uvcvideo`

@@ -8,13 +8,14 @@ allowBuilds:
   protobufjs: true
   ssh2: false
 minimumReleaseAgeExclude:
-  - '@ambionframework/ambion@0.5.0'
-  - '@ambionframework/journal@0.5.0'
-  - '@ambionframework/just-bash@0.5.0'
-  - '@ambionframework/pi@0.5.0'
-  - '@ambionframework/workspace@0.5.0'
-  - '@ambionframework/simulator@0.5.0'
-  - '@ambionframework/workstation@0.5.0'
+  - '@ambionframework/ambion@0.6.0'
+  - '@ambionframework/compose@0.6.0'
+  - '@ambionframework/journal@0.6.0'
+  - '@ambionframework/just-bash@0.6.0'
+  - '@ambionframework/pi@0.6.0'
+  - '@ambionframework/workspace@0.6.0'
+  - '@ambionframework/simulator@0.6.0'
+  - '@ambionframework/workstation@0.6.0'
   - '@earendil-works/chord@1.0.0'
   - '@earendil-works/pi-ai@1.0.0'
   - '@earendil-works/pi-durable@1.0.0'

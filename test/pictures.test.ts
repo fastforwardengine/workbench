@@ -7,8 +7,10 @@ import { type RefItem, resolveRef } from '../src/view/refs.ts';
 
 const known = { room: 'r', files: [], seqs: new Set<number>() };
 const digest = (n: number) => n.toString(16).padStart(64, '0');
-const manifest = (n: number) =>
-	snapshotUri('workbench', digest(n), '/observations/bench-camera/manifest.json');
+const frame = (n: number) =>
+	snapshotUri('workbench', digest(n), '/home/engineer/.fetch/camera/6a7b8c9d0e1f.png');
+const observation = (n: number) =>
+	snapshotUri('workbench', digest(n), '/home/engineer/.fetch/camera/0a1b2c3d4e5f.json');
 const photo = (n: number, name = 'bench.JPG') =>
 	snapshotUri('workbench', digest(n), `/attachments/${name}`);
 const item = (seq: number, ref: string, index = 0): RefItem => ({
@@ -18,15 +20,6 @@ const item = (seq: number, ref: string, index = 0): RefItem => ({
 });
 
 const picture = (size = 4) => ({ data: new Uint8Array(size), mimeType: 'image/png' });
-const frames = (count: number): FileContent => ({
-	path: 'm',
-	text: '',
-	truncated: false,
-	frames: Array.from({ length: count }, (_, at) => ({
-		image: picture(),
-		caption: `bench-camera/camera · 2026-10-03T10:00:0${at}Z`,
-	})),
-});
 const imageFile = (size = 4): FileContent => ({
 	path: 'p',
 	text: '',
@@ -35,9 +28,14 @@ const imageFile = (size = 4): FileContent => ({
 });
 
 describe('which refs can hold pictures', () => {
-	it('keeps a manifest ref and an image ref once, in order', () => {
-		const refs = pictureRefs([item(1, photo(2)), item(1, manifest(1), 1), item(1, photo(2), 2)]);
-		expect(refs).toEqual([photo(2), manifest(1)]);
+	it('keeps each image ref once, in order, and skips an observation', () => {
+		const refs = pictureRefs([
+			item(1, photo(2)),
+			item(1, frame(1), 1),
+			item(1, photo(2), 2),
+			item(1, observation(3), 3),
+		]);
+		expect(refs).toEqual([photo(2), frame(1)]);
 	});
 
 	it('skips a text snapshot, a file ref, a message ref, and a ref of another workspace', () => {
@@ -54,15 +52,11 @@ describe('which refs can hold pictures', () => {
 });
 
 describe('the strip of a loaded snapshot', () => {
-	it('takes four frames, counts the rest, and captions with the first frame', () => {
-		const strip = stripOf(manifest(1), frames(6));
-		expect(strip?.pictures).toHaveLength(4);
-		expect(strip?.more).toBe(2);
-		expect(strip?.caption).toBe('bench-camera/camera · 2026-10-03T10:00:00Z');
-	});
-
-	it('captions an image with its file name', () => {
-		expect(stripOf(photo(2), imageFile())?.caption).toBe('bench.JPG');
+	it('takes the picture and captions it with the file name', () => {
+		const strip = stripOf(photo(2), imageFile());
+		expect(strip?.picture).toEqual(picture());
+		expect(strip?.caption).toBe('bench.JPG');
+		expect(stripOf(frame(1), imageFile())?.caption).toBe('6a7b8c9d0e1f.png');
 	});
 
 	it('makes no strip for a snapshot without a picture', () => {
@@ -70,8 +64,8 @@ describe('the strip of a loaded snapshot', () => {
 	});
 
 	it('groups the loaded strips by message', () => {
-		const items = [item(1, manifest(1)), item(2, photo(2)), item(2, manifest(3), 1)];
-		const loaded = new Map([[manifest(1), stripOf(manifest(1), frames(1))]]);
+		const items = [item(1, frame(1)), item(2, photo(2)), item(2, frame(3), 1)];
+		const loaded = new Map([[frame(1), stripOf(frame(1), imageFile())]]);
 		const bySeq = stripsBySeq(items, (ref) => loaded.get(ref));
 		expect([...bySeq.keys()]).toEqual([1]);
 	});

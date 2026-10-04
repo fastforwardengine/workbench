@@ -21,7 +21,6 @@ import { ProcessesPanel } from '../src/terminal/widgets/process-panel.ts';
 import { Transcript } from '../src/terminal/widgets/transcript.ts';
 import { ViewfinderPanel } from '../src/terminal/widgets/viewfinder-panel.ts';
 import { started, view } from './fake-host.ts';
-import { PNG } from './png.ts';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -49,6 +48,7 @@ async function build(width = 120) {
 			output: '/x/out',
 			timeout: 600,
 			grace: 10,
+			port: 20001,
 			startedAt: new Date().toISOString(),
 		},
 	];
@@ -621,27 +621,6 @@ describe('the keys that scroll, copy, and swallow', () => {
 		expect(built.session.browser.tab).toBe(0);
 		built.press('right');
 		expect(built.session.browser.tab).toBe(1);
-		built.press('left');
-		expect(built.session.browser.tab).toBe(0);
-	});
-
-	it('steps the frames of a sensor manifest with Left and Right', async () => {
-		const built = await build();
-		const frame = (caption: string) => ({ image: { data: PNG, mimeType: 'image/png' }, caption });
-		built.host.file = async (path: string) => ({
-			path,
-			text: '{}',
-			truncated: false,
-			frames: [frame('bench-camera/camera · t1'), frame('bench-camera/camera · t2')],
-		});
-		await openFiles(built);
-		await wait(20);
-		expect(await built.frame()).toContain('frame 1 of 2 · bench-camera/camera · t1');
-		built.press('right');
-		built.press('right');
-		expect(built.session.browser.tab).toBe(1);
-		built.panel.draw(built.session.browser);
-		expect(await built.frame()).toContain('frame 2 of 2 · bench-camera/camera · t2');
 		built.press('left');
 		expect(built.session.browser.tab).toBe(0);
 	});

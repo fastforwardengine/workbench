@@ -30,7 +30,7 @@ export class FileBrowser {
 	file: FileContent | undefined;
 	/** Why the chosen file did not load. */
 	problem: string | undefined;
-	/** The table of a database, or the frame of a sensor manifest, that the panel shows. */
+	/** The table of a database that the panel shows. */
 	tab = 0;
 	private files: readonly FileEntry[] = [];
 	private token = 0;
@@ -92,9 +92,9 @@ export class FileBrowser {
 		this.refilter();
 	}
 
-	/** Show another table of the chosen database, or another frame of the chosen manifest. */
+	/** Show another table of the chosen database. */
 	moveTab(step: number): void {
-		const count = this.file?.frames?.length ?? this.file?.tables?.length ?? 0;
+		const count = this.file?.tables?.length ?? 0;
 		if (count === 0) return;
 		this.tab = Math.max(0, Math.min(count - 1, this.tab + step));
 		this.changed();

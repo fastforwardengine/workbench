@@ -5,7 +5,7 @@ type FinderHost = Pick<Lab, 'viewfinder'>;
 /** The age of the frame redraws at this interval, in milliseconds. */
 export const TICK_MS = 1_000;
 
-const EMPTY: ViewfinderState = { sensor: undefined, frame: undefined, note: undefined };
+const EMPTY: ViewfinderState = { process: undefined, frame: undefined, note: undefined };
 
 /** The time since a frame arrived, such as `2 s ago` or `3 min ago`. */
 export function ageText(elapsed: number): string {

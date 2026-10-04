@@ -25,7 +25,7 @@ export const templates: readonly Template[] = [
 	{
 		name: 'usb-camera',
 		description:
-			'A Linux USB camera and microphone sensor. A foreground server that the specialist owns captures a PNG frame from the camera and a WAV clip with a level series from the microphone for each observation. The snapshot store keeps each observed frame and clip. The demo mode makes synthetic data and labels it.',
+			'A Linux USB camera and microphone sensor. A foreground server that the specialist owns captures a PNG frame from the camera and a WAV clip with a level series from the microphone for each observation. The specialist reads it with `fetch`, and the snapshot store keeps each fetched observation, frame, and clip. The demo mode makes synthetic data and labels it.',
 	},
 	{
 		name: 'psu',

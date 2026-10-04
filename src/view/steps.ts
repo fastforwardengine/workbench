@@ -73,6 +73,16 @@ export function activationLine(activation: ExchangeActivation): string {
 	return parts.join(' · ');
 }
 
+/** The mark of a call that a `compose` call made. A direct call has none. */
+const nested = (step: { parent?: string }): string => (step.parent === undefined ? '' : '↳ ');
+
+/** The line of a tool result: the output, or the failure. */
+function resultLine(step: Extract<TraceStep, { type: 'tool_result' }>): StepLine {
+	return step.error
+		? { kind: 'error', text: `${nested(step)}failed: ${brief(step.error)}` }
+		: { kind: 'result', text: `${nested(step)}${render(step.output)}` };
+}
+
 function lineOf(step: TraceStep): StepLine {
 	switch (step.type) {
 		case 'pass':
@@ -82,11 +92,14 @@ function lineOf(step: TraceStep): StepLine {
 		case 'text':
 			return { kind: 'text', text: brief(step.text) };
 		case 'tool_call':
-			return { kind: 'tool', text: `${step.name} ${render(step.input)}`.trim() };
+			return { kind: 'tool', text: `${nested(step)}${step.name} ${render(step.input)}`.trim() };
 		case 'tool_result':
-			return step.error
-				? { kind: 'error', text: `failed: ${brief(step.error)}` }
-				: { kind: 'result', text: render(step.output) };
+			return resultLine(step);
+		case 'approval':
+			return {
+				kind: 'approval',
+				text: `compose ${step.answer === 'allow' ? 'allowed' : 'denied'}`,
+			};
 		case 'room':
 			return { kind: 'room', text: `room ${step.result}${step.seq ? ` at ${step.seq}` : ''}` };
 		case 'steer':

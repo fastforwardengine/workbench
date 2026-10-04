@@ -1,21 +1,31 @@
-import type { SensorConnectionEvent, Workspace } from '@ambionframework/workspace';
+import { createHash } from 'node:crypto';
+import type { Process, ProcessEvent, Workspace } from '@ambionframework/workspace';
 
-/** The sensor registry of the workspace. It is absent when the workspace has no sensors. */
-type Registry = NonNullable<Workspace['sensors']>;
+/** The way that the workspace reads a running process. It is absent on a backend with no endpoints. */
+type ReadProcess = NonNullable<Workspace['fetch']>;
+
+/** What the viewfinder needs of the workspace. */
+export type FinderWorkspace = Pick<Workspace, 'processes' | 'fetch'>;
 
 /** The viewfinder reads a frame at this interval, in milliseconds. */
 export const POLL_MS = 3_000;
 /** A read ends after this time. A capture takes up to 30 s in the worst case and a few seconds in use. */
 export const TIMEOUT_MS = 10_000;
 
-/** The sensor name that the viewfinder shows. */
-const SENSOR = 'camera';
+/** The name of the process that the viewfinder follows. The camera template starts under this name. */
+const CAMERA = 'camera';
+
+/** The version of the sensor protocol that the viewfinder reads. */
+const API = 2;
+
+/** The form of the digest that names a file of a sensor server. */
+const DIGEST = /^[0-9a-f]{64}$/;
 
 const SEARCHING = 'Looking for the camera.';
-export const NO_CAMERA = 'No camera is connected. Ask the Engineer to connect the camera.';
+export const NO_CAMERA = 'No camera is running. Ask the Engineer to start the camera.';
 export const LOST =
-	'The camera link ended. The viewfinder shows a frame again when the link returns.';
-export const NO_SENSORS = 'This workspace has no sensors.';
+	'The camera process ended. The viewfinder shows a frame again when a camera process starts.';
+export const NO_ENDPOINTS = 'This workspace cannot read a process, so it has no camera.';
 
 /** One frame that a poll read. */
 interface Frame {
@@ -29,11 +39,11 @@ interface Frame {
 
 /** What the viewfinder holds at one moment. */
 export interface ViewfinderState {
-	/** The qualified name of the sensor that the viewfinder reads, such as `bench/camera`. */
-	sensor: string | undefined;
+	/** The owner and the name of the process that the viewfinder reads, such as `engineer/camera`. */
+	process: string | undefined;
 	/** The latest frame. It stays while a later read fails. */
 	frame: Frame | undefined;
-	/** A line for the person: why there is no sensor, or why the last read failed. */
+	/** A line for the person: why there is no camera, or why the last read failed. */
 	note: string | undefined;
 }
 
@@ -53,35 +63,82 @@ export interface ViewfinderOptions {
 	now?: () => number;
 }
 
-const qualified = (connection: string): string => `${connection}/${SENSOR}`;
+/** The part of an observation that the viewfinder reads. */
+interface Observation {
+	readonly api?: unknown;
+	readonly observations?: readonly {
+		readonly at?: unknown;
+		readonly parts?: readonly { readonly kind?: unknown; readonly file?: unknown }[];
+	}[];
+}
 
-const hasCamera = (connection: { sensors: readonly { name: string }[] }): boolean =>
-	connection.sensors.some((sensor) => sensor.name === SENSOR);
+const labelOf = (process: Process): string => `${process.agent}/${process.name}`;
+
+const isCamera = (process: Process): boolean => process.name === CAMERA;
+
+const message = (error: unknown): string =>
+	error instanceof Error ? error.message : String(error);
+
+/** The reason that a sensor server gave for a status outside 200 to 299. */
+async function refusal(response: Response): Promise<string> {
+	const body: unknown = await response.json().catch(() => undefined);
+	const reason =
+		typeof body === 'object' && body !== null && 'message' in body ? String(body.message) : '';
+	return `The camera answered ${response.status}${reason ? `: ${reason}` : '.'}`;
+}
+
+/** Read GET `path` of the process `handle`, and fail on any answer but 2xx. */
+async function read(
+	fetchProcess: ReadProcess,
+	handle: string,
+	path: string,
+	signal: AbortSignal,
+): Promise<Response> {
+	const response = await fetchProcess(handle, path, { signal });
+	if (!response.ok) throw new Error(await refusal(response));
+	return response;
+}
+
+/** The time and the digest of the newest frame of an observation, or an error that says what is wrong. */
+function newestFrame(body: Observation): { at: string; digest: string } {
+	if (body.api !== API)
+		throw new Error(`The camera server does not speak protocol version ${API}.`);
+	const sample = body.observations?.at(-1);
+	const file = sample?.parts?.find((part) => part.kind === 'frame')?.file;
+	if (typeof sample?.at !== 'string' || typeof file !== 'string' || !DIGEST.test(file))
+		throw new Error('The camera returned no image.');
+	return { at: sample.at, digest: file };
+}
 
 /**
- * Poll the camera sensor of the workspace, for display. A poll is an
- * `observe` through the sensor client of the registry. The workspace keeps no
- * snapshot of it. One poll runs at a time, and it aborts when the viewfinder
- * closes or the link ends. The newest connection that holds a `camera` sensor
- * is the one that the viewfinder reads.
+ * Poll the camera process of the workspace, for display. A poll reads
+ * `GET /camera/observe` and then `GET /files/<digest>` of the sensor
+ * protocol, through `workspace.fetch`. The workspace keeps no snapshot of
+ * it. One poll runs at a time, and it aborts when the viewfinder closes or
+ * the process ends. The newest running process named `camera` is the one
+ * that the viewfinder reads. `agents` names the owners that the viewfinder
+ * lists at its start, so it finds a camera of an earlier run of the host.
  */
 export function openViewfinder(
-	registry: Registry | undefined,
+	workspace: FinderWorkspace,
+	agents: readonly string[],
 	changed: () => void,
 	options: ViewfinderOptions = {},
 ): Viewfinder {
-	return new Poller(registry, changed, options);
+	return new Poller(workspace, agents, changed, options);
 }
 
 class Poller implements Viewfinder {
-	private readonly registry: Registry | undefined;
+	private readonly workspace: FinderWorkspace;
+	private readonly fetchProcess: ReadProcess | undefined;
+	private readonly agents: readonly string[];
 	private readonly changed: () => void;
 	private readonly timeout: number;
 	private readonly now: () => number;
-	/** The connections that hold a camera, the oldest first. */
-	private links: string[] = [];
-	/** The connection that the viewfinder reads. */
-	private active: string | undefined;
+	/** The running camera processes, the oldest first. */
+	private running: Process[] = [];
+	/** The process that the viewfinder reads. */
+	private active: Process | undefined;
 	private frame: Frame | undefined;
 	private note: string | undefined = SEARCHING;
 	/** The read in flight. Aborting it, or replacing it, drops its result. */
@@ -90,25 +147,32 @@ class Poller implements Viewfinder {
 	private readonly unwatch: (() => void) | undefined;
 	private readonly timer: ReturnType<typeof setInterval> | undefined;
 
-	constructor(registry: Registry | undefined, changed: () => void, options: ViewfinderOptions) {
-		this.registry = registry;
+	constructor(
+		workspace: FinderWorkspace,
+		agents: readonly string[],
+		changed: () => void,
+		options: ViewfinderOptions,
+	) {
+		this.workspace = workspace;
+		this.fetchProcess = workspace.fetch;
+		this.agents = agents;
 		this.changed = changed;
 		this.timeout = options.timeout ?? TIMEOUT_MS;
 		this.now = options.now ?? Date.now;
-		if (!registry) {
-			this.note = NO_SENSORS;
+		if (!this.fetchProcess) {
+			this.note = NO_ENDPOINTS;
 			return;
 		}
-		this.unwatch = registry.subscribe((event) => this.onLink(event));
+		this.unwatch = workspace.processes.subscribe((event) => this.onEvent(event));
 		this.timer = setInterval(() => void this.poll(), options.every ?? POLL_MS);
 		// A forgotten viewfinder must not keep the process alive.
 		this.timer.unref();
-		void this.seed(registry);
+		void this.seed();
 	}
 
 	get state(): ViewfinderState {
 		return {
-			sensor: this.active && qualified(this.active),
+			process: this.active && labelOf(this.active),
 			frame: this.frame,
 			note: this.note,
 		};
@@ -121,58 +185,41 @@ class Poller implements Viewfinder {
 		this.cancel();
 	}
 
-	/** Read the links that exist now. An event that arrived first is newer, so it stays last. */
-	private async seed(registry: Registry): Promise<void> {
-		try {
-			const listed = await registry.list();
-			if (this.closed) return;
-			const older = listed
-				.filter((link) => link.state === 'connected' && hasCamera(link))
-				.map((link) => link.name)
-				.filter((name) => !this.links.includes(name));
-			this.links = [...older, ...this.links];
-		} catch (error) {
-			if (this.closed) return;
-			this.note = error instanceof Error ? error.message : String(error);
-		}
+	/** Read the camera processes that run now. An event that arrived first is newer, so it stays last. */
+	private async seed(): Promise<void> {
+		const lists = await Promise.allSettled(
+			this.agents.map((agent) => this.workspace.processes.list({ agent, running: true })),
+		);
+		if (this.closed) return;
+		const found = lists
+			.flatMap((list) => (list.status === 'fulfilled' ? list.value.filter(isCamera) : []))
+			.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+		const older = found.filter((one) => !this.running.some((known) => known.handle === one.handle));
+		this.running = [...older, ...this.running];
+		const rejected = lists.filter(
+			(list): list is PromiseRejectedResult => list.status === 'rejected',
+		);
+		if (rejected[0] && rejected.length === lists.length) this.note = message(rejected[0].reason);
 		this.choose();
 	}
 
-	private onLink({ type, connection }: SensorConnectionEvent): void {
+	private onEvent({ type, process }: ProcessEvent): void {
 		if (this.closed) return;
-		const up = type === 'connected' || type === 'refreshed';
-		if (!up || !hasCamera(connection)) {
-			this.drop(connection.name);
-			return;
-		}
-		if (type === 'connected' || !this.links.includes(connection.name))
-			this.links = [...this.links.filter((name) => name !== connection.name), connection.name];
-		if (connection.name === this.active) this.restart();
-		else this.choose();
+		const others = this.running.filter((known) => known.handle !== process.handle);
+		this.running = type === 'started' && isCamera(process) ? [...others, process] : others;
+		this.choose();
 	}
 
-	private drop(name: string): void {
-		this.links = this.links.filter((link) => link !== name);
-		if (name === this.active) this.choose();
-	}
-
-	/** Read the newest connection. A change of connection clears the frame. */
+	/** Read the newest camera process. A change of process clears the frame. */
 	private choose(): void {
-		const next = this.links.at(-1);
-		if (next === this.active && (next !== undefined || this.note !== SEARCHING)) return;
+		const next = this.running.at(-1);
+		if (next?.handle === this.active?.handle && (next !== undefined || this.note !== SEARCHING))
+			return;
 		const lost = this.active !== undefined;
 		this.cancel();
 		this.active = next;
 		this.frame = undefined;
 		this.note = next ? undefined : lost ? LOST : NO_CAMERA;
-		this.changed();
-		void this.poll();
-	}
-
-	/** The same connection refreshed. Keep the frame and read again. */
-	private restart(): void {
-		this.cancel();
-		this.note = undefined;
 		this.changed();
 		void this.poll();
 	}
@@ -183,8 +230,8 @@ class Poller implements Viewfinder {
 	}
 
 	private async poll(): Promise<void> {
-		const connection = this.active;
-		if (this.closed || !connection || this.inflight) return;
+		const process = this.active;
+		if (this.closed || !process || this.inflight) return;
 		const mine = new AbortController();
 		this.inflight = mine;
 		const timer = setTimeout(
@@ -192,7 +239,7 @@ class Poller implements Viewfinder {
 			this.timeout,
 		);
 		try {
-			this.accept(mine, connection, await this.read(connection, mine.signal));
+			this.accept(mine, await this.readFrame(process, mine.signal));
 		} catch (error) {
 			this.fail(mine, error);
 		} finally {
@@ -202,26 +249,23 @@ class Poller implements Viewfinder {
 	}
 
 	/** One observation. A frame with the digest of the shown one needs no download. */
-	private async read(connection: string, signal: AbortSignal): Promise<Frame | undefined> {
-		const link = await this.registry?.get(qualified(connection), signal);
-		if (!link) return undefined;
-		const answer = await link.client.observe(SENSOR, { api: 1 }, signal);
-		const sample = answer.observations.at(-1);
-		const part = sample?.parts.find((candidate) => candidate.kind === 'frame');
-		if (!sample || part?.kind !== 'frame') throw new Error('The camera returned no image.');
+	private async readFrame(process: Process, signal: AbortSignal): Promise<Frame> {
+		const fetchProcess = this.fetchProcess;
+		if (!fetchProcess) throw new Error(NO_ENDPOINTS);
+		const observed = await read(fetchProcess, process.handle, `/${CAMERA}/observe`, signal);
+		const { at, digest } = newestFrame((await observed.json()) as Observation);
 		const received = this.now();
 		const shown = this.frame;
-		if (shown?.digest === part.file) return { ...shown, at: sample.at, received };
-		const file = await link.client.file(part.file, signal);
-		return { at: sample.at, digest: part.file, png: file.bytes, received };
+		if (shown?.digest === digest) return { ...shown, at, received };
+		const file = await read(fetchProcess, process.handle, `/files/${digest}`, signal);
+		const png = new Uint8Array(await file.arrayBuffer());
+		if (createHash('sha256').update(png).digest('hex') !== digest)
+			throw new Error('The camera frame does not match its digest.');
+		return { at, digest, png, received };
 	}
 
-	private accept(mine: AbortController, connection: string, frame: Frame | undefined): void {
+	private accept(mine: AbortController, frame: Frame): void {
 		if (this.inflight !== mine || this.closed) return;
-		if (!frame) {
-			this.drop(connection);
-			return;
-		}
 		this.frame = frame;
 		this.note = undefined;
 		this.changed();
@@ -229,7 +273,7 @@ class Poller implements Viewfinder {
 
 	private fail(mine: AbortController, error: unknown): void {
 		if (this.inflight !== mine || this.closed) return;
-		this.note = error instanceof Error ? error.message : String(error);
+		this.note = message(error);
 		this.changed();
 	}
 }

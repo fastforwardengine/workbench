@@ -207,7 +207,7 @@ export class FakeHost implements Lab {
 	readonly finders: { state: ViewfinderState; closed: boolean; changed: () => void }[] = [];
 	viewfinder(changed: () => void): Viewfinder {
 		const finder = {
-			state: { sensor: undefined, frame: undefined, note: undefined } as ViewfinderState,
+			state: { process: undefined, frame: undefined, note: undefined } as ViewfinderState,
 			closed: false,
 			changed,
 			close() {

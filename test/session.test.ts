@@ -559,6 +559,7 @@ describe('Session /ps', () => {
 		output: `/home/design/.processes/${handle}/out`,
 		timeout: 600,
 		grace: 10,
+		port: 20001,
 		startedAt: at(0),
 		...extra,
 	});

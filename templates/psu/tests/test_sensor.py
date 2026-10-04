@@ -5,6 +5,7 @@ import http.client
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -97,9 +98,9 @@ class Sensed(Isolated):
         self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join()))
         return server.server_port
 
-    def call(self, port, method, path, body=None):
+    def call(self, port, path, method="GET"):
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-        connection.request(method, path, None if body is None else json.dumps(body))
+        connection.request(method, path)
         response = connection.getresponse()
         data = response.read()
         connection.close()
@@ -244,42 +245,71 @@ class Settings(Sensed):
         self.assertTrue(text.startswith("Supply psu, Simulated supply, 2 channels, snapshot at 2026-01-01T00:00:00.000Z.\n"))
 
 
+def query(start, end):
+    """The query string of a span, from `start` in milliseconds to `end` in milliseconds."""
+    return f"from={iso(start)}&to={iso(end)}"
+
+
 class Spans(Sensed):
     def test_a_span_that_holds_too_many_samples_gets_422(self):
         sensor = self.make()
         for k in range(5):
             self.put(sensor, k, float(k))
         port = self.serve(sensor)
-        span = {"from": iso(T0), "to": iso(T0 + 10000)}
         with mock.patch.object(sensor_module, "MAX_SPAN_SAMPLES", 4):
-            status, data = self.call(port, "POST", "/output/observe", {"api": 1, "span": span})
+            status, data = self.call(port, f"/output/observe?{query(T0, T0 + 10000)}")
         error = json.loads(data)
-        self.assertEqual((status, error["code"]), (422, "unavailable"))
+        self.assertEqual((status, error["code"], error["api"]), (422, "unavailable", 2))
         self.assertIn("5 samples", error["message"])
         self.assertIn("limit is 4", error["message"])
-        status, data = self.call(port, "POST", "/output/observe", {"api": 1, "span": {"from": iso(T0 + 250), "to": iso(T0 + 750)}})
+        status, data = self.call(port, f"/output/observe?{query(T0 + 250, T0 + 750)}")
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(data)["observations"][0]["parts"][0]["values"], [1.0, 2.0])
+        body = json.loads(data)
+        self.assertEqual(body["api"], 2)
+        self.assertEqual(body["observations"][0]["parts"][0]["values"], [1.0, 2.0])
 
     def test_recent_and_settings_have_no_history(self):
         port = self.serve(self.make())
-        span = {"from": iso(T0), "to": iso(T0 + 1000)}
         for name in ("recent", "settings"):
-            self.assertEqual(self.call(port, "POST", f"/{name}/observe", {"api": 1, "span": span})[0], 422)
-        self.assertEqual(self.call(port, "POST", "/other/observe", {"api": 1})[0], 404)
-        self.assertEqual(self.call(port, "POST", "/output/observe", {"api": 2})[0], 400)
-        status, data = self.call(port, "GET", "/")
-        self.assertEqual([(s["name"], s["spans"]) for s in json.loads(data)["sensors"]],
+            status, data = self.call(port, f"/{name}/observe?{query(T0, T0 + 1000)}")
+            self.assertEqual((status, json.loads(data)["code"]), (422, "unavailable"))
+        status, data = self.call(port, "/")
+        index = json.loads(data)
+        self.assertEqual(index["api"], 2)
+        self.assertEqual([(s["name"], s["spans"]) for s in index["sensors"]],
                          [("output", True), ("recent", False), ("settings", False)])
+
+    def test_a_bad_query_gets_400(self):
+        port = self.serve(self.make())
+        first, second = iso(T0), iso(T0 + 1000)
+        for bad in [f"from={second}&to={first}", f"from={first}&to={first}", f"from={first}", f"to={second}",
+                    "from=x&to=y", "from=2026-01-01T00:00:00Z&to=2026-01-01T00:00:01Z",
+                    "from=2026-02-30T00:00:00.000Z&to=2026-03-01T00:00:00.000Z",
+                    f"from={first}&to={second}&limit=1", f"from={first}&from={first}&to={second}", "from&to", "x=1"]:
+            status, data = self.call(port, "/output/observe?" + bad)
+            error = json.loads(data)
+            self.assertEqual((status, error["code"], error["api"]), (400, "invalid", 2), bad)
+            self.assertIsInstance(error["message"], str)
+
+    def test_unknown_paths_get_404_as_json(self):
+        port = self.serve(self.make())
+        for path, method in [("/other/observe", "GET"), ("/missing", "GET"), ("/output", "GET"),
+                             ("/files/" + "0" * 64, "GET"), ("/files/../sensor.py", "GET"),
+                             ("/output/observe", "POST"), ("/", "DELETE")]:
+            status, data = self.call(port, path, method)
+            error = json.loads(data)
+            self.assertEqual((status, error["code"], error["api"]), (404, "unknown", 2), f"{method} {path}")
 
     def test_the_recent_file_is_a_blob_with_its_digest(self):
         sensor = self.make()
         self.put(sensor, 0, 1.0)
         port = self.serve(sensor)
-        status, data = self.call(port, "POST", "/recent/observe", {"api": 1})
-        parts = json.loads(data)["observations"][0]["parts"]
+        status, data = self.call(port, "/recent/observe")
+        body = json.loads(data)
+        self.assertEqual((status, body["api"]), (200, 2))
+        parts = body["observations"][0]["parts"]
         self.assertEqual([p["kind"] for p in parts], ["text", "file"])
-        status, content = self.call(port, "GET", f"/files/{parts[1]['file']}")
+        status, content = self.call(port, f"/files/{parts[1]['file']}")
         self.assertEqual((status, hashlib.sha256(content).hexdigest()), (200, parts[1]["file"]))
         self.assertEqual(json.loads(content)["period_ms"], 250)
 
@@ -336,38 +366,90 @@ class Sampler(Sensed):
         self.assertIn(f"The last read failed at {iso(T0 + 250)}: boom.", sensor.recent_text(document))
 
 
+def free_port():
+    """A port that no process holds now."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
 class Process(Isolated):
-    def run_sensor(self, data, *args):
+    def run_sensor(self, data, *args, port=None, **env):
+        """Start sensor.py as bash does: with PORT set, and with no READY line to wait for."""
         config = self.directory / "psu.json"
         config.write_text(json.dumps(CONFIG_TWO))
-        env = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-psu", "AMBION_SENSOR_DATA_DIR": str(data)}
+        port = free_port() if port is None else port
+        variables = {**os.environ, "AMBION_SENSOR_REPOSITORY": "engineer/bench-psu",
+                     "AMBION_SENSOR_DATA_DIR": str(data), "PORT": str(port), **env}
         command = [sys.executable, "-u", "-B", "sensor.py", "--config", str(config), "--sim", str(self.state), *args]
-        return subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen(command, cwd=ROOT, env=variables, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process.port = port
+        return process
 
-    def test_main_prints_ready_and_serves(self):
+    def get(self, process, path):
+        """Poll until the server answers, as a reader of the process does."""
+        for _ in range(600):
+            if process.poll() is not None:
+                self.fail(f"sensor.py exited with {process.returncode}: {process.stderr.read()}")
+            try:
+                connection = http.client.HTTPConnection("127.0.0.1", process.port, timeout=5)
+                connection.request("GET", path)
+                response = connection.getresponse()
+                return response.status, json.loads(response.read())
+            except OSError:
+                threading.Event().wait(0.05)
+            finally:
+                connection.close()
+        self.fail("sensor.py did not listen.")
+
+    def test_main_listens_on_port_prints_nothing_and_serves(self):
         process = self.run_sensor(self.directory / "data")
         timer = threading.Timer(30, process.kill)
         timer.start()
         try:
-            line = process.stdout.readline()
-            self.assertTrue(line.startswith("READY "), line + process.stderr.read() if process.poll() is not None else line)
-            ready = json.loads(line[6:])
-            connection = http.client.HTTPConnection("127.0.0.1", ready["port"], timeout=5)
-            connection.request("GET", "/")
-            response = connection.getresponse()
-            body = json.loads(response.read())
-            self.assertEqual(response.status, 200)
+            status, body = self.get(process, "/")
+            self.assertEqual(status, 200)
+            self.assertEqual(body["api"], 2)
             self.assertEqual(body["source"]["repository"], "engineer/bench-psu")
             self.assertEqual([s["name"] for s in body["sensors"]], ["output", "recent", "settings"])
-            connection.request("POST", "/output/observe", json.dumps({"api": 1}))
-            self.assertEqual(len(json.loads(connection.getresponse().read())["observations"]), 1)
+            status, body = self.get(process, "/output/observe")
+            self.assertEqual((status, body["api"]), (200, 2))
+            self.assertEqual(len(body["observations"]), 1)
         finally:
             process.terminate()
             process.wait(timeout=10)
             timer.cancel()
+            self.assertEqual(process.stdout.read(), "")
             process.stdout.close()
             process.stderr.close()
         self.assertEqual(process.returncode, 0)
+
+    def test_main_stops_when_the_port_is_in_use(self):
+        with socket.socket() as holder:
+            holder.bind(("127.0.0.1", 0))
+            holder.listen()
+            process = self.run_sensor(self.directory / "data", port=holder.getsockname()[1])
+            out, error = process.communicate(timeout=30)
+        self.assertEqual(process.returncode, 1)
+        self.assertEqual(out, "")
+        self.assertIn("The sensor cannot listen on port", error)
+        self.assertEqual(len(error.splitlines()), 1)
+
+    def test_main_stops_when_the_port_is_missing_or_bad(self):
+        config = self.directory / "psu.json"
+        config.write_text(json.dumps(CONFIG_TWO))
+        for value in (None, "", "0", "65536", "http", "-1"):
+            env = {key: item for key, item in os.environ.items() if key != "PORT"}
+            env.update({"AMBION_SENSOR_REPOSITORY": "engineer/bench-psu",
+                        "AMBION_SENSOR_DATA_DIR": str(self.directory / "data")})
+            if value is not None:
+                env["PORT"] = value
+            done = subprocess.run([sys.executable, "-B", "sensor.py", "--config", str(config), "--sim", str(self.state)],
+                                  cwd=ROOT, env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(done.returncode, 2, value)
+            self.assertEqual(done.stdout, "")
+            self.assertIn("Set PORT to an integer from 1 to 65535", done.stderr)
+        self.assertFalse((self.directory / "data").exists())
 
     def test_main_refuses_a_data_directory_inside_the_checkout(self):
         process = self.run_sensor(ROOT / "sensor-data-refused")
@@ -382,7 +464,7 @@ class Process(Isolated):
             shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns("tests", "__pycache__"))
             env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
             env.update({"AMBION_SENSOR_REPOSITORY": "engineer/bench-psu", "GIT_CEILING_DIRECTORIES": folder,
-                        "AMBION_SENSOR_DATA_DIR": str(self.directory / "data"), **changes})
+                        "AMBION_SENSOR_DATA_DIR": str(self.directory / "data"), "PORT": str(free_port()), **changes})
             done = subprocess.run([sys.executable, "-B", "sensor.py", "--sim", str(self.state)], cwd=copy, env=env,
                                   capture_output=True, text=True, timeout=30)
         return done, copy.resolve()
