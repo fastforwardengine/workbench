@@ -7,6 +7,7 @@ import type { Workspace } from '@ambionframework/workspace';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
 import { team } from '../src/domain/definitions.ts';
+import { labRepositories } from '../src/host/repositories.ts';
 import { loadWorkstation, probeWorkstation } from '../src/host/workstation.ts';
 
 const directories: string[] = [];
@@ -116,7 +117,10 @@ describe('the workstation config', () => {
 		const accounts = readFileSync(new URL('../workstation/accounts', import.meta.url), 'utf8')
 			.split('\n')
 			.filter((line) => line !== '' && !line.startsWith('#'));
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
 		const built = await team(workspace);
 		expect(accounts.sort()).toEqual(
 			[...built.specialists.map((seat) => seat.name), workspace.mirrorAgent.name].sort(),

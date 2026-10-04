@@ -23,13 +23,15 @@ compatibility: Needs python3. A real supply needs python3-serial and a USB seria
    code with `wait({ handles: [handle], timeout: 0 })`. Exit 0 means that the
    controller turned off the channels that it held. Any other code means
    that the state of the channels is unknown.
-7. Stop an actuator early with `cancel({ handle })`. Then read the state
-   with `wait({ handles: [handle], timeout: 0 })`. Only the state `exited`
-   with code 0 means that the channels are off.
-8. After an exit code other than 0, the state `cancelled`, a kill, or a
-   lost process, run
-   `python3 finally.py`. It turns off every channel, also while another
-   process holds a channel.
+7. Stop an actuator early with the macro `drive-the-power-supply/stop`:
+   `compose({ macro: 'drive-the-power-supply/stop', args: { handle, clone } })`.
+   It cancels the process and reads its state. Only the state `exited` with
+   code 0 gives `safe: true`: the channels are off.
+8. After any other result, also an unknown handle, the macro runs `python3 finally.py` in the clone,
+   and returns its output in `finally`. It turns off every channel, also
+   while another process holds a channel. Read `finally` to check it. Run
+   `python3 finally.py` yourself after an exit code other than 0, a kill,
+   or a lost process, when you did not use the macro.
 9. Read the supply with the sensor. Start `sensor.py` with `bash` as the README of
    the clone says. The sensor prints no ready line, and `fetch` fails until
    it takes its first sample. Then fetch `/output/observe`,

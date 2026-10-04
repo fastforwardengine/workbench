@@ -8,6 +8,7 @@ import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
 import { SHARED_SKILLS, skillsDirectory, specialistSkills } from '../src/domain/skills.ts';
+import { labRepositories } from '../src/host/repositories.ts';
 
 const specialists = ['researcher', 'engineer'];
 
@@ -56,7 +57,10 @@ describe('the Workbench skills', () => {
 	});
 
 	it('lists the skills of a specialist in its guidance, and no skill of another', async () => {
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
 		try {
 			const built = await team(workspace);
 			for (const seat of built.specialists) {
@@ -75,7 +79,10 @@ describe('the Workbench skills', () => {
 	it('copies the skills of a specialist into its home, where the seat reads them', async () => {
 		const person = people[0];
 		if (!person) throw new Error('No person.');
-		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
 		const built = await team(workspace);
 		const room = await startRoom({
 			name: 'skills',

@@ -12,11 +12,12 @@ holds the contract.
 
 | Part       | Where                          | What it holds                                                 |
 | ---------- | ------------------------------ | ------------------------------------------------------------- |
-| The skills | `skills/<specialist>/<skill>/` | `SKILL.md`, and any scripts, references, and assets           |
+| The skills | `skills/<specialist>/<skill>/` | `SKILL.md`, and any scripts, macros, references, and assets   |
 | The shared | `skills/shared/<skill>/`       | A skill that every specialist receives                        |
 | The loader | `src/domain/skills.ts`         | `specialistSkills`, which reads two folders with `loadSkills` |
 | The wiring | `src/domain/definitions.ts`    | `workspace.tools({ skills })` in each specialist              |
 | The check  | `test/skills.test.ts`          | The folders, the guidance, and the copy into the home         |
+| The macros | `test/skill-macros.test.ts`    | Each macro in a scripted room, and the guidance that lists it |
 
 **Each specialist has its own folder.** The folder name is the name of the
 specialist.
@@ -61,3 +62,41 @@ skills, and the skill names the template.
 as the account of the specialist, with the programs of the server. Write
 each script for the programs that the workstation has. The host reads the
 bytes of each file, so an asset can be binary.
+
+## Add a macro
+
+**A macro is a script that chains workspace tools in one call.** It lives in
+`skills/<specialist>/<skill>/macros/<name>.js`. Ambion reads it with the
+skill. The seat guidance lists each macro with its description. A seat runs
+it with `compose({ macro: '<skill>/<name>', args })`.
+
+**The file starts with a header in a block comment.** The line `/*---`
+opens it and the line `---*/` closes it. Between them is YAML with three
+fields:
+
+- `description`: what the macro does and returns.
+- `uses`: the list of tool names that the macro calls.
+- `args`: a JSON Schema object for the arguments.
+
+The rest of the file is the body of an async function. It reads the global
+`args`, and calls a tool as `await tools.<name>({ ... })`. The call returns
+the typed `details` of the tool. The body has no clock and no I/O except
+tools. It returns a JSON value. A process tool (`bash`, `wait`, `cancel`)
+rejects when the process ends with a code other than 0. The error holds the
+result in `details`.
+
+**A macro may use only a tool that every seat of the skill has.** Ambion
+stops the start when a macro names a missing tool. The `fetch` tool exists
+only on a backend with endpoints, so the just-bash backend of the tests has
+no `fetch`. A macro that uses `repos` needs a backend with a git server.
+
+**Choose the form by the judgment that the procedure needs:**
+
+| The procedure                                              | The form               |
+| ---------------------------------------------------------- | ---------------------- |
+| Chains workspace tools, with no judgment between the calls | A macro                |
+| Runs in the shell only                                     | A script in `scripts/` |
+| Needs judgment, or needs the person                        | Prose in `SKILL.md`    |
+
+Test each macro in `test/skill-macros.test.ts`. The test runs the macro
+with `compose` in a scripted room.
