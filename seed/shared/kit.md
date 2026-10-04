@@ -29,10 +29,6 @@ one against the kit. The datasheets, the manual, and the schematic are in
 
 ## House rules
 
-- Read the datasheet in /library before you state a limit. Cite the path.
-- A measurement counts only when a script read it from a device. Cite the
-  file that the script wrote. Every other value is a planned value.
 - The first power-on of the second kit goes through the HM310P, with a current
   limit. Stop at once on an abnormal current.
-- The power stays off until the checks of the build pass.
 - Record a decision in the notes, in `decisions/`, unless the person told you not to edit files.

@@ -18,8 +18,8 @@ waits for that capture and receives the same observation. Otherwise the
 request starts a new capture. The upstream Mac example captures five
 frames each second. This server has no preview and no captions.
 
-1. Follow `scan-the-bench`. Record the USB ID and the capture node of the
-   camera in the inventory.
+1. Record the USB ID and the capture node of the camera in the inventory
+   of the `device-scan` fork.
 2. Run `v4l2-ctl --list-devices` and
    `v4l2-ctl -d /dev/video0 --list-formats-ext`. Select a video capture
    node and a supported resolution. `/dev/video0` is an example. The
@@ -130,18 +130,13 @@ frames each second. This server has no preview and no captions.
     home. Snapshot paths change, so cite the refs as evidence. After the
     server stops, use `restore` on the ref of the observation and on the
     ref of the frame.
-12. Aim the camera at the bench before you capture. The server does not
-    crop images, blur faces, or run OCR. The microphone hears the room.
-    Tell the people at the bench before you record. Inspect each image.
-    Report pass, fail, or unclear, with the ref. For FM radio path A,
-    frame the display and check that you can read every digit before you
-    report a frequency. Report an unreadable digit as unclear.
+12. The server does not crop images, blur faces, or run OCR. The
+    microphone hears the room.
 
-    Read a clip through its level series first. A pulsed tone that is
-    louder than the room shows high and low levels in turn. Room sound,
-    such as speech or a fan, can hide that pattern, because the series
-    measures all frequencies. Then analyze the WAV file in the band around
-    the tone. `fetch` of `/files/<sha256>` saves the WAV file under
+    A pulsed tone that is louder than the room shows high and low levels
+    in turn in the level series. Room sound, such as speech or a fan, can
+    hide that pattern, because the series measures all frequencies. To
+    find the tone, analyze the WAV file in the band around it. `fetch` of `/files/<sha256>` saves the WAV file under
     `~/.fetch/camera/` and names that path. Analyze it there with
     `python3` and numpy.
 13. Replace the server in this order:

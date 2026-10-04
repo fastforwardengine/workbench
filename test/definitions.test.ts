@@ -143,14 +143,13 @@ describe('the Engineer', () => {
 			const engineer = built.specialists.find((seat) => seat.name === 'engineer');
 			const rules = engineer ? instructionsOf(engineer) : '';
 			for (const rule of [
-				'follow the scan-the-bench skill',
+				'Follow the scan-the-bench skill to find the devices of the bench',
 				'Follow the drive-the-power-supply skill to run a power supply',
 				'the observe-the-camera skill',
 				'Follow the guide-a-build-step skill',
 				'the check-a-photo skill',
 				'Change no setting and no output of a device outside a script from a template.',
 				'You cannot hold a tool.',
-				'Record each step that the person completes in the build folder of the notes',
 			])
 				expect(rules).toContain(rule);
 			expect(rules).toContain(
@@ -159,7 +158,13 @@ describe('the Engineer', () => {
 			expect(groupOf(rules, 'Speaking').join('\n')).toContain(
 				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
 			);
-			for (const copy of ['a transistor', 'pass, fail, or unclear', 'The power stays off', 'TBD'])
+			for (const copy of [
+				'a transistor',
+				'pass, fail, or unclear',
+				'The power stays off',
+				'TBD',
+				'Record each step',
+			])
 				expect(rules).not.toContain(copy);
 			expect(built.specialists.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);
 		} finally {

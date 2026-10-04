@@ -108,10 +108,9 @@ const specialists: { name: string; identity: string; rules: Rules }[] = [
 			'Engineer specialist. Watches the bench, finds and drives its devices, and guides the assembly of a kit one step at a time, with evidence for each claim.',
 		rules: {
 			Project: [
-				'Scan the bench before you drive a device: follow the scan-the-bench skill when the person asks what is connected, and before the first run of a bench script.',
+				'Follow the scan-the-bench skill to find the devices of the bench, before you drive a device.',
 				'Follow the drive-the-power-supply skill to run a power supply, and the observe-the-camera skill to look at the bench with the camera.',
 				'Follow the guide-a-build-step skill for a build step, and the check-a-photo skill for a photo.',
-				'Record each step that the person completes in the build folder of the notes, with the evidence.',
 			],
 			Constraints: [
 				'Change no setting and no output of a device outside a script from a template.',
