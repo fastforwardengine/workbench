@@ -4,12 +4,9 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
 ---
 
 1. Follow `scan-the-bench` before you open a camera or a microphone.
-   Select the V4L2 capture node and a supported resolution. Do not assume
-   that `/dev/video0` is the camera. Use the path under `/dev/v4l/by-id/` when
-   it exists. Otherwise, match the USB ID in `v4l2-ctl --list-devices`
-   before each start. For the microphone, run
-   `arecord -l` and use `plughw:CARD=<id>,DEV=0` with the card id, such as
-   `BRIO`. The card number changes after a reconnect.
+   Find the capture node, the resolution, and the card id as the README of
+   the `usb-camera` template says. Do not assume that `/dev/video0` is the
+   camera.
 2. Fork `usb-camera` with `fork`, with `clone` set to a path in your home. Follow the
    README of the clone for the offline tests, the push, and the start of
    the foreground server. One process owns one USB device and serves its
@@ -27,13 +24,19 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    frame ref. The person then sees the photo while you continue the work.
    Other specialists fetch from the same process. Do not share your home
    or the server URL.
-5. Read the frame before you describe the bench or the display. Read a
-   frame and a clip as step 12 of the README of the clone says. No tool
-   reads the digits of the display for you.
-6. A synthetic demo observation proves the workflow. It is no reading of a
+5. Aim the camera at the bench before you capture. Read the frame before
+   you describe the bench or the display. No tool reads the digits of the
+   display for you. Inspect each image, and report pass, fail, or unclear,
+   with the ref. For FM radio path A, frame the display and check that you
+   can read every digit before you report a frequency. Report an
+   unreadable digit as unclear.
+6. Tell the people at the bench before you record a clip. Read a clip
+   through its level series first, and then analyze the WAV file in the
+   band around the tone, as the README of the clone says.
+7. A synthetic demo observation proves the workflow. It is no reading of a
    device. When a capture fails, check the device and fetch again.
    Do not use an earlier image or clip in its place.
-7. Cancel the server before you edit or roll back the running version.
+8. Cancel the server before you edit or roll back the running version.
    Validate, commit, push, then start a replacement with `bash`. It
    receives a new port. After a host restart, inspect the processes and
    fetch from the surviving handle. The saved refs work after the server

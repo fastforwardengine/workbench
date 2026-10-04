@@ -126,7 +126,7 @@ def launch_source(checkout, repository):
         lines = (error.stderr or "").strip().splitlines()
         raise CheckoutError(
             f"camera needs a git checkout of your fork at {checkout}. "
-            "Clone your fork, then start the sensor from the clone (README step 4)."
+            "Clone your fork, then start the sensor from the clone (README, the fork and clone step)."
             + (f" Git says: {lines[0]}" if lines else "")
         ) from error
     if branch:

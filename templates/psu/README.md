@@ -19,10 +19,10 @@ register map). The `sim` driver is a simulated supply with no hardware.
    `python3 psu.py set --channel ch1 --voltage 3.30 --current 0.050`.
    A supply with one channel needs no `--channel`. A supply with several
    channels requires it.
-4. Ask the person before the first `python3 psu.py output --channel ch1 on`.
-   Turn the outputs off with `python3 psu.py output off` when the work
-   ends, also after a failure. That command takes no channel and turns off
-   every channel. It works while another process holds a channel.
+4. Turn an output on with `python3 psu.py output --channel ch1 on`.
+   Turn the outputs off with `python3 psu.py output off`. That command
+   takes no channel and turns off every channel. It works while another
+   process holds a channel.
 5. Read the outputs with `python3 psu.py measure --count 10 --interval 0.5
    --csv`. Each row names its channel. Record the rows in a file that you
    commit.

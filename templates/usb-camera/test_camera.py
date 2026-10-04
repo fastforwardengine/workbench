@@ -575,7 +575,7 @@ class MainTests(unittest.TestCase):
         self.assertEqual(done.stdout, "")
         self.assertTrue(done.stderr.startswith(
             f"camera needs a git checkout of your fork at {folder}. "
-            "Clone your fork, then start the sensor from the clone (README step 4)."), done.stderr)
+            "Clone your fork, then start the sensor from the clone (README, the fork and clone step)."), done.stderr)
         self.assertEqual(len(done.stderr.splitlines()), 1)
 
     def test_missing_git_exits_with_one_line(self):

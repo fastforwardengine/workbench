@@ -66,8 +66,8 @@ the steps for replacement, rollback, and restoration.
 **Two tests validate the `usb-camera` protocol.** Both open no camera. The
 commands exist in the Workbench repository only.
 
-- `pnpm exec vitest run test/usb-camera-protocol.test.ts` runs Ambion's
-  the sensor protocol checks of Workbench against both sensors of the
+- `pnpm exec vitest run test/usb-camera-protocol.test.ts` runs the
+  sensor protocol checks of Workbench against both sensors of the
   server. The test fixes the clock of the acquisition.
 - `WORKBENCH_WORKSTATION=.workstation/workstation.json pnpm exec vitest run
 test/usb-camera-workstation.test.ts` checks these steps: fork, save,
