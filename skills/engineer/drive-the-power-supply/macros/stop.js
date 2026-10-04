@@ -15,14 +15,11 @@ args:
 ---*/
 const quote = (text) => `'${text.replaceAll("'", "'\\''")}'`;
 // A call rejects when the process ends with a code other than 0. The error holds the result.
-const settled = (call) =>
-	call.catch((error) => {
-		if (!error.details) throw error;
-		return error.details;
-	});
+// A rejection without a result, such as an unknown handle, leaves the state unknown.
+const settled = (call) => call.catch((error) => error.details ?? null);
 await settled(tools.cancel({ handle: args.handle }));
 const waited = await settled(tools.wait({ handles: [args.handle], timeout: 0 }));
-const process = waited.process ?? waited.processes[0];
+const process = waited?.process ?? waited?.processes?.[0] ?? { state: 'unknown' };
 const safe = process.state === 'exited' && process.exitCode === 0;
 const result = { state: process.state, exitCode: process.exitCode ?? null, safe };
 if (safe) return result;

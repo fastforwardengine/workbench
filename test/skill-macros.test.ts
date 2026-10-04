@@ -149,7 +149,7 @@ describe('the macro keep-notes/push', () => {
 		const pulled = returned(texts[0] ?? '');
 		const pushed = returned(texts[1] ?? '');
 		expect(pushed).toMatchObject({ commit: pulled.head, committed: false });
-		expect(pushed.note).toMatch(/Nothing to commit/);
+		expect(pushed.note).toMatch(/Nothing new to commit/);
 	}, 20_000);
 
 	it('pulls once and pushes again when another seat pushed first', async () => {
@@ -164,6 +164,38 @@ describe('the macro keep-notes/push', () => {
 		expect(texts[4]).toContain(pushed.commit);
 		expect(texts[4]).toContain('mine.md');
 		expect(texts[4]).toContain('other.md');
+	}, 20_000);
+
+	it('pushes the resolution that the seat made by hand, and returns the head of origin main', async () => {
+		const texts = await runCalls('researcher', [
+			macro('keep-notes/pull'),
+			bash(OTHER_PUSH('README.md', 'theirs')),
+			bash('cd ~/notes && echo mine > README.md'),
+			macro('keep-notes/push', { message: 'notes: mine' }),
+			bash(
+				'cd ~/notes && git pull --rebase; echo resolved > README.md && git add README.md && git rebase --continue',
+			),
+			macro('keep-notes/push', { message: 'notes: unused' }),
+			bash('cd ~/notes && git fetch && git rev-parse origin/main'),
+		]);
+		const pushed = returned(texts[5] ?? '');
+		expect(pushed.committed).toBe(false);
+		expect(texts[6]).toContain(pushed.commit);
+	}, 20_000);
+
+	it('refuses to run while a rebase is in progress, and keeps the work', async () => {
+		const texts = await runCalls('researcher', [
+			macro('keep-notes/pull'),
+			bash(OTHER_PUSH('README.md', 'theirs')),
+			bash('cd ~/notes && echo mine > README.md'),
+			macro('keep-notes/push', { message: 'notes: mine' }),
+			bash('cd ~/notes && git pull --rebase >/dev/null 2>&1; git status'),
+			macro('keep-notes/push', { message: 'notes: again' }),
+			bash('cd ~/notes && git status'),
+		]);
+		expect(texts[4]).toMatch(/rebase in progress|Unmerged|conflict/i);
+		expect(texts[5]).toMatch(/git rebase --continue/);
+		expect(texts[6]?.split('\n\n[Process')[0]).toBe(texts[4]?.split('\n\n[Process')[0]);
 	}, 20_000);
 
 	it('aborts the rebase and tells the seat to resolve a conflict by hand', async () => {
@@ -210,6 +242,16 @@ describe('the macro drive-the-power-supply/stop', () => {
 		const result = await stopped('exit 3', 5);
 		expect(result).toMatchObject({ state: 'exited', exitCode: 3, safe: false });
 		expect(result.finally).toContain('ModuleNotFoundError');
+	}, 30_000);
+
+	it('runs finally.py when the handle is unknown', async () => {
+		const texts = await runCalls('engineer', [
+			{ tool: 'fork', input: { source: 'templates/psu', name: 'bench-psu', clone: '~/bench-psu' } },
+			macro('drive-the-power-supply/stop', { handle: 'bash-000000000000', clone: '~/bench-psu' }),
+		]);
+		const result = returned(texts[1] ?? '');
+		expect(result).toMatchObject({ state: 'unknown', exitCode: null, safe: false });
+		expect(result.finallyExitCode).toBe(1);
 	}, 30_000);
 
 	it('reports safe and skips finally.py after an exit 0', async () => {

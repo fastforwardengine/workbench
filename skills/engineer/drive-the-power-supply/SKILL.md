@@ -27,7 +27,7 @@ compatibility: Needs python3. A real supply needs python3-serial and a USB seria
    `compose({ macro: 'drive-the-power-supply/stop', args: { handle, clone } })`.
    It cancels the process and reads its state. Only the state `exited` with
    code 0 gives `safe: true`: the channels are off.
-8. After any other result, the macro runs `python3 finally.py` in the clone,
+8. After any other result, also an unknown handle, the macro runs `python3 finally.py` in the clone,
    and returns its output in `finally`. It turns off every channel, also
    while another process holds a channel. Read `finally` to check it. Run
    `python3 finally.py` yourself after an exit code other than 0, a kill,

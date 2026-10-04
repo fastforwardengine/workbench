@@ -20,10 +20,12 @@ layout, the form of a claim, and the stewards.
    all changes in `~/notes`, and pushes to `origin main`. If the push is
    rejected, it pulls once and pushes again. After a conflict it aborts the
    rebase and fails. Then fix the conflict by hand in `~/notes` with
-   `git pull --rebase`, keep both edits, and run the macro again.
+   `git pull --rebase`, keep both edits, run `git add` on the files and
+   `git rebase --continue`, and run the macro again. The macro refuses to
+   run while a rebase is in progress.
 6. To disagree with a claim of another seat, do not edit it. Make a branch
    `dispute/<topic>`, add your own claim and the evidence, name the claim you
    dispute by its file, and push the branch: `git push origin dispute/<topic>`.
    Never rewrite or delete a dispute branch.
-7. Cite the `commit` that the macro returns in `refs` of the message that relies on the note, in the
-   form that the git guidance gives.
+7. Cite the `commit` that the macro returns in `refs` of the message that
+   relies on the note, in the form that the git guidance gives.
