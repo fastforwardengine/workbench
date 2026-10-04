@@ -7,7 +7,7 @@ import type { PiOptions } from '@ambionframework/pi';
  * The model of every seat, and the login it needs.
  *
  * Every seat runs on Pi. `WORKBENCH_MODEL` switches the model between
- * providers. `MODEL_PRESETS` names the three that this project has a login
+ * providers. `MODEL_PRESETS` names the four that this project has a login
  * for.
  */
 
@@ -20,8 +20,9 @@ export const CHATGPT_PROVIDER = 'openai-codex';
 /** The short names `WORKBENCH_MODEL` accepts, each for one Pi model id. */
 const MODEL_PRESETS: Readonly<Record<string, string>> = {
 	anthropic: 'anthropic/claude-sonnet-4-5',
-	openai: 'openai/gpt-5.6-luna',
-	chatgpt: `${CHATGPT_PROVIDER}/gpt-6-luna`,
+	openai: 'openai/gpt-6.1-sol',
+	chatgpt: `${CHATGPT_PROVIDER}/gpt-6.1-sol`,
+	luna: `${CHATGPT_PROVIDER}/gpt-6-luna`,
 };
 
 /**
@@ -46,7 +47,7 @@ function hasSignIn(provider: string, env: Environment): boolean {
 
 /**
  * The model every seat runs on. `WORKBENCH_MODEL` switches it: `anthropic`,
- * `openai`, and `chatgpt` are the presets above, and any other value passes
+ * `openai`, `chatgpt`, and `luna` are the presets above, and any other value passes
  * through as a Pi model id, `provider/model-id`. With no value, the default is
  * the `chatgpt` preset when the credential file holds a ChatGPT sign-in, and
  * the `anthropic` preset otherwise.
@@ -58,7 +59,10 @@ export function piModel(env: Environment = process.env): string {
 	return MODEL_PRESETS[preset] ?? 'anthropic/claude-sonnet-4-5';
 }
 
-/** The thinking level of every seat. Pi sends it to the provider of the model. */
+/**
+ * The thinking level of every seat. Pi sends it to the provider of the model.
+ * `low` is the lightest level that GPT-6.1 Sol accepts.
+ */
 export const THINKING: NonNullable<PiOptions['thinking']> = 'low';
 
 /** The provider of a Pi model id: the text before the first slash. */

@@ -4,7 +4,8 @@
  * line. The evals run on `@ambionframework/simulator`: a scripted person
  * asks, checks in code decide the facts, and a judge grades the meaning.
  *
- * `WORKBENCH_MODEL` names the model of every seat, as `pnpm start` reads it.
+ * The evals default to the `luna` preset. `WORKBENCH_MODEL` names another
+ * model of every seat, as `pnpm start` reads it.
  * `JUDGE_MODEL` names the judge's model, the same model by default. A suite
  * that grades one provider names a model of another provider for the judge.
  */

@@ -19,11 +19,12 @@ const none = { HOME: '/nonexistent', WORKBENCH_PI_CREDENTIALS: '/nonexistent/cre
 describe('Workbench model', () => {
 	afterEach(() => vi.unstubAllEnvs());
 
-	it('switches the model between the anthropic, openai, and chatgpt presets', () => {
+	it('switches the model between the anthropic, openai, chatgpt, and luna presets', () => {
 		expect(piModel({ ...none })).toBe('anthropic/claude-sonnet-4-5');
 		expect(piModel({ ...none, WORKBENCH_MODEL: 'anthropic' })).toBe('anthropic/claude-sonnet-4-5');
-		expect(piModel({ ...none, WORKBENCH_MODEL: 'openai' })).toBe('openai/gpt-5.6-luna');
-		expect(piModel({ ...none, WORKBENCH_MODEL: 'chatgpt' })).toBe('openai-codex/gpt-6-luna');
+		expect(piModel({ ...none, WORKBENCH_MODEL: 'openai' })).toBe('openai/gpt-6.1-sol');
+		expect(piModel({ ...none, WORKBENCH_MODEL: 'chatgpt' })).toBe('openai-codex/gpt-6.1-sol');
+		expect(piModel({ ...none, WORKBENCH_MODEL: 'luna' })).toBe('openai-codex/gpt-6-luna');
 		// Any other value passes through as a full Pi model id.
 		expect(piModel({ ...none, WORKBENCH_MODEL: 'openai-codex/gpt-5' })).toBe('openai-codex/gpt-5');
 	});
@@ -45,7 +46,7 @@ describe('Workbench model', () => {
 			'The model anthropic/claude-sonnet-4-5 has no login. Set ANTHROPIC_API_KEY in the environment or in .env, or run `workbench login` for ChatGPT.',
 		);
 		expect(missingLogin({ ...none, WORKBENCH_MODEL: 'chatgpt' })).toBe(
-			'The model openai-codex/gpt-6-luna has no login. Run `workbench login`.',
+			'The model openai-codex/gpt-6.1-sol has no login. Run `workbench login`.',
 		);
 	});
 
@@ -73,7 +74,7 @@ describe('Workbench model', () => {
 
 		it('defaults to the chatgpt model after a ChatGPT sign-in', async () => {
 			const env = await envWith(JSON.stringify({ 'openai-codex': { type: 'oauth' } }));
-			expect(piModel(env)).toBe('openai-codex/gpt-6-luna');
+			expect(piModel(env)).toBe('openai-codex/gpt-6.1-sol');
 			expect(modelHasLogin(piModel(env), env)).toBe(true);
 			expect(missingLogin(env)).toBeUndefined();
 		});
