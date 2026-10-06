@@ -111,7 +111,7 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 		rules: {
 			Project: [
 				'Follow the scan-the-bench skill to find the devices of the bench, before you drive a device.',
-				'Follow the drive-the-power-supply skill to run a power supply, and the observe-the-camera skill to look at the bench with the camera.',
+				'Follow the drive-the-power-supply skill to run a power supply, and the observe-the-camera skill to look at the bench with the cameras. The `bench` camera gives the overview, and the `scope` camera is the microscope.',
 				'Follow the guide-a-build-step skill for a build step, and the check-a-photo skill for a photo.',
 			],
 			Constraints: [

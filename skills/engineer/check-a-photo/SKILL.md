@@ -1,11 +1,14 @@
 ---
 name: check-a-photo
-description: Check the placement and the orientation of a part from a photo of the bench camera, or from a photo that the person attached. Use it before a polarized part is soldered, and when the person asks whether a part sits right.
+description: Check the placement and the orientation of a part from a photo of a bench camera, or from a photo that the person attached. Use it before a polarized part is soldered, and when the person asks whether a part sits right.
 ---
 
-1. Take a photo with the camera when it can show the part: follow
-   `observe-the-camera`. Ask the person to attach a photo only when the
-   camera cannot show the part. `/attach <path>` copies it into the
+1. Take a photo with a camera when it can show the part: follow
+   `observe-the-camera`. Use the `scope` camera for a solder joint, a part
+   marking, and a polarity mark. Use the `bench` camera for the place of a
+   part on the board. When the `scope` camera is not shown, use the `bench`
+   camera or an attached photo. Ask the person to attach a photo only when
+   no camera can show the part. `/attach <path>` copies it into the
    workspace and cites it in the next message. Ask for a photo from above,
    in good light, with the mark of the part and the marking of the board in
    view.
