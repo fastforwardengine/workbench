@@ -23,6 +23,7 @@ export function quietParts(over: Partial<VoiceParts> = {}): VoiceParts {
 		deliver: async () => {},
 		say: () => {},
 		problem: () => {},
+		shown: () => undefined,
 		changed: () => {},
 		...over,
 	};

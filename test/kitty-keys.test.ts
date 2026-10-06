@@ -1,16 +1,21 @@
 /**
  * The keys, with the Kitty keyboard flags that the terminal asks for. Each test
- * sends the escape codes that Kitty and Ghostty send, through OpenTUI's own
- * parser: a press, a repeat, and a release for each key.
+ * sends the bytes that Kitty and Ghostty send with these flags, through
+ * OpenTUI's own parser.
+ *
+ * What the terminal sends: a text key arrives as plain text, for the press and
+ * for each repeat. Its release is a `CSI u` code. Enter, Tab, and Backspace have
+ * no release. A key without text, such as an arrow, sends press, repeat, and
+ * release as `CSI` codes.
  *
  * What OpenTUI does with them: a press and a repeat are both `keypress`
- * events, and a repeat has `repeated` set. A release is a `keyrelease` event.
- * The textarea and the Keys class listen to `keypress` only.
+ * events, and a flagged repeat has `repeated` set. A release is a `keyrelease`
+ * event. The textarea and the Keys class listen to `keypress` only.
  */
 import { buildKittyKeyboardFlags, type KeyEvent } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { KEYBOARD } from '../src/terminal/app/keyboard.ts';
+import { KEYBOARD, keyboardProblem } from '../src/terminal/app/keyboard.ts';
 import { Keys } from '../src/terminal/app/keys.ts';
 import { Voice } from '../src/terminal/state/voice.ts';
 import { Composer } from '../src/terminal/widgets/composer.ts';
@@ -24,22 +29,23 @@ afterEach(() => {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** The code points that the tests use. */
-const CODE = { space: 32, enter: 13, tab: 9, escape: 27, backspace: 127, shift: 57441 } as const;
+/** The release of a key, as a `CSI u` code. The code point is the key, and `mods` is 1 plus the modifier bits. */
+const release = (key: number | string, mods = 1) =>
+	`\x1b[${typeof key === 'string' ? key.codePointAt(0) : key};${mods}:3u`;
 
-/** One escape code: key, modifiers, event type (1 press, 2 repeat, 3 release), and text. */
-function code(
-	key: number,
-	options: { mods?: number; type?: 1 | 2 | 3; text?: number; shifted?: number } = {},
-) {
-	const { mods = 1, type = 1, text, shifted } = options;
-	const first = shifted ? `${key}:${shifted}` : `${key}`;
-	return `\x1b[${first};${mods}:${type}${text ? `;${text}` : ''}u`;
-}
-
-const press = (key: number, text?: number) => code(key, { text });
-const repeat = (key: number, text?: number) => code(key, { type: 2, text });
-const release = (key: number) => code(key, { type: 3 });
+/** The keys without text, as the terminal sends them. */
+const KEY = {
+	enter: '\r',
+	tab: '\t',
+	backspace: '\x7f',
+	escape: '\x1b[27u',
+	shiftEnter: '\x1b[13;2u',
+	ctrlC: '\x1b[99;5u',
+	ctrlD: '\x1b[100;5u',
+	up: '\x1b[A',
+	upRepeat: '\x1b[1;1:2A',
+	upRelease: '\x1b[1;1:3A',
+} as const;
 
 /** The terminal, as `tui.ts` wires the keys, over a composer and a stub session. */
 async function build(voice = new Voice(quietParts())) {
@@ -87,12 +93,9 @@ async function build(voice = new Voice(quietParts())) {
 	const send = (...sequences: string[]) => {
 		for (const sequence of sequences) renderer.stdin.emit('data', Buffer.from(sequence));
 	};
-	/** Type a text of lowercase letters and spaces: a press and a release for each. */
+	/** Type a text: the plain text of each key, then its release. */
 	const type = (text: string) => {
-		for (const char of text) {
-			const point = char.codePointAt(0) ?? 0;
-			send(press(point, point), release(point));
-		}
+		for (const char of text) send(char, release(char));
 	};
 	return {
 		setup,
@@ -111,8 +114,32 @@ async function build(voice = new Voice(quietParts())) {
 }
 
 describe('the keyboard flags', () => {
-	it('ask for disambiguation, alternate keys, events, all keys as escapes, and text', () => {
-		expect(buildKittyKeyboardFlags(KEYBOARD)).toBe(1 | 2 | 4 | 8 | 16);
+	it('ask for disambiguation, alternate keys, and events', () => {
+		expect(buildKittyKeyboardFlags(KEYBOARD)).toBe(1 | 2 | 4);
+	});
+
+	it('do not ask for all keys as escape codes, or for their text', () => {
+		const flags = buildKittyKeyboardFlags(KEYBOARD);
+		expect(flags & 8).toBe(0);
+		expect(flags & 16).toBe(0);
+		expect(KEYBOARD.allKeysAsEscapes).toBeUndefined();
+		expect(KEYBOARD.reportText).toBeUndefined();
+	});
+});
+
+describe('the terminal check for voice mode', () => {
+	it('passes a terminal that reports the Kitty keyboard', () => {
+		expect(keyboardProblem({ kitty_keyboard: true })).toBeUndefined();
+	});
+
+	it.each([
+		['one that does not', { kitty_keyboard: false }],
+		['one that has not answered', null],
+		['no capabilities', undefined],
+	])('refuses %s with one line', (_label, capabilities) => {
+		const line = keyboardProblem(capabilities);
+		expect(line).toBe('Voice mode needs a terminal that reports key release, such as Ghostty or Kitty.');
+		expect(line).not.toContain('\n');
 	});
 });
 
@@ -127,102 +154,109 @@ describe('a key that the person presses and releases', () => {
 
 	it('runs the keypress listeners on a press and a repeat, and the keyrelease listeners on a release', async () => {
 		const { seen, freed, send } = await build();
-		send(press(97, 97), repeat(97, 97), repeat(97, 97), release(97));
-		expect(seen.map((key) => [key.eventType, Boolean(key.repeated)])).toEqual([
-			['press', false],
-			['press', true],
-			['press', true],
+		send(KEY.up, KEY.upRepeat, KEY.upRepeat, KEY.upRelease);
+		expect(seen.map((key) => [key.name, key.eventType, Boolean(key.repeated)])).toEqual([
+			['up', 'press', false],
+			['up', 'press', true],
+			['up', 'press', true],
 		]);
-		expect(freed.map((key) => key.eventType)).toEqual(['release']);
+		expect(freed.map((key) => [key.name, key.eventType])).toEqual([['up', 'release']]);
 	});
 
-	it('types a held key once for each press and repeat, as a terminal without release events does', async () => {
+	it('types a held key once for each press and repeat', async () => {
 		const { composer, send } = await build();
-		send(press(97, 97), repeat(97, 97), repeat(97, 97), release(97));
+		send('a', 'a', 'a', release('a'));
 		expect(composer.text).toBe('aaa');
 	});
 
 	it('types a capital letter once', async () => {
-		const { composer, send } = await build();
-		send(
-			code(CODE.shift, { mods: 2 }),
-			code(104, { mods: 2, shifted: 72, text: 72 }),
-			code(104, { mods: 2, type: 3, shifted: 72 }),
-			code(CODE.shift, { mods: 1, type: 3 }),
-		);
-		send(press(105, 105), release(105));
+		const { composer, send, type } = await build();
+		send('H', '\x1b[104:72;2:3u');
+		type('i');
 		expect(composer.text).toBe('Hi');
 	});
 
-	it('types nothing for a modifier key alone', async () => {
-		const { composer, send, onKey } = await build();
-		send(code(CODE.shift, { mods: 2 }), code(CODE.shift, { mods: 1, type: 3 }));
-		send(code(57442, { mods: 5 }), code(57442, { mods: 1, type: 3 }));
-		expect(composer.text).toBe('');
-		expect(onKey.mock.calls.every(([key]) => key.name !== 'space')).toBe(true);
+	it('types the characters that Option makes on macOS, as the text that the terminal sends', async () => {
+		const { composer, seen, send } = await build();
+		send('µ', release('m', 3), 'Ω', release('z', 3), '∑', '°', '±');
+		expect(composer.text).toBe('µΩ∑°±');
+		expect(seen.every((key) => !key.meta)).toBe(true);
+	});
+
+	it('types an accented letter, and a letter from another script', async () => {
+		const { composer, send } = await build();
+		send('ä', 'ж');
+		expect(composer.text).toBe('äж');
+	});
+
+	it('does not delete a word on a typed µ, as Option+d does', async () => {
+		const { composer, send, type } = await build();
+		type('one two ');
+		send('µ');
+		expect(composer.text).toBe('one two µ');
 	});
 
 	it('types a space once', async () => {
 		const { composer, send, type } = await build();
 		type('a');
-		send(press(CODE.space, CODE.space), release(CODE.space));
+		send(' ', release(' '));
 		type('b');
 		expect(composer.text).toBe('a b');
 	});
 
-	it('sends once on Enter, and not on its release', async () => {
+	it('sends once on Enter', async () => {
 		const { submit, send, type } = await build();
 		type('hi');
-		send(press(CODE.enter), release(CODE.enter));
+		send(KEY.enter);
 		expect(submit).toHaveBeenCalledTimes(1);
 	});
 
 	it('adds one line on Shift+Enter', async () => {
 		const { composer, submit, send, type } = await build();
 		type('a');
-		send(code(CODE.enter, { mods: 2 }), code(CODE.enter, { mods: 2, type: 3 }));
+		send(KEY.shiftEnter);
 		type('b');
 		expect(submit).not.toHaveBeenCalled();
 		expect(composer.text).toBe('a\nb');
 	});
 
-	it('deletes one character on Backspace, and not on its release', async () => {
+	it('deletes one character on Backspace', async () => {
 		const { composer, send, type } = await build();
 		type('abc');
-		send(press(CODE.backspace), release(CODE.backspace));
+		send(KEY.backspace);
 		expect(composer.text).toBe('ab');
 	});
 
 	it('runs Tab once', async () => {
 		const { session, send } = await build();
-		send(press(CODE.tab), release(CODE.tab));
+		send(KEY.tab);
 		expect(session.say).toHaveBeenCalledTimes(1);
 	});
 
 	it('runs Escape once, and cancels a room that waits for its goal once', async () => {
 		const { session, send } = await build();
 		session.awaitingGoal = 'bench';
-		send(press(CODE.escape), release(CODE.escape));
+		send(KEY.escape, release(27));
 		expect(session.cancelWaiting).toHaveBeenCalledTimes(1);
 	});
 
 	it('runs Ctrl+C once, and clears the composer', async () => {
 		const { composer, session, send, type } = await build();
 		type('abc');
-		send(code(99, { mods: 5 }), code(99, { mods: 5, type: 3 }));
+		send(KEY.ctrlC, release('c', 5));
 		expect(composer.text).toBe('');
 		expect(session.interrupt).toHaveBeenCalledTimes(1);
 	});
 
 	it('quits once on Ctrl+D with an empty composer', async () => {
 		const { quit, send } = await build();
-		send(code(100, { mods: 5 }), code(100, { mods: 5, type: 3 }));
+		send(KEY.ctrlD, release('d', 5));
 		expect(quit).toHaveBeenCalledTimes(1);
 	});
 
 	it('does not run a key handler on a release', async () => {
 		const { onKey, send } = await build();
-		send(release(97), release(CODE.enter), release(CODE.tab), release(CODE.escape));
+		send(release('a'), release(13), release(9), release(27), KEY.upRelease);
 		expect(onKey).not.toHaveBeenCalled();
 	});
 
@@ -254,17 +288,18 @@ describe('hold Space to talk, through the parser', () => {
 		return { ...built, voice, time, delivered, start };
 	}
 
-	it('records on the first press, ignores the repeats, and sends on the release', async () => {
+	it('records on the first press, takes the plain repeats, types no space, and sends on the release', async () => {
 		const { composer, send, voice, time, delivered, start } = await talking();
-		send(press(CODE.space, CODE.space));
+		send(' ');
 		expect(voice.phase).toBe('listening');
-		send(
-			repeat(CODE.space, CODE.space),
-			repeat(CODE.space, CODE.space),
-			repeat(CODE.space, CODE.space),
-		);
+		for (let repeat = 0; repeat < 30; repeat++) {
+			time.at += 30;
+			send(' ');
+		}
+		expect(composer.text).toBe('');
+		expect(voice.phase).toBe('listening');
 		time.at += 1_500;
-		send(release(CODE.space));
+		send(release(' '));
 		await wait(20);
 		expect(start).toHaveBeenCalledTimes(1);
 		expect(delivered).toEqual(['check the supply']);
@@ -272,11 +307,32 @@ describe('hold Space to talk, through the parser', () => {
 		expect(voice.phase).toBe('idle');
 	});
 
+	it('reads the press as the space key, and the CSI release as a release of it', async () => {
+		const { seen, freed, send } = await talking();
+		send(' ', release(' '));
+		expect(seen.map((key) => key.name)).toEqual(['space']);
+		expect(freed.map((key) => [key.name, key.eventType])).toEqual([['space', 'release']]);
+	});
+
+	it('types no space while repeats arrive during the transcription', async () => {
+		const { composer, send, time, voice } = await talking({ transcribe: () => new Promise(() => {}) });
+		send(' ');
+		time.at += 1_500;
+		send(release(' '));
+		await wait(10);
+		expect(voice.phase).toBe('transcribing');
+		for (let repeat = 0; repeat < 5; repeat++) {
+			time.at += 30;
+			send(' ');
+		}
+		expect(composer.text).toBe('');
+	});
+
 	it('sends nothing for a tap', async () => {
 		const { send, time, delivered, composer } = await talking();
-		send(press(CODE.space, CODE.space));
+		send(' ');
 		time.at += 100;
-		send(release(CODE.space));
+		send(release(' '));
 		await wait(20);
 		expect(delivered).toEqual([]);
 		expect(composer.text).toBe('');
@@ -285,7 +341,7 @@ describe('hold Space to talk, through the parser', () => {
 	it('types a space when the composer holds text, and starts nothing', async () => {
 		const { composer, send, type, start, voice } = await talking();
 		type('/voice');
-		send(press(CODE.space, CODE.space), release(CODE.space));
+		send(' ', release(' '));
 		expect(composer.text).toBe('/voice ');
 		expect(start).not.toHaveBeenCalled();
 		expect(voice.phase).toBe('idle');
@@ -293,22 +349,18 @@ describe('hold Space to talk, through the parser', () => {
 
 	it('drops the recording on Ctrl+C', async () => {
 		const { send, voice, time, delivered } = await talking();
-		send(press(CODE.space, CODE.space));
-		send(code(99, { mods: 5 }), code(99, { mods: 5, type: 3 }));
+		send(' ');
+		send(KEY.ctrlC, release('c', 5));
 		expect(voice.phase).toBe('idle');
 		time.at += 1_500;
-		send(release(CODE.space));
+		send(release(' '));
 		await wait(20);
 		expect(delivered).toEqual([]);
 	});
 
 	it('does not take Space when voice mode is off', async () => {
-		const { composer, send, start } = await build().then((built) => ({
-			...built,
-			start: vi.fn(),
-		}));
-		send(press(CODE.space, CODE.space), release(CODE.space));
+		const { composer, send } = await build();
+		send(' ', release(' '));
 		expect(composer.text).toBe(' ');
-		expect(start).not.toHaveBeenCalled();
 	});
 });

@@ -23,7 +23,7 @@ import { Transcript } from '../widgets/transcript.ts';
 import { ViewfinderPanel } from '../widgets/viewfinder-panel.ts';
 import { Painter } from './draw.ts';
 import { FilesSurface } from './files-surface.ts';
-import { KEYBOARD } from './keyboard.ts';
+import { KEYBOARD, keyboardProblem } from './keyboard.ts';
 import { Keys } from './keys.ts';
 import { Microphone } from './microphone.ts';
 import { ProcessesSurface } from './process-surface.ts';
@@ -204,7 +204,7 @@ class EngineTui {
 	private newVoice(): Voice {
 		const config = whisperConfig();
 		return new Voice({
-			ready: () => whisperProblem(config),
+			ready: async () => keyboardProblem(this.renderer.capabilities) ?? (await whisperProblem(config)),
 			start: () => this.microphone.start(),
 			transcribe: (file, signal) => transcribe(config, file, signal),
 			discard: (file) => this.microphone.discard(file),
@@ -215,6 +215,7 @@ class EngineTui {
 				this.session.error = line;
 				this.render();
 			},
+			shown: () => this.session.error,
 			changed: () => this.render(),
 		});
 	}

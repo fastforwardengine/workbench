@@ -162,7 +162,7 @@ export class Painter {
 		if (session.awaitingGoal) return `What is ${session.awaitingGoal} for?`;
 		if (!session.identity) return 'Pick a person: type /user <name>';
 		if (session.pendingRefs.length > 0) return 'Enter sends the attachments alone';
-		if (this.voice.on) return 'Hold Space to talk, or type a message';
+		if (this.voice.on) return this.voice.line;
 		return 'Message the room, or type / for commands';
 	}
 
@@ -178,7 +178,7 @@ export class Painter {
 		return undefined;
 	}
 
-	/** The status line in voice mode: the phase of the recording, or how to talk. */
+	/** The status line while a recording or a transcription runs. */
 	private voiceChunks() {
 		const line = fg(palette.muted)(this.voice.line);
 		return this.voice.phase === 'listening' ? [fg(palette.coral)('● '), line] : [line];
@@ -201,7 +201,7 @@ export class Painter {
 		if (!view) return [fg(palette.muted)('Opening…')];
 		if (view.status !== 'running')
 			return [fg(palette.muted)(`${view.name} is ${view.status}. Use /resume.`)];
-		if (this.voice.on) return this.voiceChunks();
+		if (this.voice.on && this.voice.phase !== 'idle') return this.voiceChunks();
 		const waiting = session.attention[0];
 		if (waiting) return [fg(palette.coral)('● '), fg(palette.muted)(waiting)];
 		if (view.exchange)

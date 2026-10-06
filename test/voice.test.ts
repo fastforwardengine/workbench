@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	cleanTranscript,
+	HOLD_GAP_MS,
 	MAX_HOLD_MS,
 	MIN_HOLD_MS,
 	oneLine,
@@ -238,10 +239,62 @@ describe('a hold', () => {
 		const start = vi.fn(async () => fakeTake());
 		const { voice, time } = await ready({ start });
 		voice.press(space, true);
+		// Plain repeats of a text key carry no flag. They keep coming while the hold lasts.
+		for (let spent = 0; spent < MAX_HOLD_MS; spent += 1_000) {
+			time.at += 1_000;
+			voice.press(space, true);
+		}
+		await vi.advanceTimersByTimeAsync(MAX_HOLD_MS);
+		for (let repeat = 0; repeat < 5; repeat++) {
+			time.at += 30;
+			expect(voice.press(space, true)).toBe(true);
+		}
+		await vi.advanceTimersByTimeAsync(0);
+		expect(start).toHaveBeenCalledTimes(1);
+		await voice.release();
+		voice.press(space, true);
+		expect(start).toHaveBeenCalledTimes(2);
+	});
+
+	it('takes the repeats of a held Space that carry no flag, and starts one recording', async () => {
+		const start = vi.fn(async () => fakeTake());
+		const { voice, time, log } = await ready({ start });
+		voice.press(space, true);
+		for (let repeat = 0; repeat < 20; repeat++) {
+			time.at += 30;
+			expect(voice.press(space, true)).toBe(true);
+		}
+		await voice.release();
+		expect(start).toHaveBeenCalledTimes(1);
+		expect(log.delivered).toEqual(['check the supply']);
+	});
+
+	it('takes the repeats that arrive while whisper runs, and starts nothing', async () => {
+		const start = vi.fn(async () => fakeTake());
+		const { voice, time } = await ready({
+			start,
+			transcribe: () => new Promise<string>(() => {}),
+		});
+		voice.press(space, true);
+		time.at += 1_000;
+		void voice.release();
+		await vi.advanceTimersByTimeAsync(0);
+		for (let repeat = 0; repeat < 5; repeat++) {
+			time.at += 30;
+			expect(voice.press(space, true)).toBe(true);
+		}
+		expect(start).toHaveBeenCalledTimes(1);
+	});
+
+	it('starts again after a release that never came, once the repeats have stopped', async () => {
+		const start = vi.fn(async () => fakeTake());
+		const { voice, time } = await ready({ start });
+		voice.press(space, true);
 		time.at += MAX_HOLD_MS;
 		await vi.advanceTimersByTimeAsync(MAX_HOLD_MS);
-		voice.press({ ...space, repeated: true }, true);
-		expect(start).toHaveBeenCalledTimes(1);
+		time.at += HOLD_GAP_MS + 1;
+		voice.press(space, true);
+		expect(start).toHaveBeenCalledTimes(2);
 	});
 
 	it('releases before the recorder has started, and still stops it', async () => {
@@ -318,11 +371,46 @@ describe('a failure', () => {
 		expect(log.delivered).toEqual([]);
 	});
 
-	it('clears the last failure when a new recording starts', async () => {
-		const { voice, log } = await ready();
+	it('clears its own failure line when a new recording starts', async () => {
+		const shown = { line: undefined as string | undefined };
+		const { voice, time } = await ready({
+			transcribe: async () => {
+				throw new Error('whisper-cli failed: no model');
+			},
+			problem: (line) => {
+				shown.line = line;
+			},
+			shown: () => shown.line,
+		});
+		await hold(voice, time, 1_000);
+		expect(shown.line).toBe('whisper-cli failed: no model');
 		voice.press(space, true);
-		expect(log.problems.at(-1)).toBeUndefined();
-		expect(log.problems).toHaveLength(1);
+		expect(shown.line).toBeUndefined();
+	});
+
+	it('leaves an error that it did not set', async () => {
+		const problem = vi.fn();
+		const { voice, time } = await ready({ problem, shown: () => 'Error: the send failed' });
+		await hold(voice, time, 1_000);
+		expect(problem).not.toHaveBeenCalled();
+	});
+
+	it('leaves a line that a later error replaced', async () => {
+		const shown = { line: undefined as string | undefined };
+		const problem = vi.fn((line: string | undefined) => {
+			shown.line = line;
+		});
+		const { voice, time } = await ready({
+			transcribe: async () => {
+				throw new Error('whisper-cli failed: no model');
+			},
+			problem,
+			shown: () => shown.line,
+		});
+		await hold(voice, time, 1_000);
+		shown.line = 'Error: the send failed';
+		voice.press(space, true);
+		expect(shown.line).toBe('Error: the send failed');
 	});
 });
 

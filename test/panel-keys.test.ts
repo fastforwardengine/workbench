@@ -999,9 +999,19 @@ describe('the status line in voice mode', () => {
 		return { ...built, time };
 	}
 
-	it('says how to talk and how to go back, when it waits', async () => {
+	it('says how to talk and how to go back in the composer, and keeps the usual status line, when it waits', async () => {
 		const built = await listening();
-		expect(await built.frame()).toContain('Voice: hold Space to talk. /voice returns to text.');
+		const frame = await built.frame();
+		expect(frame).toContain('Voice: hold Space to talk. /voice returns to text.');
+		expect(frame).toContain('Active');
+	});
+
+	it('keeps the waiting seat on the status line when it waits', async () => {
+		const built = await listening();
+		built.host.table.set('characterization', view('characterization', { exchange: { id: 'x' } }));
+		await built.session.refresh();
+		built.render();
+		expect(await built.frame()).toContain('A new message steers the open exchange');
 	});
 
 	it('shows listening while the person holds Space, and transcribing after the release', async () => {

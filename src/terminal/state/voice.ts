@@ -4,6 +4,13 @@ export const MIN_HOLD_MS = 300;
 /** A hold stops at this length. A terminal that does not report key release never ends a hold by itself. */
 export const MAX_HOLD_MS = 60_000;
 
+/**
+ * A terminal repeats a held key with no flag that says so. A Space that
+ * comes within this time of the last one belongs to the hold in progress.
+ * A key repeat starts after at most 2 s.
+ */
+export const HOLD_GAP_MS = 2_500;
+
 /** What voice mode does now. */
 export type VoicePhase = 'idle' | 'listening' | 'transcribing';
 
@@ -15,7 +22,7 @@ export interface VoiceKey {
 	shift: boolean;
 	super?: boolean;
 	hyper?: boolean;
-	/** True when the key event is a repeat of a key that the person holds. */
+	/** True when the terminal flags the key event as a repeat. Kitty and Ghostty send a repeat of a text key as plain text, with no flag. */
 	repeated?: boolean;
 }
 
@@ -45,6 +52,8 @@ export interface VoiceParts {
 	say(note: string): void;
 	/** Show one line about a failure, or clear the line. */
 	problem(line: string | undefined): void;
+	/** The failure line that shows now. Voice mode clears only a line that it set. */
+	shown(): string | undefined;
 	/** The state changed. The terminal draws again. */
 	changed(): void;
 	/** The time in milliseconds. */
@@ -97,6 +106,12 @@ export class Voice {
 	private readonly parts: VoiceParts;
 	private readonly now: () => number;
 	private pressedAt = 0;
+	/** The time of the last Space that voice mode took. */
+	private lastSpace = Number.NEGATIVE_INFINITY;
+	/** True from the press that starts a recording to the release of Space. */
+	private held = false;
+	/** The failure line that voice mode put on screen. */
+	private shownLine: string | undefined;
 	private place = '';
 	private job: Promise<Take | undefined> = Promise.resolve(undefined);
 	/** Counts the recordings. A result from an older recording is stale. */
@@ -122,10 +137,14 @@ export class Voice {
 	 * Read a key press. True when voice mode takes the key, so the composer
 	 * does not type it. Space on an empty composer starts a recording. Space
 	 * on a composer with text types a space, so the person can type `/voice`.
+	 * The repeats of a held Space come until the release, and voice mode takes them all.
 	 */
 	press(key: VoiceKey, composerEmpty: boolean): boolean {
 		if (!this.on || !isPlainSpace(key)) return false;
-		if (this.phase === 'listening') return true;
+		const at = this.now();
+		const holding = this.held && at - this.lastSpace <= HOLD_GAP_MS;
+		this.lastSpace = at;
+		if (holding || this.phase === 'listening') return true;
 		if (!composerEmpty) return false;
 		const free = this.phase === 'idle' && !this.settling && !this.disposed;
 		if (free && !key.repeated) this.begin();
@@ -138,6 +157,7 @@ export class Voice {
 		if (this.on) {
 			this.cancel();
 			this.on = false;
+			this.held = false;
 			this.parts.changed();
 			return;
 		}
@@ -154,6 +174,12 @@ export class Voice {
 
 	/** The person let go of Space. */
 	async release(): Promise<void> {
+		this.held = false;
+		await this.stop();
+	}
+
+	/** End the recording, by a release or at the limit of a hold. */
+	private async stop(): Promise<void> {
 		if (this.phase !== 'listening') return;
 		clearTimeout(this.cap);
 		const turn = this.turn;
@@ -188,7 +214,8 @@ export class Voice {
 		this.phase = 'listening';
 		this.pressedAt = this.now();
 		this.place = this.parts.place();
-		this.parts.problem(undefined);
+		this.clearProblem();
+		this.held = true;
 		this.job = this.parts.start().then(
 			(take) => take,
 			(error) => {
@@ -196,7 +223,7 @@ export class Voice {
 				return undefined;
 			},
 		);
-		this.cap = setTimeout(() => void this.release(), MAX_HOLD_MS);
+		this.cap = setTimeout(() => void this.stop(), MAX_HOLD_MS);
 		this.parts.changed();
 	}
 
@@ -204,8 +231,20 @@ export class Voice {
 		if (turn !== this.turn || this.disposed) return;
 		this.stale();
 		this.phase = 'idle';
-		this.parts.problem(`Cannot record: ${oneLine(error)}`);
+		this.report(`Cannot record: ${oneLine(error)}`);
 		this.parts.changed();
+	}
+
+	private report(line: string): void {
+		this.shownLine = line;
+		this.parts.problem(line);
+	}
+
+	/** Clear the failure line, when voice mode put it there. */
+	private clearProblem(): void {
+		if (this.shownLine === undefined) return;
+		if (this.parts.shown() === this.shownLine) this.parts.problem(undefined);
+		this.shownLine = undefined;
 	}
 
 	/** Make the work of the open recording stale: its results go nowhere. */
@@ -242,7 +281,7 @@ export class Voice {
 			await take.stop();
 			if (!tap && turn === this.turn) text = await this.read(take.file);
 		} catch (error) {
-			if (turn === this.turn && !this.disposed) this.parts.problem(oneLine(error));
+			if (turn === this.turn && !this.disposed) this.report(oneLine(error));
 		} finally {
 			await this.parts.discard(take.file).catch(() => {});
 		}
