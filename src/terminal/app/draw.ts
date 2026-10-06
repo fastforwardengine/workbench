@@ -178,8 +178,9 @@ export class Painter {
 		return undefined;
 	}
 
-	/** The status line while a recording or a transcription runs. */
+	/** The status line while a recording or a transcription runs. It is undefined in any other state. */
 	private voiceChunks() {
+		if (!this.voice.on || this.voice.phase === 'idle') return undefined;
 		const line = fg(palette.muted)(this.voice.line);
 		return this.voice.phase === 'listening' ? [fg(palette.coral)('● '), line] : [line];
 	}
@@ -201,7 +202,8 @@ export class Painter {
 		if (!view) return [fg(palette.muted)('Opening…')];
 		if (view.status !== 'running')
 			return [fg(palette.muted)(`${view.name} is ${view.status}. Use /resume.`)];
-		if (this.voice.on && this.voice.phase !== 'idle') return this.voiceChunks();
+		const voiced = this.voiceChunks();
+		if (voiced) return voiced;
 		const waiting = session.attention[0];
 		if (waiting) return [fg(palette.coral)('● '), fg(palette.muted)(waiting)];
 		if (view.exchange)

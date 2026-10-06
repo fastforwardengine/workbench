@@ -204,7 +204,8 @@ class EngineTui {
 	private newVoice(): Voice {
 		const config = whisperConfig();
 		return new Voice({
-			ready: async () => keyboardProblem(this.renderer.capabilities) ?? (await whisperProblem(config)),
+			ready: async () =>
+				keyboardProblem(this.renderer.capabilities) ?? (await whisperProblem(config)),
 			start: () => this.microphone.start(),
 			transcribe: (file, signal) => transcribe(config, file, signal),
 			discard: (file) => this.microphone.discard(file),

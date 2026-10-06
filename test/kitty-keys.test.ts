@@ -138,7 +138,9 @@ describe('the terminal check for voice mode', () => {
 		['no capabilities', undefined],
 	])('refuses %s with one line', (_label, capabilities) => {
 		const line = keyboardProblem(capabilities);
-		expect(line).toBe('Voice mode needs a terminal that reports key release, such as Ghostty or Kitty.');
+		expect(line).toBe(
+			'Voice mode needs a terminal that reports key release, such as Ghostty or Kitty.',
+		);
 		expect(line).not.toContain('\n');
 	});
 });
@@ -315,7 +317,9 @@ describe('hold Space to talk, through the parser', () => {
 	});
 
 	it('types no space while repeats arrive during the transcription', async () => {
-		const { composer, send, time, voice } = await talking({ transcribe: () => new Promise(() => {}) });
+		const { composer, send, time, voice } = await talking({
+			transcribe: () => new Promise(() => {}),
+		});
 		send(' ');
 		time.at += 1_500;
 		send(release(' '));
