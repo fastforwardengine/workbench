@@ -86,7 +86,8 @@ export async function whisperProblem(
 		);
 	}
 	if (fixes.length === 0) return undefined;
-	return ['Voice mode stays off.', ...fixes].join('\n');
+	const once = config.custom ? [] : ['In the Workbench folder, `make voice` does all of it.'];
+	return ['Voice mode stays off.', ...fixes, ...once].join('\n');
 }
 
 /** The last line that whisper-cli wrote to stderr, or the error message. */

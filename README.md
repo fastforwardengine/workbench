@@ -183,14 +183,9 @@ A bench script comes from a template.
   room before it is ready, Workbench drops it and shows the words. The
   terminal records mono audio at 16 kHz and runs `whisper-cli` on this
   computer. No audio leaves it. The terminal must report key release: Kitty
-  and Ghostty do. Set up once:
-
-  ```sh
-  brew install whisper-cpp
-  mkdir -p ~/.cache/whisper
-  curl -L -o ~/.cache/whisper/ggml-large-v3.bin \
-    https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
-  ```
+  and Ghostty do. Set up once with `make voice`. It installs `whisper-cpp`
+  with Homebrew and downloads the model of about 3 GB to
+  `~/.cache/whisper/ggml-large-v3.bin`.
 
   `WORKBENCH_WHISPER_MODEL` names another model file, such as
   `ggml-large-v3-turbo.bin` for speed. The first press asks macOS for the
