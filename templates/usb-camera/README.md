@@ -38,10 +38,12 @@ frames each second. This server has no preview and no captions.
    `--usb-id` the USB ID from the inventory of `device-scan`, such as
    `046d:085e`. The server reads `/sys/class/video4linux` at each capture
    and uses the capture node of that USB device. A reconnect needs no
-   restart. A request for a camera that is absent gives status 503. Two
+   restart. The workstation makes the new node within 5 seconds, and a
+   capture before that gives status 503. A request for a camera that is absent gives status 503. Two
    cameras with one USB ID also give status 503. For them, give `--device`.
-   On a host with udev, or with one camera, give `--device` the stable
-   path under `/dev/v4l/by-id/`. The server rejects both options at once.
+   On a host with udev, give `--device` the stable path under
+   `/dev/v4l/by-id/`. The server stops at start when you give both
+   options.
 4. Fork and clone, then make a branch:
 
    ```ts
