@@ -60,12 +60,24 @@ part. The BRIO keeps the view of the whole bench.
 - **The listing states:** a 4K sensor, an 8-inch screen, autofocus with a
   TOF sensor, an articulated arm, LED lights, and HDMI and USB output
   ([Amazon B0FFSXMJ79](https://www.amazon.com/dp/B0FFSXMJ79)).
-- **It probably connects as a UVC camera over USB (unverified).** Then the
-  `usb-camera` template serves it with no change, and `device-scan` lists
-  it as `camera (UVC)`. The template selects the device by its USB ID.
-- **Unverified:** the USB ID, the resolution and the formats over USB,
-  whether the autofocus works while USB streams, and whether Linux can
-  control the focus or the lights.
+- **Done: the template selects a camera by its USB ID** (#77). The
+  `--usb-id` option of `camera.py` replaces the `/dev/videoN` node, which
+  changes after a reconnect.
+- **Done: the Engineer skills run both cameras.** The `bench` widget shows
+  the BRIO, and the `scope` widget shows the microscope. Each camera has
+  its own fork, process, and data directory. The viewfinder stacks both,
+  and each has a Look now button. `check-a-photo` uses `scope` for a solder
+  joint, a part marking, and a polarity mark.
+- **The manual states two USB modes (inferred for our model).** The manual
+  of the sibling TM4K and TM4K Max lists a storage mode (MSDC) and a PC
+  camera mode (UVC). The person sets the UVC mode. In that mode the manual
+  lists 3840x2160 at 30 fps as H264, 1920x1080 at 30 fps, and 1280x720 at
+  60 fps. `fswebcam` does not decode H264, so the skill uses 1920x1080. The
+  autofocus runs in the microscope, so the team expects no focus control
+  over USB. It probably has no microphone.
+- **Unverified:** the USB ID, the formats on Linux, whether the autofocus
+  settles within the 10 skipped frames of a capture, and whether Linux can
+  control the focus or the LED lights.
 
 **Done when** `device-scan` finds the microscope on the workstation, the
 `usb-camera` template captures a frame of a solder joint, and the facts

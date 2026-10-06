@@ -3,19 +3,38 @@ name: observe-the-camera
 description: Capture and keep a USB camera frame or a USB microphone sound clip through a sensor server that you own. Use it for bench images, build checks, reading the FM radio display, or a recording of the sound of the radio.
 ---
 
-1. Follow `scan-the-bench` before you open a camera or a microphone.
-   Find the capture node, the resolution, and the card id as the README of
-   the `usb-camera` template says. Do not assume that `/dev/video0` is the
-   camera.
+1. Ask the person to set the microscope to its PC camera mode (UVC).
+   Then follow `scan-the-bench` before you open a camera or a microphone.
+   Find the USB ID of each camera in the inventory, the resolution, and the
+   card id of a microphone, as the README of the `usb-camera` template
+   says. Select a camera with `--usb-id`. Do not assume that `/dev/video0`
+   is the camera.
 2. Fork `usb-camera` with `fork`, with `clone` set to a path in your home. Follow the
    README of the clone for the offline tests, the push, and the start of
    the foreground server. One process owns one USB device and serves its
    camera and its microphone. Keep the data outside the checkout.
-3. Start the server with `bash` and the `name` `camera`. The workspace
-   sets `$PORT`. Check that it runs with `wait({ handles: [handle],
+3. Start the server with `bash` and a `name`. The workspace sets `$PORT`.
+   Check that it runs with `wait({ handles: [handle],
 timeout: 0 })`. The server prints no ready line. `fetch` fails until
    the first capture ends.
-4. Read a sensor with `fetch({ process: handle, path: '/camera/observe' })`
+4. The bench has two cameras. Run both at the same time, and keep both
+   running. Give each camera its own fork, its own process, and its own
+   data directory, as the section "Two cameras" of the README says:
+
+   | Camera                    | Fork and process | Widget  | Title        |
+   | ------------------------- | ---------------- | ------- | ------------ |
+   | Logitech BRIO, overview   | `bench-camera`   | `bench` | Bench camera |
+   | TOMLOV TM4K-AF microscope | `scope-camera`   | `scope` | Microscope   |
+
+   Start the microscope with `--resolution 1920x1080` and no
+   `--audio-device`. It probably has no microphone, and `fswebcam` does
+   not decode its H264 modes. The manual of the TM4K family says that the
+   microscope has a storage mode (MSDC) and a PC camera mode (UVC). These
+   facts about the microscope are unverified. When `device-scan` does not find
+   the microscope, run the bench camera only, and tell the person that the
+   microscope is missing.
+
+5. Read a sensor with `fetch({ process: handle, path: '/camera/observe' })`
    or `'/microphone/observe'`. A microphone request records a clip of
    `--seconds` seconds and blocks for that time. The observation names each
    file by `/files/<sha256>`. Fetch that path to get the frame or the clip.
@@ -24,8 +43,9 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    frame ref. The person then sees the photo while you continue the work.
    Other specialists fetch from the same process. Do not share your home
    or the server URL.
-5. After the server answers its first `/camera/observe`, show the camera
-   to the person:
+6. After a server answers its first `/camera/observe`, show its camera
+   to the person. Show both cameras, each with its own `show`. The example
+   shows the bench camera:
 
    ```ts
    show({
@@ -36,6 +56,9 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
      actions: [{ id: 'look', label: 'Look now' }],
    });
    ```
+
+   For the microscope, use the `name` `scope`, the `title` `Microscope`,
+   and the handle of `scope-camera`.
 
    The `name` is a short name for the camera. The person says it: "hide
    bench". The `title` is the label of the viewfinder. Do not call `show`
@@ -48,25 +71,25 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    as a message of the person that starts with the widget name, such as
    `bench, rev 2 "Bench camera": Look now [look]`. Answer it with a new
    observation of that camera: read the handle of that name from your
-   widget reminder, and follow step 4. Do not ask which camera. When its
+   widget reminder, and follow step 5. Do not ask which camera. When its
    process ended, say so.
 
-6. Aim the camera at the bench before you capture. Read the frame before
+7. Aim the camera at the bench before you capture. Read the frame before
    you describe the bench or the display. No tool reads the digits of the
    display for you. Inspect each image, and report pass, fail, or unclear,
    with the ref. For FM radio path A, frame the display and check that you
    can read every digit before you report a frequency. Report an
    unreadable digit as unclear.
-7. Tell the people at the bench before you record a clip. Read a clip
+8. Tell the people at the bench before you record a clip. Read a clip
    through its level series first, and then analyze the WAV file in the
    band around the tone, as the README of the clone says.
-8. A synthetic demo observation proves the workflow. It is no reading of a
+9. A synthetic demo observation proves the workflow. It is no reading of a
    device. When a capture fails, check the device and fetch again.
    Do not use an earlier image or clip in its place.
-9. Cancel the server before you edit or roll back the running version.
-   Validate, commit, push, then start a replacement with `bash`. It
-   receives a new port. When it answers, call `show` again with its handle.
-   After a host restart, inspect the processes. Fetch from the surviving
-   handle. When the old process is gone, start a new server with `bash`, and
-   call `show` again with the new handle. The saved refs work after the
-   server stops.
+10. Cancel the server before you edit or roll back the running version.
+    Validate, commit, push, then start a replacement with `bash`. It
+    receives a new port. When it answers, call `show` again with its handle.
+    After a host restart, inspect the processes. Fetch from the surviving
+    handle. When the old process is gone, start a new server with `bash`, and
+    call `show` again with the new handle. The saved refs work after the
+    server stops.

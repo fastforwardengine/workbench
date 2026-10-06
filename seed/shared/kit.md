@@ -23,7 +23,8 @@ one against the kit. The datasheets, the manual, and the schematic are in
 ## On the bench
 
 - Two FM radio kits, the ELEGOO Electronics Fun Kit, and soldering equipment.
-- A HANMATEK HM310P power supply, a Logitech BRIO camera, and a USB microphone.
+- A HANMATEK HM310P power supply, a Logitech BRIO camera, a TOMLOV TM4K-AF
+  microscope, and a USB microphone.
 - To buy: a Raspberry Pi Pico for paths A and B. For path C, a 3.3 V
   USB-to-serial adapter and a spare STC8G1K of the exact type.
 
