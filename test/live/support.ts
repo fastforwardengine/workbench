@@ -13,14 +13,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-	createRuntime,
-	isSaid,
-	type Room,
-	type SaidMessage,
-	startRoom,
-} from '@ambionframework/ambion';
+import { createRuntime, isSaid, type Room, type SaidMessage } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
+import { memoryCanvas, openCanvas } from '@ambionframework/canvas';
 import { memoryJournals } from '@ambionframework/journal';
 import { directoryBackend } from '@ambionframework/just-bash';
 import { createExecutionServices, fileCredentials, piExecution } from '@ambionframework/pi';
@@ -32,6 +27,7 @@ import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/d
 import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
+import { FRAME_KIND } from '../../src/host/viewfinder.ts';
 import { ledFiles, ledNotes, ledProject, ledSweepRoom } from './led-sweep.ts';
 
 const MODEL = piModel();
@@ -83,17 +79,26 @@ export async function openRoom(
 		},
 	});
 	await seedWorkspace(workspace, ledFiles);
-	const built = await team(workspace, ledProject);
-	const room = await startRoom({
+	const runtime = createRuntime({ execution, storage: memoryJournals() });
+	// The canvas exists first, so the Engineer holds the widget bundle, as in the host.
+	const canvas = openCanvas({
+		name: 'workbench-eval',
+		runtime,
+		store: memoryCanvas(),
+		workspace,
+		breakout: { team: [] },
+		widgets: { kinds: [FRAME_KIND] },
+	});
+	const built = await team(workspace, ledProject, canvas.widgetTools());
+	await canvas.resume({ agents: built.specialists });
+	const room = await canvas.open({
 		name: `workbench-eval-${crypto.randomUUID()}`,
 		goal: sweep.goal,
-		agents: built.specialists,
 		seats: sweep.seats,
 		seating: false,
-		runtime: createRuntime({ execution, storage: memoryJournals() }),
 	});
 	onTestFinished(async () => {
-		await room.stop().catch(() => undefined);
+		await canvas.close().catch(() => undefined);
 		await workspace.dispose().catch(() => undefined);
 		await rm(directory, { recursive: true, force: true });
 	});

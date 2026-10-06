@@ -439,6 +439,21 @@ describe('the widgets that the viewfinder binds', () => {
 	});
 });
 
+describe('the constructor', () => {
+	it('calls changed on no path before it returns', async () => {
+		const workspace = new FakeWorkspace();
+		workspace.running('bash-a');
+		const canvas = new FakeCanvas();
+		canvas.show('bench', 'bash-a');
+		const { finder, changed } = watch(workspace.as, canvas.as);
+		expect(changed).not.toHaveBeenCalled();
+		expect(finder.state.cameras).toEqual([]);
+		await settle();
+		expect(changed).toHaveBeenCalled();
+		expect(first(finder).name).toBe('bench');
+	});
+});
+
 describe('the check of the author', () => {
 	it('lists the running processes of the author of the widget', async () => {
 		const { workspace } = benchSetup();
@@ -744,6 +759,8 @@ describe('the process events', () => {
 		const canvas = new FakeCanvas();
 		canvas.show('bench', 'bash-a');
 		const { finder } = watch(workspace.as, canvas.as);
+		// The binding exists after the first microtask. The list then waits for the end.
+		await Promise.resolve();
 		workspace.emit('ended', 'bash-a');
 		await settle();
 		expect(workspace.fetch).not.toHaveBeenCalled();

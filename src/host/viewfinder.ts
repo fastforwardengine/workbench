@@ -427,7 +427,8 @@ class Poller implements Viewfinder {
 				for (const binding of this.bound.values()) binding.observe(event);
 			}),
 		);
-		void this.bind();
+		// A constructor never calls `changed`: the caller has not stored the viewfinder yet.
+		queueMicrotask(() => void this.bind());
 	}
 
 	get state(): ViewfinderState {

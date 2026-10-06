@@ -58,5 +58,7 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
 9. Cancel the server before you edit or roll back the running version.
    Validate, commit, push, then start a replacement with `bash`. It
    receives a new port. When it answers, call `show` again with its handle.
-   After a host restart, inspect the processes and fetch from the surviving
-   handle. The saved refs work after the server stops.
+   After a host restart, inspect the processes. Fetch from the surviving
+   handle. When the old process is gone, start a new server with `bash`, and
+   call `show` again with the new handle. The saved refs work after the
+   server stops.

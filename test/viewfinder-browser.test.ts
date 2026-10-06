@@ -93,6 +93,30 @@ describe('the viewfinder browser', () => {
 		expect(host.finders).toHaveLength(2);
 	});
 
+	it('opens one viewfinder when the host calls changed while it opens, and hide closes it', () => {
+		const host = new FakeHost();
+		const open = { room: 'build' };
+		let browser: ViewfinderBrowser | undefined;
+		// A draw calls `watch` again from `changed`, as the terminal does.
+		const redraw = vi.fn(() => browser?.watch(true));
+		browser = new ViewfinderBrowser(host, () => open.room, redraw);
+		const original = host.viewfinder.bind(host);
+		host.viewfinder = (room, changed) => {
+			changed();
+			return original(room, changed);
+		};
+		browser.show();
+		browser.watch(true);
+		expect(host.finders).toHaveLength(1);
+		expect(host.finders[0]?.closed).toBe(false);
+		open.room = 'second';
+		browser.watch(true);
+		expect(host.finders).toHaveLength(2);
+		expect(host.finders.filter((finder) => !finder.closed)).toHaveLength(1);
+		browser.hide();
+		expect(host.finders.every((finder) => finder.closed)).toBe(true);
+	});
+
 	it('stops the poll when the panel closes, and when the terminal cannot draw', () => {
 		const host = new FakeHost();
 		const { browser, changed } = browserOf(host);

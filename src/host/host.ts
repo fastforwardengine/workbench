@@ -294,8 +294,8 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 }
 
 async function shutdown(rooms: Rooms, database: DatabaseSync): Promise<void> {
-	// Rooms first: a failed stop keeps its handle, so a later close retries it before
-	// the storage goes away.
+	// Rooms first, so no room writes to the storage after it closes. The canvas reports a
+	// stop that fails, and still stops the other rooms.
 	await rooms.close();
 	database.close();
 }

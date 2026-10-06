@@ -75,8 +75,9 @@ export class ViewfinderBrowser {
 	}
 
 	private start(room: string): void {
-		if (this.finder && this.following === room) return;
+		if (this.following === room) return;
 		this.stop();
+		// Record the room first: a viewfinder may call `changed`, and a draw calls `watch` again.
 		this.following = room;
 		this.finder = this.host.viewfinder(room, () => this.changed());
 		this.ticker = setInterval(() => this.changed(), TICK_MS);
