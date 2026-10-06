@@ -4,8 +4,11 @@ const PANELS = ['files', 'processes'] as const;
 /** A side panel that takes the keys: the files of the workspace, or the background processes. */
 export type PanelMode = (typeof PANELS)[number];
 
-/** Which surface takes the keys: the composer, the refs, or a side panel. The viewfinder is no mode: it takes no keys. */
-export type Mode = 'compose' | 'refs' | PanelMode;
+/**
+ * Which surface takes the keys: the composer, the refs, the actions of the cameras, or a side
+ * panel. The viewfinder has no mode of its own: it takes keys only through `actions`.
+ */
+export type Mode = 'compose' | 'refs' | 'actions' | PanelMode;
 
 /** True when the mode is a side panel. */
 export const isPanel = (mode: Mode): mode is PanelMode =>

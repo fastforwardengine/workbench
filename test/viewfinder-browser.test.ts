@@ -30,8 +30,13 @@ const bench = (received: number): CameraView => ({
 
 /** A browser over a fake host. `room` is the open room, and a test may change it. */
 function browserOf(host: FakeHost, changed = vi.fn(), now?: () => number) {
-	const open = { room: 'build' };
-	const browser = new ViewfinderBrowser(host, () => open.room, changed, now);
+	const open = { room: 'build', person: 'priya' as string | undefined, stopped: false };
+	const browser = new ViewfinderBrowser(
+		host,
+		{ room: () => open.room, person: () => open.person, stopped: () => open.stopped },
+		changed,
+		now,
+	);
 	return { browser, open, changed };
 }
 
@@ -99,7 +104,11 @@ describe('the viewfinder browser', () => {
 		let browser: ViewfinderBrowser | undefined;
 		// A draw calls `watch` again from `changed`, as the terminal does.
 		const redraw = vi.fn(() => browser?.watch(true));
-		browser = new ViewfinderBrowser(host, () => open.room, redraw);
+		browser = new ViewfinderBrowser(
+			host,
+			{ room: () => open.room, person: () => 'priya', stopped: () => false },
+			redraw,
+		);
 		const original = host.viewfinder.bind(host);
 		host.viewfinder = (room, changed) => {
 			changed();
@@ -163,6 +172,28 @@ describe('the viewfinder browser', () => {
 		vi.advanceTimersByTime(TICK_MS);
 		expect(changed).toHaveBeenCalledTimes(2);
 		expect(browser.age(camera)).toBe('2 s ago');
+	});
+
+	it('gives the pad the actions of the cameras that it shows, and no others', () => {
+		const host = new FakeHost();
+		const { browser } = browserOf(host);
+		const action = { id: 'look', label: 'Look now' };
+		host.actionTable = [
+			{ room: 'build', name: 'bench', revision: 'r1', rev: 1, actions: [action] },
+			{ room: 'build', name: 'hidden', revision: 'r2', rev: 1, actions: [action] },
+			{ room: 'other', name: 'bench', revision: 'r3', rev: 1, actions: [action] },
+		];
+		browser.show();
+		browser.watch(true);
+		const finder = host.finders[0];
+		if (!finder) throw new Error('No viewfinder.');
+		finder.state = { cameras: [bench(Date.now())], note: undefined };
+		browser.syncActions();
+		expect(browser.pad.enter()).toBe(true);
+		expect(browser.pad.rows('bench')).toHaveLength(1);
+		expect(browser.pad.rows('hidden')).toEqual([]);
+		browser.hide();
+		expect(browser.pad.active).toBe(false);
 	});
 
 	it('has no age for a camera with no frame', () => {

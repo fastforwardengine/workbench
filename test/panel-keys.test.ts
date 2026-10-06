@@ -69,7 +69,15 @@ async function build(width = 120) {
 	const processPanel = new ProcessesPanel(renderer);
 	const processes = new ProcessBrowser(host, render);
 	const cameraPanel = new ViewfinderPanel(renderer);
-	const camera = new ViewfinderBrowser(host, () => session.room, render);
+	const camera = new ViewfinderBrowser(
+		host,
+		{
+			room: () => session.room,
+			person: () => session.identity?.name,
+			stopped: () => session.view?.status !== 'running',
+		},
+		render,
+	);
 	// Stop the poll before the renderer goes, so no tick draws on a destroyed buffer.
 	cleanups.unshift(() => camera.watch(false));
 	const kitty = { on: false };
@@ -296,6 +304,121 @@ describe('the camera viewfinder', () => {
 		expect(rowOf('shelf')).toBeGreaterThan(rowOf('Bench camera'));
 		expect(rows.join('\n')).toContain('0 s ago');
 		expect(rows.join('\n')).toContain('The camera process ended');
+	});
+
+	/** Open the viewfinder with one camera that holds the look action. */
+	async function withLook(width = 120) {
+		const built = await build(width);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
+		await wait(20);
+		const finder = built.host.finders[0];
+		if (!finder) throw new Error('No viewfinder.');
+		finder.state = {
+			cameras: [
+				{
+					name: 'bench',
+					title: 'Bench camera',
+					handle: 'bash-a',
+					frame: undefined,
+					note: undefined,
+				},
+			],
+			note: undefined,
+		};
+		built.host.actionTable = [
+			{
+				room: built.session.room,
+				name: 'bench',
+				revision: 'r1',
+				rev: 1,
+				actions: [{ id: 'look', label: 'Look now' }],
+			},
+		];
+		finder.changed();
+		return built;
+	}
+
+	it('draws the Look now button under its camera box', async () => {
+		const built = await withLook();
+		const rows = (await built.frame()).split('\n');
+		const box = rows.findIndex((row) => row.includes('Bench camera'));
+		const button = rows.findIndex((row) => row.includes('[ Look now ]'));
+		expect(box).toBeGreaterThan(-1);
+		expect(button).toBeGreaterThan(box);
+	});
+
+	it('chooses and presses the button with Ctrl+L, Enter, and Esc, and sends one act as the person', async () => {
+		const built = await withLook();
+		built.press('l', { ctrl: true });
+		expect(built.keys.mode).toBe('actions');
+		expect(built.composer.input.focused).toBe(false);
+		expect(await built.frame()).toContain('▸ [ Look now ]');
+		built.press('return');
+		await vi.waitFor(() => expect(built.host.acts).toHaveLength(1));
+		expect(built.host.acts[0]).toMatchObject({
+			person: 'priya',
+			act: { room: built.session.room, widget: 'bench', revision: 'r1', action: 'look' },
+		});
+		await vi.waitFor(async () => expect(await built.frame()).toContain('Sent as #7.'));
+		built.press('escape');
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('leaves the buttons with Ctrl+C, and the composer takes the keys back', async () => {
+		const built = await withLook();
+		built.press('l', { ctrl: true });
+		built.press('c', { ctrl: true });
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('says so when the viewfinder is closed or no camera has an action', async () => {
+		const closed = await build(120);
+		closed.press('l', { ctrl: true });
+		expect(closed.keys.mode).toBe('compose');
+		expect(closed.session.notice).toContain('viewfinder is closed');
+		const bare = await build(120);
+		bare.kitty.on = true;
+		bare.keys.toggleCamera();
+		await wait(20);
+		bare.press('l', { ctrl: true });
+		expect(bare.keys.mode).toBe('compose');
+		expect(bare.session.notice).toContain('No shown camera has an action');
+	});
+
+	it('leaves the buttons when a side panel opens', async () => {
+		const built = await withLook();
+		built.press('l', { ctrl: true });
+		await openFiles(built);
+		expect(built.keys.mode).toBe('files');
+		built.press('escape');
+		await wait(20);
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('leaves the buttons by itself when the camera loses its action', async () => {
+		const built = await withLook();
+		built.press('l', { ctrl: true });
+		built.host.actionTable = [];
+		built.host.finders[0]?.changed();
+		await wait(20);
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('shows the button blocked while the room is stopped, and sends nothing', async () => {
+		const built = await withLook();
+		const open = built.host.table.get(built.session.room);
+		if (open) built.host.table.set(open.name, { ...open, status: 'stopped' });
+		await built.session.refresh();
+		built.press('l', { ctrl: true });
+		built.press('return');
+		await wait(20);
+		expect(await built.frame()).toContain('room stopped');
+		expect(built.host.acts).toHaveLength(0);
 	});
 
 	it('stops the poll when the terminal ends, without a draw', async () => {

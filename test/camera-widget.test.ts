@@ -16,6 +16,7 @@ import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
 import { seats } from '../src/domain/room.ts';
+import { frameActions } from '../src/host/actions.ts';
 import { labRepositories } from '../src/host/repositories.ts';
 import { FRAME_KIND } from '../src/host/viewfinder.ts';
 
@@ -79,13 +80,58 @@ describe('the widget tools of the team', () => {
 	});
 });
 
+describe('the actions of a frame widget', () => {
+	const base = {
+		room: 'build',
+		revision: 'r1',
+		rev: 1,
+		state: 'shown',
+		kind: 'frame',
+		author: 'engineer',
+		actions: [{ id: 'look', label: 'Look now' }],
+	} as const;
+
+	it('keeps a shown frame widget with a single-press action, with its answer', () => {
+		const answers = new Map([['r1', { seq: 3, by: 'priya' }]]);
+		expect(frameActions([{ ...base, name: 'bench' }], answers)).toEqual([
+			{
+				room: 'build',
+				name: 'bench',
+				revision: 'r1',
+				rev: 1,
+				actions: [{ id: 'look', label: 'Look now' }],
+				answered: { seq: 3, by: 'priya' },
+			},
+		]);
+	});
+
+	it('drops a hidden widget, another kind, an action with a form, and a widget with no action', () => {
+		const form = {
+			id: 'set',
+			label: 'Set',
+			fields: [{ name: 'n', label: 'N', type: 'text' }],
+		} as const;
+		expect(
+			frameActions(
+				[
+					{ ...base, name: 'hidden', state: 'hidden' },
+					{ ...base, name: 'table', kind: 'table' },
+					{ ...base, name: 'form', actions: [form] },
+					{ ...base, name: 'plain', actions: [] },
+				],
+				new Map(),
+			),
+		).toEqual([]);
+	});
+});
+
 describe('the frame widget kind', () => {
-	it('takes a process source and no actions', () => {
+	it('takes a process source and actions', () => {
 		expect(FRAME_KIND).toEqual({
 			name: 'frame',
 			description: 'The newest frame that a camera process serves.',
 			sources: ['process'],
-			actions: false,
+			actions: true,
 		});
 	});
 
@@ -127,17 +173,18 @@ describe('the frame widget kind', () => {
 		]);
 	});
 
-	it('refuses an action on a frame widget, because the kind takes none', async () => {
+	it('accepts the look action in the show of the Engineer, and keeps it on the revision', async () => {
 		const script = byAgent({
-			engineer: (step, _seat, call) => {
+			engineer: (_step, _seat, call) => {
 				if (call === 1)
 					return callTool('show', {
 						name: 'bench',
 						kind: 'frame',
 						source: { type: 'process', handle: 'bash-a', path: '/camera/observe' },
+						title: 'Bench camera',
 						actions: [{ id: 'look', label: 'Look now' }],
 					});
-				if (call === 2) return say(`Result: ${step.results.at(-1)?.text}`);
+				if (call === 2) return say('Shown.');
 				return quiet();
 			},
 		});
@@ -151,6 +198,58 @@ describe('the frame widget kind', () => {
 		cleanups.push(() => room.stop());
 		await (await room.visit(person)).send({ text: 'Show the camera.', to: 'engineer' });
 		await settled(room);
-		expect(canvas.widgets('bench-room')).toEqual([]);
+		const [shown] = canvas.widgets('bench-room');
+		expect(shown).toMatchObject({ name: 'bench', state: 'shown' });
+		expect(shown?.actions).toEqual([{ id: 'look', label: 'Look now' }]);
+		expect(frameActions(canvas.widgets('bench-room'), new Map())).toEqual([
+			expect.objectContaining({
+				name: 'bench',
+				room: 'bench-room',
+				actions: [{ id: 'look', label: 'Look now' }],
+			}),
+		]);
+	});
+
+	it('sends the press of a person to the Engineer as a message that starts with the widget name', async () => {
+		const texts: string[] = [];
+		const script = byAgent({
+			engineer: (step, _seat, call) => {
+				if (call === 1)
+					return callTool('show', {
+						name: 'bench',
+						kind: 'frame',
+						source: { type: 'process', handle: 'bash-a', path: '/camera/observe' },
+						title: 'Bench camera',
+						actions: [{ id: 'look', label: 'Look now' }],
+					});
+				if (call === 2) return say('Shown.');
+				// Every later request reads the room, so one of them holds the press.
+				texts.push(JSON.stringify(step));
+				return quiet();
+			},
+		});
+		const { canvas } = await setup(script);
+		const room = await canvas.open({
+			name: 'bench-room',
+			goal: 'Show the camera.',
+			seats,
+			seating: false,
+		});
+		cleanups.push(() => room.stop());
+		await (await room.visit(person)).send({ text: 'Show the camera.', to: 'engineer' });
+		await settled(room);
+		const [shown] = canvas.widgets('bench-room');
+		if (!shown) throw new Error('No widget.');
+		const result = await canvas.act(person, {
+			room: 'bench-room',
+			widget: 'bench',
+			revision: shown.revision,
+			action: 'look',
+			press: 'press-1',
+		});
+		expect(result.kind).toBe('sent');
+		await settled(room);
+		expect(texts.join('')).toContain('bench, rev 1');
+		expect(texts.join('')).toContain('Look now [look]');
 	});
 });

@@ -66,8 +66,9 @@ export const COMMANDS = [
 		help: [
 			'  /camera           show the latest frame of each camera that the open room shows,',
 			'                    beside the conversation, and hide them when they show. The',
-			'                    Engineer shows a camera. The composer stays active. It needs a',
-			'                    terminal with Kitty graphics, such as Ghostty.',
+			'                    Engineer shows a camera. Ctrl+L chooses the Look now button',
+			'                    under a camera, Enter presses it, and Esc goes back. It needs',
+			'                    a terminal with Kitty graphics, such as Ghostty.',
 		],
 	},
 	{

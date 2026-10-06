@@ -165,6 +165,13 @@ A bench script comes from a template.
   side panels: the files and processes panels cover it and stop the reads,
   and it shows again when they close. A terminal under 100 columns does not
   show it. The pane needs a terminal with Kitty graphics, such as Ghostty.
+- **Look now:** the Engineer shows each camera with the action "Look now".
+  The pane draws it as a button under the box of the camera. Ctrl+L takes
+  the keys, Up and Down choose a button, Enter presses it, and Esc goes
+  back. A press is a message of you to the Engineer, which observes that
+  camera and answers. The button is inactive when the widget is `for`
+  another person, or when the room is stopped. A refusal shows its reason,
+  and a press that the host could not confirm goes again as it was.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
   waits for its goal. In a side panel it closes the panel. Ctrl+D leaves
   the terminal when the composer is empty, and `/quit` also leaves. The

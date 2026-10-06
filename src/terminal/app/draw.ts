@@ -15,6 +15,7 @@ import type { Surface } from './surface.ts';
 const HINTS: Partial<Record<Mode, string>> = {
 	compose: 'Enter sends   Ctrl+J newline   / commands   Ctrl+R rooms   Tab refs',
 	refs: 'Up/Down choose a ref   Enter opens it   Esc back',
+	actions: 'Up/Down choose an action   Enter presses it   Esc back',
 };
 
 /** At this width or wider, the composer shows its hint line. */
@@ -163,12 +164,20 @@ export class Painter {
 		this.header.draw({ identity: this.session.identity, view: this.session.view }, this.width());
 	}
 
+	/** What the status line says in a mode that is not the composer, or undefined. */
+	private modeStatus(mode: Mode, picking: string | undefined): string | undefined {
+		if (isPanel(mode)) return this.surfaces[mode].status;
+		if (mode === 'refs') return this.refStatus(picking);
+		if (mode === 'actions') return 'Choosing an action of a camera. Esc leaves.';
+		return undefined;
+	}
+
 	private statusChunks(mode: Mode, picking: string | undefined) {
 		const session = this.session;
 		if (session.error) return [fg(palette.red)(`Error: ${session.error}`)];
 		if (session.offline) return [fg(palette.red)(`Cannot read the rooms: ${session.offline}`)];
-		if (isPanel(mode)) return [fg(palette.muted)(this.surfaces[mode].status)];
-		if (mode === 'refs') return [fg(palette.muted)(this.refStatus(picking))];
+		const modal = this.modeStatus(mode, picking);
+		if (modal !== undefined) return [fg(palette.muted)(modal)];
 		if (session.awaitingGoal)
 			return [
 				fg(palette.muted)(

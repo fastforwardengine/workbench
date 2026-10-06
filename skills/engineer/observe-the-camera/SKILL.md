@@ -33,6 +33,7 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
      kind: 'frame',
      source: { type: 'process', handle, path: '/camera/observe' },
      title: 'Bench camera',
+     actions: [{ id: 'look', label: 'Look now' }],
    });
    ```
 
@@ -42,6 +43,13 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    the frame of that process. A `hide({ name })` removes the camera from the
    viewfinder, and the server keeps running. A cancel of the server leaves
    the widget, and the viewfinder then draws nothing.
+
+   The viewfinder draws the action as a button, "Look now". A press arrives
+   as a message of the person that starts with the widget name, such as
+   `bench, rev 2 "Bench camera": Look now [look]`. Answer it with a new
+   observation of that camera: read the handle of that name from your
+   widget reminder, and follow step 4. Do not ask which camera. When its
+   process ended, say so.
 
 6. Aim the camera at the bench before you capture. Read the frame before
    you describe the bench or the display. No tool reads the digits of the

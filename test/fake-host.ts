@@ -1,4 +1,5 @@
 import type {
+	ActionWidget,
 	ActivationSteps,
 	Attachment,
 	FileContent,
@@ -9,6 +10,8 @@ import type {
 	RoomView,
 	Viewfinder,
 	ViewfinderState,
+	WidgetAct,
+	WidgetActResult,
 } from '../src/host/host.ts';
 import { Session } from '../src/terminal/state/session.ts';
 
@@ -210,6 +213,22 @@ export class FakeHost implements Lab {
 		closed: boolean;
 		changed: () => void;
 	}[] = [];
+	/** The camera widgets with actions that `actions` returns. A test sets it. */
+	actionTable: ActionWidget[] = [];
+	/** The presses that the terminal sent: the person and the act of each call. */
+	readonly acts: { person: string; act: WidgetAct }[] = [];
+	/** What `act` does next. A test replaces it, and a throw is a failed call. */
+	actResult: (person: string, act: WidgetAct) => Promise<WidgetActResult> = async () => ({
+		kind: 'sent',
+		seq: 7,
+	});
+	actions(room: string): ActionWidget[] {
+		return this.actionTable.filter((widget) => widget.room === room);
+	}
+	async act(person: string, act: WidgetAct): Promise<WidgetActResult> {
+		this.acts.push({ person, act });
+		return this.actResult(person, act);
+	}
 	viewfinder(room: string, changed: () => void): Viewfinder {
 		const finder = {
 			room,

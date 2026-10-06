@@ -82,6 +82,8 @@ export class Keys {
 			this.mode = 'compose';
 			this.composer.focus();
 		}
+		// The pad leaves by itself when no camera has an action. The composer takes the keys back.
+		if (this.mode === 'actions' && !this.viewfinder.acting) this.leaveActions();
 	}
 
 	// Routing
@@ -97,7 +99,8 @@ export class Keys {
 			this.transcript.scrollBy(key.name === 'pageup' ? -page : page);
 			return;
 		}
-		if (this.mode === 'refs') this.refsKey(key);
+		if (this.mode === 'actions') this.actionsKey(key);
+		else if (this.mode === 'refs') this.refsKey(key);
 		else this.composeKey(key);
 	}
 
@@ -123,6 +126,11 @@ export class Keys {
 	private interrupt(): void {
 		if (isPanel(this.mode)) {
 			this.closePanel();
+			return;
+		}
+		if (this.mode === 'actions') {
+			this.leaveActions();
+			this.render();
 			return;
 		}
 		const hadText = this.composer.text !== '';
@@ -181,6 +189,7 @@ export class Keys {
 	}
 
 	private openPanel(mode: PanelMode): void {
+		if (this.mode === 'actions') this.leaveActions();
 		const surface = this.surfaces[mode];
 		// The surface opens first, so the first draw shows the panel.
 		surface.open();
@@ -206,6 +215,37 @@ export class Keys {
 		if (this.mode === 'compose') this.composer.focus();
 		this.painter.invalidate();
 		this.render();
+	}
+
+	// The actions of the cameras
+
+	/** Give the keys to the actions of the cameras. A closed viewfinder, or a camera with none, keeps the composer. */
+	private enterActions(): void {
+		if (!this.viewfinder.shown) {
+			this.session.say('The viewfinder is closed. Use /camera to show the cameras.');
+			return;
+		}
+		if (!this.viewfinder.enterActions()) {
+			this.session.say('No shown camera has an action.');
+			return;
+		}
+		this.mode = 'actions';
+		this.composer.blur();
+		this.render();
+	}
+
+	private leaveActions(): void {
+		this.viewfinder.leaveActions();
+		this.mode = 'compose';
+		this.composer.focus();
+	}
+
+	private actionsKey(key: KeyEvent): void {
+		if (key.name !== 'pageup' && key.name !== 'pagedown') key.preventDefault();
+		if (this.viewfinder.actionKey(key) === 'leave') {
+			this.leaveActions();
+			this.render();
+		}
 	}
 
 	// Refs
@@ -262,12 +302,20 @@ export class Keys {
 
 	// The composer
 
+	/** Ctrl+R lists the rooms. Ctrl+L chooses an action of a camera. */
+	private ctrlKey(key: KeyEvent): void {
+		key.preventDefault();
+		if (key.name === 'l') {
+			this.enterActions();
+			return;
+		}
+		this.palette.revive();
+		this.composer.setText('/room ');
+	}
+
 	private composeKey(key: KeyEvent): void {
-		if (key.ctrl && key.name === 'r') {
-			key.preventDefault();
-			this.palette.revive();
-			this.composer.setText('/room ');
-		} else if (key.name === 'tab') {
+		if (key.ctrl && (key.name === 'r' || key.name === 'l')) this.ctrlKey(key);
+		else if (key.name === 'tab') {
 			key.preventDefault();
 			if (this.palette.open) this.palette.complete();
 			else this.enterRefs();

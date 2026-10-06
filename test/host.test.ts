@@ -593,6 +593,14 @@ describe('Workbench host, a message to one seat', () => {
 		missing.close();
 	});
 
+	it('lists no camera action in a room that shows none, and refuses a press of a missing widget', async () => {
+		const lab = await open(await freshDirectory(), listeningStream(new Set()));
+		expect(lab.actions('build')).toEqual([]);
+		const act = { room: 'build', widget: 'bench', revision: 'r1', action: 'look', press: 'p1' };
+		await expect(lab.act('nobody', act)).rejects.toThrow("Unknown person 'nobody'.");
+		await expect(lab.act(person, act)).rejects.toThrow();
+	});
+
 	it('lists the specialists as the seats to address', async () => {
 		const lab = await open(await freshDirectory(), listeningStream(new Set()));
 		expect(lab.team.map((seat) => seat.name)).toEqual(['researcher', 'engineer']);

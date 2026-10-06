@@ -2,10 +2,12 @@ import { access, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { Room } from '@ambionframework/ambion';
+import type { WidgetAct, WidgetActResult } from '@ambionframework/canvas';
 import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
 import { buildRoom } from '../domain/room.ts';
 import type { ActivationSteps } from '../view/steps.ts';
+import { type ActionWidget, frameActions } from './actions.ts';
 import {
 	type Attachment,
 	attachFile,
@@ -21,8 +23,10 @@ import { fail, openRooms, type RoomAction, type RoomsOptions, type RoomView } fr
 import { openViewfinder, type Viewfinder } from './viewfinder.ts';
 import { loadWorkstation } from './workstation.ts';
 
+export type { WidgetAct, WidgetActResult } from '@ambionframework/canvas';
 export type { Person } from '../domain/definitions.ts';
 export type { ActivationSteps } from '../view/steps.ts';
+export type { ActionWidget, Answered } from './actions.ts';
 export type { Attachment, FileContent, FileEntry, ImageContent, TableView } from './files.ts';
 export type { ProcessOutput, ProcessView } from './processes.ts';
 export type { RoomAction, RoomView } from './rooms.ts';
@@ -115,6 +119,13 @@ export interface Lab {
 	 * until its `close`.
 	 */
 	viewfinder(room: string, changed: () => void): Viewfinder;
+	/** The shown camera widgets of a room that hold a "Look now" style action, with their answers. */
+	actions(room: string): ActionWidget[];
+	/**
+	 * Press an action of a widget as a person. The canvas checks the press, and sends it
+	 * to the room as a message of the person. A retry with the same `press` lands once.
+	 */
+	act(person: string, act: WidgetAct): Promise<WidgetActResult>;
 	/** Stop every room and release the storage. The journals stay, so a later open resumes them. */
 	close(): Promise<void>;
 }
@@ -280,6 +291,10 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		// needs no place in the host's queue, and a wait for the end holds no read.
 		cancelProcess: (handle) => rooms.workspace.processes.cancel(handle),
 		watchProcesses: (changed) => rooms.workspace.processes.subscribe(() => changed()),
+		actions: (room) => frameActions(rooms.canvas.widgets(room), rooms.canvas.answers(room)),
+		async act(person, act) {
+			return rooms.act(personNamed(person), act);
+		},
 		viewfinder: (room, changed) => openViewfinder(rooms.workspace, rooms.canvas, room, changed),
 		close() {
 			if (closing) return closing;
