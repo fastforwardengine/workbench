@@ -15,6 +15,8 @@ exports[`the help text > lists every command and key, as the person reads them 1
                     Engineer shows a camera. Ctrl+L chooses the Look now button
                     under a camera, Enter presses it, and Esc goes back. It needs
                     a terminal with Kitty graphics, such as Ghostty.
+  /voice            switch voice mode on or off. In voice mode, hold Space on an empty
+                    composer to talk, and let go to send what whisper-cli hears.
   /try              fill the composer with the room’s suggested question
   /abort            cancel the open exchange in this room
   /dismiss <n>      dismiss the say n that waits to return. The seat does not come back to it.
@@ -29,6 +31,8 @@ Keys
   PageUp and PageDown scroll. Start a message with // to send a leading slash.
   Ctrl+C clears the composer, cancels a new room that waits for its goal, and closes a
   panel. On an empty composer it drops the staged attachments.
+  In voice mode, Space on an empty composer starts a recording. Let go to send it.
+  Ctrl+C drops the recording.
   Ctrl+D on an empty composer leaves the terminal. /quit also leaves.
   Start a message with @name to address one seat. The seat wakes, and the host
   seats it first when it is not seated. Start with @@ to send a leading at sign."

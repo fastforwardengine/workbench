@@ -14,6 +14,7 @@ import { ViewfinderSurface } from '../src/terminal/app/viewfinder-surface.ts';
 import { PictureCache } from '../src/terminal/state/picture-cache.ts';
 import { ProcessBrowser } from '../src/terminal/state/process-browser.ts';
 import { TICK_MS, ViewfinderBrowser } from '../src/terminal/state/viewfinder-browser.ts';
+import { Voice } from '../src/terminal/state/voice.ts';
 import { Composer } from '../src/terminal/widgets/composer.ts';
 import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { Header } from '../src/terminal/widgets/header.ts';
@@ -23,6 +24,7 @@ import { Transcript } from '../src/terminal/widgets/transcript.ts';
 import { ViewfinderPanel } from '../src/terminal/widgets/viewfinder-panel.ts';
 import { started, view } from './fake-host.ts';
 import { PNG } from './png.ts';
+import { fakeTake, quietParts, quietVoice } from './voice-fakes.ts';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -34,7 +36,7 @@ const AT = '2026-01-01T00:00:00Z';
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** The terminal, wired as `tui.ts` wires it, without the room. */
-async function build(width = 120) {
+async function build(width = 120, voice = quietVoice()) {
 	const setup = await createTestRenderer({ width, height: 30 });
 	cleanups.push(() => setup.renderer.destroy());
 	const { renderer } = setup;
@@ -95,6 +97,7 @@ async function build(width = 120) {
 		composer,
 		surfaces,
 		header,
+		voice,
 		pictures: new PictureCache(
 			(ref) => host.snapshot(ref),
 			() => {},
@@ -121,6 +124,7 @@ async function build(width = 120) {
 		surfaces,
 		viewfinder,
 		transcript,
+		voice,
 		render,
 		quit,
 	});
@@ -157,6 +161,7 @@ async function build(width = 120) {
 		renders,
 		render,
 		painter,
+		voice,
 		surfaces,
 		viewfinder,
 		frame: async () => {
@@ -971,5 +976,72 @@ describe('Ctrl+C and Ctrl+D', () => {
 		built.composer.setText('');
 		built.press('d', ctrl);
 		expect(built.quit).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('the status line in voice mode', () => {
+	/** A voice mode that is on, over a recorder that never ends the take. */
+	async function listening() {
+		const time = { at: 1_000 };
+		const redraw = { run: () => {} };
+		const voice = new Voice(
+			quietParts({
+				now: () => time.at,
+				start: async () => fakeTake(),
+				transcribe: () => new Promise(() => {}),
+				changed: () => redraw.run(),
+			}),
+		);
+		await voice.toggle();
+		const built = await build(120, voice);
+		redraw.run = built.render;
+		built.render();
+		return { ...built, time };
+	}
+
+	it('says how to talk and how to go back in the composer, and keeps the usual status line, when it waits', async () => {
+		const built = await listening();
+		const frame = await built.frame();
+		expect(frame).toContain('Voice: hold Space to talk. /voice returns to text.');
+		expect(frame).toContain('Active');
+	});
+
+	it('keeps the waiting seat on the status line when it waits', async () => {
+		const built = await listening();
+		built.host.table.set('characterization', view('characterization', { exchange: { id: 'x' } }));
+		await built.session.refresh();
+		built.render();
+		expect(await built.frame()).toContain('A new message steers the open exchange');
+	});
+
+	it('shows listening while the person holds Space, and transcribing after the release', async () => {
+		const built = await listening();
+		built.press('space');
+		await wait(5);
+		expect(await built.frame()).toContain('● listening');
+		built.time.at += 1_000;
+		built.keys.onRelease({ name: 'space' } as KeyEvent);
+		await wait(5);
+		expect(await built.frame()).toContain('transcribing');
+	});
+
+	it('does not type the space into the composer', async () => {
+		const built = await listening();
+		built.press('space', { sequence: ' ' });
+		expect(built.composer.text).toBe('');
+		expect(built.prevented.count).toBe(1);
+	});
+
+	it('shows the usual status when voice mode is off', async () => {
+		const built = await build();
+		built.render();
+		expect(await built.frame()).not.toContain('Voice:');
+	});
+
+	it('leaves Space to the refs, which use it to open a ref', async () => {
+		const built = await listening();
+		built.keys.mode = 'refs';
+		built.press('space');
+		expect(built.voice.phase).toBe('idle');
 	});
 });

@@ -176,6 +176,21 @@ A bench script comes from a template.
   waits for its goal. In a side panel it closes the panel. Ctrl+D leaves
   the terminal when the composer is empty, and `/quit` also leaves. The
   rooms stop with the terminal.
+- **Voice mode:** `/voice` switches voice mode on and off. Hold Space on
+  an empty composer to record, and let go to send what you said as a message.
+  A press under 300 ms sends nothing. Ctrl+C drops a recording. A transcript
+  goes to the room that was open when you pressed Space. When you switch
+  room before it is ready, Workbench drops it and shows the words. The
+  terminal records mono audio at 16 kHz and runs `whisper-cli` on this
+  computer. No audio leaves it. The terminal must report key release: Kitty
+  and Ghostty do. Set up once with `make voice`. It installs `whisper-cpp`
+  with Homebrew and downloads the model of about 3 GB to
+  `~/.cache/whisper/ggml-large-v3.bin`.
+
+  `WORKBENCH_WHISPER_MODEL` names another model file, such as
+  `ggml-large-v3-turbo.bin` for speed. The first press asks macOS for the
+  microphone.
+
 - **Staged pictures:** a row above the composer names the files that wait
   for your next message. Press Enter on an empty composer to send them
   alone, with the text `Attached <names>`. A bare `@name` sends them to

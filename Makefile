@@ -11,6 +11,7 @@
 #   make ssh ACCOUNT=researcher   a shell as one account, over ssh
 #   make test-workstation       the workspace tier on the workstation, no model
 #   make reset                  remove the workstation and its volumes, after a prompt
+#   make voice                  whisper.cpp and its model for /voice, once
 #
 # workstation/README.md describes the workstation.
 
@@ -19,9 +20,11 @@ STATE := .workstation
 CONFIG := $(STATE)/workstation.json
 DATA ?= .data
 ACCOUNT ?= researcher
+WHISPER_MODEL := $(HOME)/.cache/whisper/ggml-large-v3.bin
+WHISPER_URL := https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
 
 .DEFAULT_GOAL := workbench
-.PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset
+.PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset voice
 
 # The dependencies, again when the manifest or the lockfile changes.
 node_modules/.modules.yaml: package.json pnpm-lock.yaml
@@ -55,6 +58,17 @@ usb-detach:
 ## Workbench, with the bash and git backends on the workstation.
 workbench: workstation node_modules/.modules.yaml
 	WORKBENCH_WORKSTATION=$(CONFIG) pnpm start $(DATA)
+
+## What /voice needs: whisper-cli from Homebrew, and the large-v3 model of
+## about 3 GB. The download goes to a part file first, so a stopped download
+## leaves no model that looks complete.
+voice: $(WHISPER_MODEL)
+	@command -v whisper-cli >/dev/null || brew install whisper-cpp
+
+$(WHISPER_MODEL):
+	mkdir -p $(dir $@)
+	curl -fL --retry 3 -C - -o $@.part $(WHISPER_URL)
+	mv $@.part $@
 
 stop:
 	$(COMPOSE) stop

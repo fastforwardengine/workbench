@@ -6,6 +6,7 @@ import type { PictureCache } from '../state/picture-cache.ts';
 import { pictureRefs, stripKey, stripsBySeq } from '../state/pictures.ts';
 import type { Session } from '../state/session.ts';
 import { emptyText } from '../state/session-text.ts';
+import type { Voice } from '../state/voice.ts';
 import { tui as palette } from '../widgets/brand.ts';
 import type { Composer } from '../widgets/composer.ts';
 import type { Header } from '../widgets/header.ts';
@@ -29,6 +30,8 @@ export interface DrawParts {
 	/** The side panels, by mode. The painter draws the one that is open. */
 	surfaces: Readonly<Record<PanelMode, Surface>>;
 	header: Header;
+	/** Voice mode. The status line shows its phase. */
+	voice: Voice;
 	/** The thumbnails of the snapshot refs that the shown messages cite. */
 	pictures: PictureCache;
 	/** True when the terminal draws Kitty graphics. Capabilities can arrive after the start. */
@@ -54,6 +57,7 @@ export class Painter {
 	private readonly composer: Composer;
 	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
 	private readonly header: Header;
+	private readonly voice: Voice;
 	private readonly pictures: PictureCache;
 	private readonly graphics: () => boolean;
 	private readonly cellAspect: () => number;
@@ -67,6 +71,7 @@ export class Painter {
 		this.composer = parts.composer;
 		this.surfaces = parts.surfaces;
 		this.header = parts.header;
+		this.voice = parts.voice;
 		this.pictures = parts.pictures;
 		this.graphics = parts.graphics;
 		this.cellAspect = parts.cellAspect;
@@ -157,6 +162,7 @@ export class Painter {
 		if (session.awaitingGoal) return `What is ${session.awaitingGoal} for?`;
 		if (!session.identity) return 'Pick a person: type /user <name>';
 		if (session.pendingRefs.length > 0) return 'Enter sends the attachments alone';
+		if (this.voice.on) return this.voice.line;
 		return 'Message the room, or type / for commands';
 	}
 
@@ -170,6 +176,13 @@ export class Painter {
 		if (mode === 'refs') return this.refStatus(picking);
 		if (mode === 'actions') return 'Choosing an action of a camera. Esc leaves.';
 		return undefined;
+	}
+
+	/** The status line while a recording or a transcription runs. It is undefined in any other state. */
+	private voiceChunks() {
+		if (!this.voice.on || this.voice.phase === 'idle') return undefined;
+		const line = fg(palette.muted)(this.voice.line);
+		return this.voice.phase === 'listening' ? [fg(palette.coral)('● '), line] : [line];
 	}
 
 	private statusChunks(mode: Mode, picking: string | undefined) {
@@ -189,6 +202,8 @@ export class Painter {
 		if (!view) return [fg(palette.muted)('Opening…')];
 		if (view.status !== 'running')
 			return [fg(palette.muted)(`${view.name} is ${view.status}. Use /resume.`)];
+		const voiced = this.voiceChunks();
+		if (voiced) return voiced;
 		const waiting = session.attention[0];
 		if (waiting) return [fg(palette.coral)('● '), fg(palette.muted)(waiting)];
 		if (view.exchange)
