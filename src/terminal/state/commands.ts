@@ -62,10 +62,11 @@ export const COMMANDS = [
 	},
 	{
 		name: 'camera',
-		summary: 'Show or hide the camera viewfinder beside the conversation',
+		summary: 'Show or hide the cameras of the open room beside the conversation',
 		help: [
-			'  /camera           show the latest frame of the camera beside the conversation, and',
-			'                    hide it when it shows. The composer stays active. It needs a',
+			'  /camera           show the latest frame of each camera that the open room shows,',
+			'                    beside the conversation, and hide them when they show. The',
+			'                    Engineer shows a camera. The composer stays active. It needs a',
 			'                    terminal with Kitty graphics, such as Ghostty.',
 		],
 	},

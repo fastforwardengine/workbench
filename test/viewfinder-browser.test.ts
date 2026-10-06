@@ -1,5 +1,6 @@
 /** The state of the viewfinder panel, and the session command that opens it. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CameraView } from '../src/host/host.ts';
 import { ageText, TICK_MS, ViewfinderBrowser } from '../src/terminal/state/viewfinder-browser.ts';
 import { FakeHost, started } from './fake-host.ts';
 
@@ -19,6 +20,21 @@ const frame = (received: number) => ({
 	received,
 });
 
+const bench = (received: number): CameraView => ({
+	name: 'bench',
+	title: 'Bench camera',
+	handle: 'bash-a',
+	frame: frame(received),
+	note: undefined,
+});
+
+/** A browser over a fake host. `room` is the open room, and a test may change it. */
+function browserOf(host: FakeHost, changed = vi.fn(), now?: () => number) {
+	const open = { room: 'build' };
+	const browser = new ViewfinderBrowser(host, () => open.room, changed, now);
+	return { browser, open, changed };
+}
+
 describe('the age of a frame', () => {
 	it('counts seconds, then minutes', () => {
 		expect(ageText(-5)).toBe('0 s ago');
@@ -32,7 +48,7 @@ describe('the age of a frame', () => {
 describe('the viewfinder browser', () => {
 	it('opens without a poll, and starts it when the terminal can draw the frame', () => {
 		const host = new FakeHost();
-		const browser = new ViewfinderBrowser(host, vi.fn());
+		const { browser } = browserOf(host);
 		browser.show();
 		expect(browser.open).toBe(true);
 		expect(host.finders).toHaveLength(0);
@@ -45,14 +61,65 @@ describe('the viewfinder browser', () => {
 
 	it('does not poll a panel that is closed', () => {
 		const host = new FakeHost();
-		new ViewfinderBrowser(host, vi.fn()).watch(true);
+		browserOf(host).browser.watch(true);
 		expect(host.finders).toHaveLength(0);
+	});
+
+	it('follows the open room, and no poll starts while no room is open', () => {
+		const host = new FakeHost();
+		const { browser, open } = browserOf(host);
+		open.room = '';
+		browser.show();
+		browser.watch(true);
+		expect(host.finders).toHaveLength(0);
+		open.room = 'build';
+		browser.watch(true);
+		expect(host.finders.map((finder) => finder.room)).toEqual(['build']);
+	});
+
+	it('follows the person to another room: it closes the old viewfinder and opens a new one', () => {
+		const host = new FakeHost();
+		const { browser, open } = browserOf(host);
+		browser.show();
+		browser.watch(true);
+		open.room = 'second';
+		browser.watch(true);
+		expect(host.finders.map((finder) => [finder.room, finder.closed])).toEqual([
+			['build', true],
+			['second', false],
+		]);
+		expect(vi.getTimerCount()).toBe(1);
+		browser.watch(true);
+		expect(host.finders).toHaveLength(2);
+	});
+
+	it('opens one viewfinder when the host calls changed while it opens, and hide closes it', () => {
+		const host = new FakeHost();
+		const open = { room: 'build' };
+		let browser: ViewfinderBrowser | undefined;
+		// A draw calls `watch` again from `changed`, as the terminal does.
+		const redraw = vi.fn(() => browser?.watch(true));
+		browser = new ViewfinderBrowser(host, () => open.room, redraw);
+		const original = host.viewfinder.bind(host);
+		host.viewfinder = (room, changed) => {
+			changed();
+			return original(room, changed);
+		};
+		browser.show();
+		browser.watch(true);
+		expect(host.finders).toHaveLength(1);
+		expect(host.finders[0]?.closed).toBe(false);
+		open.room = 'second';
+		browser.watch(true);
+		expect(host.finders).toHaveLength(2);
+		expect(host.finders.filter((finder) => !finder.closed)).toHaveLength(1);
+		browser.hide();
+		expect(host.finders.every((finder) => finder.closed)).toBe(true);
 	});
 
 	it('stops the poll when the panel closes, and when the terminal cannot draw', () => {
 		const host = new FakeHost();
-		const changed = vi.fn();
-		const browser = new ViewfinderBrowser(host, changed);
+		const { browser, changed } = browserOf(host);
 		browser.show();
 		browser.watch(true);
 		browser.watch(false);
@@ -68,7 +135,7 @@ describe('the viewfinder browser', () => {
 	});
 
 	it('leaves no timer after the panel closes', () => {
-		const browser = new ViewfinderBrowser(new FakeHost(), vi.fn());
+		const { browser } = browserOf(new FakeHost());
 		browser.show();
 		browser.watch(true);
 		expect(vi.getTimerCount()).toBe(1);
@@ -78,22 +145,29 @@ describe('the viewfinder browser', () => {
 
 	it('redraws every second so the age moves, and on each change of the viewfinder', () => {
 		const host = new FakeHost();
-		const changed = vi.fn();
 		let now = Date.now();
-		const browser = new ViewfinderBrowser(host, changed, () => now);
+		const { browser, changed } = browserOf(host, vi.fn(), () => now);
 		browser.show();
 		browser.watch(true);
-		expect(browser.age).toBeUndefined();
+		expect(browser.state.cameras).toEqual([]);
 		const finder = host.finders[0];
 		if (!finder) throw new Error('No viewfinder.');
-		finder.state = { process: 'engineer/camera', frame: frame(now), note: undefined };
+		finder.state = { cameras: [bench(now)], note: undefined };
 		finder.changed();
 		expect(changed).toHaveBeenCalledTimes(1);
-		expect(browser.state.process).toBe('engineer/camera');
+		const [camera] = browser.state.cameras;
+		if (!camera) throw new Error('No camera.');
+		expect(camera.name).toBe('bench');
+		expect(browser.age(camera)).toBe('0 s ago');
 		now += 2_000;
 		vi.advanceTimersByTime(TICK_MS);
 		expect(changed).toHaveBeenCalledTimes(2);
-		expect(browser.age).toBe('2 s ago');
+		expect(browser.age(camera)).toBe('2 s ago');
+	});
+
+	it('has no age for a camera with no frame', () => {
+		const { browser } = browserOf(new FakeHost());
+		expect(browser.age({ ...bench(0), frame: undefined })).toBeUndefined();
 	});
 });
 

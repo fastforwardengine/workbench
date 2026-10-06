@@ -1,5 +1,5 @@
 import { userInfo } from 'node:os';
-import { defineAgent, definePerson } from '@ambionframework/ambion';
+import { defineAgent, definePerson, type ToolBundle } from '@ambionframework/ambion';
 import { pi } from '@ambionframework/pi';
 import type { Workspace } from '@ambionframework/workspace';
 import { piModel, THINKING } from './model.ts';
@@ -90,7 +90,7 @@ export function sharedRules(project: string): string {
 export const shared = sharedRules(radioProject);
 
 /** The specialists. Each one has a narrow scope and reports back once. */
-const specialists: { name: string; identity: string; rules: Rules }[] = [
+const specialists: { name: string; identity: string; rules: Rules; shows?: boolean }[] = [
 	{
 		name: 'researcher',
 		identity:
@@ -106,6 +106,8 @@ const specialists: { name: string; identity: string; rules: Rules }[] = [
 		name: 'engineer',
 		identity:
 			'Engineer specialist. Watches the bench, finds and drives its devices, and guides the assembly of a kit one step at a time, with evidence for each claim.',
+		// The Engineer runs the camera, so it shows the viewfinder widget.
+		shows: true,
 		rules: {
 			Project: [
 				'Follow the scan-the-bench skill to find the devices of the bench, before you drive a device.',
@@ -129,12 +131,17 @@ const specialists: { name: string; identity: string; rules: Rules }[] = [
  * Build the team for one workspace. Every room reuses these definitions. Each
  * specialist reads its own skills from `skills/<name>/`. `project` is the
  * paragraph that opens the instructions of every seat: the FM radio project by
- * default, and another one for an eval.
+ * default, and another one for an eval. `widgets` is the widget bundle of the
+ * canvas. A specialist that shows widgets holds it. Without it, no seat does.
  */
-export async function team(workspace: Workspace, project: string = radioProject) {
+export async function team(
+	workspace: Workspace,
+	project: string = radioProject,
+	widgets?: ToolBundle,
+) {
 	const model = piModel();
 	const definitions = await Promise.all(
-		specialists.map(async ({ rules, ...definition }) => {
+		specialists.map(async ({ rules, shows, ...definition }) => {
 			const skills = await specialistSkills(definition.name);
 			return defineAgent({
 				...definition,
@@ -142,7 +149,7 @@ export async function team(workspace: Workspace, project: string = radioProject)
 					instructions: render(project, merge(rules)),
 					model,
 					thinking: THINKING,
-					bundles: [workspace.tools({ skills })],
+					bundles: [workspace.tools({ skills }), ...(shows && widgets ? [widgets] : [])],
 				}),
 			});
 		}),

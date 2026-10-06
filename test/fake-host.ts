@@ -203,11 +203,17 @@ export class FakeHost implements Lab {
 			this.processWatchers.delete(changed);
 		};
 	}
-	/** The viewfinders that the session opened. A test sets `state` and calls `changed`. */
-	readonly finders: { state: ViewfinderState; closed: boolean; changed: () => void }[] = [];
-	viewfinder(changed: () => void): Viewfinder {
+	/** The viewfinders that the terminal opened, with the room of each. A test sets `state` and calls `changed`. */
+	readonly finders: {
+		room: string;
+		state: ViewfinderState;
+		closed: boolean;
+		changed: () => void;
+	}[] = [];
+	viewfinder(room: string, changed: () => void): Viewfinder {
 		const finder = {
-			state: { process: undefined, frame: undefined, note: undefined } as ViewfinderState,
+			room,
+			state: { cameras: [], note: undefined } as ViewfinderState,
 			closed: false,
 			changed,
 			close() {

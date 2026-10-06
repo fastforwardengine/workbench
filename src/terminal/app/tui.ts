@@ -72,7 +72,11 @@ class EngineTui {
 			),
 		};
 		const viewfinder = new ViewfinderSurface(
-			new ViewfinderBrowser(host, () => this.render()),
+			new ViewfinderBrowser(
+				host,
+				() => this.session.room,
+				() => this.render(),
+			),
 			new ViewfinderPanel(renderer),
 			() => drawsKitty(renderer),
 		);

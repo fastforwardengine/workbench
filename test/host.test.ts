@@ -13,7 +13,8 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { people } from '../src/domain/definitions.ts';
 import { type Lab, openLab } from '../src/host/host.ts';
-import { liveRoom, openRooms } from '../src/host/rooms.ts';
+import { openRooms } from '../src/host/rooms.ts';
+import { NO_ENDPOINTS } from '../src/host/viewfinder.ts';
 import { PNG } from './png.ts';
 
 const opened: { lab: Lab; directory: string }[] = [];
@@ -536,8 +537,8 @@ describe('Workbench host, a message to one seat', () => {
 			stream: listeningStream(new Set()),
 		});
 		await rooms.create('legacy', 'A room from before the Researcher seat.');
-		await rooms.withRoom('legacy', async (entry) => {
-			await liveRoom(entry).unseat('researcher');
+		await rooms.inRoom('legacy', async (room) => {
+			await room.unseat('researcher');
 		});
 		await rooms.close();
 		database.close();
@@ -564,8 +565,7 @@ describe('Workbench host, a message to one seat', () => {
 		const database = new DatabaseSync(joinPath(directory, 'rooms.db'));
 		const rooms = await openRooms(database, directory, { stream: listeningStream(new Set()) });
 		await rooms.create('mute', 'A room with a seat that hears nothing.');
-		await rooms.withRoom('mute', async (entry) => {
-			const room = liveRoom(entry);
+		await rooms.inRoom('mute', async (room) => {
 			await room.unseat('researcher');
 			await room.seat('researcher', { attention: 'none' });
 		});
@@ -577,6 +577,20 @@ describe('Workbench host, a message to one seat', () => {
 			lab.send('mute', person, 'to-4', '@researcher hi', [], 'researcher'),
 		).rejects.toThrow("'researcher' listens at none");
 		expect((await lab.read('mute', 0)).messages.some((m) => m.kind === 'said')).toBe(false);
+	});
+
+	it('opens a viewfinder on a room, and a backend with no endpoints has no camera', async () => {
+		const lab = await open(await freshDirectory(), listeningStream(new Set()));
+		const changed = vi.fn();
+		const finder = lab.viewfinder('build', changed);
+		try {
+			expect(finder.state).toEqual({ cameras: [], note: NO_ENDPOINTS });
+		} finally {
+			finder.close();
+		}
+		const missing = lab.viewfinder('no-such-room', changed);
+		expect(missing.state.cameras).toEqual([]);
+		missing.close();
 	});
 
 	it('lists the specialists as the seats to address', async () => {

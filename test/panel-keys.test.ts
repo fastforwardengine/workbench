@@ -5,6 +5,7 @@
 import { BoxRenderable, type KeyEvent } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { LOST, NO_CAMERA } from '../src/host/viewfinder.ts';
 import { Painter } from '../src/terminal/app/draw.ts';
 import { FilesSurface } from '../src/terminal/app/files-surface.ts';
 import { Keys } from '../src/terminal/app/keys.ts';
@@ -21,6 +22,7 @@ import { ProcessesPanel } from '../src/terminal/widgets/process-panel.ts';
 import { Transcript } from '../src/terminal/widgets/transcript.ts';
 import { ViewfinderPanel } from '../src/terminal/widgets/viewfinder-panel.ts';
 import { started, view } from './fake-host.ts';
+import { PNG } from './png.ts';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -67,7 +69,7 @@ async function build(width = 120) {
 	const processPanel = new ProcessesPanel(renderer);
 	const processes = new ProcessBrowser(host, render);
 	const cameraPanel = new ViewfinderPanel(renderer);
-	const camera = new ViewfinderBrowser(host, render);
+	const camera = new ViewfinderBrowser(host, () => session.room, render);
 	// Stop the poll before the renderer goes, so no tick draws on a destroyed buffer.
 	cleanups.unshift(() => camera.watch(false));
 	const kitty = { on: false };
@@ -239,6 +241,61 @@ describe('the camera viewfinder', () => {
 		expect(built.host.finders[0]?.closed).toBe(true);
 		expect(built.cameraPanel.root.visible).toBe(false);
 		expect(built.keys.mode).toBe('compose');
+	});
+
+	it('follows the room that the terminal opens', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
+		await wait(20);
+		expect(built.host.finders.map((finder) => finder.room)).toEqual([built.session.room]);
+	});
+
+	it('says that no camera is shown, and asks for the Engineer', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
+		await wait(20);
+		const finder = built.host.finders[0];
+		if (!finder) throw new Error('No viewfinder.');
+		finder.state = { cameras: [], note: NO_CAMERA };
+		finder.changed();
+		expect(await built.frame()).toContain('No camera is shown');
+	});
+
+	it('draws one labelled box for each camera, stacked, with its age and its note', async () => {
+		const built = await build(180);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
+		await wait(20);
+		const finder = built.host.finders[0];
+		if (!finder) throw new Error('No viewfinder.');
+		finder.state = {
+			cameras: [
+				{
+					name: 'bench',
+					title: 'Bench camera',
+					handle: undefined,
+					frame: undefined,
+					note: LOST,
+				},
+				{
+					name: 'shelf',
+					title: undefined,
+					handle: 'bash-a',
+					frame: { at: AT, digest: 'd1', png: PNG, received: Date.now() },
+					note: undefined,
+				},
+			],
+			note: undefined,
+		};
+		finder.changed();
+		const rows = (await built.frame()).split('\n');
+		const rowOf = (text: string) => rows.findIndex((row) => row.includes(text));
+		expect(rowOf('Bench camera')).toBeGreaterThan(-1);
+		expect(rowOf('shelf')).toBeGreaterThan(rowOf('Bench camera'));
+		expect(rows.join('\n')).toContain('0 s ago');
+		expect(rows.join('\n')).toContain('The camera process ended');
 	});
 
 	it('stops the poll when the terminal ends, without a draw', async () => {

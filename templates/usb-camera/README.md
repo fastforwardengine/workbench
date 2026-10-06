@@ -3,9 +3,9 @@
 This template holds `camera.py`, a sensor server for a Linux UVC camera and
 its integrated USB microphone, such as the Logitech BRIO.
 It follows the sensor protocol, version 2, of Ambion. The
-[sensor contract](https://github.com/ambionframework/ambion/blob/v0.6.0/docs/sensors.md)
+[sensor contract](https://github.com/ambionframework/ambion/blob/v0.7.0/examples/workbench/docs/sensors.md)
 defines the protocol. The
-[Ambion 0.6.0 camera-chat example](https://github.com/ambionframework/ambion/tree/v0.6.0/examples/camera-chat)
+[Ambion 0.7.0 camera-chat example](https://github.com/ambionframework/ambion/tree/v0.7.0/examples/camera-chat)
 shows the same lifecycle.
 It needs Python 3.11 or newer, `fswebcam`, and `arecord`. The workstation
 has all three. It has no pip or npm dependency.
@@ -62,7 +62,7 @@ frames each second. This server has no preview and no captions.
 6. Start one foreground server with `bash`. Use your fork ID, node,
    resolution, and card id. Give `--device`, `--audio-device`, or both. The
    server serves a sensor for each option you give. Name the process
-   `camera`, so that the viewfinder of the terminal finds it. The workspace
+   `camera`, so that the process list names it. The workspace
    sets `$PORT` for the process, and the server listens on that port. Do
    not add `&`, `nohup`, `--port`, or a supervisor.
 
