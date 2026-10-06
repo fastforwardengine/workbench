@@ -3,7 +3,8 @@ name: observe-the-camera
 description: Capture and keep a USB camera frame or a USB microphone sound clip through a sensor server that you own. Use it for bench images, build checks, reading the FM radio display, or a recording of the sound of the radio.
 ---
 
-1. Follow `scan-the-bench` before you open a camera or a microphone.
+1. Ask the person to set the microscope to its PC camera mode (UVC).
+   Then follow `scan-the-bench` before you open a camera or a microphone.
    Find the USB ID of each camera in the inventory, the resolution, and the
    card id of a microphone, as the README of the `usb-camera` template
    says. Select a camera with `--usb-id`. Do not assume that `/dev/video0`
@@ -28,9 +29,8 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    Start the microscope with `--resolution 1920x1080` and no
    `--audio-device`. It probably has no microphone, and `fswebcam` does
    not decode its H264 modes. The manual of the TM4K family says that the
-   microscope has a storage mode (MSDC) and a PC camera mode (UVC). Ask
-   the person to set it to the PC camera mode before you scan. These facts
-   about the microscope are unverified. When `device-scan` does not find
+   microscope has a storage mode (MSDC) and a PC camera mode (UVC). These
+   facts about the microscope are unverified. When `device-scan` does not find
    the microscope, run the bench camera only, and tell the person that the
    microscope is missing.
 

@@ -68,10 +68,10 @@ frames each second. This server has no preview and no captions.
 
 6. Start one foreground server with `bash`. Use your fork ID, USB ID,
    resolution, and card id. Give `--usb-id` or `--device`, `--audio-device`,
-   or both. The server serves a sensor for each option you give. Name the
-   process `camera`, so that the process list names it. The workspace
-   sets `$PORT` for the process, and the server listens on that port. Do
-   not add `&`, `nohup`, `--port`, or a supervisor.
+   or both. The server serves a sensor for each option you give. Give the
+   process a `name`, such as `camera`, so that the process list names it.
+   The workspace sets `$PORT` for the process, and the server listens on
+   that port. Do not add `&`, `nohup`, `--port`, or a supervisor.
 
    The USB ID `046d:085e` in the example is the ID of a BRIO. Use the ID
    of your camera.
