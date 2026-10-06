@@ -454,6 +454,25 @@ describe('the constructor', () => {
 	});
 });
 
+describe('the events that change the actions', () => {
+	it('draws again on a new revision of the same widget, and on an answer', async () => {
+		const { canvas, changed } = benchSetup();
+		await settle();
+		const calls = changed.mock.calls.length;
+		canvas.show('bench', 'bash-a', { title: 'Bench camera', for: 'priya' });
+		await settle();
+		expect(changed.mock.calls.length).toBeGreaterThan(calls);
+		const after = changed.mock.calls.length;
+		canvas.emit({ type: 'answered', room: ROOM, revision: 'r1', seq: 4 });
+		await settle();
+		expect(changed.mock.calls.length).toBeGreaterThan(after);
+		const last = changed.mock.calls.length;
+		canvas.emit({ type: 'answered', room: 'other', revision: 'r1', seq: 4 });
+		await settle();
+		expect(changed.mock.calls.length).toBe(last);
+	});
+});
+
 describe('the check of the author', () => {
 	it('lists the running processes of the author of the widget', async () => {
 		const { workspace } = benchSetup();

@@ -16,7 +16,7 @@ export const FRAME_KIND: WidgetKind = {
 	name: 'frame',
 	description: 'The newest frame that a camera process serves.',
 	sources: ['process'],
-	actions: false,
+	actions: true,
 };
 
 /** Each camera reads a frame at this interval, in milliseconds. */
@@ -229,7 +229,7 @@ function admit(wanted: readonly Target[], bound: ReadonlyMap<string, unknown>) {
 /** Whether a canvas event is about the widgets of the room. */
 function concerns(event: CanvasEvent, room: string): boolean {
 	if (event.type === 'widget') return event.widget.room === room;
-	return event.type === 'started' && event.room === room;
+	return (event.type === 'started' || event.type === 'answered') && event.room === room;
 }
 
 /** One widget bound to one process, with its own timer, read, and abort. */
@@ -475,15 +475,15 @@ class Poller implements Viewfinder {
 		const { context } = this;
 		if (this.closed || !context) return;
 		const { kept, ignored } = admit(targetsOf(this.canvas.widgets(this.room)), this.bound);
-		const noted = this.noteIgnored(ignored);
-		const dropped = this.drop(new Set(kept.map((target) => target.name)));
-		const added = kept.filter((target) => !this.bound.has(target.name));
+		this.noteIgnored(ignored);
+		this.drop(new Set(kept.map((target) => target.name)));
 		for (const target of kept) {
 			const binding = this.bound.get(target.name);
 			if (binding) binding.retarget(target);
 			else this.bound.set(target.name, new FrameBinding(context, target));
 		}
-		if (noted || dropped || added.length > 0) context.changed();
+		// A new revision can change the actions or the person, so the screen draws again.
+		context.changed();
 		await Promise.all([...this.bound.values()].map((binding) => binding.verify()));
 	}
 }

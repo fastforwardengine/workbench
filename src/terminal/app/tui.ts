@@ -74,7 +74,11 @@ class EngineTui {
 		const viewfinder = new ViewfinderSurface(
 			new ViewfinderBrowser(
 				host,
-				() => this.session.room,
+				{
+					room: () => this.session.room,
+					person: () => this.session.identity?.name,
+					stopped: () => this.session.view?.status !== 'running',
+				},
 				() => this.render(),
 			),
 			new ViewfinderPanel(renderer),

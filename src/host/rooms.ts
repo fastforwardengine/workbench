@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import {
 	createRuntime,
+	type PersonDefinition,
 	type Room,
 	type RoomNotification,
 	readRoom,
@@ -14,6 +15,7 @@ import {
 	type CanvasRoom,
 	openCanvas,
 	sqliteCanvas,
+	type WidgetAct,
 } from '@ambionframework/canvas';
 import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journal';
 import { directoryBackend } from '@ambionframework/just-bash';
@@ -274,7 +276,13 @@ export async function openRooms(
 		/** What the viewfinder reads of the canvas: the widgets of a room, and the events. */
 		canvas: {
 			widgets: (name: string) => canvas.widgets(name),
+			answers: (name: string) => canvas.answers(name),
 			subscribe: (listener: (event: CanvasEvent) => void) => canvas.subscribe(listener),
+		},
+		/** Press an action of a widget as a person. The canvas checks it and sends it as a message. */
+		act(person: PersonDefinition, act: WidgetAct) {
+			if (closing) fail('The host is stopping.');
+			return canvas.act(person, act);
 		},
 		/** The folders that the files panel lists. */
 		roots,

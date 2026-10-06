@@ -7,11 +7,13 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import type { CameraView } from '../../host/host.ts';
+import type { Row } from '../state/action-pad.ts';
 import type { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
+import { ActionRows } from './action-rows.ts';
 import { tui as palette } from './brand.ts';
 import { lineText, SidePanel } from './side-panel.ts';
 
-const HINT = 'Workbench reads each camera every 3 s   /camera closes';
+const HINT = 'Workbench reads each camera every 3 s   /camera closes   Ctrl+L actions';
 
 /** What the panel says in a terminal that cannot draw the frame. */
 const NEEDS_KITTY = 'The viewfinder needs a terminal with Kitty graphics, such as Ghostty.';
@@ -30,7 +32,10 @@ const labelOf = (camera: Pick<CameraView, 'name' | 'title'>): string => camera.t
 
 /** One labelled box of the stack: a line for the age and the note of one camera, and its frame. */
 class CameraBox {
+	/** The box of the camera, and the buttons under it. */
 	readonly root: BoxRenderable;
+	private readonly frame: BoxRenderable;
+	private readonly actions: ActionRows;
 	private readonly image: ImageRenderable;
 	private readonly line: TextRenderable;
 	/** The digest of the frame in the image. The box sets the source again only when it changes. */
@@ -41,11 +46,17 @@ class CameraBox {
 			flexDirection: 'column',
 			width: '100%',
 			flexShrink: 0,
+			visible: false,
+		});
+		this.frame = new BoxRenderable(renderer, {
+			flexDirection: 'column',
+			width: '100%',
+			flexShrink: 0,
 			border: true,
 			borderColor: palette.line,
 			titleColor: palette.accent,
-			visible: false,
 		});
+		this.actions = new ActionRows(renderer);
 		this.image = new ImageRenderable(renderer, {
 			fit: 'fit',
 			protocol: 'kitty',
@@ -55,14 +66,17 @@ class CameraBox {
 		});
 		this.line = new TextRenderable(renderer, { content: '', wrapMode: 'word', width: '100%' });
 		// The line comes first, so a tall frame never pushes the age and the note out of view.
-		this.root.add(this.line);
-		this.root.add(this.image);
+		this.frame.add(this.line);
+		this.frame.add(this.image);
+		this.root.add(this.frame);
+		this.root.add(this.actions.root);
 	}
 
 	/** Draw one camera. `age` is the age of its frame, and `columns` is the width that the frame may take. */
-	draw(camera: CameraView, age: string | undefined, columns: number): void {
+	draw(camera: CameraView, age: string | undefined, columns: number, rows: readonly Row[]): void {
 		this.root.visible = true;
-		this.root.title = labelOf(camera);
+		this.frame.title = labelOf(camera);
+		this.actions.draw(rows);
 		this.fitImage(columns);
 		this.drawImage(camera.frame?.digest, camera.frame?.png);
 		this.line.visible = age !== undefined || camera.note !== undefined;
@@ -124,11 +138,12 @@ export class ViewfinderPanel extends SidePanel {
 		this.root.visible = browser.open;
 		if (!browser.open) return;
 		const { cameras, note } = browser.state;
+		browser.syncActions();
 		this.heading.content = new StyledText([fg(palette.accent)('Camera')]);
 		const columns = this.root.width - FRAME_COLUMNS;
 		const drawn = kitty ? cameras : [];
 		drawn.forEach((camera, index) => {
-			this.boxAt(index).draw(camera, browser.age(camera), columns);
+			this.boxAt(index).draw(camera, browser.age(camera), columns, browser.pad.rows(camera.name));
 		});
 		for (const box of this.boxes.slice(drawn.length)) box.hide();
 		const line = kitty ? note : NEEDS_KITTY;

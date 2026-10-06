@@ -1,9 +1,10 @@
+import type { KeyEvent } from '@opentui/core';
 import type { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import type { ViewfinderPanel } from '../widgets/viewfinder-panel.ts';
 
 /**
- * The viewfinder pane. It takes no keys and has no mode: it shows beside the
- * conversation while the composer keeps the keyboard.
+ * The viewfinder pane. It shows beside the conversation while the composer keeps the
+ * keyboard. It takes keys only while the person chooses an action of a camera.
  */
 export class ViewfinderSurface {
 	private readonly browser: ViewfinderBrowser;
@@ -24,6 +25,26 @@ export class ViewfinderSurface {
 	/** True while the pane shows. */
 	get shown(): boolean {
 		return this.browser.open;
+	}
+
+	/** True while the person chooses an action of a camera. */
+	get acting(): boolean {
+		return this.browser.pad.active;
+	}
+
+	/** Start the keys of the actions. False when no shown camera has an action. */
+	enterActions(): boolean {
+		this.browser.syncActions();
+		return this.browser.pad.enter();
+	}
+
+	leaveActions(): void {
+		this.browser.pad.leave();
+	}
+
+	/** Route one key to the actions. It returns `leave` when the person leaves them. */
+	actionKey(key: KeyEvent): 'leave' | undefined {
+		return this.browser.pad.key(key);
 	}
 
 	/** Open the browser. The first draw starts the poll. */
