@@ -12,6 +12,7 @@ import { PictureCache } from '../state/picture-cache.ts';
 import { ProcessBrowser } from '../state/process-browser.ts';
 import { type Intent, Session } from '../state/session.ts';
 import { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
+import { Voice } from '../state/voice.ts';
 import { tui as palette } from '../widgets/brand.ts';
 import { Composer } from '../widgets/composer.ts';
 import { FilesPanel } from '../widgets/files-panel.ts';
@@ -22,9 +23,12 @@ import { Transcript } from '../widgets/transcript.ts';
 import { ViewfinderPanel } from '../widgets/viewfinder-panel.ts';
 import { Painter } from './draw.ts';
 import { FilesSurface } from './files-surface.ts';
+import { KEYBOARD } from './keyboard.ts';
 import { Keys } from './keys.ts';
+import { Microphone } from './microphone.ts';
 import { ProcessesSurface } from './process-surface.ts';
 import { ViewfinderSurface } from './viewfinder-surface.ts';
+import { transcribe, whisperConfig, whisperProblem } from './whisper.ts';
 
 /** How often the slow fallback reads the room list and a stopped room. */
 const SLOW_MS = 4_000;
@@ -57,11 +61,14 @@ class EngineTui {
 	private readonly palette: Palette;
 	private readonly keys: Keys;
 	private readonly processes: ProcessBrowser;
+	private readonly voice: Voice;
+	private readonly microphone = new Microphone();
 	private stopped = false;
 
 	constructor(renderer: CliRenderer, host: Lab, identity: Person | undefined) {
 		this.renderer = renderer;
 		this.session = new Session(host, identity, () => this.render());
+		this.voice = this.newVoice();
 		const header = new Header(renderer);
 		const transcript = new Transcript(renderer);
 		this.processes = new ProcessBrowser(host, () => this.render());
@@ -100,6 +107,7 @@ class EngineTui {
 			composer: this.composer,
 			surfaces,
 			header,
+			voice: this.voice,
 			pictures: new PictureCache(
 				(ref) => host.snapshot(ref),
 				() => this.render(),
@@ -118,6 +126,7 @@ class EngineTui {
 			surfaces,
 			viewfinder,
 			transcript,
+			voice: this.voice,
 			render: () => this.render(),
 			quit: () => this.renderer.destroy(),
 		});
@@ -141,6 +150,8 @@ class EngineTui {
 			this.keys.onKey(key);
 			this.followEdit();
 		});
+		// The terminal reports a key release only with the Kitty keyboard events in `openRenderer`.
+		renderer.keyInput.on('keyrelease', (key: KeyEvent) => this.keys.onRelease(key));
 		renderer.on('resize', () => this.render());
 		// The terminal answers the graphics query after the start.
 		renderer.on('capabilities', () => this.render());
@@ -160,6 +171,8 @@ class EngineTui {
 			this.renderer.once('destroy', () => {
 				this.stopped = true;
 				this.keys.release();
+				this.voice.dispose();
+				this.microphone.dispose();
 				clearInterval(slow);
 				resolve();
 			});
@@ -185,6 +198,34 @@ class EngineTui {
 		setTimeout(() => {
 			if (!this.stopped) this.keys.refreshPalette();
 		}, 0);
+	}
+
+	/** Voice mode, over the microphone of this terminal and whisper-cli. */
+	private newVoice(): Voice {
+		const config = whisperConfig();
+		return new Voice({
+			ready: () => whisperProblem(config),
+			start: () => this.microphone.start(),
+			transcribe: (file, signal) => transcribe(config, file, signal),
+			discard: (file) => this.microphone.discard(file),
+			place: () => `${this.session.whoami}/${this.session.room}`,
+			deliver: (text) => this.sendVoice(text),
+			say: (note) => this.session.say(note),
+			problem: (line) => {
+				this.session.error = line;
+				this.render();
+			},
+			changed: () => this.render(),
+		});
+	}
+
+	/** Send a transcript as the person's message. It takes the path of Enter. */
+	private async sendVoice(text: string): Promise<void> {
+		const isMessage = !this.session.awaitingGoal && parse(text).kind === 'message';
+		const intent = await this.session.submit(text);
+		// A message that failed to send goes to the box, so the person can send it again.
+		if (isMessage && this.session.error && this.composer.text === '') this.composer.setText(text);
+		if (intent) this.apply(intent);
 	}
 
 	private render(): void {
@@ -216,6 +257,7 @@ class EngineTui {
 		else if (intent.type === 'compose') this.composer.setText(intent.text);
 		else if (intent.type === 'processes') this.keys.openProcesses();
 		else if (intent.type === 'camera') this.keys.toggleCamera();
+		else if (intent.type === 'voice') void this.voice.toggle();
 		else this.keys.openFiles();
 	}
 }
@@ -223,7 +265,11 @@ class EngineTui {
 /** OpenTUI draws through Node's FFI, which Node enables only with a flag. */
 async function openRenderer(): Promise<CliRenderer> {
 	try {
-		return await createCliRenderer({ exitOnCtrlC: false, targetFps: 30 });
+		return await createCliRenderer({
+			exitOnCtrlC: false,
+			targetFps: 30,
+			useKittyKeyboard: KEYBOARD,
+		});
 	} catch (error) {
 		const detail = errorText(error);
 		if (!/FFI/i.test(detail)) throw error;

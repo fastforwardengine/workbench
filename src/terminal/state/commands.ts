@@ -72,6 +72,14 @@ export const COMMANDS = [
 		],
 	},
 	{
+		name: 'voice',
+		summary: 'Switch voice mode on or off',
+		help: [
+			'  /voice            switch voice mode on or off. In voice mode, hold Space on an empty',
+			'                    composer to talk, and let go to send what whisper-cli hears.',
+		],
+	},
+	{
 		name: 'try',
 		summary: 'Fill the composer with the room’s suggested question',
 		help: ['  /try              fill the composer with the room’s suggested question'],

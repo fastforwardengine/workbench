@@ -17,6 +17,7 @@ import { type Marks, Transcript } from '../src/terminal/widgets/transcript.ts';
 import type { Block } from '../src/view/timeline.ts';
 import { started, view } from './fake-host.ts';
 import { PNG } from './png.ts';
+import { quietVoice } from './voice-fakes.ts';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -132,6 +133,7 @@ describe('the painter and the thumbnails', () => {
 			composer,
 			surfaces: {} as never,
 			header: new Header(renderer),
+			voice: quietVoice(),
 			pictures: new PictureCache((ref) => host.snapshot(ref), redraw),
 			graphics: () => graphics,
 			cellAspect: () => 2,

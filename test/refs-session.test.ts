@@ -5,6 +5,7 @@ import { FilesSurface } from '../src/terminal/app/files-surface.ts';
 import { type KeyParts, Keys } from '../src/terminal/app/keys.ts';
 import type { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { type FakeHost, started, view } from './fake-host.ts';
+import { quietVoice } from './voice-fakes.ts';
 
 const AT = '2026-01-01T00:00:00Z';
 const said = (seq: number, from: string, refs?: string[]) => ({
@@ -88,6 +89,7 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 			processes: {} as never,
 		},
 		transcript: { root, scrollBy: () => {} },
+		voice: quietVoice(),
 		render: () => {},
 	};
 	const keys = new Keys(parts as unknown as KeyParts);

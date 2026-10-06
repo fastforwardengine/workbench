@@ -1,6 +1,7 @@
 import type { CliRenderer, KeyEvent } from '@opentui/core';
 import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
 import type { Session } from '../state/session.ts';
+import type { Voice } from '../state/voice.ts';
 import type { Composer } from '../widgets/composer.ts';
 import type { Palette } from '../widgets/palette.ts';
 import type { Transcript } from '../widgets/transcript.ts';
@@ -26,6 +27,8 @@ export interface KeyParts {
 	/** The viewfinder. It shows beside the conversation and takes no keys. */
 	viewfinder: ViewfinderSurface;
 	transcript: Transcript;
+	/** Voice mode. Space on an empty composer records. */
+	voice: Voice;
 	render: () => void;
 	/** Leave the terminal. */
 	quit: () => void;
@@ -52,6 +55,7 @@ export class Keys {
 	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
 	private readonly viewfinder: ViewfinderSurface;
 	private readonly transcript: Transcript;
+	private readonly voice: Voice;
 	private readonly render: () => void;
 	private readonly quit: () => void;
 
@@ -64,6 +68,7 @@ export class Keys {
 		this.surfaces = parts.surfaces;
 		this.viewfinder = parts.viewfinder;
 		this.transcript = parts.transcript;
+		this.voice = parts.voice;
 		this.render = parts.render;
 		this.quit = parts.quit;
 	}
@@ -89,7 +94,7 @@ export class Keys {
 	// Routing
 
 	onKey(key: KeyEvent): void {
-		if (this.controlKey(key)) return;
+		if (this.controlKey(key) || this.voiceKey(key)) return;
 		if (isPanel(this.mode)) {
 			this.surfaces[this.mode].onKey(key, () => this.closePanel());
 			return;
@@ -102,6 +107,25 @@ export class Keys {
 		if (this.mode === 'actions') this.actionsKey(key);
 		else if (this.mode === 'refs') this.refsKey(key);
 		else this.composeKey(key);
+	}
+
+	/**
+	 * Space in voice mode. True when voice mode takes the key. Voice mode owns
+	 * Space in the composer only, because a panel and the refs use Space themselves.
+	 */
+	private voiceKey(key: KeyEvent): boolean {
+		if (this.mode !== 'compose' || !this.voice.press(key, this.composer.text === '')) return false;
+		key.preventDefault();
+		return true;
+	}
+
+	/**
+	 * A key comes back up. Only the terminals that report key release send this.
+	 * Voice mode sends the recording when the person lets go of Space, in any
+	 * mode, because the hold can outlast a mode change.
+	 */
+	onRelease(key: KeyEvent): void {
+		if (key.name === 'space') void this.voice.release();
 	}
 
 	/**
@@ -119,11 +143,16 @@ export class Keys {
 	}
 
 	/**
-	 * Ctrl+C closes a side panel and keeps the draft. In the other modes it
+	 * Ctrl+C drops a recording or a transcription that runs. Otherwise it closes
+	 * a side panel and keeps the draft. In the other modes it
 	 * clears the composer, and it cancels a new room that waits for its goal.
 	 * It does not quit.
 	 */
 	private interrupt(): void {
+		if (this.voice.cancel()) {
+			this.render();
+			return;
+		}
 		if (isPanel(this.mode)) {
 			this.closePanel();
 			return;

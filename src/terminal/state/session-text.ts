@@ -12,6 +12,8 @@ const KEY_HELP = [
 	'  PageUp and PageDown scroll. Start a message with // to send a leading slash.',
 	'  Ctrl+C clears the composer, cancels a new room that waits for its goal, and closes a',
 	'  panel. On an empty composer it drops the staged attachments.',
+	'  In voice mode, Space on an empty composer starts a recording. Let go to send it.',
+	'  Ctrl+C drops the recording.',
 	'  Ctrl+D on an empty composer leaves the terminal. /quit also leaves.',
 	'  Start a message with @name to address one seat. The seat wakes, and the host',
 	'  seats it first when it is not seated. Start with @@ to send a leading at sign.',
