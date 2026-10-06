@@ -9,6 +9,9 @@ The server listens on 127.0.0.1 at the port of the PORT variable, which the
 workspace sets for each process that bash starts. It prints nothing. A reader
 calls `fetch` with `GET /`, `GET /<sensor>/observe`, and `GET /files/<sha256>`.
 
+Select the camera with --usb-id where no udev runs, or with --device. The server finds the capture
+node of a USB ID at each capture, so a reconnect that renumbers /dev/videoN needs no restart.
+
 Lifecycle adapted from Ambion v0.6.0 examples/camera-chat. No daemon,
 preview, captions, automatic device selection, or framework dependency.
 """
@@ -53,6 +56,8 @@ RATE = 48000
 WINDOW = 480  # Samples in 10 ms at 48 kHz.
 FLOOR = -120.0
 AUDIO_DEVICE = r"[A-Za-z0-9_:=,.-]+"
+USB_ID = r"[0-9a-fA-F]{4}:[0-9a-fA-F]{4}"
+VIDEO4LINUX = Path("/sys/class/video4linux")
 
 
 def samples_of(frames):
@@ -101,6 +106,29 @@ def clip_levels(wav):
     envelope = [dbfs(sum(sample * sample for sample in data[start:start + WINDOW]), len(data[start:start + WINDOW]))
                 for start in range(0, len(data), WINDOW)]
     return peak_level, dbfs(total, len(data)), envelope
+
+
+def usb_id_of(entry):
+    """The USB ID, in lower case, of the device behind one video4linux entry."""
+    usb = (entry / "device").resolve().parent  # The `device` link names the USB interface.
+    return f"{(usb / 'idVendor').read_text().strip()}:{(usb / 'idProduct').read_text().strip()}".lower()
+
+
+def capture_node(usb_id, root=VIDEO4LINUX):
+    """The /dev/videoN path of the capture node of the USB device with this ID.
+    A UVC camera also has a metadata node, whose index is 1. An entry that sysfs cannot read has no match."""
+    found = []
+    for entry in sorted(root.iterdir()) if root.is_dir() else []:
+        try:
+            if (entry / "index").read_text().strip() == "0" and usb_id_of(entry) == usb_id:
+                found.append(f"/dev/{entry.name}")
+        except OSError:
+            continue
+    if not found:
+        raise ValueError(f"No capture node has USB ID {usb_id}. Attach the camera, then scan again.")
+    if len(found) > 1:
+        raise ValueError(f"More than one camera has USB ID {usb_id}: {', '.join(found)}. Use --device.")
+    return found[0]
 
 
 class CheckoutError(ValueError):
@@ -164,10 +192,12 @@ class Capture:
 class Camera:
     """One USB device, two sensors: `camera` (frames) and `microphone` (clips)."""
 
-    def __init__(self, source, data, device, resolution="1280x720", demo=False, audio_device=None, seconds=5):
+    def __init__(self, source, data, device, resolution="1280x720", demo=False, audio_device=None, seconds=5,
+                 usb_id=None):
         self.source = source
         self.data = Path(data)
         self.device = device
+        self.usb_id = usb_id
         self.resolution = resolution
         self.demo = demo
         self.audio_device = audio_device
@@ -180,7 +210,7 @@ class Camera:
     def sensors(self):
         """The configured sensors, with a description of each."""
         found = {}
-        if self.demo or self.device:
+        if self.demo or self.device or self.usb_id:
             found["camera"] = "Synthetic demo camera" if self.demo else "USB camera, on-demand PNG frames"
         if self.demo or self.audio_device:
             found["microphone"] = ("Synthetic demo microphone" if self.demo
@@ -246,13 +276,15 @@ class Camera:
     def acquire(self, sensor="camera"):
         if sensor == "microphone":
             return self.record()
+        # A USB ID resolves at each capture, so a reconnect that renumbers the nodes needs no restart.
+        node = None if self.demo else self.device or capture_node(self.usb_id, VIDEO4LINUX)
         if self.demo:
             png = demo_png()
         else:
             # Temporary capture stays outside Git. A timeout bounds acquisition.
             with tempfile.TemporaryDirectory(dir=self.data) as folder:
                 path = Path(folder) / "frame.png"
-                subprocess.run(["fswebcam", "-d", self.device, "-r", self.resolution,
+                subprocess.run(["fswebcam", "-d", node, "-r", self.resolution,
                                 "-S", "10", "--no-banner", "--png", "6", str(path)],
                                check=True, capture_output=True, timeout=30)
                 png = path.read_bytes()
@@ -260,7 +292,8 @@ class Camera:
                     raise ValueError("Capture did not produce a PNG.")
         at = utc()  # Receipt time, not a camera hardware clock.
         digest = hashlib.sha256(png).hexdigest()
-        label = "SYNTHETIC DEMO: not a bench measurement." if self.demo else f"USB camera {self.device}; timestamp is capture receipt time."
+        where = f"{self.usb_id} at {node}" if self.usb_id else node
+        label = "SYNTHETIC DEMO: not a bench measurement." if self.demo else f"USB camera {where}; timestamp is capture receipt time."
         parts = [{"kind": "text", "text": label}, {"kind": "frame", "file": digest, "mediaType": "image/png"}]
         return self.keep("camera", at, parts, digest, png)
 
@@ -368,14 +401,21 @@ def port_of(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", help="Explicit V4L2 capture node from device-scan, e.g. /dev/video0")
+    parser.add_argument("--device", help="Explicit V4L2 capture node, e.g. /dev/video0. Use it on a host with udev or one camera")
+    parser.add_argument("--usb-id", help="USB ID of the camera from device-scan, e.g. 046d:085e. The server finds the node at each capture")
     parser.add_argument("--audio-device", help="ALSA PCM of the microphone from arecord -l, e.g. plughw:CARD=BRIO,DEV=0")
     parser.add_argument("--seconds", type=int, default=5, help="Length of each clip, 1 to 30")
     parser.add_argument("--resolution", default="1280x720")
     parser.add_argument("--demo", action="store_true")
     args = parser.parse_args()
-    if not (args.demo or args.device or args.audio_device):
-        parser.error("Select --device or --audio-device from the bench scan, or use --demo for synthetic evidence.")
+    if args.device and args.usb_id is not None:
+        parser.error("--device and --usb-id exclude each other. Give one of them.")
+    if not (args.demo or args.device or args.usb_id or args.audio_device):
+        parser.error("Select --usb-id, --device, or --audio-device from the bench scan, or use --demo for synthetic evidence.")
+    if args.usb_id is not None:
+        if not re.fullmatch(USB_ID, args.usb_id):
+            parser.error("Invalid USB ID. Give four hex digits, a colon, and four hex digits, such as 046d:085e.")
+        args.usb_id = args.usb_id.lower()
     if args.audio_device and not re.fullmatch(AUDIO_DEVICE, args.audio_device):
         parser.error("Invalid audio device.")
     if not 1 <= args.seconds <= 30:
@@ -397,7 +437,8 @@ def main():
         sys.exit(2)
     except ValueError as error:
         parser.error(str(error))
-    camera = Camera(source, data, args.device, args.resolution, args.demo, args.audio_device, args.seconds)
+    camera = Camera(source, data, args.device, args.resolution, args.demo, args.audio_device, args.seconds,
+                    args.usb_id)
     for sensor in camera.sensors():
         camera.acquire(sensor)  # The server listens only after the first usable evidence.
     try:

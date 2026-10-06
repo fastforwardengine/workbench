@@ -474,6 +474,131 @@ class MicrophoneTests(unittest.TestCase):
         self.assertEqual(self.request("/microphone/observe?" + span)[0], 422)
 
 
+class FakeSysfs:
+    """A sysfs tree in a temporary folder: USB devices under `devices`, capture nodes under `video4linux`."""
+
+    def __init__(self, base):
+        self.base = Path(base)
+        self.root = self.base / "video4linux"
+        self.root.mkdir(parents=True)
+
+    def usb(self, name, usb_id):
+        """One USB device with one interface. Returns the interface folder."""
+        vendor, product = usb_id.split(":")
+        device = self.base / "devices" / "usb1" / name
+        interface = device / f"{name}:1.0"
+        interface.mkdir(parents=True, exist_ok=True)
+        (device / "idVendor").write_text(vendor + "\n")
+        (device / "idProduct").write_text(product + "\n")
+        return interface
+
+    def node(self, number, interface, index=0):
+        folder = self.root / f"video{number}"
+        folder.mkdir()
+        (folder / "index").write_text(f"{index}\n")
+        (folder / "device").symlink_to(os.path.relpath(interface, folder))
+
+    def camera(self, name, usb_id, first):
+        """A UVC camera: a capture node and a metadata node on one interface."""
+        interface = self.usb(name, usb_id)
+        self.node(first, interface, 0)
+        self.node(first + 1, interface, 1)
+
+    def clear(self):
+        for folder in self.root.iterdir():
+            for link in folder.iterdir():
+                link.unlink()
+            folder.rmdir()
+
+
+class UsbIdTests(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.folder = Path(folder.name)
+        self.sysfs = FakeSysfs(self.folder / "sys")
+        self.sysfs.camera("1-1", "046d:085e", 0)
+        self.sysfs.camera("1-2", "1234:abcd", 2)
+        self.source = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
+        self.data = self.folder / "data"
+
+    def live(self, usb_id="046d:085e"):
+        return camera.Camera(self.source, self.data, None, usb_id=usb_id)
+
+    def capture(self, live):
+        """Capture one frame with fswebcam patched. Returns the fswebcam command and the observation."""
+        commands = []
+        def run(command, **_kwargs):
+            commands.append(command)
+            Path(command[-1]).write_bytes(camera.demo_png())
+        with patch("camera.subprocess.run", side_effect=run), patch("camera.VIDEO4LINUX", self.sysfs.root):
+            observation = live.acquire()
+        return commands[0], observation
+
+    def test_the_capture_node_is_the_one_with_index_0(self):
+        self.assertEqual(camera.capture_node("046d:085e", self.sysfs.root), "/dev/video0")
+        self.assertEqual(camera.capture_node("1234:abcd", self.sysfs.root), "/dev/video2")
+
+    def test_the_usb_id_ignores_case(self):
+        (self.sysfs.base / "devices" / "usb1" / "1-2" / "idVendor").write_text("ABCD\n")
+        self.assertEqual(camera.capture_node("abcd:abcd", self.sysfs.root), "/dev/video2")
+
+    def test_no_match_raises_value_error(self):
+        with self.assertRaisesRegex(ValueError, "No capture node has USB ID 0bda:5801"):
+            camera.capture_node("0bda:5801", self.sysfs.root)
+
+    def test_a_missing_root_or_an_unreadable_entry_is_no_match(self):
+        with self.assertRaises(ValueError):
+            camera.capture_node("046d:085e", self.folder / "absent")
+        (self.sysfs.root / "video0" / "index").unlink()
+        with self.assertRaises(ValueError):
+            camera.capture_node("046d:085e", self.sysfs.root)
+        self.assertEqual(camera.capture_node("1234:abcd", self.sysfs.root), "/dev/video2")
+
+    def test_two_cameras_with_one_usb_id_raise_value_error(self):
+        self.sysfs.camera("1-3", "046d:085e", 4)
+        with self.assertRaisesRegex(ValueError, r"More than one camera has USB ID 046d:085e.*--device"):
+            camera.capture_node("046d:085e", self.sysfs.root)
+
+    def test_a_metadata_node_alone_is_no_match(self):
+        self.sysfs.node(6, self.sysfs.usb("1-4", "0bda:5801"), index=1)
+        with self.assertRaises(ValueError):
+            camera.capture_node("0bda:5801", self.sysfs.root)
+
+    def test_each_capture_looks_up_the_node_after_a_reconnect(self):
+        live = self.live()
+        command, observation = self.capture(live)
+        self.assertEqual(command[:3], ["fswebcam", "-d", "/dev/video0"])
+        self.assertEqual(observation["parts"][0]["text"],
+                         "USB camera 046d:085e at /dev/video0; timestamp is capture receipt time.")
+        self.sysfs.clear()
+        self.sysfs.camera("1-2", "1234:abcd", 0)
+        self.sysfs.camera("1-1", "046d:085e", 2)
+        command, observation = self.capture(live)
+        self.assertEqual(command[:3], ["fswebcam", "-d", "/dev/video2"])
+        self.assertEqual(observation["parts"][0]["text"],
+                         "USB camera 046d:085e at /dev/video2; timestamp is capture receipt time.")
+
+    def test_a_missing_camera_gives_503(self):
+        self.sysfs.clear()
+        server = camera.open_server(self.live())
+        thread = threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True)
+        thread.start()
+        self.addCleanup(thread.join)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        url = f"http://127.0.0.1:{server.server_port}/camera/observe"
+        with patch("camera.VIDEO4LINUX", self.sysfs.root), patch("camera.subprocess.run") as run, \
+                self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(url, timeout=5)
+        self.assertEqual(caught.exception.code, 503)
+        caught.exception.close()
+        run.assert_not_called()
+
+    def test_the_usb_id_alone_serves_the_camera_sensor(self):
+        self.assertEqual(list(self.live().sensors()), ["camera"])
+
+
 TEMPLATE = Path(__file__).resolve().parent
 
 
@@ -604,6 +729,19 @@ class MainTests(unittest.TestCase):
             out, _err = process.communicate(timeout=10)
             self.assertEqual(process.returncode, 2)
             self.assertEqual(out, "")
+
+    def test_usb_id_options_exit_with_2(self):
+        self.check_exit("--device", "/dev/video0", "--usb-id", "046d:085e")
+        self.check_exit("--demo", "--device", "/dev/video0", "--usb-id", "046d:085e")
+        for value in ("046d085e", "046d:085", "046d:085e0", "046g:085e", "0x46d:085e", "046d:085e ", ""):
+            self.check_exit("--usb-id", value)
+            self.check_exit("--demo", "--usb-id", value)
+
+    def test_the_select_error_names_usb_id(self):
+        with tempfile.TemporaryDirectory() as data:
+            process = self.run_main(data=data)
+            _out, err = process.communicate(timeout=10)
+        self.assertIn("--usb-id", err)
 
     def test_invalid_audio_options_exit_with_2(self):
         self.check_exit("--audio-device", "x;rm")
