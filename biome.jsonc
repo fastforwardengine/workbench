@@ -125,7 +125,7 @@
 								"patterns": [
 									{
 										"group": ["**/terminal/**", "../terminal", "**/main.ts"],
-										"message": "A host owns the room catalog and the Lab facade; it runs no terminal."
+										"message": "A host owns the canvas of rooms and the Lab facade; it runs no terminal."
 									}
 								]
 							}

@@ -1,5 +1,6 @@
 import { createRuntime, startRoom } from '@ambionframework/ambion';
 import { byAgent, callTool, quiet, say, scripted, settled } from '@ambionframework/ambion/testing';
+import { memoryJournals } from '@ambionframework/journal';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -89,7 +90,7 @@ describe('the Workbench filesystem', () => {
 			name: 'toolset',
 			goal: 'Share a file.',
 			agents: built.specialists,
-			runtime: createRuntime(),
+			runtime: createRuntime({ storage: memoryJournals() }),
 			execution: scripted(script),
 			seats: { researcher: 'named', engineer: 'named' },
 			seating: false,
@@ -131,7 +132,7 @@ describe('the Workbench repositories', () => {
 			name: 'plan',
 			goal: 'Plan a test.',
 			agents: built.specialists,
-			runtime: createRuntime(),
+			runtime: createRuntime({ storage: memoryJournals() }),
 			execution: scripted(script),
 			seats: { researcher: 'named', engineer: 'named' },
 			seating: false,

@@ -24,20 +24,39 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    frame ref. The person then sees the photo while you continue the work.
    Other specialists fetch from the same process. Do not share your home
    or the server URL.
-5. Aim the camera at the bench before you capture. Read the frame before
+5. After the server answers its first `/camera/observe`, show the camera
+   to the person:
+
+   ```ts
+   show({
+     name: 'bench',
+     kind: 'frame',
+     source: { type: 'process', handle, path: '/camera/observe' },
+     title: 'Bench camera',
+   });
+   ```
+
+   The `name` is a short name for the camera. The person says it: "hide
+   bench". The `title` is the label of the viewfinder. Do not call `show`
+   before the first answer. The viewfinder of the person, `/camera`, reads
+   the frame of that process. A `hide({ name })` removes the camera from the
+   viewfinder, and the server keeps running. A cancel of the server leaves
+   the widget, and the viewfinder then draws nothing.
+
+6. Aim the camera at the bench before you capture. Read the frame before
    you describe the bench or the display. No tool reads the digits of the
    display for you. Inspect each image, and report pass, fail, or unclear,
    with the ref. For FM radio path A, frame the display and check that you
    can read every digit before you report a frequency. Report an
    unreadable digit as unclear.
-6. Tell the people at the bench before you record a clip. Read a clip
+7. Tell the people at the bench before you record a clip. Read a clip
    through its level series first, and then analyze the WAV file in the
    band around the tone, as the README of the clone says.
-7. A synthetic demo observation proves the workflow. It is no reading of a
+8. A synthetic demo observation proves the workflow. It is no reading of a
    device. When a capture fails, check the device and fetch again.
    Do not use an earlier image or clip in its place.
-8. Cancel the server before you edit or roll back the running version.
+9. Cancel the server before you edit or roll back the running version.
    Validate, commit, push, then start a replacement with `bash`. It
-   receives a new port. After a host restart, inspect the processes and
-   fetch from the surviving handle. The saved refs work after the server
-   stops.
+   receives a new port. When it answers, call `show` again with its handle.
+   After a host restart, inspect the processes and fetch from the surviving
+   handle. The saved refs work after the server stops.

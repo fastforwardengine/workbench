@@ -21,6 +21,7 @@ import {
 	scripted,
 	settled,
 } from '@ambionframework/ambion/testing';
+import { memoryJournals } from '@ambionframework/journal';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
@@ -67,7 +68,7 @@ async function runRoom(
 		name: `workstation-${token()}`,
 		goal: text,
 		agents: built.specialists,
-		runtime: createRuntime(),
+		runtime: createRuntime({ storage: memoryJournals() }),
 		execution: scripted(script),
 		seats: { researcher: 'named', engineer: 'named' },
 	});

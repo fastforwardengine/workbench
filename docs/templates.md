@@ -52,13 +52,14 @@ host registers it as `.gitignore`, so a `git add -A` in a fork does not
 commit bytecode.
 
 The `usb-camera` template follows the
-[Ambion 0.6.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.6.0/examples/camera-chat).
+[Ambion 0.7.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.7.0/examples/camera-chat).
 It captures frames with Python and V4L2 on the workstation. It records
 clips from the microphone of the camera with ALSA. One process owns the
 USB device and serves two sensors, `camera` and `microphone`. The server follows the sensor protocol, version 2. The Engineer forks and
 saves the server, and starts it with `bash` under the name `camera`. The
 workspace gives the process a port in `$PORT`. The Engineer then reads the
-sensors with `fetch`. Each fetched observation, frame, and clip goes into
+sensors with `fetch`, and shows the camera to the person with a `frame`
+widget that names the handle. Each fetched observation, frame, and clip goes into
 the snapshot store. The in-process just-bash backend has no sensor
 endpoints. The [template README](../templates/usb-camera/README.md) gives
 the steps for replacement, rollback, and restoration.

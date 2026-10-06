@@ -1,5 +1,6 @@
 import { createRuntime, startRoom } from '@ambionframework/ambion';
 import { byAgent, callTool, quiet, say, scripted, settled } from '@ambionframework/ambion/testing';
+import { memoryJournals } from '@ambionframework/journal';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -58,7 +59,7 @@ async function runCalls(
 		name: 'macros',
 		goal: 'Run macros.',
 		agents: built.specialists,
-		runtime: createRuntime(),
+		runtime: createRuntime({ storage: memoryJournals() }),
 		execution: scripted(
 			byAgent({
 				[seat]: (step, _seat, call) => {

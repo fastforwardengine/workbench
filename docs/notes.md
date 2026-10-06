@@ -6,7 +6,7 @@ facts of the bench, the decisions, and the questions that stay open. A
 disagreement between two seats lives on a branch until evidence or the
 person settles it.
 
-**Status: implemented.** Ambion 0.6.0 registers `shared/notes` on the local
+**Status: implemented.** Ambion 0.7.0 registers `shared/notes` on the local
 and workstation backends. The package supplies the first files. Registration
 keeps all later commits and branches when Workbench starts again.
 

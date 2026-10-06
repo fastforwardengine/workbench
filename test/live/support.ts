@@ -21,6 +21,7 @@ import {
 	startRoom,
 } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
+import { memoryJournals } from '@ambionframework/journal';
 import { directoryBackend } from '@ambionframework/just-bash';
 import { createExecutionServices, fileCredentials, piExecution } from '@ambionframework/pi';
 import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
@@ -89,7 +90,7 @@ export async function openRoom(
 		agents: built.specialists,
 		seats: sweep.seats,
 		seating: false,
-		runtime: createRuntime({ execution }),
+		runtime: createRuntime({ execution, storage: memoryJournals() }),
 	});
 	onTestFinished(async () => {
 		await room.stop().catch(() => undefined);

@@ -6,7 +6,7 @@ import type { PiExecutionOptions } from '@ambionframework/pi';
 import { afterEach, describe, expect, it } from 'vitest';
 import { people } from '../src/domain/definitions.ts';
 import { openLab } from '../src/host/host.ts';
-import { liveRoom, openRooms } from '../src/host/rooms.ts';
+import { openRooms } from '../src/host/rooms.ts';
 
 type StopFailure = false | 'before' | 'after';
 type WrappedDatabase = {
@@ -44,13 +44,17 @@ function wrapStatement(
 ) {
 	return new Proxy(statement, {
 		get(bound, method) {
-			if (method === 'all')
-				return (...params: unknown[]) => runJournalRead(bound, query, params, state);
-			if (method === 'run' && state.catalogFailure && query.includes('UPDATE engine_rooms'))
+			if (
+				method === 'all' &&
+				state.catalogFailure &&
+				query.includes('UPDATE canvas_rooms SET state')
+			)
 				return () => {
 					state.catalogFailure = false;
-					throw new Error('injected catalog save failure');
+					throw new Error('injected row save failure');
 				};
+			if (method === 'all')
+				return (...params: unknown[]) => runJournalRead(bound, query, params, state);
 			return boundMethod(bound, method);
 		},
 	});
@@ -137,6 +141,16 @@ function failNextDeparture(): { attempts: () => number; restore: () => void } {
 	};
 }
 
+/** The state that the canvas row of a room holds. */
+function rowState(database: DatabaseSync, name: string): unknown {
+	return database.prepare('SELECT state FROM canvas_rooms WHERE name = ?').get(name)?.state;
+}
+
+/** The `left` messages of a room: one for each departure that the journal recorded. */
+async function departures(rooms: Awaited<ReturnType<typeof openRooms>>, name: string) {
+	return (await rooms.read(name, 0)).messages.filter((message) => message.kind === 'left');
+}
+
 describe('Workbench host stop recovery', () => {
 	const directories: string[] = [];
 
@@ -145,7 +159,7 @@ describe('Workbench host stop recovery', () => {
 			await rm(directory, { recursive: true, force: true });
 	});
 
-	it('retains a failed stop handle, retries concurrent requests, and gates admission', async () => {
+	it('leaves a room stopped after a failed stop, reports it, and starts it again on resume', async () => {
 		const directory = await mkdtemp(joinPath(tmpdir(), 'workbench-stop-recovery-'));
 		directories.push(directory);
 		const wrapped = wrappedDatabase(`${directory}/rooms.db`);
@@ -153,26 +167,29 @@ describe('Workbench host stop recovery', () => {
 		const rooms = await openRooms(wrapped.database, directory, { stream: model.stream });
 		try {
 			await rooms.create('review', 'Check durable stop.');
-			await rooms.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(person);
-			});
+			await rooms.inRoom('review', async (room) => void (await room.visit(person)));
 
 			wrapped.setFailure('before');
 			await expect(rooms.lifecycle('review', 'stop')).rejects.toThrow(/write failure/);
-			await expect(
-				rooms.withRoom('review', (entry) => liveRoom(entry).visit(person)),
-			).rejects.toThrow(/Resume this room first/);
-			expect((await rooms.list())[0]?.status).toBe('stopping');
+			await expect(rooms.inRoom('review', (room) => room.visit(person))).rejects.toThrow(
+				/Resume this room first/,
+			);
+			const failed = (await rooms.list())[0];
+			expect(failed?.status).toBe('stopped');
+			expect(failed?.activity.map((one) => one.text)).toContainEqual(
+				expect.stringContaining('The stop of the room failed'),
+			);
+			expect(rowState(wrapped.database, 'review')).toBe('stopped');
 
 			wrapped.setFailure(false);
+			expect((await rooms.lifecycle('review', 'resume')).status).toBe('running');
 			const [first, second] = await Promise.all([
 				rooms.lifecycle('review', 'stop'),
 				rooms.lifecycle('review', 'stop'),
 			]);
 			expect(first.status).toBe('stopped');
 			expect(second.status).toBe('stopped');
-			const messages = (await rooms.read('review', 0)).messages;
-			expect(messages.filter((message) => message.kind === 'left')).toHaveLength(1);
+			expect(await departures(rooms, 'review')).toHaveLength(1);
 			expect(model.calls()).toBe(0);
 		} finally {
 			wrapped.setFailure(false);
@@ -181,7 +198,7 @@ describe('Workbench host stop recovery', () => {
 		}
 	});
 
-	it('reopens a failed stop as running intent and retries it on the next host', async () => {
+	it('keeps a room stopped on the next host after its stop failed', async () => {
 		const directory = await mkdtemp(joinPath(tmpdir(), 'workbench-stop-restart-'));
 		directories.push(directory);
 		const wrapped = wrappedDatabase(`${directory}/rooms.db`);
@@ -191,20 +208,16 @@ describe('Workbench host stop recovery', () => {
 			const model = noModelStream();
 			first = await openRooms(wrapped.database, directory, { stream: model.stream });
 			await first.create('review', 'Check durable stop.');
-			await first.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(person);
-			});
+			await first.inRoom('review', async (room) => void (await room.visit(person)));
 			wrapped.setFailure('before');
 			await expect(first.lifecycle('review', 'stop')).rejects.toThrow(/write failure/);
 
 			wrapped.setFailure(false);
 			restarted = await openRooms(wrapped.database, directory, { stream: model.stream });
-			expect((await restarted.list())[0]?.status).toBe('running');
-			const stopped = await restarted.lifecycle('review', 'stop');
-			expect(stopped.status).toBe('stopped');
-			expect(
-				(await restarted.read('review', 0)).messages.filter((message) => message.kind === 'left'),
-			).toHaveLength(1);
+			expect((await restarted.list())[0]?.status).toBe('stopped');
+			expect((await restarted.lifecycle('review', 'resume')).status).toBe('running');
+			expect((await restarted.lifecycle('review', 'stop')).status).toBe('stopped');
+			expect(await departures(restarted, 'review')).toHaveLength(1);
 			expect(model.calls()).toBe(0);
 		} finally {
 			wrapped.setFailure(false);
@@ -214,7 +227,7 @@ describe('Workbench host stop recovery', () => {
 		}
 	});
 
-	it('retries a lost stop acknowledgement before resume and shutdown', async () => {
+	it('records one departure when a stop loses its acknowledgement, and closes with a failing stop', async () => {
 		const directory = await mkdtemp(joinPath(tmpdir(), 'workbench-stop-recovery-'));
 		directories.push(directory);
 		const wrapped = wrappedDatabase(`${directory}/rooms.db`);
@@ -222,29 +235,19 @@ describe('Workbench host stop recovery', () => {
 		const rooms = await openRooms(wrapped.database, directory, { stream: model.stream });
 		try {
 			await rooms.create('review', 'Check durable stop.');
-			await rooms.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(person);
-			});
+			await rooms.inRoom('review', async (room) => void (await room.visit(person)));
 
 			wrapped.setFailure('after');
 			await expect(rooms.lifecycle('review', 'stop')).rejects.toThrow(/acknowledgement loss/);
-			expect((await rooms.list())[0]?.status).toBe('stopping');
+			expect((await rooms.list())[0]?.status).toBe('stopped');
 			wrapped.setFailure(false);
-			const resumed = await rooms.lifecycle('review', 'resume');
-			expect(resumed.status).toBe('running');
-			expect(
-				(await rooms.read('review', 0)).messages.filter((message) => message.kind === 'left'),
-			).toHaveLength(1);
-			await rooms.lifecycle('review', 'stop');
-			await rooms.lifecycle('review', 'resume');
+			expect((await rooms.lifecycle('review', 'resume')).status).toBe('running');
+			expect(await departures(rooms, 'review')).toHaveLength(1);
+
 			wrapped.setFailure('before');
-			await rooms.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(person);
-			});
-			await expect(rooms.close()).rejects.toThrow(/write failure/);
-			expect((await rooms.list())[0]?.status).toBe('stopping');
-			wrapped.setFailure(false);
-			await rooms.close();
+			await rooms.inRoom('review', async (room) => void (await room.visit(person)));
+			// The canvas reports a stop that fails at close, and stops the other rooms.
+			await expect(rooms.close()).resolves.toBeUndefined();
 			expect(model.calls()).toBe(0);
 		} finally {
 			wrapped.setFailure(false);
@@ -253,7 +256,7 @@ describe('Workbench host stop recovery', () => {
 		}
 	});
 
-	it('retries the catalog stop intent after cleanup succeeds but its save fails', async () => {
+	it('keeps a room running when the save of its row fails, and stops it on a retry', async () => {
 		const directory = await mkdtemp(joinPath(tmpdir(), 'workbench-stop-catalog-'));
 		directories.push(directory);
 		const wrapped = wrappedDatabase(`${directory}/rooms.db`);
@@ -262,21 +265,15 @@ describe('Workbench host stop recovery', () => {
 			const model = noModelStream();
 			rooms = await openRooms(wrapped.database, directory, { stream: model.stream });
 			await rooms.create('review', 'Check durable stop.');
-			await rooms.withRoom('review', async (entry) => {
-				await liveRoom(entry).visit(person);
-			});
+			await rooms.inRoom('review', async (room) => void (await room.visit(person)));
 			wrapped.setCatalogFailure(true);
-			await expect(rooms.lifecycle('review', 'stop')).rejects.toThrow(/catalog save failure/);
-			expect((await rooms.list())[0]?.status).toBe('stopped');
-			expect(
-				(await rooms.read('review', 0)).messages.filter((message) => message.kind === 'left'),
-			).toHaveLength(1);
-			const retry = await rooms.lifecycle('review', 'stop');
-			expect(retry.status).toBe('stopped');
-			const rows = wrapped.database
-				.prepare('SELECT enabled FROM engine_rooms WHERE name = ?')
-				.all('review') as { enabled: number }[];
-			expect(rows[0]?.enabled).toBe(0);
+			await expect(rooms.lifecycle('review', 'stop')).rejects.toThrow(/row save failure/);
+			expect((await rooms.list())[0]?.status).toBe('running');
+			expect(rowState(wrapped.database, 'review')).toBe('running');
+			expect(await departures(rooms, 'review')).toHaveLength(0);
+			expect((await rooms.lifecycle('review', 'stop')).status).toBe('stopped');
+			expect(rowState(wrapped.database, 'review')).toBe('stopped');
+			expect(await departures(rooms, 'review')).toHaveLength(1);
 			expect(model.calls()).toBe(0);
 		} finally {
 			wrapped.setFailure(false);
@@ -286,7 +283,7 @@ describe('Workbench host stop recovery', () => {
 		}
 	});
 
-	it('reports a failed stop through the host and rejects admission until a retry succeeds', async () => {
+	it('reports a failed stop through the host and rejects admission until a resume', async () => {
 		const directory = await mkdtemp(joinPath(tmpdir(), 'workbench-host-stop-recovery-'));
 		const failure = failNextDeparture();
 		let modelCalls = 0;
@@ -300,8 +297,9 @@ describe('Workbench host stop recovery', () => {
 			await lab.join('build', person.name);
 			await expect(lab.control('build', 'stop')).rejects.toThrow(/write failure/);
 			await expect(lab.join('build', person.name)).rejects.toThrow(/Resume this room first/);
-			expect((await lab.rooms()).find((room) => room.name === 'build')?.status).toBe('stopping');
+			expect((await lab.rooms()).find((room) => room.name === 'build')?.status).toBe('stopped');
 			failure.restore();
+			expect((await lab.control('build', 'resume')).status).toBe('running');
 			expect((await lab.control('build', 'stop')).status).toBe('stopped');
 			const messages = (await lab.read('build', 0)).messages;
 			expect(messages.filter((message) => message.kind === 'left')).toHaveLength(1);
@@ -310,11 +308,10 @@ describe('Workbench host stop recovery', () => {
 			try {
 				expect((await lab.control('build', 'resume')).status).toBe('running');
 				await lab.join('build', person.name);
-				await expect(lab.close()).rejects.toThrow(/write failure/);
+				await expect(lab.close()).resolves.toBeUndefined();
 			} finally {
 				shutdownFailure.restore();
 			}
-			await expect(lab.close()).resolves.toBeUndefined();
 			expect(modelCalls).toBe(0);
 		} finally {
 			failure.restore();

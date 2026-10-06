@@ -7,7 +7,7 @@ import { createAssistantMessageEventStream, fauxAssistantMessage } from '@earend
 import { afterEach, describe, expect, it } from 'vitest';
 import { people } from '../src/domain/definitions.ts';
 import { openLab } from '../src/host/host.ts';
-import { liveRoom, openRooms } from '../src/host/rooms.ts';
+import { openRooms } from '../src/host/rooms.ts';
 
 const person = people.at(0);
 if (!person) throw new Error('The test team has no human.');
@@ -77,7 +77,7 @@ describe('Workbench room reads and recovery', () => {
 		}
 	});
 
-	it('resumes from the recorded membership and goal, not the catalog row', async () => {
+	it('resumes from the recorded membership and goal, not the canvas row', async () => {
 		const directory = await mkdtemp(join(tmpdir(), 'workbench-read-resume-'));
 		directories.push(directory);
 		const database = new DatabaseSync(join(directory, 'rooms.db'));
@@ -87,14 +87,14 @@ describe('Workbench room reads and recovery', () => {
 		try {
 			rooms = await openRooms(database, directory, { stream: quietStream(counter) });
 			await rooms.create('legacy', 'Recorded goal.');
-			await rooms.withRoom('legacy', async (entry) => {
-				await liveRoom(entry).unseat('researcher');
+			await rooms.inRoom('legacy', async (room) => {
+				await room.unseat('researcher');
 			});
 			await rooms.lifecycle('legacy', 'stop');
 			await rooms.close();
-			// The catalog holds a provisional goal. The journal holds the recorded one.
+			// The canvas row holds a provisional goal. The journal holds the recorded one.
 			database
-				.prepare('UPDATE engine_rooms SET goal = ?, enabled = 1 WHERE name = ?')
+				.prepare("UPDATE canvas_rooms SET goal = ?, state = 'running' WHERE name = ?")
 				.run('Provisional goal.', 'legacy');
 			restarted = await openRooms(database, directory, { stream: quietStream(counter) });
 			const status = (await restarted.list())[0];
@@ -118,11 +118,7 @@ describe('Workbench room reads and recovery', () => {
 		const directory = await mkdtemp(join(tmpdir(), 'workbench-read-startup-'));
 		directories.push(directory);
 		const database = new DatabaseSync(join(directory, 'rooms.db'));
-		database.exec(
-			'CREATE TABLE engine_rooms (name TEXT PRIMARY KEY, goal TEXT NOT NULL, enabled INTEGER NOT NULL)',
-		);
-		database.prepare('INSERT INTO engine_rooms VALUES (?, ?, 1)').run('partial', 'Retry startup.');
-		let failComposition = true;
+		let failComposition = false;
 		const originalPrepare = DatabaseSync.prototype.prepare;
 		const replacement = function (this: DatabaseSync, query: string) {
 			const statement = originalPrepare.call(this, query);
@@ -146,16 +142,23 @@ describe('Workbench room reads and recovery', () => {
 		} as typeof DatabaseSync.prototype.prepare;
 		DatabaseSync.prototype.prepare = replacement;
 		const counter = { calls: 0 };
+		let first: Awaited<ReturnType<typeof openRooms>> | undefined;
 		let recovered: Awaited<ReturnType<typeof openRooms>> | undefined;
 		try {
-			await expect(
-				openRooms(database, directory, { stream: quietStream(counter) }),
-			).rejects.toThrow(/injected initialization write failure/);
+			first = await openRooms(database, directory, { stream: quietStream(counter) });
+			failComposition = true;
+			// The canvas saves the row before the start. A failed start keeps the row running.
+			await expect(first.create('partial', 'Retry startup.')).rejects.toThrow(
+				/injected initialization write failure/,
+			);
+			expect((await first.list())[0]).toMatchObject({ status: 'stopped' });
+			await first.close();
 			recovered = await openRooms(database, directory, { stream: quietStream(counter) });
 			expect((await recovered.list())[0]).toMatchObject({ initialized: true, status: 'running' });
 			expect(counter.calls).toBe(0);
 		} finally {
 			DatabaseSync.prototype.prepare = originalPrepare;
+			await first?.close().catch(() => undefined);
 			await recovered?.close().catch(() => undefined);
 			database.close();
 		}

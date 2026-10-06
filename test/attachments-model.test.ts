@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRuntime, startRoom } from '@ambionframework/ambion';
 import { byAgent, callTool, quiet, say, scripted, settled } from '@ambionframework/ambion/testing';
+import { memoryJournals } from '@ambionframework/journal';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -46,7 +47,7 @@ describe('a picture that the person attaches', () => {
 			name: 'attachment',
 			goal: 'Look at a picture.',
 			agents: built.specialists,
-			runtime: createRuntime(),
+			runtime: createRuntime({ storage: memoryJournals() }),
 			execution: scripted(script),
 			seats: { engineer: 'named' },
 		});

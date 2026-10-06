@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRuntime, startRoom } from '@ambionframework/ambion';
 import { byAgent, callTool, quiet, say, scripted, settled } from '@ambionframework/ambion/testing';
+import { memoryJournals } from '@ambionframework/journal';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
@@ -89,7 +90,7 @@ describe('the Workbench skills', () => {
 			name: 'skills',
 			goal: 'Read a skill.',
 			agents: built.specialists,
-			runtime: createRuntime(),
+			runtime: createRuntime({ storage: memoryJournals() }),
 			execution: scripted(
 				byAgent({
 					engineer: (step, _seat, call) => {

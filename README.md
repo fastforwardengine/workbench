@@ -2,7 +2,7 @@
 
 **A shared lab workspace where people and specialists work on electrical
 engineering, hardware, and electrochemistry.** It runs on
-[Ambion](https://github.com/ambionframework/ambion) 0.6.0, the
+[Ambion](https://github.com/ambionframework/ambion) 0.7.0, the
 collaboration kernel, and follows
 [Ambion's example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
 **The objective now is an FM radio that the team helps build and then
@@ -62,8 +62,11 @@ pnpm start ./bench                # another directory
 - **A new data directory gets the `build` room and the library.** An
   existing one resumes its rooms and has no `build` room. Move an older
   data directory away, or add a room with `/new bench`.
-- **Ambion 0.6.0 opens a journal of 0.5.0, and no journal of 0.4.0.** Move
-  an older data directory away, and start again. A workstation needs `workstation/setup.sh` again:
+- **The rooms live on a canvas.** The canvas table `canvas_rooms` holds one
+  row for each room, and the host resumes the rooms that ran. Workbench
+  reads no room list of an earlier version.
+- **Ambion 0.7.0 opens a journal of 0.6.0.** Move an older data directory
+  away, and start again. A workstation needs `workstation/setup.sh` again:
   `workstation.json` names the `snapshots` folder now.
 - **A room from before the removal of the assistant does not resume.**
   Its journal seats the assistant, and Ambion stops with the error
@@ -141,18 +144,27 @@ A bench script comes from a template.
   picture. The files panel shows a picture, also from a snapshot ref. A
   terminal with Kitty graphics also shows up to four thumbnails under a
   message that cites a picture, such as a frame that `fetch` saved.
-- **Camera viewfinder:** `/camera` shows a pane beside the conversation with
-  the latest frame of the newest running process named `camera`, its age,
-  and the process name. The pane takes one third of the terminal width, and the frame keeps
-  its 16:9 shape. A second `/camera` hides it. The composer stays active while
-  the pane shows. The pane reads the process every 3 seconds while it shows.
-  Each read is a normal `GET` of `/camera/observe` and of the frame, which
-  the sensor server logs. The workspace
-  keeps no snapshot of it. The pane uses the slot of the side panels: the
-  files and processes panels cover it and stop the reads, and it shows again
-  when they close. A terminal under 100 columns does not show it. When no
-  camera process runs, the pane asks you to have the Engineer start one. The
-  pane needs a terminal with Kitty graphics, such as Ghostty.
+- **Camera viewfinder:** `/camera` shows a pane beside the conversation
+  with the cameras that the open room shows. The Engineer shows a camera
+  with a `frame` widget after its camera server answers. The pane draws
+  one labelled box for each shown camera, four at most, stacked. A box
+  holds the title of the widget, or its name, the latest frame, its age,
+  and a note when a read fails. A `hide` of the widget removes its box.
+  When the Engineer shows no camera, the pane says so and asks you to
+  have the Engineer show the camera. When the process of a camera ends,
+  the box says so, and it draws a frame again after a new `show`.
+- **Camera reads:** the pane follows the room that the terminal opens. It
+  reads each camera every 3 seconds while it shows. Each read is a normal
+  `GET` of `/camera/observe` and of the frame, which the sensor server
+  logs. The workspace keeps no snapshot of it. The pane reads a process only
+  when the author of the widget runs it. A body over 1 MiB for an
+  observation, or over 16 MiB for a frame, is a failed read.
+- **Camera pane layout:** the pane takes one third of the terminal width,
+  and each frame keeps its 16:9 shape. A second `/camera` hides it. The
+  composer stays active while the pane shows. The pane uses the slot of the
+  side panels: the files and processes panels cover it and stop the reads,
+  and it shows again when they close. A terminal under 100 columns does not
+  show it. The pane needs a terminal with Kitty graphics, such as Ghostty.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
   waits for its goal. In a side panel it closes the panel. Ctrl+D leaves
   the terminal when the composer is empty, and `/quit` also leaves. The
