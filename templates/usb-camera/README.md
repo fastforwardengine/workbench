@@ -32,11 +32,16 @@ frames each second. This server has no preview and no captions.
    Do not use a card number. The `plughw` plug-in converts the sound to
    mono, 48 kHz, 16-bit samples. The Engineer account has the `audio`
    group.
-3. Give `--device` the path of that node. The kernel can give a camera a
-   different `/dev/videoN` number after a reconnect or a reboot. On a host
-   with udev, use the stable path under `/dev/v4l/by-id/`. The workstation
-   container runs no udev, so it has no `/dev/v4l/by-id/`. There, match
-   the USB ID in `v4l2-ctl --list-devices` to the node before each start.
+3. Select the camera. The kernel can give a camera a different
+   `/dev/videoN` number after a reconnect or a reboot. The workstation
+   container runs no udev, so it has no `/dev/v4l/by-id/`. There, give
+   `--usb-id` the USB ID from the inventory of `device-scan`, such as
+   `046d:085e`. The server reads `/sys/class/video4linux` at each capture
+   and uses the capture node of that USB device. A reconnect needs no
+   restart. A request for a camera that is absent gives status 503. Two
+   cameras with one USB ID also give status 503. For them, give `--device`.
+   On a host with udev, or with one camera, give `--device` the stable
+   path under `/dev/v4l/by-id/`. The server rejects both options at once.
 4. Fork and clone, then make a branch:
 
    ```ts
@@ -59,16 +64,19 @@ frames each second. This server has no preview and no captions.
    git push -u origin capture
    ```
 
-6. Start one foreground server with `bash`. Use your fork ID, node,
-   resolution, and card id. Give `--device`, `--audio-device`, or both. The
-   server serves a sensor for each option you give. Name the process
-   `camera`, so that the process list names it. The workspace
+6. Start one foreground server with `bash`. Use your fork ID, USB ID,
+   resolution, and card id. Give `--usb-id` or `--device`, `--audio-device`,
+   or both. The server serves a sensor for each option you give. Name the
+   process `camera`, so that the process list names it. The workspace
    sets `$PORT` for the process, and the server listens on that port. Do
    not add `&`, `nohup`, `--port`, or a supervisor.
 
+   The USB ID `046d:085e` in the example is the ID of a BRIO. Use the ID
+   of your camera.
+
    ```ts
    bash({
-     command: 'cd ~/bench-camera && AMBION_SENSOR_REPOSITORY=engineer/bench-camera AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-camera" python3 -u -B camera.py --device /dev/video0 --resolution 1280x720 --audio-device plughw:CARD=BRIO,DEV=0 --seconds 5',
+     command: 'cd ~/bench-camera && AMBION_SENSOR_REPOSITORY=engineer/bench-camera AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-camera" python3 -u -B camera.py --usb-id 046d:085e --resolution 1280x720 --audio-device plughw:CARD=BRIO,DEV=0 --seconds 5',
      name: 'camera', wait: 0, timeout: 86400,
    });
    ```
@@ -170,3 +178,19 @@ still needs a fork ID and an absolute data directory outside the checkout.
 Use it to test the workflow when no camera is present.
 
 Commit, and push your branch. A push keeps the work.
+
+## Two cameras
+
+Run one process and use one data directory for each camera. A process
+owns one camera and one microphone.
+
+- Fork the template once for each camera, such as `bench-camera` and
+  `scope-camera`. Each fork has its own commit history and its own
+  `AMBION_SENSOR_REPOSITORY`.
+- Give each process a distinct `name`, such as `bench-camera` and
+  `scope-camera`, and a distinct `AMBION_SENSOR_DATA_DIR`.
+- Give each process the `--usb-id` of its camera. Two cameras of one
+  model share an ID. For them, give each process its `--device`.
+- A UVC camera reserves isochronous USB bandwidth while it streams. Two
+  cameras on one USB 2 bus can fail when both capture at once. Plug them
+  into separate USB controllers.
