@@ -1,4 +1,4 @@
-/** The header, drawn on OpenTUI's headless renderer: the background chip and the label of a breakout room. */
+/** The header, drawn on OpenTUI's headless renderer: the label of a breakout room. */
 import { RGBA } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -14,8 +14,6 @@ afterEach(() => {
 
 const priya = { name: 'priya', role: 'Hardware lead' } as unknown as Person;
 const engineer = { kind: 'agent', name: 'engineer', identity: 'B', status: 'idle' };
-const CHIP = '⇉ 2 in background';
-const none = { running: 0, working: false };
 
 /** Draw the header at `width`, and give back the text of the rows and the color of one text. */
 async function drawn(state: Partial<HeaderState>, width = 120) {
@@ -23,7 +21,7 @@ async function drawn(state: Partial<HeaderState>, width = 120) {
 	cleanups.push(() => setup.renderer.destroy());
 	const header = new Header(setup.renderer);
 	setup.renderer.root.add(header.root);
-	header.draw({ identity: priya, view: undefined, background: none, ...state }, width);
+	header.draw({ identity: priya, view: undefined, ...state }, width);
 	await setup.renderOnce();
 	await setup.renderOnce();
 	const spans = setup.captureSpans().lines.flatMap((line) => line.spans);
@@ -35,37 +33,6 @@ async function drawn(state: Partial<HeaderState>, width = 120) {
 
 const room = (extra: Record<string, unknown> = {}) =>
 	view('build', { participants: [engineer], ...extra });
-
-describe('the background chip of the header', () => {
-	it('shows beside the participants in dim while the breakout rooms wait', async () => {
-		const { frame, colorOf } = await drawn({
-			view: room(),
-			background: { running: 2, working: false },
-		});
-		expect(frame).toContain(`○ engineer  ${CHIP}`);
-		expect(colorOf(CHIP)).toBe(RGBA.fromHex(palette.dim).toString());
-	});
-
-	it('turns coral while a breakout room has an open exchange', async () => {
-		const { colorOf } = await drawn({
-			view: room(),
-			background: { running: 2, working: true },
-		});
-		expect(colorOf(CHIP)).toBe(RGBA.fromHex(palette.coral).toString());
-	});
-
-	it('shows no chip when no breakout room runs', async () => {
-		const { frame } = await drawn({ view: room() });
-		expect(frame).not.toContain('in background');
-	});
-
-	it('drops before the participant names on a narrow terminal', async () => {
-		// The row has 27 cells inside the padding. The participants take 10, and the chip needs 19 more.
-		const { frame } = await drawn({ view: room(), background: { running: 2, working: false } }, 30);
-		expect(frame).toContain('○ engineer');
-		expect(frame).not.toContain('⇉');
-	});
-});
 
 describe('the header of a breakout room', () => {
 	const child = (extra: Record<string, unknown> = {}) =>

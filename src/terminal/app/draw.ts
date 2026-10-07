@@ -1,4 +1,4 @@
-import { fg, StyledText } from '@opentui/core';
+import type { RoomView } from '../../host/host.ts';
 import { type RefItem, stayOfPick } from '../../view/refs.ts';
 import { stagedCue } from '../state/attachments.ts';
 import { type Audience, audienceOf } from '../state/audience.ts';
@@ -8,10 +8,11 @@ import type { PictureCache } from '../state/picture-cache.ts';
 import { pictureRefs, stripKey, stripsBySeq } from '../state/pictures.ts';
 import type { Session } from '../state/session.ts';
 import { emptyText } from '../state/session-text.ts';
+import { countSegments, PRIORITY, type Segment, workingSegment } from '../state/status-row.ts';
 import type { Voice } from '../state/voice.ts';
-import { tui as palette } from '../widgets/brand.ts';
 import type { Composer } from '../widgets/composer.ts';
 import type { Header } from '../widgets/header.ts';
+import { GUTTER, INSET } from '../widgets/space.ts';
 import type { Marks, Transcript } from '../widgets/transcript.ts';
 import type { Dock } from './dock.ts';
 
@@ -43,6 +44,8 @@ export interface DrawParts {
 	 * returns the old width.
 	 */
 	width: () => number;
+	/** The time in milliseconds, for the elapsed time of the working line. It defaults to the clock. */
+	now?: () => number;
 }
 
 /**
@@ -61,6 +64,7 @@ export class Painter {
 	private readonly graphics: () => boolean;
 	private readonly cellAspect: () => number;
 	private readonly width: () => number;
+	private readonly now: () => number;
 	private drawn = '';
 	private reveal: string | undefined;
 
@@ -75,6 +79,7 @@ export class Painter {
 		this.graphics = parts.graphics;
 		this.cellAspect = parts.cellAspect;
 		this.width = parts.width;
+		this.now = parts.now ?? (() => Date.now());
 	}
 
 	/** Reveal one message at the next draw, so a jump to it shows it. */
@@ -149,10 +154,32 @@ export class Painter {
 			this.audience(),
 		);
 		this.composer.setPlaceholder(this.placeholder());
-		this.composer.setStatus(new StyledText(this.statusChunks(mode, picking)));
 		this.composer.setCue(stagedCue(session.pendingRefs));
+		this.composer.setRow(this.row(mode, picking), this.width());
+	}
+
+	/** The segments of the status row: the status, the counts of background work, and the keys hint. */
+	private row(mode: Mode, picking: string | undefined): Segment[] {
+		const { session } = this;
+		const counts = countSegments({
+			background: session.background,
+			processes: session.runningProcesses,
+			later: session.view?.scheduled.length ?? 0,
+		});
 		// The keys sheet opens from the composer only, so no other mode shows the hint.
-		this.composer.setHints(mode === 'compose' ? (this.dock.onScreen ? CLOSE_HINT : KEYS_HINT) : '');
+		const keys: Segment[] =
+			mode === 'compose'
+				? [
+						{
+							key: 'keys',
+							text: this.dock.onScreen ? CLOSE_HINT : KEYS_HINT,
+							priority: PRIORITY.keys,
+							tone: 'dim',
+							side: 'right',
+						},
+					]
+				: [];
+		return [this.status(mode, picking), ...counts, ...keys];
 	}
 
 	/** Who the text of the composer reaches. A goal prompt and the person picker have no audience. */
@@ -188,8 +215,8 @@ export class Painter {
 	}
 
 	private drawHeader(): void {
-		const { identity, view, background } = this.session;
-		this.header.draw({ identity, view, background }, this.width());
+		const { identity, view } = this.session;
+		this.header.draw({ identity, view }, this.width());
 	}
 
 	/** What the status line says in a mode that is not the composer, or undefined. */
@@ -201,35 +228,55 @@ export class Painter {
 	}
 
 	/** The status line while a recording or a transcription runs. It is undefined in any other state. */
-	private voiceChunks() {
+	private voiceStatus(): Segment | undefined {
 		if (!this.voice.on || this.voice.phase === 'idle') return undefined;
-		const line = fg(palette.muted)(this.voice.line);
-		return this.voice.phase === 'listening' ? [fg(palette.coral)('● '), line] : [line];
+		const listening = this.voice.phase === 'listening';
+		return line(this.voice.line, 'muted', listening ? 'coral' : undefined);
 	}
 
-	private statusChunks(mode: Mode, picking: string | undefined) {
-		const session = this.session;
-		if (session.error) return [fg(palette.red)(`Error: ${session.error}`)];
-		if (session.offline) return [fg(palette.red)(`Cannot read the rooms: ${session.offline}`)];
-		const modal = this.modeStatus(mode, picking);
-		if (modal !== undefined) return [fg(palette.muted)(modal)];
-		if (session.awaitingGoal)
-			return [
-				fg(palette.muted)(
-					`Type the goal for ${session.awaitingGoal}. Enter creates it. Esc cancels.`,
-				),
-			];
-		if (!session.identity) return [fg(palette.muted)('Pick a person to begin.')];
-		const view = session.view;
-		if (!view) return [fg(palette.muted)('Opening…')];
-		if (view.status !== 'running')
-			return [fg(palette.muted)(`${view.name} is ${view.status}. Use /resume.`)];
-		const voiced = this.voiceChunks();
-		if (voiced) return voiced;
-		const waiting = session.attention[0];
-		if (waiting) return [fg(palette.coral)('● '), fg(palette.muted)(waiting)];
-		if (view.exchange)
-			return [fg(palette.coral)('● '), fg(palette.muted)('A new message steers the open exchange')];
-		return [fg(palette.green)('● '), fg(palette.muted)('Active')];
+	/** The working line of the newest running activation, or undefined when none runs. */
+	private workingStatus(): Segment | undefined {
+		const working = this.session.working;
+		if (!working) return undefined;
+		return workingSegment(working, this.now(), this.width() - INSET - GUTTER);
 	}
+
+	private status(mode: Mode, picking: string | undefined): Segment {
+		const session = this.session;
+		if (session.error) return line(`Error: ${session.error}`, 'red');
+		if (session.offline) return line(`Cannot read the rooms: ${session.offline}`, 'red');
+		const modal = this.modeStatus(mode, picking);
+		if (modal !== undefined) return line(modal, 'muted');
+		if (session.awaitingGoal)
+			return line(
+				`Type the goal for ${session.awaitingGoal}. Enter creates it. Esc cancels.`,
+				'muted',
+			);
+		if (!session.identity) return line('Pick a person to begin.', 'muted');
+		const view = session.view;
+		if (!view) return line('Opening…', 'muted');
+		if (view.status !== 'running')
+			return line(`${view.name} is ${view.status}. Use /resume.`, 'muted');
+		return this.voiceStatus() ?? this.workingStatus() ?? this.roomStatus(view);
+	}
+
+	/** The status line of a running room where nobody records and no activation runs. */
+	private roomStatus(view: RoomView): Segment {
+		const waiting = this.session.attention[0];
+		if (waiting) return line(waiting, 'muted', 'coral');
+		if (view.exchange) return line('A new message steers the open exchange', 'muted', 'coral');
+		return line('Active', 'muted', 'green');
+	}
+}
+
+/** The left segment of the status row: a text in a tone, with an optional dot. */
+function line(text: string, tone: Segment['tone'], mark?: Segment['mark']): Segment {
+	return {
+		key: 'status',
+		text,
+		priority: PRIORITY.status,
+		tone,
+		side: 'left',
+		...(mark ? { mark } : {}),
+	};
 }

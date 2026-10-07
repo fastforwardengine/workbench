@@ -15,7 +15,7 @@ holds the contract for the tools, the bridge, and the limits.
 | The skills       | `src/domain/skills.ts`            | `specialistSkills`, which both seats of a pair use    |
 | The wiring       | `src/host/rooms.ts`               | `breakout: { team }`, and the bundles of the canvas   |
 | The view         | `src/host/rooms.ts`               | `breakout` in the `RoomView` of a breakout room       |
-| The terminal     | `src/terminal/state/breakouts.ts` | The chip, the label, and the order of the room list   |
+| The terminal     | `src/terminal/state/breakouts.ts` | The count, the label, and the order of the room list  |
 | The addressing   | `src/host/host.ts`                | `deliver` seats no specialist in a breakout room      |
 | The tool phrases | `src/view/tool-phrases.ts`        | `breakout`, `tell`, `archive`, and `report`           |
 | The accounts     | `workstation/accounts`            | The Unix accounts of the twins, in no device group    |
@@ -129,13 +129,14 @@ breakout room that is running. The host seats no specialist there.
 **The terminal shows two facts and adds no layer.** The person sees that
 background work runs, and sees how to open it.
 
-- **The chip:** while the open room has breakout rooms that run, its header
-  shows a dim chip after the participants, such as `⇉ 2 in background`. A
-  breakout room runs when the host holds its live room. A stopped parent or
-  a failed start leaves none, so the chip does not count it. The chip turns
-  coral while one running room has an open exchange. The chip drops before
-  the participant names on a narrow terminal. It shows no text when no
-  breakout room runs.
+- **The count:** while the open room has breakout rooms that run, the status
+  row under the input shows a dim count at the right, such as
+  `2 in background`. A breakout room runs when the host holds its live room.
+  A stopped parent or a failed start leaves none, so the count does not
+  include it. The count turns coral while one running room has an open
+  exchange. On a narrow terminal, the row drops the count after the other
+  counts and before the keys hint. The row shows no count when no breakout
+  room runs.
 - **The label:** in a breakout room, the right edge of the participants row
   reads `breakout of <parent>`. An archived room adds `done` or `failed`.
 - **The room palette:** Ctrl+R and `/room ` list each root room, then its

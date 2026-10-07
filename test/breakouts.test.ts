@@ -1,11 +1,6 @@
 /** What the terminal reads from the breakout rooms of the room list. */
 import { describe, expect, it } from 'vitest';
-import {
-	backgroundChip,
-	backgroundOf,
-	breakoutLabel,
-	roomChoices,
-} from '../src/terminal/state/breakouts.ts';
+import { backgroundOf, breakoutLabel, roomChoices } from '../src/terminal/state/breakouts.ts';
 import { suggest } from '../src/terminal/state/commands.ts';
 import { view } from './fake-host.ts';
 
@@ -74,14 +69,6 @@ describe('a breakout room without a live handle', () => {
 			seats: [],
 		});
 		expect(listed[0]?.detail).toBe('stopped · dead goal');
-	});
-});
-
-describe('backgroundChip', () => {
-	it('is one short phrase, and is empty when nothing runs', () => {
-		expect(backgroundChip({ running: 2, working: false })).toBe('⇉ 2 in background');
-		expect(backgroundChip({ running: 1, working: true })).toBe('⇉ 1 in background');
-		expect(backgroundChip({ running: 0, working: false })).toBe('');
 	});
 });
 

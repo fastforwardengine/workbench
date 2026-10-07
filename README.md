@@ -145,6 +145,12 @@ A bench script comes from a template.
   that hear the message, and a note shows when the host seats the named
   specialist first or the seat has no login. The rail at the left of the
   input takes one color for a command and another for a mention.
+- **Status row:** the row under the input says what the room does. While a
+  specialist works, it shows the seat, its step, and the time since its
+  first step. At the right, it counts the background processes, the
+  breakout rooms that run, and the says that wait, each only when the count
+  is not zero. The keys hint follows the counts. A narrow terminal drops the
+  says first, then the processes, then the breakout rooms, then the hint.
 - **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into
   `/attachments`, snapshots it, and cites the snapshot in your next
   message. Paste the path of a picture into an empty composer, and it fills

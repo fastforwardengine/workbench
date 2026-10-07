@@ -10,12 +10,14 @@ import {
 	stripAnsiSequences,
 	type TextareaOptions,
 	TextareaRenderable,
+	type TextChunk,
 	TextRenderable,
 } from '@opentui/core';
 import { pastedImagePath } from '../state/attachments.ts';
 import type { Audience } from '../state/audience.ts';
 import type { Suggestion } from '../state/commands.ts';
 import { KEYMAP } from '../state/keymap.ts';
+import { fitSegments, MARK, SEPARATOR, type Segment, type Tone } from '../state/status-row.ts';
 import { tui as palette } from './brand.ts';
 import { APART, GUTTER, INSET } from './space.ts';
 
@@ -59,8 +61,29 @@ const RAIL: Record<Audience['mode'], string> = {
 	mention: palette.coral,
 };
 
+/** The color of each tone of a status segment. */
+const TONES: Record<Tone, string> = {
+	muted: palette.muted,
+	dim: palette.dim,
+	coral: palette.coral,
+	green: palette.green,
+	red: palette.red,
+};
+
+/** The cells that the padding of the status row takes from its width. */
+const ROW_PADDING = INSET + GUTTER;
+
 const MAX_INPUT_LINES = 6;
 const MAX_PALETTE_ROWS = 6;
+
+/** The chunks of segments of one side: each segment in its tone, with a dim separator between them. */
+function chunksOf(segments: readonly Segment[]): TextChunk[] {
+	return segments.flatMap((segment, at) => [
+		...(at > 0 ? [fg(palette.dim)(SEPARATOR)] : []),
+		...(segment.mark ? [fg(TONES[segment.mark])(MARK)] : []),
+		fg(TONES[segment.tone])(segment.text),
+	]);
+}
 
 export interface ComposerEvents {
 	/** The person pressed Enter. */
@@ -86,7 +109,7 @@ export class Composer {
 	private readonly cue: TextRenderable;
 	private readonly cueRow: BoxRenderable;
 	private readonly status: TextRenderable;
-	private readonly hints: TextRenderable;
+	private readonly right: TextRenderable;
 	private readonly events: ComposerEvents;
 
 	constructor(renderer: CliRenderer, events: ComposerEvents) {
@@ -148,7 +171,7 @@ export class Composer {
 		this.frame.add(this.chip);
 		this.frame.add(this.input);
 		this.status = new TextRenderable(renderer, { content: '', flexGrow: 1 });
-		this.hints = new TextRenderable(renderer, { content: '', flexShrink: 0 });
+		this.right = new TextRenderable(renderer, { content: '', flexShrink: 0 });
 		const row = new BoxRenderable(renderer, {
 			flexDirection: 'row',
 			gap: APART,
@@ -156,7 +179,7 @@ export class Composer {
 			paddingRight: GUTTER,
 		});
 		row.add(this.status);
-		row.add(this.hints);
+		row.add(this.right);
 		this.root.add(this.paletteBox);
 		this.root.add(this.cueRow);
 		this.root.add(this.frame);
@@ -234,12 +257,19 @@ export class Composer {
 		);
 	}
 
-	setStatus(content: StyledText): void {
-		this.status.content = content;
-	}
-
-	setHints(text: string): void {
-		this.hints.content = new StyledText([fg(palette.dim)(text)]);
+	/**
+	 * Show the status row. `width` is the width of the row with its padding. The
+	 * row drops the segments with the lowest priority until the rest fits. The left
+	 * segments grow from the left edge, and the right segments keep their width.
+	 */
+	setRow(segments: readonly Segment[], width: number): void {
+		const kept = fitSegments(segments, width - ROW_PADDING, APART);
+		this.status.content = new StyledText(
+			chunksOf(kept.filter((segment) => segment.side === 'left')),
+		);
+		this.right.content = new StyledText(
+			chunksOf(kept.filter((segment) => segment.side === 'right')),
+		);
 	}
 
 	/** Show the palette rows, with one picked. An empty list hides the palette. */

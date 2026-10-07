@@ -95,6 +95,37 @@ function currentStep(read: ActivationSteps | undefined): string {
 	);
 }
 
+/** What the newest running activation of an exchange does now, for the status row. */
+export interface Working {
+	seat: string;
+	/** What the seat does now, as the live block shows it. It is empty before the first step. */
+	step: string;
+	/** The time of its first step, in milliseconds. Absent before the first step. */
+	since?: number;
+}
+
+/**
+ * The newest running activation of an exchange, with the step it does now and the
+ * time of its first step. It is undefined when no activation runs. `reads` holds
+ * the steps of the activations by id.
+ */
+export function workingOf(
+	activations: readonly ExchangeActivation[],
+	reads: ReadonlyMap<string, ActivationSteps>,
+): Working | undefined {
+	const running = activations.findLast((activation) => activation.outcome.kind === 'running');
+	if (!running) return undefined;
+	const read = reads.get(running.id);
+	const times = stepsOf(read)
+		.map((step) => Date.parse(step.at))
+		.filter((time) => !Number.isNaN(time));
+	return {
+		seat: running.seat,
+		step: currentStep(read),
+		...(times.length > 0 ? { since: Math.min(...times) } : {}),
+	};
+}
+
 const failedEnd = (activation: ExchangeActivation): boolean =>
 	activation.outcome.kind === 'failed' || activation.outcome.kind === 'abandoned';
 
