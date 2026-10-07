@@ -73,6 +73,23 @@ const groupOf = (prompt: string, group: string): string[] =>
 		.slice(1)
 		.map((line) => line.replace(/^- /, ''));
 
+/** The identity of each twin. */
+const TWIN_IDENTITIES: Record<string, string> = {
+	researcher:
+		'Researcher specialist. Finds and interprets the datasheets and manuals in /library, and turns a question into a test plan. In a breakout room, does one task that a specialist hands over, and reports the result.',
+	engineer:
+		'Engineer specialist in a breakout room. Writes and tests scripts and reads data, with evidence for each claim, and reports the result.',
+};
+
+/** The Constraints rules that hold only in the room of the specialist, by specialist. */
+const ROOM_ONLY: Record<string, string[]> = {
+	researcher: [],
+	engineer: [
+		'Ask the person before the first run that turns on an output of a device.',
+		'You cannot hold a tool. Name the hands-on work that a physical setup needs, ask the person to do it, and ask the person to report what happened.',
+	],
+};
+
 /** The names of the specialists. */
 const SPECIALISTS = ['researcher', 'engineer'];
 
@@ -148,9 +165,11 @@ describe('the prompts of the breakout rooms', () => {
 		for (const specialist of built.specialists) {
 			const prompt = instructionsOf(specialist);
 			expect(prompt).toContain('## Background\n- A breakout room runs one task');
-			expect(prompt).toContain(
-				'Seat the twin of the specialist whose work the task is: `researcher-bg` for research, `engineer-bg` for a script or for data.',
-			);
+			const own = twinOf(specialist.name);
+			const other = twinOf(SPECIALISTS.find((name) => name !== specialist.name) ?? '');
+			expect(prompt).toContain(`- Seat your own twin, ${own}.\n`);
+			expect(prompt).not.toContain(other);
+			expect(prompt).not.toContain('Seat the twin of the specialist');
 			expect(prompt.indexOf('## Background')).toBeGreaterThan(prompt.indexOf('## Constraints'));
 			expect(prompt.indexOf('## Background')).toBeLessThan(prompt.indexOf('## Speaking'));
 			expect(prompt).not.toContain('worker');
@@ -178,15 +197,13 @@ describe('the prompts of the breakout rooms', () => {
 			);
 	});
 
-	it('give each twin the identity, the Project, Evidence, and Constraints rules of its specialist, and the breakout rules', async () => {
+	it('give each twin its identity, and the Project, Evidence, and Constraints rules of its specialist', async () => {
 		const { built } = await setup();
 		for (const specialist of built.specialists) {
 			const parent = instructionsOf(specialist);
 			const twin = seatNamed(built.twins, twinOf(specialist.name));
 			const prompt = instructionsOf(twin);
-			expect(twin?.identity).toBe(
-				`${specialist.identity} In a breakout room, does one task that a specialist hands over, and reports the result.`,
-			);
+			expect(twin?.identity).toBe(TWIN_IDENTITIES[specialist.name]);
 			expect(prompt.split('\n\n').map((part) => part.split('\n')[0])).toEqual([
 				expect.stringContaining('Workbench'),
 				'## Project',
@@ -194,11 +211,38 @@ describe('the prompts of the breakout rooms', () => {
 				'## Constraints',
 				'## Speaking',
 			]);
+			const roomOnly = ROOM_ONLY[specialist.name] ?? [];
 			for (const group of ['Project', 'Evidence', 'Constraints'])
-				for (const line of groupOf(parent, group)) expect(prompt).toContain(line);
+				for (const line of groupOf(parent, group))
+					if (!roomOnly.includes(line)) expect(prompt).toContain(line);
+		}
+	});
+
+	it('keep the room-only rules in the specialist and out of its twin', async () => {
+		const { built } = await setup();
+		for (const specialist of built.specialists) {
+			const parent = instructionsOf(specialist);
+			const prompt = instructionsOf(seatNamed(built.twins, twinOf(specialist.name)));
+			const roomOnly = groupOf(parent, 'Constraints').filter((line) => !prompt.includes(line));
+			expect(roomOnly).toEqual(ROOM_ONLY[specialist.name]);
+			for (const line of ROOM_ONLY[specialist.name] ?? []) expect(parent).toContain(line);
+		}
+		const engineer = instructionsOf(seatNamed(built.twins, 'engineer-bg'));
+		expect(engineer).toContain(
+			'Change no setting and no output of a device outside a script from a template.',
+		);
+	});
+
+	it('give each twin the breakout rules, and none of the Speaking rules of its specialist', async () => {
+		const { built } = await setup();
+		for (const twin of built.twins) {
+			const prompt = instructionsOf(twin);
+			expect(groupOf(prompt, 'Speaking')[0]).toBe(
+				'You work in the background, and no person is in your room. Do not ask the person for input, and do not wait for a reply.',
+			);
 			for (const rule of [
 				'Cite the exact datasheet path when you state a specification.',
-				'Your breakout room has no access to the devices of the bench.',
+				'Your breakout room has no access to the devices of the bench. A skill that drives a device runs here only on its simulator, when it has one. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
 				'Send your result with `report`, once, at the end of the task.',
 				'When the brief lacks an input that the task needs, report what is missing as your result.',
 			])

@@ -30,7 +30,10 @@ The folder `shared` names no specialist.
 **The twin of a specialist has no folder.** It receives the skills of its
 specialist, which `specialistSkills` reads for both seats. The twin of the
 Engineer receives the skills that drive a device, and its breakout room has
-no access to the devices. It cannot run those skills there.
+no access to the devices. It runs a skill of this kind only on its
+simulator. Only `drive-the-power-supply` has one: the twin puts `--sim` before
+the command, as the skill says. The other skills of the Engineer need a
+device, so the twin reports the step that needs one.
 [Breakout rooms](breakouts.md) describes the twin.
 
 ## How a specialist reads a skill

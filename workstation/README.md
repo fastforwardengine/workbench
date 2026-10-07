@@ -160,9 +160,9 @@ udev, so the entrypoint gives `plugdev` read and write on each USB device
 file every 5 seconds.
 
 **The accounts `researcher-bg` and `engineer-bg` are in no device group.**
-The Dockerfile adds the groups of the devices to `engineer` alone. A task of a breakout room
-cannot open a device of the bench. [Breakout rooms](../docs/breakouts.md)
-gives the reason.
+The Dockerfile adds the groups of the devices to `engineer` alone. A task
+of a breakout room cannot open a device of the bench.
+[Breakout rooms](../docs/breakouts.md) gives the reason.
 
 **The workstation makes the device file of each camera, serial port,
 USBTMC instrument, and sound device.** The container's own `/dev` holds no

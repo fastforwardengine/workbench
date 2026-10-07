@@ -73,11 +73,11 @@ const TWIN_SUFFIX = '-bg';
  */
 export const twinOf = (specialist: string): string => `${specialist}${TWIN_SUFFIX}`;
 
-/** The rules of the specialists only. A twin follows `BREAKOUT_RULES`. */
-const SPECIALIST_RULES: Rules = {
+/** The rules of the specialists only. A twin follows `BREAKOUT_RULES`. `self` is the name of the specialist. */
+const specialistRules = (self: string): Rules => ({
 	Background: [
 		'A breakout room runs one task in the background while this room continues. The twin of a specialist does the task, and it sees only your `goal` and `message`.',
-		`Seat the twin of the specialist whose work the task is: \`${twinOf('researcher')}\` for research, \`${twinOf('engineer')}\` for a script or for data.`,
+		`Seat your own twin, ${twinOf(self)}.`,
 		'Open a breakout room for a self-contained task of many steps whose result this room does not need for its next step.',
 		'Open one breakout room for each independent task, so that the tasks run in parallel.',
 		'Keep in this room a task that drives a device of the bench, or that needs the person for an approval, hands-on work, or a photo. A twin has no access to the devices.',
@@ -92,21 +92,22 @@ const SPECIALIST_RULES: Rules = {
 		'Post one message for each result.',
 		PREFERENCE,
 	],
-};
+});
 
 /** The rules that a twin adds to the rules of its specialist. Both twins follow them. */
 const BREAKOUT_RULES: Rules = {
 	Constraints: [
-		'Your breakout room has no access to the devices of the bench. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
+		'Your breakout room has no access to the devices of the bench. A skill that drives a device runs here only on its simulator, when it has one. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
 	],
 	Speaking: [
+		'You work in the background, and no person is in your room. Do not ask the person for input, and do not wait for a reply.',
 		'Send your result with `report`, once, at the end of the task. Cite in `refs` what the result relies on.',
 		'When the brief lacks an input that the task needs, report what is missing as your result.',
 		PREFERENCE,
 	],
 };
 
-/** What a twin adds to the identity of its specialist. */
+/** What a twin adds to the identity of its specialist, when the specialist has no `twinIdentity`. */
 const TWIN_IDENTITY =
 	' In a breakout room, does one task that a specialist hands over, and reports the result.';
 
@@ -143,7 +144,17 @@ export function sharedRules(project: string): string {
 export const shared = sharedRules(radioProject);
 
 /** The specialists. Each one has a narrow scope and reports back once. */
-const specialists: { name: string; identity: string; rules: Rules; shows?: boolean }[] = [
+const specialists: {
+	name: string;
+	identity: string;
+	/** The identity of the twin. Absent: the identity of the specialist, then `TWIN_IDENTITY`. */
+	twinIdentity?: string;
+	/** The rules that the twin follows, as well as the specialist. */
+	rules: Rules;
+	/** The rules that hold only in the main room, where the person and the devices are. The twin has none of them. */
+	roomOnly?: Rules;
+	shows?: boolean;
+}[] = [
 	{
 		name: 'researcher',
 		identity:
@@ -160,6 +171,8 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 		name: 'engineer',
 		identity:
 			'Engineer specialist. Watches the bench, finds and drives its devices, and guides the assembly of a kit one step at a time, with evidence for each claim.',
+		twinIdentity:
+			'Engineer specialist in a breakout room. Writes and tests scripts and reads data, with evidence for each claim, and reports the result.',
 		// The Engineer runs the camera, so it shows the viewfinder widget.
 		shows: true,
 		rules: {
@@ -173,12 +186,16 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 			],
 			Constraints: [
 				'Change no setting and no output of a device outside a script from a template.',
-				'Ask the person before the first run that turns on an output of a device.',
-				'You cannot hold a tool. Name the hands-on work that a physical setup needs, ask the person to do it, and ask the person to report what happened.',
 			],
 			Speaking: [
 				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
 				'When the person did not address the Researcher and a message needs a limit from /library, a choice between parts, or a test plan, ask the Researcher with `to`.',
+			],
+		},
+		roomOnly: {
+			Constraints: [
+				'Ask the person before the first run that turns on an output of a device.',
+				'You cannot hold a tool. Name the hands-on work that a physical setup needs, ask the person to do it, and ask the person to report what happened.',
 			],
 		},
 	},
@@ -228,17 +245,20 @@ export async function team(
 			}),
 		});
 	const seated = await Promise.all(
-		specialists.map(async ({ rules, shows, ...definition }) => {
+		specialists.map(async ({ rules, roomOnly = {}, twinIdentity, shows, ...definition }) => {
 			const skills = await specialistSkills(definition.name);
 			return {
 				specialist: await defined(
 					definition,
-					merge(SHARED_RULES, SPECIALIST_RULES, rules),
+					merge(SHARED_RULES, specialistRules(definition.name), rules, roomOnly),
 					skills,
 					[shows ? bundles.widgets : undefined, bundles.opener],
 				),
 				twin: await defined(
-					{ name: twinOf(definition.name), identity: definition.identity + TWIN_IDENTITY },
+					{
+						name: twinOf(definition.name),
+						identity: twinIdentity ?? definition.identity + TWIN_IDENTITY,
+					},
 					merge(SHARED_RULES, twinRules(rules), BREAKOUT_RULES),
 					skills,
 					[bundles.worker],

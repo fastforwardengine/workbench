@@ -31,14 +31,17 @@ breakout team in a root room, so the twin has a name of its own. `twinOf`
 makes the name, and `BREAKOUT_TEAM` lists the twins. No root room seats a
 twin. A breakout room seats it at `broadcast`.
 
-- **Its identity:** the identity of the specialist, then one sentence that
-  says the twin does one task in a breakout room and reports the result.
+- **Its identity:** the field `twinIdentity` of the specialist, when it
+  has one. The Engineer twin writes and tests scripts and reads data. When
+  the field is absent, the identity of the specialist, then one sentence
+  that says the twin does one task in a breakout room and reports the
+  result. The Researcher twin has that identity.
 - **Its tools:** the workspace tools, and `report`. It has no widget tools
   and no tool to open a breakout room.
 - **Its skills:** the skills of the specialist.
 - **Its rules:** the shared rules, the groups `Project`, `Evidence`, and
   `Constraints` of the specialist, and the breakout rules. It has no group
-  `Background` and no `Speaking` rule of the specialist.
+  `Background`, no `Speaking` rule of the specialist, and no room-only rule.
 - **Its model:** the model and the thinking level of the specialists.
 - **Its account:** the Unix account with the name of the twin on the
   workstation.
@@ -52,7 +55,9 @@ twin. A breakout room seats it at `broadcast`.
 | When Ambion allows a breakout room, `tell`, `archive`, the reply | Ambion guidance of the opener bundle | Each specialist |
 | When to open a breakout room, and what to put in the brief       | The group `Background`               | Each specialist |
 | Examples of a breakout task                                      | The `Background` rules of the seat   | Each specialist |
-| Which twin to seat                                               | The group `Background`               | Each specialist |
+| Which twin to seat: the own twin of the specialist               | The group `Background`               | Each specialist |
+| A rule that needs the person or the devices                      | `roomOnly` of the specialist         | Each specialist |
+| That no person is in the room                                    | The breakout rules, `Speaking`       | Each twin       |
 | What the twin does when the brief lacks an input                 | The breakout rules, `Speaking`       | Each twin       |
 | How to send the result                                           | The breakout rules, `Speaking`       | Each twin       |
 | What the twin cannot do                                          | The breakout rules, `Constraints`    | Each twin       |
@@ -66,17 +71,39 @@ Workbench text does not repeat it.
 The shared `Background` rule names no example. The Researcher names the
 tasks of research: compare the datasheets of several parts, or draft a test
 plan. The Engineer names the tasks of code: write and test a script, or read
-the data files of a capture. The Engineer still asks the Researcher with `to`
-for a limit, a choice between parts, or a test plan.
+the data files of a capture.
+
+**Each specialist seats its own twin.** The `Background` rule of a
+specialist names that twin: `researcher-bg` for the Researcher, `engineer-bg`
+for the Engineer. The Engineer has no rule to seat the Researcher twin. It
+asks the Researcher with `to` for a limit, a choice between parts, or a test
+plan. The Researcher can then open its own breakout room. This gives one
+route for research.
+
+## The room-only rules
+
+**A rule that needs the person or the devices holds only in the main
+room.** The specialist spec has an optional field `roomOnly`, with rules for
+the groups. The specialist follows them. Its twin does not. The Engineer has
+two: ask the person before the first run that turns on an output of a
+device, and name the hands-on work that a physical setup needs. The rule that
+bans a change outside a script from a template stays in `Constraints`, so
+both seats follow it.
+
+**The twin works with no person.** The first breakout rule in `Speaking`
+says that no person is in the room. The twin asks the person for no input and
+waits for no reply. The breakout rule in `Constraints` tells the twin to
+report a step that needs a device or the person.
 
 ## Why a twin has no access to the devices
 
 **A task that drives a device stays in the room of the Engineer.** The
 accounts of the twins are in no device group. The Dockerfile gives
 `dialout`, `video`, `plugdev`, and `audio` to `engineer` alone, so a twin
-cannot open a serial port, a camera, or a power supply. A task that needs the
-person for an approval, hands-on work, or a photo also stays in the room,
-because a breakout room has no person.
+cannot open a serial port, a camera, or a power supply. A skill that drives a
+device runs in a breakout room only on its simulator, when it has one. A task
+that needs the person for an approval, hands-on work, or a photo also stays
+in the room, because a breakout room has no person.
 
 ## How a result comes back
 

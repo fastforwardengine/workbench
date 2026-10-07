@@ -90,8 +90,9 @@ Rules that carry the most weight here:
    **specialist** is a named agent role (Researcher, Engineer); a **resource**
    is a shared tool implementation (the workspace); a **breakout room** is a
    room that a specialist opens for one background task; a **twin** is the
-   seat of a specialist in a breakout room, under the name `<specialist>-bg`,
-   with the same identity, rules, and skills.
+   seat of a specialist in a breakout room, under the name `<specialist>-bg`.
+   It has the skills of the specialist, a part of its rules, and the breakout
+   rules (`docs/breakouts.md`).
    Do not use "agent" where "specialist" or "seat" names the thing more
    exactly.
 5. **Simple tenses.** Present for how things work, imperative for
