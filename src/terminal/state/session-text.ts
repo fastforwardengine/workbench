@@ -65,7 +65,7 @@ function pendingLine(say: ScheduledSay): string {
 }
 
 /** The agents that a view seats, with the attention of each. */
-const seatedAgents = (view: RoomView | undefined): { name: string; attention: string }[] =>
+export const seatedAgents = (view: RoomView | undefined): { name: string; attention: string }[] =>
 	(view?.participants ?? []).flatMap((seat) =>
 		seat.kind === 'agent' ? [{ name: seat.name, attention: seat.attention }] : [],
 	);

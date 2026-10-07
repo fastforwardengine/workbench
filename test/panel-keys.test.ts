@@ -1711,3 +1711,29 @@ describe('the live block with a running process', () => {
 		expect(line).toBeGreaterThan(title);
 	});
 });
+
+describe('the composer chip', () => {
+	const chipRow = (frame: string) => frame.split('\n').find((row) => row.includes('›')) ?? '';
+
+	it('names the seats that the text reaches, and follows the text', async () => {
+		const built = await build(120);
+		built.host.table.set(
+			built.session.room,
+			view(built.session.room, {
+				unavailable: [],
+				participants: [{ kind: 'agent', name: 'engineer', status: 'idle', attention: 'broadcast' }],
+			}),
+		);
+		await built.session.refresh();
+		built.render();
+		expect(chipRow(await built.frame())).toContain(`${built.session.room} › engineer`);
+		built.composer.setText('@researcher look');
+		built.render();
+		expect(chipRow(await built.frame())).toContain(
+			`${built.session.room} › researcher (seats first)`,
+		);
+		built.composer.setText('/files');
+		built.render();
+		expect(chipRow(await built.frame())).not.toContain('engineer');
+	});
+});

@@ -13,6 +13,7 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import { pastedImagePath } from '../state/attachments.ts';
+import type { Audience } from '../state/audience.ts';
 import type { Suggestion } from '../state/commands.ts';
 import { KEYMAP } from '../state/keymap.ts';
 import { tui as palette } from './brand.ts';
@@ -51,6 +52,13 @@ const TITLES = {
 	seat: 'Seats',
 } as const;
 
+/** The color of the left rail while the composer has the keys, by the mode of the text. */
+const RAIL: Record<Audience['mode'], string> = {
+	plain: palette.accent,
+	command: palette.note,
+	mention: palette.coral,
+};
+
 const MAX_INPUT_LINES = 6;
 const MAX_PALETTE_ROWS = 6;
 
@@ -69,6 +77,8 @@ export class Composer {
 	readonly root: BoxRenderable;
 	readonly input: PasteAwareTextarea;
 	private readonly chip: TextRenderable;
+	private focused = false;
+	private mode: Audience['mode'] = 'plain';
 	private readonly frame: BoxRenderable;
 	private readonly paletteBox: BoxRenderable;
 	private readonly paletteTitle: TextRenderable;
@@ -180,18 +190,36 @@ export class Composer {
 
 	focus(): void {
 		this.input.focus();
-		this.frame.borderColor = palette.accent;
+		this.focused = true;
+		this.paintRail();
 	}
 
 	blur(): void {
 		this.input.blur();
-		this.frame.borderColor = palette.line;
+		this.focused = false;
+		this.paintRail();
 	}
 
-	/** Show what the composer sends to, such as a room. A dot means the room is working. */
-	setChip(label: string, working: boolean): void {
+	/** A focused rail takes the color of the mode of the text. A blurred rail is a line. */
+	private paintRail(): void {
+		this.frame.borderColor = this.focused ? RAIL[this.mode] : palette.line;
+	}
+
+	/**
+	 * Show what the composer sends to, such as a room. A dot means the room is working.
+	 * The audience follows the room: the seats that hear the message, and a note on one named seat.
+	 */
+	setChip(label: string, working: boolean, audience?: Audience): void {
 		const dot = working ? fg(palette.coral)('● ') : fg(palette.dim)('');
-		this.chip.content = new StyledText([dot, bold(fg(palette.accent)(`${label} ›`))]);
+		const names = audience?.names.join(', ');
+		this.chip.content = new StyledText([
+			dot,
+			bold(fg(palette.accent)(`${label} ›`)),
+			...(names ? [fg(palette.muted)(` ${names}`)] : []),
+			...(audience?.note ? [fg(palette.dim)(` (${audience.note})`)] : []),
+		]);
+		this.mode = audience?.mode ?? 'plain';
+		this.paintRail();
 	}
 
 	setPlaceholder(text: string): void {

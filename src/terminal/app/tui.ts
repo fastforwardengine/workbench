@@ -117,7 +117,7 @@ class EngineTui {
 		});
 		this.composer = new Composer(renderer, {
 			submit: () => void this.onSubmit(),
-			change: () => this.keys.refreshPalette(),
+			change: () => this.render(),
 		});
 		this.painter = new Painter({
 			session: this.session,

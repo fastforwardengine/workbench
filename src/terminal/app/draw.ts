@@ -1,6 +1,7 @@
 import { fg, StyledText } from '@opentui/core';
 import { type RefItem, stayOfPick } from '../../view/refs.ts';
 import { stagedCue } from '../state/attachments.ts';
+import { type Audience, audienceOf } from '../state/audience.ts';
 import { bindingLabel, KEYMAP } from '../state/keymap.ts';
 import type { Mode } from '../state/mode.ts';
 import type { PictureCache } from '../state/picture-cache.ts';
@@ -140,12 +141,20 @@ export class Painter {
 		this.composer.setChip(
 			session.waiting?.toLowerCase() ?? (session.identity ? session.room || 'room' : 'who'),
 			Boolean(session.view?.exchange),
+			this.audience(),
 		);
 		this.composer.setPlaceholder(this.placeholder());
 		this.composer.setStatus(new StyledText(this.statusChunks(mode, picking)));
 		this.composer.setCue(stagedCue(session.pendingRefs));
 		// The keys sheet opens from the composer only, so no other mode shows the hint.
 		this.composer.setHints(mode === 'compose' ? (this.dock.onScreen ? CLOSE_HINT : KEYS_HINT) : '');
+	}
+
+	/** Who the text of the composer reaches. A goal prompt and the person picker have no audience. */
+	private audience(): Audience | undefined {
+		const session = this.session;
+		if (session.waiting || !session.identity) return undefined;
+		return audienceOf(this.composer.text, session.host.team, session.view);
 	}
 
 	/** What the status line says about the chosen ref: why it does not open, or what Enter does. */
