@@ -25,4 +25,5 @@ export const tui = {
 	red: '#ff8f7d',
 	line: '#3f5b66',
 	selected: '#233a44',
+	raised: '#1a2830',
 } as const;

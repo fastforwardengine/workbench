@@ -6,7 +6,6 @@ import {
 	type CliRenderer,
 	fg,
 	ImageRenderable,
-	MarkdownRenderable,
 	ScrollBoxRenderable,
 	StyledText,
 	TextRenderable,
@@ -17,7 +16,7 @@ import { ellipsize } from '../../view/text.ts';
 import type { Block, LiveBlock, MessageBlock, Role, StepsBlock } from '../../view/timeline.ts';
 import { type Strip, stripKey } from '../state/pictures.ts';
 import { tui as palette } from './brand.ts';
-import { markdownStyle } from './markdown-style.ts';
+import { markdownBody } from './markdown-style.ts';
 import { planRows } from './row-diff.ts';
 
 /** The cells a chip loses to the padding, the rail, and the scrollbar. */
@@ -311,26 +310,13 @@ export class Transcript {
 		});
 		box.add(this.text(headerOf(block, fill)));
 		const body = bodyOf(block.message);
-		if (body) box.add(this.markdown(body, fill));
+		if (body) box.add(markdownBody(this.renderer, body, fill));
 		const width = Math.max(CHIP_MIN, this.root.width - CHIP_MARGIN);
 		for (const item of marks.refs.get(block.message.seq) ?? [])
 			box.add(this.chip(item, item.id === marks.picked, width, fill));
 		for (const strip of marks.pictures?.get(block.message.seq) ?? [])
 			this.addStrip(box, strip, width, marks.cellAspect ?? CELL_ASPECT);
 		return box;
-	}
-
-	/** The body of a message, as Markdown with the markers concealed. */
-	private markdown(content: string, fill: string | undefined): MarkdownRenderable {
-		return new MarkdownRenderable(this.renderer, {
-			content,
-			syntaxStyle: markdownStyle(),
-			width: '100%',
-			fg: palette.text,
-			bg: fill,
-			conceal: true,
-			tableOptions: { style: 'columns', wrapMode: 'word' },
-		});
 	}
 
 	/** One thumbnail, then one caption line. A thumbnail wider than the transcript shrinks to fit. */

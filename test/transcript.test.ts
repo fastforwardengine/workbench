@@ -550,8 +550,8 @@ describe('the body of a message', () => {
 		expect(frame).not.toContain('`code`');
 		expect(frame).not.toContain('# Plan');
 		expect(frame).toContain('Plan');
-		expect(frame).toContain('- one');
-		expect(frame).toContain('- two');
+		expect(frame).toContain('• one');
+		expect(frame).toContain('• two');
 		const lines = frame.split('\n');
 		const long = lines.filter((line) => line.includes('word'));
 		expect(long.length).toBeGreaterThan(1);
