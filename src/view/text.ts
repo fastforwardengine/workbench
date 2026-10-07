@@ -20,3 +20,23 @@ export function ellipsize(text: string, width: number): string {
 /** The message of an error, or the text of any other thrown value. */
 export const errorText = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
+
+/** The most characters that `brief` keeps. */
+const WIDTH = 100;
+
+/** The first line of a text, cut to a fixed width. */
+export function brief(text: string): string {
+	const line = (text.split('\n')[0] ?? '').trim();
+	return line.length > WIDTH ? `${line.slice(0, WIDTH - 1)}…` : line;
+}
+
+/** The first line of a text that holds a character, or an empty text. */
+export const firstLine = (text: string): string =>
+	text.split('\n').find((line) => line.trim() !== '') ?? '';
+
+/** A value as one short line: a string as it is, anything else as JSON. */
+export function render(value: unknown): string {
+	if (typeof value === 'string') return brief(value);
+	const json = JSON.stringify(value);
+	return brief(json ?? '');
+}
