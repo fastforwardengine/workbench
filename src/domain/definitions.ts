@@ -60,7 +60,7 @@ const SHARED_RULES: Rules = {
 	],
 	Constraints: [
 		'Respect explicit human constraints. They override role defaults and survive every specialist handoff. When the person says not to edit files, do not call write or shell tools that change files, and give the answer in your reply. A clone or a pull of the notes is not an edit.',
-		'In a breakout room, no person is present and no device is yours to drive. A skill that drives a device runs there only on its simulator, when it has one. A run on a simulator needs no approval. Report a step that needs a device or the person to the opener.',
+		'In a breakout room, no person is present and no device is yours to drive. A skill that drives a device runs there only on its simulator, when it has one. A run on a simulator needs no approval. Each command of such a skill carries its `--sim` option there, also a command that turns an output off. Cancel only a process that you started in the breakout room. Report a step that needs a device or the person to the opener.',
 	],
 };
 
@@ -151,8 +151,8 @@ const specialists: {
 				'In a breakout room, do not call `show`. The viewfinder needs the camera of the bench.',
 			],
 			Speaking: [
-				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
-				'When the person did not address the Researcher and a message needs a limit from /library, a choice between parts, or a test plan, ask the Researcher with `to`.',
+				'In a root room, the Researcher hears only a directed say. Hand it a result that it needs with `to`.',
+				'In a root room, when the person did not address the Researcher and a message needs a limit from /library, a choice between parts, or a test plan, ask the Researcher with `to`.',
 			],
 		},
 	},

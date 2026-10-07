@@ -157,7 +157,7 @@ describe('the Engineer', () => {
 				'In a root room, ask the person before the first run that turns on an output of a device.',
 			);
 			expect(groupOf(rules, 'Speaking').join('\n')).toContain(
-				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
+				'In a root room, the Researcher hears only a directed say. Hand it a result that it needs with `to`.',
 			);
 			for (const copy of [
 				'a transistor',

@@ -25,13 +25,15 @@ compatibility: Needs python3. A real supply needs python3-serial and a USB seria
    that the state of the channels is unknown.
 7. Stop an actuator early with the macro `drive-the-power-supply/stop`:
    `compose({ macro: 'drive-the-power-supply/stop', args: { handle, clone } })`.
+   For an actuator on the simulator, add its file: `sim: 'sim.json'`.
    It cancels the process and reads its state. Only the state `exited` with
    code 0 gives `safe: true`: the channels are off.
 8. After any other result, also an unknown handle, the macro runs `python3 finally.py` in the clone,
    and returns its output in `finally`. It turns off every channel, also
    while another process holds a channel. Read `finally` to check it. Run
    `python3 finally.py` yourself after an exit code other than 0, a kill,
-   or a lost process, when you did not use the macro.
+   or a lost process, when you did not use the macro. After a run on the
+   simulator, put `--sim sim.json` before it too.
 9. Read the supply with the sensor. Start `sensor.py` with `bash` as the README of
    the clone says. The sensor prints no ready line, and `fetch` fails until
    it takes its first sample. Then fetch `/output/observe`,
@@ -39,5 +41,6 @@ compatibility: Needs python3. A real supply needs python3-serial and a USB seria
 10. Cite the snapshot ref that `fetch` returns for each reading. For rows of `psu.py measure` or for `events.jsonl`, save the
     file with `snapshot`, and cite that ref.
 11. Turn every output off at the end of the work, also after a failure:
-    `python3 psu.py output off`.
+    `python3 psu.py output off`. After work on the simulator only, use
+    `python3 psu.py --sim sim.json output off`.
 12. Commit, and push your branch. A push keeps the work.

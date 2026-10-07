@@ -181,7 +181,7 @@ describe('the prompts of the breakout rooms', () => {
 		for (const specialist of built.specialists) {
 			const prompt = instructionsOf(specialist);
 			expect(groupOf(prompt, 'Constraints')).toContain(
-				'In a breakout room, no person is present and no device is yours to drive. A skill that drives a device runs there only on its simulator, when it has one. A run on a simulator needs no approval. Report a step that needs a device or the person to the opener.',
+				'In a breakout room, no person is present and no device is yours to drive. A skill that drives a device runs there only on its simulator, when it has one. A run on a simulator needs no approval. Each command of such a skill carries its `--sim` option there, also a command that turns an output off. Cancel only a process that you started in the breakout room. Report a step that needs a device or the person to the opener.',
 			);
 			for (const rule of [
 				'In a breakout room, send the result with `report`, once, at the end of the task. Cite in `refs` what the result relies on.',

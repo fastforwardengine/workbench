@@ -1,5 +1,5 @@
 /*---
-description: Stop a start.py actuator early. Cancel the process, read its state, and run finally.py in the clone unless the state is exited with code 0. Returns the state, the exit code, and safe.
+description: Stop a start.py actuator early. Cancel the process, read its state, and run finally.py in the clone unless the state is exited with code 0. Pass sim for an actuator that runs on the simulator. Returns the state, the exit code, and safe.
 uses: [cancel, wait, bash]
 args:
   type: object
@@ -10,6 +10,9 @@ args:
     clone:
       type: string
       description: The path of the clone of the psu fork, such as ~/bench-psu.
+    sim:
+      type: string
+      description: The --sim file of an actuator that runs on the simulator, such as sim.json. finally.py then turns off the simulated supply only.
   required: [handle, clone]
   additionalProperties: false
 ---*/
@@ -26,8 +29,9 @@ if (safe) return result;
 const path = args.clone.startsWith('~/')
 	? `"$HOME"/${quote(args.clone.slice(2))}`
 	: quote(args.clone);
+const sim = args.sim === undefined ? '' : ` --sim ${quote(args.sim)}`;
 const run = await tools
-	.bash({ command: `cd ${path} && python3 finally.py`, wait: 30 })
+	.bash({ command: `cd ${path} && python3 finally.py${sim}`, wait: 30 })
 	.catch((error) => error.details ?? { text: String(error.message), process: {} });
 result.finally = run.text;
 result.finallyExitCode = run.process?.exitCode ?? null;
