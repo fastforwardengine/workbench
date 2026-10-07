@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ellipsize } from '../src/view/text.ts';
+import { brief, ellipsize, firstLine, render } from '../src/view/text.ts';
 
 describe('ellipsize', () => {
 	it('returns text that already fits, with its spaces collapsed', () => {
@@ -34,5 +34,28 @@ describe('ellipsize', () => {
 		expect(ellipsize('goal', 1)).toBe('…');
 		expect(ellipsize('goal', 0)).toBe('');
 		expect(ellipsize('goal', -3)).toBe('');
+	});
+});
+
+describe('brief', () => {
+	it('keeps the first line, trimmed, and cuts a long one with an ellipsis', () => {
+		expect(brief('  one  \ntwo')).toBe('one');
+		expect(brief('x'.repeat(100))).toBe('x'.repeat(100));
+		expect(brief('x'.repeat(101))).toBe(`${'x'.repeat(99)}…`);
+	});
+});
+
+describe('firstLine', () => {
+	it('skips the lines that hold no character', () => {
+		expect(firstLine('\n  \nvalue\nnext')).toBe('value');
+		expect(firstLine(' \n')).toBe('');
+	});
+});
+
+describe('render', () => {
+	it('shows a string as it is and any other value as JSON', () => {
+		expect(render('a\nb')).toBe('a');
+		expect(render({ a: 1 })).toBe('{"a":1}');
+		expect(render(undefined)).toBe('');
 	});
 });

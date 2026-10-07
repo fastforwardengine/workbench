@@ -4,6 +4,7 @@ import {
 	type ActivationSteps,
 	activationLine,
 	ended,
+	failedKind,
 	formatUsage,
 	stepLog,
 	stepsView,
@@ -67,8 +68,8 @@ describe('stepsView', () => {
 		]);
 		expect(passes[0]?.lines).toEqual([
 			{ kind: 'thinking', text: 'Consider the discharge current.' },
-			{ kind: 'tool', text: 'read {"path":"/a"}' },
-			{ kind: 'result', text: 'ok' },
+			{ kind: 'tool', text: '→ read /a' },
+			{ kind: 'result', text: '1 line' },
 		]);
 		expect(passes[1]?.lines.map((line) => line.text)).toEqual([
 			'failed: boom',
@@ -107,6 +108,83 @@ describe('stepsView', () => {
 			'info: Connection restored',
 			'ended: provider down',
 		]);
+	});
+});
+
+describe('stepsView with tool phrases', () => {
+	const lines = (...steps: Record<string, unknown>[]) =>
+		stepsView(read([[{ type: 'pass', input: 'view', through: 1 }, ...steps]]))[0]?.lines;
+
+	it('writes each call and its result as the live block does', () => {
+		expect(
+			lines(
+				{ type: 'tool_call', call: 'c1', name: 'bash', input: { command: 'make test' } },
+				{
+					type: 'tool_result',
+					call: 'c1',
+					output: { content: [{ type: 'text', text: '[Process bash-1 is running. Output: /p.]' }] },
+				},
+				{ type: 'tool_call', call: 'c2', name: 'sql', input: { sql: 'select 1' }, parent: 'c0' },
+				{ type: 'tool_result', call: 'c2', output: 'x', error: 'bad sql', parent: 'c0' },
+			),
+		).toEqual([
+			{ kind: 'tool', text: '$ make test' },
+			{ kind: 'result', text: '→ bash-1' },
+			{ kind: 'tool', text: '↳ ◇ sql select 1' },
+			{ kind: 'error', text: '↳ failed: bad sql' },
+		]);
+	});
+
+	it('names the tool of a result from a call in an earlier pass', () => {
+		const passes = stepsView(
+			read([
+				[
+					{ type: 'pass', input: 'view', through: 1 },
+					{ type: 'tool_call', call: 'c1', name: 'bash', input: { command: 'sleep 9' } },
+				],
+				[
+					{ type: 'pass', input: 'delta', through: 2 },
+					{
+						type: 'tool_result',
+						call: 'c1',
+						output: '',
+						error: 'x\n\n[Process bash-1 exited with code 3. Output: /p.]',
+					},
+				],
+			]),
+		);
+		expect(passes[1]?.lines).toEqual([{ kind: 'error', text: 'failed: exit 3' }]);
+	});
+
+	it('gives a denied approval and a room commit that failed their own kinds', () => {
+		const intent = { kind: 'said', text: 'hi' };
+		const room = (result: string) => ({ type: 'room', call: 'r', intent, result, seq: 7 });
+		expect(
+			lines(
+				{ type: 'approval', call: 'c', answer: 'allow' },
+				{ type: 'approval', call: 'c', answer: 'deny' },
+				room('committed'),
+				room('unchanged'),
+				room('refused'),
+				room('stale'),
+				room('missed'),
+				room('unknown'),
+			),
+		).toEqual([
+			{ kind: 'approval', text: 'compose allowed' },
+			{ kind: 'denied', text: 'compose denied' },
+			{ kind: 'room', text: 'room committed at 7' },
+			{ kind: 'room', text: 'room unchanged at 7' },
+			{ kind: 'rejected', text: 'room refused at 7' },
+			{ kind: 'rejected', text: 'room stale at 7' },
+			{ kind: 'rejected', text: 'room missed at 7' },
+			{ kind: 'room', text: 'room unknown at 7' },
+		]);
+	});
+
+	it('draws the kinds of a failure as failed', () => {
+		for (const kind of ['error', 'denied', 'rejected']) expect(failedKind(kind)).toBe(true);
+		for (const kind of ['room', 'approval', 'result', 'tool']) expect(failedKind(kind)).toBe(false);
 	});
 });
 

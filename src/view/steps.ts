@@ -1,4 +1,6 @@
 import type { ExchangeActivation, TraceLogger, TraceStep, Usage } from '@ambionframework/ambion';
+import { brief } from './text.ts';
+import { callPhrase, failurePhrase, resultPhrase } from './tool-phrases.ts';
 
 /** One pass of an activation: what it read and the steps it took. */
 interface ActivationPass {
@@ -28,21 +30,6 @@ export interface PassView {
 	readonly input: 'view' | 'delta';
 	readonly through: number;
 	readonly lines: StepLine[];
-}
-
-const WIDTH = 100;
-
-/** The first line of a text, cut to a fixed width. */
-export function brief(text: string): string {
-	const line = (text.split('\n')[0] ?? '').trim();
-	return line.length > WIDTH ? `${line.slice(0, WIDTH - 1)}…` : line;
-}
-
-/** A value as one short line: a string as it is, anything else as JSON. */
-export function render(value: unknown): string {
-	if (typeof value === 'string') return brief(value);
-	const json = JSON.stringify(value);
-	return brief(json ?? '');
 }
 
 /** Format a token count, as in `12.3k`. */
@@ -78,14 +65,31 @@ export function activationLine(activation: ExchangeActivation): string {
 export const nested = (step: { parent?: string }): string =>
 	step.parent === undefined ? '' : '↳ ';
 
+/** The names of the calls of a trace, by call id. A result names its tool through its call. */
+type CallNames = ReadonlyMap<string, string>;
+
 /** The line of a tool result: the output, or the failure. */
-function resultLine(step: Extract<TraceStep, { type: 'tool_result' }>): StepLine {
+function resultLine(step: Extract<TraceStep, { type: 'tool_result' }>, names: CallNames): StepLine {
+	const name = names.get(step.call) ?? '';
 	return step.error
-		? { kind: 'error', text: `${nested(step)}failed: ${brief(step.error)}` }
-		: { kind: 'result', text: `${nested(step)}${render(step.output)}` };
+		? { kind: 'error', text: `${nested(step)}${failurePhrase(name, step.error)}` }
+		: { kind: 'result', text: `${nested(step)}${resultPhrase(name, step.output)}` };
 }
 
-function lineOf(step: TraceStep): StepLine {
+/** The kinds that the terminal draws as failed. */
+const FAILED_KINDS: ReadonlySet<string> = new Set(['error', 'denied', 'rejected']);
+
+/** True when the terminal draws a line of this kind as failed. */
+export const failedKind = (kind: string): boolean => FAILED_KINDS.has(kind);
+
+/** The line of a room answer. A commit that the room did not take has its own kind. */
+function roomLine(step: Extract<TraceStep, { type: 'room' }>): StepLine {
+	const text = `room ${step.result}${step.seq ? ` at ${step.seq}` : ''}`;
+	const missed = step.result === 'refused' || step.result === 'stale' || step.result === 'missed';
+	return { kind: missed ? 'rejected' : 'room', text };
+}
+
+function lineOf(step: TraceStep, names: CallNames): StepLine {
 	switch (step.type) {
 		case 'pass':
 			return { kind: 'pass', text: `pass ${step.pass}` };
@@ -94,16 +98,16 @@ function lineOf(step: TraceStep): StepLine {
 		case 'text':
 			return { kind: 'text', text: brief(step.text) };
 		case 'tool_call':
-			return { kind: 'tool', text: `${nested(step)}${step.name} ${render(step.input)}`.trim() };
+			return { kind: 'tool', text: `${nested(step)}${callPhrase(step.name, step.input)}` };
 		case 'tool_result':
-			return resultLine(step);
+			return resultLine(step, names);
 		case 'approval':
 			return {
-				kind: 'approval',
+				kind: step.answer === 'allow' ? 'approval' : 'denied',
 				text: `compose ${step.answer === 'allow' ? 'allowed' : 'denied'}`,
 			};
 		case 'room':
-			return { kind: 'room', text: `room ${step.result}${step.seq ? ` at ${step.seq}` : ''}` };
+			return roomLine(step);
 		case 'steer':
 			return { kind: 'steer', text: `steer ${step.seq} ${step.consumed ? 'read' : 'queued'}` };
 		case 'notice':
@@ -119,17 +123,26 @@ function lineOf(step: TraceStep): StepLine {
 	}
 }
 
+/** The name of each call in a trace, by call id. */
+function callNames(read: ActivationSteps): CallNames {
+	const names = new Map<string, string>();
+	for (const pass of read.passes)
+		for (const step of pass.steps) if (step.type === 'tool_call') names.set(step.call, step.name);
+	return names;
+}
+
 /**
  * Group a trace into passes, each with its step lines. The `pass` step opens a
  * pass and shows in its header, so it makes no line. A trace with no `end` step
  * is a running or a crashed activation, and it shows as far as it goes.
  */
 export function stepsView(read: ActivationSteps): PassView[] {
+	const names = callNames(read);
 	return read.passes.map((pass) => ({
 		pass: pass.pass,
 		input: pass.input,
 		through: pass.through,
-		lines: pass.steps.filter((step) => step.type !== 'pass').map(lineOf),
+		lines: pass.steps.filter((step) => step.type !== 'pass').map((step) => lineOf(step, names)),
 	}));
 }
 

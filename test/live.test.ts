@@ -71,7 +71,7 @@ describe('liveActivations of a running activation', () => {
 		);
 		expect(first).toMatchObject({ id: 'a1', state: 'running', title: 'engineer · respond' });
 		expect(first?.calls).toEqual([
-			{ state: 'done', text: 'read /a', result: 'ok' },
+			{ state: 'done', text: '→ read /a', result: '1 line' },
 			{ state: 'running', text: 'camera {"shot":1,"fast":true}', result: '' },
 		]);
 		expect(first?.earlier).toBe(0);
@@ -81,7 +81,7 @@ describe('liveActivations of a running activation', () => {
 		const live = running(
 			read([call('c1', 'bash', { command: 'sleep 1' })], [result('c1', text('done'))]),
 		);
-		expect(live?.calls).toEqual([{ state: 'done', text: 'bash sleep 1', result: 'done' }]);
+		expect(live?.calls).toEqual([{ state: 'done', text: '$ sleep 1', result: 'done' }]);
 	});
 
 	it('keeps the last five calls and counts the earlier ones', () => {
@@ -89,17 +89,11 @@ describe('liveActivations of a running activation', () => {
 			call(`c${at}`, 'bash', { command: `n${at}` }),
 		);
 		const live = running(read(steps));
-		expect(live?.calls.map((one) => one.text)).toEqual([
-			'bash n3',
-			'bash n4',
-			'bash n5',
-			'bash n6',
-			'bash n7',
-		]);
+		expect(live?.calls.map((one) => one.text)).toEqual(['$ n3', '$ n4', '$ n5', '$ n6', '$ n7']);
 		expect(live?.earlier).toBe(3);
 	});
 
-	it('shows the one string of an object input, and JSON for any other input', () => {
+	it('shows a tool phrase, the one string of an object input, and JSON for any other input', () => {
 		const live = running(
 			read([
 				call('c1', 'bash', { command: 'psu status', timeout: 5 }),
@@ -109,8 +103,8 @@ describe('liveActivations of a running activation', () => {
 			]),
 		);
 		expect(live?.calls.map((one) => one.text)).toEqual([
-			'bash psu status',
-			'write {"path":"/a","content":"b"}',
+			'$ psu status',
+			'✎ write /a',
 			'list {}',
 			'echo plain',
 		]);
@@ -124,7 +118,7 @@ describe('liveActivations of a running activation', () => {
 				result('c2', text('a.txt'), undefined, 'c1'),
 			]),
 		);
-		expect(live?.calls[1]).toEqual({ state: 'done', text: '↳ bash ls', result: 'a.txt' });
+		expect(live?.calls[1]).toEqual({ state: 'done', text: '↳ $ ls', result: 'a.txt' });
 	});
 
 	it('shows the first non-empty line of the first text item of a result', () => {
@@ -142,7 +136,7 @@ describe('liveActivations of a running activation', () => {
 		const live = running(
 			read([call('c1', 'bash', { command: 'x' }), result('c1', null, 'port busy\nmore')]),
 		);
-		expect(live?.calls).toEqual([{ state: 'failed', text: 'bash x', result: 'failed: port busy' }]);
+		expect(live?.calls).toEqual([{ state: 'failed', text: '$ x', result: 'failed: port busy' }]);
 	});
 
 	it('shows no calls for an activation that has no read yet', () => {

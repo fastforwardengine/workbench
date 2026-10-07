@@ -12,6 +12,7 @@ import {
 } from '@opentui/core';
 import type { LiveActivation, LiveCall, LiveProcess } from '../../view/live.ts';
 import { chipLine, type RefItem } from '../../view/refs.ts';
+import { failedKind } from '../../view/steps.ts';
 import { ellipsize } from '../../view/text.ts';
 import type { Block, LiveBlock, MessageBlock, Role, StepsBlock } from '../../view/timeline.ts';
 import { type Strip, stripKey } from '../state/pictures.ts';
@@ -389,7 +390,7 @@ export class Transcript {
 				]),
 			);
 			for (const line of pass.lines) {
-				const color = line.kind === 'error' ? palette.red : palette.muted;
+				const color = failedKind(line.kind) ? palette.red : palette.muted;
 				box.add(
 					this.text([
 						paint(`  ${line.kind.padEnd(9)}`, { color: palette.dim }),

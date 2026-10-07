@@ -8,13 +8,16 @@ import {
 	CodeRenderable,
 	getTreeSitterClient,
 	type Renderable,
+	RGBA,
 	TextRenderable,
 } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { tui as palette } from '../src/terminal/widgets/brand.ts';
 import { type Marks, Transcript } from '../src/terminal/widgets/transcript.ts';
-import type { LiveActivation } from '../src/view/live.ts';
+import { type LiveActivation, liveActivations } from '../src/view/live.ts';
 import type { RefItem } from '../src/view/refs.ts';
+import { stepsView } from '../src/view/steps.ts';
 import { type Block, buildTimeline } from '../src/view/timeline.ts';
 
 /** The private method that the tests count. */
@@ -538,6 +541,48 @@ describe('the live block', () => {
 		expect(cut[0]).not.toContain('late');
 	}, 20_000);
 
+	it('draws the tool phrase of each call, as the view builds it', async () => {
+		const view = await mount();
+		const step = (extra: Record<string, unknown>) => ({ activation: 'a1', at: AT, ...extra });
+		const output = (value: string) => ({ content: [{ type: 'text', text: value }] });
+		const steps = [
+			step({ type: 'pass', pass: 1, input: 'view', through: 4 }),
+			step({ type: 'tool_call', call: 'c1', name: 'bash', input: { command: 'python3 scan.py' } }),
+			step({
+				type: 'tool_result',
+				call: 'c1',
+				output: output('[Process bash-1a2b is running. Output: /p/out.]'),
+			}),
+			step({ type: 'tool_call', call: 'c2', name: 'read', input: { path: '/notes/board.md' } }),
+			step({ type: 'tool_result', call: 'c2', output: output('a\nb') }),
+			step({ type: 'tool_call', call: 'c3', name: 'edit', input: { path: '/notes/board.md' } }),
+			step({ type: 'tool_result', call: 'c3', output: null, error: 'no match' }),
+			step({ type: 'tool_call', call: 'c4', name: 'sql', input: { sql: 'select 1' } }),
+		];
+		const reads = new Map([
+			['a1', { activation: 'a1', passes: [{ pass: 1, input: 'view', through: 4, steps }] }],
+		]);
+		const running = {
+			id: 'a1',
+			seat: 'engineer',
+			attempt: 1,
+			purpose: 'respond',
+			outcome: { kind: 'running' },
+		};
+		const calls = liveActivations([running] as never, reads as never);
+		view.transcript.render([live('', calls)], undefined, undefined, true);
+		await stable(view.setup, view.transcript.root);
+		const lines = view.setup
+			.captureCharFrame()
+			.split('\n')
+			.map((line) => line.trimEnd());
+		const at = (text: string) => lines.findIndex((line) => line.includes(text));
+		expect(lines[at('python3')]).toBe('      ✓ $ python3 scan.py  → bash-1a2b');
+		expect(lines[at('read /notes')]).toBe('      ✓ → read /notes/board.md  2 lines');
+		expect(lines[at('edit /notes')]).toBe('      ✗ ✎ edit /notes/board.md  failed: no match');
+		expect(lines[at('sql')]).toBe('      … ◇ sql select 1');
+	}, 20_000);
+
 	it('cuts a long call to one row', async () => {
 		const view = await mount();
 		const long = { state: 'done', text: `bash ${'x'.repeat(200)}`, result: 'ok' } as const;
@@ -549,6 +594,45 @@ describe('the live block', () => {
 		const lines = view.setup.captureCharFrame().split('\n');
 		expect(lines.filter((line) => line.includes('bash xxx'))).toHaveLength(1);
 		expect(lines.some((line) => line.includes('…'))).toBe(true);
+	}, 20_000);
+});
+
+describe('the steps block', () => {
+	it('draws a denied approval and a refused commit in the failed colour', async () => {
+		const view = await mount();
+		const intent = { kind: 'said', text: 'hi' };
+		const lines = stepsView({
+			activation: 'a1',
+			passes: [
+				{
+					pass: 1,
+					input: 'view',
+					through: 4,
+					steps: [
+						{ type: 'approval', call: 'c', answer: 'allow' },
+						{ type: 'approval', call: 'c', answer: 'deny' },
+						{ type: 'room', call: 'r', intent, result: 'committed', seq: 5 },
+						{ type: 'room', call: 'r', intent, result: 'stale' },
+					],
+				},
+			],
+		} as never)[0]?.lines;
+		const block = {
+			type: 'steps',
+			title: 'engineer',
+			running: false,
+			passes: [{ pass: 1, input: 'view', through: 4, lines }],
+		};
+		view.transcript.render([block as never], undefined, undefined, true);
+		await stable(view.setup, view.transcript.root);
+		const spans = view.setup.captureSpans().lines.flatMap((line) => line.spans);
+		const colorOf = (text: string) => spans.find((span) => span.text.includes(text))?.fg.toString();
+		const red = RGBA.fromHex(palette.red).toString();
+		const muted = RGBA.fromHex(palette.muted).toString();
+		expect(colorOf('compose denied')).toBe(red);
+		expect(colorOf('room stale')).toBe(red);
+		expect(colorOf('compose allowed')).toBe(muted);
+		expect(colorOf('room committed at 5')).toBe(muted);
 	}, 20_000);
 });
 

@@ -508,7 +508,7 @@ describe('Session live block', () => {
 					id: 'act-9',
 					state: 'running',
 					title: 'engineer · respond',
-					calls: [{ state: 'running', text: 'read /a', result: '' }],
+					calls: [{ state: 'running', text: '→ read /a', result: '' }],
 				},
 			],
 		});
@@ -528,7 +528,7 @@ describe('Session live block', () => {
 		await session.refresh();
 		host.traces.delete('act-9');
 		await session.refresh();
-		expect(liveBlock(session)).toMatchObject({ activations: [{ calls: [{ text: 'read /a' }] }] });
+		expect(liveBlock(session)).toMatchObject({ activations: [{ calls: [{ text: '→ read /a' }] }] });
 		await session.switchRoom('budget');
 		expect(liveBlock(session)).toBeUndefined();
 	});
