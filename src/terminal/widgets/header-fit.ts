@@ -4,7 +4,7 @@ import { ellipsize } from '../../view/text.ts';
 export const GAP = 2;
 
 export interface HeaderFitInput {
-	/** The cells one row has, inside the border and the padding. */
+	/** The cells one row has, inside the padding. */
 	width: number;
 	name: string;
 	goal: string;

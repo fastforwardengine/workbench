@@ -91,7 +91,12 @@ export class Composer {
 		this.paletteBox.add(this.paletteTitle);
 		this.paletteBox.add(this.paletteText);
 		this.cue = new TextRenderable(renderer, { content: '', wrapMode: 'none' });
-		this.cueRow = new BoxRenderable(renderer, { paddingLeft: 1, height: 1, visible: false });
+		this.cueRow = new BoxRenderable(renderer, {
+			paddingLeft: 1,
+			height: 1,
+			backgroundColor: palette.panel,
+			visible: false,
+		});
 		this.cueRow.add(this.cue);
 		this.chip = new TextRenderable(renderer, { content: '', flexShrink: 0 });
 		this.input = new PasteAwareTextarea(renderer, {
