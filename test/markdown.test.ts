@@ -120,4 +120,9 @@ describe('the Markdown body of a message', () => {
 		expect(has(spanOf(spans, 'bold'), TextAttributes.BOLD)).toBe(true);
 		expect(spanOf(spans, '☑').fg.toString()).toBe(color(palette.green));
 	}, 20_000);
+
+	it('shows one task box for each item of a loose task list, and keeps the empty line between two paragraphs of an item', async () => {
+		const { lines } = await draw('- [ ] a\n\n- [x] b\n\n- para one\n\n  para two');
+		expect(lines.slice(0, 7)).toEqual(['☐ a', '', '☑ b', '', '• para one', '', '  para two']);
+	}, 20_000);
 });

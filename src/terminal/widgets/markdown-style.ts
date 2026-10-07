@@ -151,17 +151,51 @@ function list(renderer: RenderContext, token: ListToken, fill: string | undefine
 	return box;
 }
 
-/** The blocks of one item, in a column: a nested list as a list, every other block as Markdown. */
+/** One block of an item, with the empty lines in the source before it. */
+interface ItemBlock {
+	token: ItemToken['tokens'][number];
+	raw: string;
+	gap: number;
+}
+
+/**
+ * The blocks of one item, without the task box. In a loose list the parser
+ * puts the task box in the text of the first block, so the item removes it
+ * there.
+ */
+function itemBlocks(item: ItemToken): ItemBlock[] {
+	const shown = item.tokens.filter((child) => child.type !== 'checkbox');
+	const first = shown.find((child) => child.type !== 'space');
+	const blocks: ItemBlock[] = [];
+	shown.forEach((child, index) => {
+		const raw = item.task && child === first ? child.raw.replace(TASK_BOX, '') : child.raw;
+		if (child.type === 'space' || !raw.trim()) return;
+		const gap = blocks.length > 0 && shown[index - 1]?.type === 'space' ? 1 : 0;
+		blocks.push({ token: child, raw, gap });
+	});
+	return blocks;
+}
+
+/**
+ * The blocks of one item, in a column: a nested list as a list, every other
+ * block as Markdown. An empty line in the source keeps one empty line.
+ */
 function itemBody(renderer: RenderContext, item: ItemToken, fill: string | undefined): Renderable {
 	const column = new BoxRenderable(renderer, {
 		flexDirection: 'column',
 		flexGrow: 1,
 		flexShrink: 1,
 	});
-	for (const child of item.tokens) {
-		if (child.type === 'checkbox' || child.type === 'space') continue;
-		if (child.type === 'list') column.add(list(renderer, child as unknown as ListToken, fill));
-		else column.add(markdownBody(renderer, child.raw.trimEnd(), fill));
+	for (const block of itemBlocks(item)) {
+		const node =
+			block.token.type === 'list'
+				? list(renderer, block.token as unknown as ListToken, fill)
+				: markdownBody(renderer, block.raw.trimEnd(), fill);
+		node.marginTop = block.gap;
+		column.add(node);
 	}
 	return column;
 }
+
+/** The task box at the start of the text of an item. */
+const TASK_BOX = /^\[[ xX]\] */;
