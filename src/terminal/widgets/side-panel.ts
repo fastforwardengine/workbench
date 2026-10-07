@@ -8,6 +8,7 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import { tui as palette } from './brand.ts';
+import { SCROLLBAR } from './space.ts';
 
 /** How many rows of the list a layer shows. */
 export const LIST_ROWS = 8;
@@ -75,7 +76,7 @@ export abstract class SidePanel {
 
 	/** Put the body in the scroll area. The padding keeps the text clear of the scrollbar. */
 	protected addBody(...parts: Renderable[]): void {
-		const padded = new BoxRenderable(this.renderer, { paddingRight: 2, width: '100%' });
+		const padded = new BoxRenderable(this.renderer, { paddingRight: SCROLLBAR, width: '100%' });
 		for (const part of parts) padded.add(part);
 		this.scroll.add(padded);
 	}

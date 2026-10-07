@@ -1,7 +1,5 @@
 import { ellipsize } from '../../view/text.ts';
-
-/** The cells between the left text and the right text of one row. */
-export const GAP = 2;
+import { APART } from './space.ts';
 
 export interface HeaderFitInput {
 	/** The cells one row has, inside the padding. */
@@ -26,8 +24,8 @@ export interface HeaderFit {
  */
 export function fitHeader(input: HeaderFitInput): HeaderFit {
 	const { width, name, identity } = input;
-	const taken = name.length + GAP + (identity ? identity.length + GAP : 0);
+	const taken = name.length + APART + (identity ? identity.length + APART : 0);
 	const goal = ellipsize(input.goal, width - taken);
-	const fits = input.people + GAP + input.pattern.length <= width;
+	const fits = input.people + APART + input.pattern.length <= width;
 	return { goal, pattern: fits ? input.pattern : '' };
 }

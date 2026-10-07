@@ -9,6 +9,7 @@ import {
 } from '@opentui/core';
 import type { LayerId } from '../state/layers.ts';
 import { tui as palette } from './brand.ts';
+import { GAP, GUTTER } from './space.ts';
 
 /** The share of the width that the dock takes beside the conversation. */
 const SHARE = '50%';
@@ -56,15 +57,15 @@ export class DockPanel {
 			border: ['left'],
 			borderColor: palette.line,
 			backgroundColor: palette.panel,
-			paddingLeft: 1,
-			paddingRight: 1,
+			paddingLeft: GUTTER,
+			paddingRight: GUTTER,
 			visible: false,
 		});
 		this.tabs = new TextRenderable(renderer, {
 			content: '',
 			flexShrink: 0,
 			wrapMode: 'none',
-			marginBottom: 1,
+			marginBottom: GAP,
 		});
 		this.body = new BoxRenderable(renderer, { flexDirection: 'column', flexGrow: 1, minHeight: 0 });
 		this.root.add(this.tabs);

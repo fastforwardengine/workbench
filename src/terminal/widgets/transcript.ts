@@ -18,13 +18,17 @@ import { type Strip, stripKey } from '../state/pictures.ts';
 import { tui as palette } from './brand.ts';
 import { markdownBody } from './markdown-style.ts';
 import { planRows } from './row-diff.ts';
+import { GAP, GUTTER, INSET, SCROLLBAR, TRACK } from './space.ts';
 
-/** The cells a chip loses to the padding, the rail, and the scrollbar. */
-const CHIP_MARGIN = 8;
+/** The cells a chip loses to the rail and its gutter, the padding, and the scrollbar track. */
+const CHIP_MARGIN = INSET + SCROLLBAR + TRACK;
 const CHIP_MIN = 20;
 
-/** The cells that a live call line loses to the indent, the mark, the padding, and the scrollbar. */
-const CALL_MARGIN = 10;
+/** The cells that a call line starts with: the indent, the mark, and one space. */
+const CALL_PREFIX = 6;
+
+/** The cells that a live call line loses to the inset, the prefix, the padding, and the scrollbar track. */
+const CALL_MARGIN = INSET + CALL_PREFIX + SCROLLBAR + TRACK;
 const CALL_MIN = 20;
 
 /** The rows of one thumbnail. */
@@ -186,8 +190,8 @@ export class Transcript {
 		this.list = new BoxRenderable(renderer, {
 			flexDirection: 'column',
 			width: '100%',
-			paddingRight: 2,
-			gap: 1,
+			paddingRight: SCROLLBAR,
+			gap: GAP,
 			backgroundColor: palette.bg,
 		});
 		this.root.add(this.list);
@@ -286,7 +290,7 @@ export class Transcript {
 		if (block.type === 'message') return this.messageNode(block, marks);
 		if (block.type === 'live') return this.liveNode(block);
 		if (block.type === 'steps') return this.stepsNode(block);
-		return this.text([paint(block.text, { color: palette.dim })]);
+		return this.plain([paint(block.text, { color: palette.dim })]);
 	}
 
 	private text(chunks: Chunk[]): TextRenderable {
@@ -305,7 +309,7 @@ export class Transcript {
 			flexDirection: 'column',
 			border: ['left'],
 			borderColor: railOf[block.role],
-			paddingLeft: 1,
+			paddingLeft: GUTTER,
 			backgroundColor: fill ?? palette.bg,
 		});
 		box.add(this.text(headerOf(block, fill)));
@@ -367,7 +371,7 @@ export class Transcript {
 			flexDirection: 'column',
 			border: ['left'],
 			borderColor: palette.accent,
-			paddingLeft: 1,
+			paddingLeft: GUTTER,
 		});
 		const state = block.running ? '  running, no end step yet' : '';
 		box.add(
@@ -400,7 +404,11 @@ export class Transcript {
 	/** The live block: one line of state, then each activation with its latest calls. */
 	private liveNode(block: LiveBlock): BoxRenderable {
 		const detail = block.detail ? [paint(`   ${block.detail}`, { color: palette.dim })] : [];
-		const box = new BoxRenderable(this.renderer, { flexDirection: 'column', width: '100%' });
+		const box = new BoxRenderable(this.renderer, {
+			flexDirection: 'column',
+			width: '100%',
+			paddingLeft: INSET,
+		});
 		box.add(
 			this.text([
 				paint('● ', { color: palette.coral }),
@@ -459,6 +467,15 @@ export class Transcript {
 	}
 
 	private noticeNode(notice: string): TextRenderable {
-		return this.text([paint(notice, { color: palette.muted })]);
+		return this.plain([paint(notice, { color: palette.muted })]);
+	}
+
+	/** Text that has no rail. It starts at the same column as the text beside a rail. */
+	private plain(chunks: Chunk[]): TextRenderable {
+		return new TextRenderable(this.renderer, {
+			content: new StyledText(chunks),
+			wrapMode: 'word',
+			marginLeft: INSET,
+		});
 	}
 }

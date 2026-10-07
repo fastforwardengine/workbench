@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fitHeader, GAP } from '../src/terminal/widgets/header-fit.ts';
+import { fitHeader } from '../src/terminal/widgets/header-fit.ts';
+import { APART } from '../src/terminal/widgets/space.ts';
 
 const GOAL =
 	'Discharge-test the 18650 cell through a load resistor. Choose a value and confirm it.';
@@ -22,7 +23,7 @@ describe('fitHeader', () => {
 		const width = 70;
 		const fit = fitHeader({ ...base, width });
 		expect(fit.goal.endsWith('…')).toBe(true);
-		const row = base.name.length + GAP + fit.goal.length + GAP + base.identity.length;
+		const row = base.name.length + APART + fit.goal.length + APART + base.identity.length;
 		expect(row).toBeLessThanOrEqual(width);
 	});
 
@@ -33,7 +34,7 @@ describe('fitHeader', () => {
 	});
 
 	it('drops the pattern when it does not fit beside the participants', () => {
-		const need = base.people + GAP + base.pattern.length;
+		const need = base.people + APART + base.pattern.length;
 		expect(fitHeader({ ...base, width: need }).pattern).toBe(base.pattern);
 		expect(fitHeader({ ...base, width: need - 1 }).pattern).toBe('');
 	});
