@@ -1,7 +1,13 @@
 import type { Exchange } from '@ambionframework/ambion';
 import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
-import { liveActivations, type StepTotals, totalsOf } from '../../view/live.ts';
+import {
+	liveActivations,
+	type StepTotals,
+	totalsOf,
+	type Working,
+	workingOf,
+} from '../../view/live.ts';
 import { type Known, pickIds, type RefItem, refItems, shows, stayOfPick } from '../../view/refs.ts';
 import {
 	type ActivationSteps,
@@ -26,6 +32,7 @@ import {
 	suggest,
 } from './commands.ts';
 import { dismissCommand } from './dismiss.ts';
+import { ProcessCount } from './process-count.ts';
 import { ProcessTails } from './process-tails.ts';
 import { RoomReader } from './room-reader.ts';
 import { DONE, HELP, mentionRefusal, notesOf, refusal, seatChoices } from './session-text.ts';
@@ -77,6 +84,8 @@ export class Session {
 	unfolded: { id: string; read: ActivationSteps | undefined } | undefined;
 	/** The newest output line of the processes that the running seats of the open exchange own. */
 	private readonly tails: ProcessTails;
+	/** How many background processes of the specialists run. */
+	private readonly count: ProcessCount;
 	private readonly reader: RoomReader<RoomView>;
 	/** Ends the watch on the room list. `start` sets it, and `leave` calls it. */
 	private unwatchRooms: (() => void) | undefined;
@@ -98,6 +107,7 @@ export class Session {
 		);
 		this.browser = new FileBrowser(entryLoader(host), changed);
 		this.tails = new ProcessTails(host, () => this.rebuild());
+		this.count = new ProcessCount(host, () => this.changed());
 	}
 
 	/** True once when the conversation should scroll to its end, as after a notice. */
@@ -121,6 +131,7 @@ export class Session {
 	async start(): Promise<void> {
 		// A room that opens, starts, stops, or is archived changes the list, and a breakout room is one.
 		this.unwatchRooms ??= this.host.watchRooms(() => void this.listRooms());
+		this.count.start();
 		await this.refreshRooms();
 		if (!this.identity) {
 			const names = this.host.people.map((person) => person.name).join(', ');
@@ -163,6 +174,17 @@ export class Session {
 	/** The breakout rooms that run in the background of the open room. */
 	get background(): Background {
 		return backgroundOf(this.rooms, this.room);
+	}
+
+	/** The background processes of the specialists that run. */
+	get runningProcesses(): number {
+		return this.count.running;
+	}
+
+	/** What the newest running activation of the open room does now, or undefined when none runs. */
+	get working(): Working | undefined {
+		if (this.view?.status !== 'running') return undefined;
+		return workingOf(this.view.exchange?.activations ?? [], this.live);
 	}
 
 	/** Read the open room. The reader does it again when a change lands during a read. */
@@ -755,6 +777,7 @@ export class Session {
 		this.unwatchRooms?.();
 		this.unwatchRooms = undefined;
 		this.tails.dispose();
+		this.count.dispose();
 		if (this.room && this.entered && this.identity)
 			await this.host.leave(this.room, this.identity.name).catch(() => {});
 	}

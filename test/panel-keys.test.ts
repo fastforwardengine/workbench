@@ -1712,6 +1712,187 @@ describe('the live block with a running process', () => {
 	});
 });
 
+describe('the status row', () => {
+	const statusRow = (frame: string) => frame.split('\n').find((row) => row.includes('keys')) ?? '';
+	const say = { seq: 5, seat: 'engineer', due: 'soon', text: 'Check the build.' };
+	const running = (id = 'act-9') => ({
+		id,
+		seat: 'engineer',
+		purpose: 'respond',
+		attempt: 1,
+		outcome: { kind: 'running' },
+	});
+
+	/** A build with a process, a breakout room, and two says that wait. */
+	async function busy(width: number) {
+		const built = await build(width);
+		const { host, session } = built;
+		cleanups.unshift(() => void session.leave());
+		host.table.set('tuners', view('tuners', breakoutOf(session.room)));
+		host.table.set(session.room, view(session.room, { scheduled: [say, { ...say, seq: 6 }] }));
+		host.notifyRooms();
+		await session.refresh();
+		for (const changed of host.processWatchers) changed();
+		await vi.waitFor(() => expect(session.background.running).toBe(1));
+		await vi.waitFor(() => expect(session.runningProcesses).toBe(1));
+		built.render();
+		return built;
+	}
+	const breakoutOf = (parent: string) => ({
+		breakout: { parent, opener: 'engineer', state: 'running' },
+	});
+
+	it('shows the counts that are not zero before the keys hint, and no chip in the header', async () => {
+		const frame = await (await busy(120)).frame();
+		expect(statusRow(frame)).toContain('Active');
+		expect(statusRow(frame)).toContain('1 in background · 1 process · 2 later · ? keys');
+		expect(frame.split('\n').filter((row) => row.includes('in background'))).toHaveLength(1);
+	});
+
+	it('shows no count while the work is zero', async () => {
+		const built = await build(120);
+		cleanups.unshift(() => void built.session.leave());
+		built.host.processTable = [];
+		built.render();
+		const row = statusRow(await built.frame());
+		expect(row).toContain('Active');
+		expect(row).toContain('? keys');
+		expect(row).not.toMatch(/process|later|background/);
+	});
+
+	it('drops the counts from the lowest priority up as the terminal narrows', async () => {
+		const wide = statusRow(await (await busy(54)).frame());
+		expect(wide).toContain('1 in background');
+		expect(wide).toContain('1 process');
+		expect(wide).not.toContain('later');
+		const narrow = statusRow(await (await busy(40)).frame());
+		expect(narrow).toContain('1 in background');
+		expect(narrow).not.toContain('process');
+		const tight = statusRow(await (await busy(26)).frame());
+		expect(tight).toContain('? keys');
+		expect(tight).not.toMatch(/process|later|background/);
+	});
+
+	it('counts the processes again when one starts or ends', async () => {
+		const built = await busy(120);
+		built.host.processTable = [];
+		for (const changed of built.host.processWatchers) changed();
+		await vi.waitFor(() => expect(built.session.runningProcesses).toBe(0));
+		built.render();
+		expect(statusRow(await built.frame())).not.toContain('process');
+	});
+
+	describe('the working line', () => {
+		/** A room whose engineer runs a command for `seconds` seconds. */
+		async function working(seconds: number, width = 120) {
+			const built = await build(width);
+			const { host, session } = built;
+			cleanups.unshift(() => void session.leave());
+			host.processTable = [];
+			const started = new Date(Date.now() - seconds * 1000).toISOString();
+			host.traces.set('act-9', {
+				activation: 'act-9',
+				passes: [
+					{
+						pass: 1,
+						input: 'view',
+						through: 4,
+						steps: [
+							{ type: 'pass', pass: 1, input: 'view', through: 4, at: started },
+							{
+								type: 'tool_call',
+								call: 'c1',
+								name: 'bash',
+								input: { command: 'pnpm test' },
+								at: started,
+							},
+						],
+					},
+				],
+			} as never);
+			const activations = [running()];
+			host.table.set(
+				session.room,
+				view(session.room, {
+					exchange: { from: 4, status: 'open', person: 'priya', at: AT, activations },
+					exchanges: [{ from: 4, status: 'open', person: 'priya', at: AT, activations }],
+				}),
+			);
+			await session.refresh();
+			await vi.waitFor(() => expect(session.working?.since).toBeDefined());
+			built.render();
+			return built;
+		}
+
+		it('says the seat, its step, and the elapsed time', async () => {
+			const built = await working(34);
+			expect(statusRow(await built.frame())).toMatch(/● engineer · \$ pnpm test · 0:3[4-9]/);
+			expect(await built.frame()).not.toContain('Active');
+		});
+
+		it('moves the time on a chrome repaint, without a new conversation draw', async () => {
+			const built = await working(34);
+			const before = statusRow(await built.frame());
+			const drawn = built.renders.count;
+			const later = Date.now() + 5_000;
+			vi.spyOn(Date, 'now').mockReturnValue(later);
+			try {
+				built.painter.renderChrome(built.keys.mode, built.keys.picking);
+				const after = statusRow(await built.frame());
+				expect(after).not.toBe(before);
+				expect(after).toMatch(/0:(3[9]|4\d)/);
+				expect(built.renders.count).toBe(drawn);
+			} finally {
+				vi.restoreAllMocks();
+			}
+		});
+
+		it('gives way to an error, and returns to the usual text when the activation ends', async () => {
+			const built = await working(3);
+			built.session.error = 'The model refused.';
+			built.render();
+			expect(statusRow(await built.frame())).not.toContain('engineer ·');
+			expect(await built.frame()).toContain('Error: The model refused.');
+			built.session.error = undefined;
+			const ended = [{ ...running(), outcome: { kind: 'complete' } }];
+			built.host.table.set(
+				built.session.room,
+				view(built.session.room, {
+					exchange: undefined,
+					exchanges: [
+						{
+							from: 4,
+							status: 'closed',
+							person: 'priya',
+							at: AT,
+							activations: ended,
+							outcome: { kind: 'complete' },
+						},
+					],
+				}),
+			);
+			await built.session.refresh();
+			built.render();
+			expect(built.session.working).toBeUndefined();
+			expect(statusRow(await built.frame())).toContain('Active');
+		});
+
+		it('drops the counts before the working line when the row is narrow', async () => {
+			const built = await working(3, 44);
+			built.host.processTable = [
+				{ handle: 'bash-b1', agent: 'engineer', state: 'running' } as never,
+			];
+			for (const changed of built.host.processWatchers) changed();
+			await vi.waitFor(() => expect(built.session.runningProcesses).toBe(1));
+			built.render();
+			const row = statusRow(await built.frame());
+			expect(row).toContain('engineer · $ pnpm test');
+			expect(row).toContain('? keys');
+			expect(row).not.toContain('process');
+		});
+	});
+});
+
 describe('the composer chip', () => {
 	const chipRow = (frame: string) => frame.split('\n').find((row) => row.includes('›')) ?? '';
 

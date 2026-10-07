@@ -1,6 +1,6 @@
 import type { ExchangeActivation, Usage } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
-import { liveActivations } from '../src/view/live.ts';
+import { liveActivations, workingOf } from '../src/view/live.ts';
 import type { ActivationSteps } from '../src/view/steps.ts';
 
 const usage = (extra: Partial<Usage> = {}): Usage => ({
@@ -327,5 +327,39 @@ describe('liveActivations of an ended activation', () => {
 			'e4',
 			'r2',
 		]);
+	});
+});
+
+describe('workingOf', () => {
+	const at = (second: number) => `2026-01-01T00:00:${String(second).padStart(2, '0')}Z`;
+	const step = (second: number, extra: Record<string, unknown>) => ({ at: at(second), ...extra });
+	const reads = (...steps: Record<string, unknown>[]) =>
+		read(steps) as ReadonlyMap<string, ActivationSteps>;
+
+	it('names the seat, the call that has no result, and the time of the first step', () => {
+		const working = workingOf(
+			[activation('a1')],
+			reads(
+				step(5, { type: 'thinking', text: 'Plan the run' }),
+				step(9, call('c1', 'bash', { command: 'pnpm test' })),
+			),
+		);
+		expect(working).toEqual({
+			seat: 'engineer',
+			step: '$ pnpm test',
+			since: Date.parse(at(5)),
+		});
+	});
+
+	it('has no time and no step before the first step', () => {
+		expect(workingOf([activation('a1')], new Map())).toEqual({ seat: 'engineer', step: '' });
+	});
+
+	it('takes the newest running activation, and none when all ended', () => {
+		const ended = activation('a0', { kind: 'complete' });
+		const other = { ...activation('a2'), seat: 'researcher' } as ExchangeActivation;
+		expect(workingOf([activation('a1'), other], new Map())?.seat).toBe('researcher');
+		expect(workingOf([ended], new Map())).toBeUndefined();
+		expect(workingOf([], new Map())).toBeUndefined();
 	});
 });

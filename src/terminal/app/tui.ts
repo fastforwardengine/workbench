@@ -11,6 +11,7 @@ import { parse } from '../state/commands.ts';
 import { PictureCache } from '../state/picture-cache.ts';
 import { ProcessBrowser } from '../state/process-browser.ts';
 import { type Intent, Session } from '../state/session.ts';
+import { Ticker } from '../state/ticker.ts';
 import { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import { Voice } from '../state/voice.ts';
 import { brand, tui as palette } from '../widgets/brand.ts';
@@ -38,6 +39,9 @@ import { WhisperServer } from './whisper-server.ts';
 
 /** How often the slow fallback reads the room list and a stopped room. */
 const SLOW_MS = 4_000;
+
+/** While an activation runs, the status row repaints at this interval, so its elapsed time ticks. */
+const CLOCK_MS = 1_000;
 
 /** True when the terminal draws Kitty graphics. Thumbnails and the viewfinder need it. */
 const drawsKitty = (renderer: CliRenderer): boolean =>
@@ -68,6 +72,8 @@ class EngineTui {
 	private readonly voice: Voice;
 	private readonly microphone = new Microphone();
 	private readonly whisper: WhisperServer;
+	/** Repaints the chrome each second while an activation of the open room runs. */
+	private readonly clock = new Ticker(CLOCK_MS, () => this.tick());
 	private stopped = false;
 
 	constructor(renderer: CliRenderer, host: Lab, identity: Person | undefined) {
@@ -194,6 +200,7 @@ class EngineTui {
 				this.processes.dispose();
 				this.microphone.dispose();
 				clearInterval(slow);
+				this.clock.stop();
 				resolve();
 			});
 			void this.begin();
@@ -261,8 +268,14 @@ class EngineTui {
 		this.keys.refreshPalette();
 	}
 
+	/** Repaint the chrome alone, so the elapsed time of the working line moves. */
+	private tick(): void {
+		if (!this.stopped) this.painter.renderChrome(this.keys.mode, this.keys.picking);
+	}
+
 	private render(): void {
 		if (this.stopped) return;
+		this.clock.follow(this.session.working !== undefined);
 		this.root.paddingTop = edgeRows(this.renderer.height);
 		this.root.paddingBottom = edgeRows(this.renderer.height);
 		this.keys.reconcile();

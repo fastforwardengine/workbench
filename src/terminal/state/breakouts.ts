@@ -21,10 +21,6 @@ export function backgroundOf(rooms: readonly RoomView[], open: string): Backgrou
 	return { running: running.length, working: running.some((room) => Boolean(room.exchange)) };
 }
 
-/** The short chip of the header, or an empty string when no breakout room runs. */
-export const backgroundChip = ({ running }: Background): string =>
-	running === 0 ? '' : `⇉ ${running} in background`;
-
 /** What the header says of a breakout room: its parent, and its result once archived. */
 export function breakoutLabel(view: RoomView | undefined): string {
 	const info = view?.breakout;

@@ -699,6 +699,8 @@ describe('Session /ps', () => {
 
 	it('opens on the processes, reads the chosen output, cancels on the second x, and stops reading on close', async () => {
 		const { host, session } = await started();
+		// The session holds one watch for the count on the status row.
+		const held = host.processWatchers.size;
 		host.processTable = [
 			process('bash-000000000001', { name: 'soak' }),
 			process('bash-000000000002', { state: 'exited', exitCode: 0, endedAt: at(3) }),
@@ -707,7 +709,7 @@ describe('Session /ps', () => {
 		const panel = new ProcessBrowser(host, () => {});
 		await panel.show();
 		expect(panel.open).toBe(true);
-		expect(host.processWatchers.size).toBe(1);
+		expect(host.processWatchers.size).toBe(held + 1);
 		await vi.waitFor(() => expect(panel.output?.handle).toBe('bash-000000000001'));
 		panel.move(1);
 		await vi.waitFor(() => expect(panel.output?.text).toBe('output of bash-000000000002\n'));
@@ -730,7 +732,7 @@ describe('Session /ps', () => {
 		expect(panel.selected?.handle).toBe('bash-000000000001');
 
 		panel.hide();
-		expect(host.processWatchers.size).toBe(0);
+		expect(host.processWatchers.size).toBe(held);
 		host.processTable = [];
 		await panel.refresh();
 		expect(panel.processes).toHaveLength(3);
