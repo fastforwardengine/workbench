@@ -23,23 +23,21 @@ describe('the seed of the workspace', () => {
 		const kit = seedFiles()['/shared/kit.md'] ?? '';
 		expect(kit).toContain(`\`${buildRoom.name}\``);
 	});
-
-	it('replaces a file by path from the overrides, and keeps the others', () => {
-		const files = seedFiles({ '/shared/kit.md': 'other' });
-		expect(files['/shared/kit.md']).toBe('other');
-		expect(files['/library/README.md']).toBe(seedFiles()['/library/README.md']);
-	});
 });
 
 describe('the seed of a workspace', () => {
-	it('writes an override in place of the radio file, and no file over an edit', async () => {
+	it('writes no file over an edit', async () => {
 		const workspace = openWorkspace({ name: 'workbench', backend: { bash: memoryBackend() } });
 		try {
-			await seedWorkspace(workspace, { '/shared/kit.md': 'the LED kit' });
-			await seedWorkspace(workspace, { '/shared/kit.md': 'a later kit' });
+			await seedWorkspace(workspace);
+			await workspace.use(workspace.mirrorAgent, async (env) => {
+				const written = await env.writeFile('/shared/kit.md', 'the edited kit');
+				expect(written.ok).toBe(true);
+			});
+			await seedWorkspace(workspace);
 			await workspace.use(workspace.mirrorAgent, async (env) => {
 				const kit = await env.readTextFile('/shared/kit.md');
-				expect(kit.ok && kit.value).toBe('the LED kit');
+				expect(kit.ok && kit.value).toBe('the edited kit');
 				const index = await env.readTextFile('/library/README.md');
 				expect(index.ok && index.value).toContain('rda5807fp.md');
 			});

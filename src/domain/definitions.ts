@@ -172,7 +172,7 @@ export interface CanvasBundles {
  * specialist works in a root room and in a breakout room. Each specialist
  * reads its own skills from `skills/<name>/`. `project` is the paragraph that
  * opens the instructions of every seat: the FM radio project by default, and
- * another one for an eval. `bundles` holds the tool bundles of the canvas. A
+ * another one for a test. `bundles` holds the tool bundles of the canvas. A
  * bundle that is absent adds no tool: a team without `widgets` shows no
  * widget, and a team without `canvas` opens no breakout room.
  */

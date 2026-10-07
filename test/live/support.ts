@@ -1,13 +1,11 @@
 /**
- * What the evals of Workbench share: the models, a room on the team of the
+ * What the evals of Workbench share: the model, a room on the team of the
  * lab, the reads of a run, the evidence a failed case keeps, and the cost
  * line. The evals run on `@ambionframework/simulator`: a scripted person
- * asks, checks in code decide the facts, and a judge grades the meaning.
+ * asks, and checks in code decide the facts.
  *
  * The evals default to the `luna` preset. `WORKBENCH_MODEL` names another
  * model of every seat, as `pnpm start` reads it.
- * `JUDGE_MODEL` names the judge's model, the same model by default. A suite
- * that grades one provider names a model of another provider for the judge.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -18,35 +16,26 @@ import type { Execution } from '@ambionframework/ambion/hosting';
 import { memoryCanvas, openCanvas } from '@ambionframework/canvas';
 import { memoryJournals } from '@ambionframework/journal';
 import { directoryBackend } from '@ambionframework/just-bash';
-import { createExecutionServices, fileCredentials, piExecution } from '@ambionframework/pi';
-import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
+import { fileCredentials, piExecution } from '@ambionframework/pi';
+import type { Simulation, SimulationExchange } from '@ambionframework/simulator';
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
 import { people, team } from '../../src/domain/definitions.ts';
-import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/domain/model.ts';
-import { sharedRegistrations } from '../../src/domain/notes.ts';
+import { modelHasLogin, piCredentialsPath, piModel } from '../../src/domain/model.ts';
+import { buildRoom, seats } from '../../src/domain/room.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
 import { seedWorkspace } from '../../src/host/seed.ts';
 import { FRAME_KIND } from '../../src/host/viewfinder.ts';
-import { ledFiles, ledNotes, ledProject, ledSweepRoom } from './led-sweep.ts';
 
 const MODEL = piModel();
-export const JUDGE_MODEL = process.env.JUDGE_MODEL || MODEL;
-/** The judge thinks at the level of the seats. */
-export const JUDGE_THINKING = THINKING;
 
-/** The sign-ins of `workbench login`, which the seats and the judge use before a key variable. */
+/** The sign-ins of `workbench login`, which the seats use before a key variable. */
 const credentials = fileCredentials(piCredentialsPath());
 
-/** The Pi services of the judge, with the same credentials as the seats. */
-export const JUDGE_SERVICES = createExecutionServices({ credentials, sessions: 'memory' });
+/** `describe` when the model has a login; a skipped block when it has none. */
+export const live: ReturnType<typeof describe.skipIf> = describe.skipIf(!modelHasLogin(MODEL));
 
-/** `describe` when the model and the judge have a login; a skipped block when either has none. */
-export const live: ReturnType<typeof describe.skipIf> = describe.skipIf(
-	!modelHasLogin(MODEL) || !modelHasLogin(JUDGE_MODEL),
-);
-
-/** Real milliseconds for one exchange. The sweep room seats both specialists at broadcast. */
+/** Real milliseconds for one exchange. */
 export const EXCHANGE_MS = 150_000;
 
 /** The one person of Workbench. */
@@ -56,13 +45,10 @@ export const person = (() => {
 	return first;
 })();
 
-/** The room of the evals: the LED sweep, which the evals keep as their project. */
-export const sweep = ledSweepRoom;
-
 /**
  * A room with the team of Workbench over a seeded workspace, as the host
- * opens it but with the LED sweep as its project: the library and `/shared`
- * on disk, and the templates on the git server. It stops, and its files go,
+ * opens the build room: the library and `/shared` on disk, and the templates
+ * and the notes on the git server. It stops, and its files go,
  * when the test ends. The seats run on the live model, or on `execution` for
  * a test of this support.
  */
@@ -74,11 +60,11 @@ export async function openRoom(
 		name: 'workbench',
 		backend: {
 			bash: directoryBackend(directory, {
-				git: labRepositories(':memory:', sharedRegistrations(ledNotes)),
+				git: labRepositories(':memory:'),
 			}),
 		},
 	});
-	await seedWorkspace(workspace, ledFiles);
+	await seedWorkspace(workspace);
 	const runtime = createRuntime({ execution, storage: memoryJournals() });
 	// The canvas exists first, so the seats hold its bundles, as in the host.
 	const canvas = openCanvas({
@@ -88,16 +74,16 @@ export async function openRoom(
 		workspace,
 		widgets: { kinds: [FRAME_KIND] },
 	});
-	const built = await team(workspace, ledProject, {
+	const built = await team(workspace, undefined, {
 		widgets: canvas.widgetTools(),
 		canvas: canvas.tools(),
 	});
 	await canvas.resume({ agents: built.specialists });
 	const room = await canvas.open({
 		name: `eval-${crypto.randomUUID().slice(0, 8)}`,
-		goal: sweep.goal,
+		goal: buildRoom.goal,
 		agents: built.specialists.map((agent) => agent.name),
-		seats: sweep.seats,
+		seats,
 		seating: false,
 	});
 	onTestFinished(async () => {
@@ -108,7 +94,7 @@ export async function openRoom(
 	return { room, workspace };
 }
 
-/** A run that the checks and the judge can read: it ended cleanly, and a seat spoke in each exchange. */
+/** A run that the checks can read: it ended cleanly, and a seat spoke in each exchange. */
 export function expectGradable(
 	run: Simulation,
 	ended: readonly Simulation['ended'][] = ['limit'],
@@ -136,25 +122,23 @@ export const toolsOf = (run: Simulation, agent: string): string[] =>
 /** What a case keeps for a person to read when it fails. */
 export interface Evidence {
 	run?: Simulation;
-	verdict?: Verdict;
 }
 
 /**
  * The evidence of the running case. When the case ends, one line on stdout
- * gives what the room and the judge spent. It goes to stdout directly:
+ * gives what the room spent. It goes to stdout directly:
  * vitest keeps what a passing test logs through `console`.
  *
  * When the case fails, the evidence goes to `test/live/runs/<model>/<name>.json`,
  * which git ignores, and the path goes to stdout. Read the file before a
- * check or a criterion changes. Do not run the case again to chase a flake.
+ * check changes. Do not run the case again to chase a flake.
  */
 export function track(name: string): Evidence {
 	const evidence: Evidence = {};
 	onTestFinished(() => {
 		const cost = (usage: { cost?: number } | undefined) => (usage?.cost ?? 0).toFixed(4);
-		const { run, verdict } = evidence;
 		process.stdout.write(
-			`workbench eval · ${MODEL} · ${name}: room $${cost(run?.usage.room)}, judge $${cost(verdict?.usage)}\n`,
+			`workbench eval · ${MODEL} · ${name}: room $${cost(evidence.run?.usage.room)}\n`,
 		);
 	});
 	onTestFailed(() => {
