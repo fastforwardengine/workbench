@@ -8,13 +8,13 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import type { Person, RoomView } from '../../host/host.ts';
-import { brand, tui as palette } from './brand.ts';
+import { tui as palette } from './brand.ts';
 import { fitHeader, GAP } from './header-fit.ts';
 
 type Chunks = ConstructorParameters<typeof StyledText>[0];
 
-/** The cells that the border and the padding take from the panel width. */
-const CHROME = 4;
+/** The cells that the padding takes from the panel width. */
+const CHROME = 2;
 
 /** True when a seat is at work or a person is present. */
 function lit(participant: Participant): boolean {
@@ -67,10 +67,9 @@ export interface HeaderState {
 }
 
 /**
- * The panel above the conversation. Its border carries the product name. The
- * first row holds the room name and goal, with the person's identity at the right
- * edge. The second row holds the participants, with the room's pattern at the
- * right edge.
+ * The panel above the conversation. The first row holds the room name and
+ * goal, with the person's identity at the right edge. The second row holds the
+ * participants, with the room's pattern at the right edge.
  */
 export class Header {
 	readonly root: BoxRenderable;
@@ -81,13 +80,9 @@ export class Header {
 		this.root = new BoxRenderable(renderer, {
 			flexDirection: 'column',
 			flexShrink: 0,
-			border: true,
-			borderColor: palette.line,
 			backgroundColor: palette.panel,
 			paddingLeft: 1,
 			paddingRight: 1,
-			title: `${brand.name} ${brand.product}`,
-			titleColor: palette.accent,
 		});
 		this.room = new Row(renderer);
 		this.people = new Row(renderer);
@@ -95,7 +90,7 @@ export class Header {
 		this.root.add(this.people.root);
 	}
 
-	/** Draw the state. `width` is the panel width, border included. */
+	/** Draw the state. `width` is the panel width, padding included. */
 	draw(state: HeaderState, width: number): void {
 		const { identity, view } = state;
 		const who = identity

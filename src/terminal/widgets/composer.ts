@@ -69,6 +69,7 @@ export class Composer {
 	private readonly chip: TextRenderable;
 	private readonly frame: BoxRenderable;
 	private readonly paletteBox: BoxRenderable;
+	private readonly paletteTitle: TextRenderable;
 	private readonly paletteText: TextRenderable;
 	private readonly cue: TextRenderable;
 	private readonly cueRow: BoxRenderable;
@@ -80,13 +81,14 @@ export class Composer {
 		this.events = events;
 		this.root = new BoxRenderable(renderer, { flexDirection: 'column', flexShrink: 0 });
 		this.paletteText = new TextRenderable(renderer, { content: '' });
+		this.paletteTitle = new TextRenderable(renderer, { content: '', wrapMode: 'none' });
 		this.paletteBox = new BoxRenderable(renderer, {
-			border: true,
-			borderColor: palette.line,
+			flexDirection: 'column',
 			backgroundColor: palette.panel,
 			paddingLeft: 1,
 			visible: false,
 		});
+		this.paletteBox.add(this.paletteTitle);
 		this.paletteBox.add(this.paletteText);
 		this.cue = new TextRenderable(renderer, { content: '', wrapMode: 'none' });
 		this.cueRow = new BoxRenderable(renderer, { paddingLeft: 1, height: 1, visible: false });
@@ -118,9 +120,8 @@ export class Composer {
 		this.frame = new BoxRenderable(renderer, {
 			flexDirection: 'row',
 			gap: 1,
-			border: true,
+			border: ['left'],
 			borderColor: palette.line,
-			focusedBorderColor: palette.accent,
 			backgroundColor: palette.panel,
 			paddingLeft: 1,
 		});
@@ -208,9 +209,10 @@ export class Composer {
 		);
 		const shown = rows.slice(first, first + MAX_PALETTE_ROWS);
 		const width = Math.max(...rows.map((row) => row.label.length)) + 2;
-		this.paletteBox.title = TITLES[rows[0]?.kind ?? 'command'];
-		this.paletteBox.titleColor = palette.muted;
-		this.paletteBox.height = shown.length + 2;
+		this.paletteTitle.content = new StyledText([
+			fg(palette.muted)(TITLES[rows[0]?.kind ?? 'command']),
+		]);
+		this.paletteBox.height = shown.length + 1;
 		const chunks = shown.flatMap((row, index) => {
 			const chosen = first + index === pick;
 			const fill = chosen ? palette.selected : palette.panel;
