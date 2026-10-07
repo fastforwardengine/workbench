@@ -184,7 +184,11 @@ export class WhisperServer {
 		if (this.current) return this.current;
 		const instance = this.newInstance();
 		this.current = instance;
-		instance.ready = this.launch(instance);
+		// A failure before the process runs, such as a refused spawn, fails the run too.
+		instance.ready = this.launch(instance).catch((error: unknown) => {
+			this.fail(instance, `${this.name} failed to start: ${oneLine(error)}`);
+			throw instance.failure ?? error;
+		});
 		// A failed start reaches the person through `hooks.stopped`. Nobody may wait on `ready`.
 		instance.ready.catch(() => {});
 		return instance;
@@ -216,7 +220,7 @@ export class WhisperServer {
 			stdio: ['ignore', 'ignore', 'pipe'],
 		});
 		instance.child = child;
-		// A Workbench that ends with no chance to stop the server leaves no process.
+		// A Workbench that ends in a normal way stops the server here. SIGKILL or a native crash of Workbench leaves it.
 		const reap = () => child.kill('SIGKILL');
 		process.once('exit', reap);
 		void instance.whenEnded.then(() => process.off('exit', reap));

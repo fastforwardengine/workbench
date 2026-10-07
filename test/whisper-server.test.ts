@@ -257,6 +257,22 @@ describe('a server that ends on its own', () => {
 		expect(events.stopped[0]).toMatch(/^whisper-server stopped: .*ENOENT/);
 	});
 
+	it('fails a run that cannot spawn, and starts again at the next call', async () => {
+		const events = { stopped: [] as string[] };
+		const server = new WhisperServer(
+			{ command: 'whisper-server\0', model: '/m.bin', custom: false },
+			{ changed: () => {}, stopped: (line) => events.stopped.push(line) },
+			TIMES,
+		);
+		servers.push(server);
+		server.start();
+		await eventually(() => events.stopped.length > 0);
+		expect(events.stopped[0]).toMatch(/failed to start/);
+		expect(server.loading()).toBe(false);
+		server.start();
+		await eventually(() => events.stopped.length > 1);
+	});
+
 	it('fails a server that does not load the model in time', async () => {
 		const { server, events, runs } = setup({ loadMs: 5_000 }, { load: 200 });
 		server.start();

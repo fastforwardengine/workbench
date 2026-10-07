@@ -234,6 +234,8 @@ export class Voice {
 	}
 
 	private turnOn(): void {
+		// The terminal can end while the check runs. Nothing may start after the end.
+		if (this.disposed) return;
 		this.on = true;
 		this.parts.serve();
 	}

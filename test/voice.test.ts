@@ -124,6 +124,20 @@ describe('the transcriber', () => {
 		expect(serve).toHaveBeenCalledTimes(2);
 	});
 
+	it('does not start when the terminal ends during the check', async () => {
+		let answer: (problem: string | undefined) => void = () => {};
+		const serve = vi.fn();
+		const voice = new Voice(
+			quietParts({ ready: () => new Promise((resolve) => (answer = resolve)), serve }),
+		);
+		const toggled = voice.toggle();
+		voice.dispose();
+		answer(undefined);
+		await toggled;
+		expect(serve).not.toHaveBeenCalled();
+		expect(voice.on).toBe(false);
+	});
+
 	it('ends at dispose', async () => {
 		const halt = vi.fn();
 		const { voice } = await ready({ halt });
