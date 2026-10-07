@@ -118,7 +118,7 @@ between a room and its breakout rooms.
 - **The room palette:** Ctrl+R and `/room ` show the rooms as a tree. Each
   root room has its breakout rooms under it, indented, with the short name.
   A mark before the short name gives the state: `●` working, `○` running,
-  `–` stopped, `✓` done, `✗` failed. The detail of a breakout row is the
+  `–` stopped, `✓` done, `✗` failed, `·` archived with no result. The detail of a breakout row is the
   state word, then the goal. A room that the host does not run shows
   `stopped`. The list shows an archived breakout room only for the open
   room, or for the parent of the open room. A filter matches the full name

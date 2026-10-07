@@ -72,13 +72,13 @@ describe('Palette pick', () => {
 		expect(palette.current?.label).toBe('bench');
 	});
 
-	it('keeps the old rule when the text changes to rows without a flag', async () => {
+	it('picks the first row when the text changes to rows without a flag', async () => {
 		const { composer, palette, refresh } = await build();
 		composer.setText('/room ');
 		refresh();
 		composer.setText('/room b');
 		refresh([row('build'), row('bench')]);
-		expect(palette.current?.label).toBe('bench');
+		expect(palette.current?.label).toBe('build');
 		composer.setText('/room be');
 		refresh([row('bench')]);
 		expect(palette.current?.label).toBe('bench');
