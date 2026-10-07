@@ -14,9 +14,13 @@ export interface Audience {
 
 const COMMAND: Audience = { mode: 'command', names: [] };
 
+/** The attention levels at which a seat wakes on plain text. */
+const HEARS_PLAIN = ['broadcast', 'presence'];
+
 /** The remark on a named seat, or undefined when the message wakes it as it is. */
 function noteOf(name: string, state: string, view: RoomView | undefined): string | undefined {
 	if ((view?.unavailable ?? []).includes(name)) return 'no login';
+	if (state === 'none') return 'listens at none';
 	return state === 'not seated' ? 'seats first' : undefined;
 }
 
@@ -35,7 +39,7 @@ function mentioned(
 /**
  * Who the composer text reaches. The text reads as the send path reads it
  * (`parse`): `/` starts a command, and `@name` addresses one seat. Any other
- * text reaches the seats that listen at `broadcast`.
+ * text reaches the seats that listen at `broadcast` or `presence`.
  */
 export function audienceOf(
 	text: string,
@@ -46,7 +50,7 @@ export function audienceOf(
 	if (parsed.kind !== 'message') return COMMAND;
 	if (parsed.to) return mentioned(parsed.to, team, view);
 	const names = seatedAgents(view)
-		.filter((seat) => seat.attention === 'broadcast')
+		.filter((seat) => HEARS_PLAIN.includes(seat.attention))
 		.map((seat) => seat.name);
 	return { mode: 'plain', names };
 }

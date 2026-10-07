@@ -31,6 +31,27 @@ describe('the audience of a message', () => {
 		expect(audienceOf('', team, seated)).toEqual({ mode: 'plain', names: ['engineer'] });
 	});
 
+	it('includes the seats at presence for plain text', () => {
+		const room = view('build', {
+			unavailable: [],
+			participants: [agent('engineer', 'broadcast'), agent('researcher', 'presence')],
+		});
+		expect(audienceOf('hello', team, room).names).toEqual(['engineer', 'researcher']);
+	});
+
+	it('notes a seat that listens at none', () => {
+		const room = view('build', {
+			unavailable: [],
+			participants: [agent('engineer', 'broadcast'), agent('researcher', 'none')],
+		});
+		expect(audienceOf('hello', team, room).names).toEqual(['engineer']);
+		expect(audienceOf('@researcher hi', team, room)).toEqual({
+			mode: 'mention',
+			names: ['researcher'],
+			note: 'listens at none',
+		});
+	});
+
 	it('is nobody when no seat listens at broadcast, or no room is open', () => {
 		const quiet = view('build', {
 			unavailable: [],

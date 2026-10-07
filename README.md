@@ -144,7 +144,7 @@ A bench script comes from a template.
   second one stays in the text. The chip before the input names the seats
   that hear the message, and a note shows when the host seats the named
   specialist first or the seat has no login. The rail at the left of the
-  input is sand for a command and coral for a mention.
+  input takes one color for a command and another for a mention.
 - **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into
   `/attachments`, snapshots it, and cites the snapshot in your next
   message. Paste the path of a picture into an empty composer, and it fills

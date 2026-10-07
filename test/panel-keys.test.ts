@@ -1736,4 +1736,13 @@ describe('the composer chip', () => {
 		built.render();
 		expect(chipRow(await built.frame())).not.toContain('engineer');
 	});
+
+	it('repaints on a key without consuming the scroll to the end', async () => {
+		const built = await build(120);
+		built.session.say('A notice that waits for its scroll.');
+		built.composer.setText('@researcher look');
+		built.painter.renderChrome(built.keys.mode, built.keys.picking);
+		expect(chipRow(await built.frame())).toContain('researcher (seats first)');
+		expect(built.session.takeBottom()).toBe(true);
+	});
 });

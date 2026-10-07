@@ -99,6 +99,11 @@ export class Painter {
 		this.dock.draw();
 	}
 
+	/** Paint the composer chrome alone. A key in the composer calls it, so the one-shot flags of the conversation stay. */
+	renderChrome(mode: Mode, picking?: string): void {
+		this.drawChrome(mode, picking);
+	}
+
 	private marks(picking: string | undefined): Marks {
 		const refs = new Map<number, RefItem[]>();
 		for (const item of this.session.refItems)
