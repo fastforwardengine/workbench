@@ -56,15 +56,15 @@
 		"@ambionframework/pi": "^0.7.0",
 		"@ambionframework/workspace": "^0.7.0",
 		"@ambionframework/workstation": "^0.7.0",
-		"@opentui/core": "0.5.11"
+		"@opentui/core": "0.5.14"
 	},
 	"devDependencies": {
 		"@ambionframework/simulator": "^0.7.0",
-		"@biomejs/biome": "^2.5.10",
-		"@earendil-works/pi-ai": "^1.0.0",
-		"@types/node": "^26.2.0",
-		"knip": "^6.32.2",
-		"prettier": "^3.9.6",
+		"@biomejs/biome": "^2.5.15",
+		"@earendil-works/pi-ai": "^1.0.4",
+		"@types/node": "^26.6.4",
+		"knip": "^6.39.0",
+		"prettier": "^3.9.9",
 		"tsdown": "^0.23.0",
 		"typescript": "^7.0.2",
 		"vitest": "^4.1.11"

@@ -17,7 +17,4 @@ minimumReleaseAgeExclude:
   - '@ambionframework/workspace@0.7.0'
   - '@ambionframework/simulator@0.7.0'
   - '@ambionframework/workstation@0.7.0'
-  - '@earendil-works/chord@1.0.0'
-  - '@earendil-works/pi-ai@1.0.0'
   - '@earendil-works/pi-durable@1.0.0'
-  - '@earendil-works/pi-telemetry@1.0.0'

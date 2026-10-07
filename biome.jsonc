@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
 	// A macro is the body of an async function that Ambion runs in QuickJS. It uses a
 	// top-level return and the globals tools and args, so Biome does not read it.
 	"files": { "includes": ["**", "!skills/**/macros"] },
