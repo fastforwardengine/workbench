@@ -40,7 +40,13 @@ export interface VoiceParts {
 	ready(): Promise<string | undefined>;
 	/** Start a recording. */
 	start(): Promise<Take>;
-	/** Read the speech in a WAV file. The signal cancels the work. */
+	/** Start the transcriber, which loads the model. A second call changes nothing while it runs. */
+	serve(): void;
+	/** End the transcriber. */
+	halt(): void;
+	/** True while the transcriber loads the model. */
+	loading(): boolean;
+	/** Read the speech in a WAV file. It waits for the model. The signal cancels the work. */
 	transcribe(file: string, signal: AbortSignal): Promise<string>;
 	/** Delete a WAV file. */
 	discard(file: string): Promise<void>;
@@ -67,6 +73,13 @@ const VOICE_LINE: Readonly<Record<VoicePhase, string>> = {
 	transcribing: 'transcribing',
 };
 
+/** The status line while the model loads. A recording waits for the model. */
+const LOADING_LINE: Readonly<Record<VoicePhase, string>> = {
+	idle: 'Voice: loading model. You can hold Space to talk. /voice returns to text.',
+	listening: 'listening',
+	transcribing: 'loading model',
+};
+
 /** True for Space without a modifier. */
 function isPlainSpace(key: VoiceKey): boolean {
 	const modified = key.ctrl || key.meta || key.shift || key.super || key.hyper;
@@ -83,7 +96,7 @@ export function oneLine(error: unknown): string {
 /** A line of whisper output that names a sound, such as `[BLANK_AUDIO]` or `(wind blowing)`. */
 const SOUND = /^(\[[^\]]*\]|\([^)]*\))$/;
 
-/** The words in the output of whisper-cli. A line that names a sound is not speech. */
+/** The words in the output of whisper-server. A line that names a sound is not speech. */
 export function cleanTranscript(output: string): string {
 	return output
 		.split('\n')
@@ -130,7 +143,7 @@ export class Voice {
 
 	/** The line that the status area shows. */
 	get line(): string {
-		return VOICE_LINE[this.phase];
+		return (this.parts.loading() ? LOADING_LINE : VOICE_LINE)[this.phase];
 	}
 
 	/**
@@ -156,6 +169,7 @@ export class Voice {
 		if (this.checking) return;
 		if (this.on) {
 			this.cancel();
+			this.parts.halt();
 			this.on = false;
 			this.held = false;
 			this.parts.changed();
@@ -165,10 +179,20 @@ export class Voice {
 		try {
 			const problem = await this.parts.ready();
 			if (problem) this.parts.say(problem);
-			else this.on = true;
+			else this.turnOn();
 		} finally {
 			this.checking = false;
 		}
+		this.parts.changed();
+	}
+
+	/**
+	 * The transcriber ended with no request to end it. Voice mode shows the
+	 * line. The next recording starts the transcriber again.
+	 */
+	crashed(line: string): void {
+		if (!this.on || this.disposed) return;
+		this.report(line);
 		this.parts.changed();
 	}
 
@@ -206,6 +230,14 @@ export class Voice {
 	dispose(): void {
 		this.disposed = true;
 		this.stale();
+		this.parts.halt();
+	}
+
+	private turnOn(): void {
+		// The terminal can end while the check runs. Nothing may start after the end.
+		if (this.disposed) return;
+		this.on = true;
+		this.parts.serve();
 	}
 
 	private begin(): void {
@@ -216,6 +248,8 @@ export class Voice {
 		this.place = this.parts.place();
 		this.clearProblem();
 		this.held = true;
+		// The transcriber loads while the person talks. After a failure it starts again here.
+		this.parts.serve();
 		this.job = this.parts.start().then(
 			(take) => take,
 			(error) => {

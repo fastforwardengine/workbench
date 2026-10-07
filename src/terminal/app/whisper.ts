@@ -1,12 +1,10 @@
-import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
 import { access } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, delimiter, dirname, join } from 'node:path';
-import { cleanTranscript } from '../state/voice.ts';
+import { delimiter, dirname, join } from 'node:path';
 
-/** The program of whisper.cpp that reads a WAV file. */
-const WHISPER_COMMAND = 'whisper-cli';
+/** The program of whisper.cpp that keeps the model loaded and answers over HTTP. */
+const WHISPER_COMMAND = 'whisper-server';
 
 /** Where the model is when `WORKBENCH_WHISPER_MODEL` is not set. */
 const DEFAULT_MODEL = join('.cache', 'whisper', 'ggml-large-v3.bin');
@@ -15,13 +13,7 @@ const DEFAULT_MODEL = join('.cache', 'whisper', 'ggml-large-v3.bin');
 export const MODEL_URL =
 	'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin';
 
-/** A transcription that runs longer than this stops. */
-const WHISPER_TIMEOUT_MS = 120_000;
-
-/** The most output of whisper-cli that the terminal keeps. */
-const MAX_OUTPUT_BYTES = 1_000_000;
-
-/** How the terminal runs whisper-cli. */
+/** How the terminal runs whisper-server. */
 export interface WhisperConfig {
 	command: string;
 	/** The path of the model file. */
@@ -40,12 +32,27 @@ export function whisperConfig(
 	return { command: WHISPER_COMMAND, model, custom: Boolean(named) };
 }
 
+/** The address that the server listens on. Only this computer reaches it. */
+export const SERVER_HOST = '127.0.0.1';
+
 /**
- * The arguments of whisper-cli: no timestamps, no progress text, any language,
- * and a beam search of width 5 for the best words.
+ * The arguments of whisper-server: the model, the address, no timestamps, any
+ * language, and a beam search of width 5 for the best words.
  */
-export function whisperArgs(config: WhisperConfig, file: string): string[] {
-	return ['-m', config.model, '-f', file, '-nt', '-np', '-l', 'auto', '-bs', '5', '-bo', '5'];
+export function serverArgs(config: WhisperConfig, port: number): string[] {
+	return [
+		'-m',
+		config.model,
+		'--host',
+		SERVER_HOST,
+		'--port',
+		String(port),
+		'-nt',
+		'-l',
+		'auto',
+		'-bs',
+		'5',
+	];
 }
 
 const exists = (path: string): Promise<boolean> =>
@@ -69,7 +76,7 @@ async function onPath(command: string, path: string | undefined): Promise<boolea
 
 /**
  * What stops voice mode from starting, with the exact fix, or undefined when
- * whisper-cli and the model are there. One message names every fix.
+ * whisper-server and the model are there. One message names every fix.
  */
 export async function whisperProblem(
 	config: WhisperConfig,
@@ -88,36 +95,4 @@ export async function whisperProblem(
 	if (fixes.length === 0) return undefined;
 	const once = config.custom ? [] : ['In the Workbench folder, `make voice` does all of it.'];
 	return ['Voice mode stays off.', ...fixes, ...once].join('\n');
-}
-
-/** The last line that whisper-cli wrote to stderr, or the error message. */
-function failureLine(error: Error & { killed?: boolean }, stderr: string): string {
-	if (error.killed) return `it ran longer than ${WHISPER_TIMEOUT_MS / 1000} s`;
-	const lines = stderr.split('\n').filter((line) => line.trim() !== '');
-	return (lines.at(-1) ?? error.message.split('\n')[0] ?? 'it failed').trim().slice(0, 200);
-}
-
-/**
- * Read the speech in a WAV file with whisper-cli, and return the words. The
- * signal stops the process. A failure is one line of text.
- */
-export function transcribe(
-	config: WhisperConfig,
-	file: string,
-	signal: AbortSignal,
-): Promise<string> {
-	return new Promise((resolve, reject) => {
-		execFile(
-			config.command,
-			whisperArgs(config, file),
-			{ signal, timeout: WHISPER_TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES },
-			(error, stdout, stderr) => {
-				if (!error) return resolve(cleanTranscript(stdout));
-				if (error.name === 'AbortError') return reject(error);
-				reject(
-					new Error(`${basename(config.command)} failed: ${failureLine(error, String(stderr))}`),
-				);
-			},
-		);
-	});
 }

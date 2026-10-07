@@ -99,6 +99,108 @@ describe('switching voice mode', () => {
 	});
 });
 
+describe('the transcriber', () => {
+	it('starts when voice mode turns on and ends when it turns off', async () => {
+		const serve = vi.fn();
+		const halt = vi.fn();
+		const { voice } = await ready({ serve, halt });
+		expect(serve).toHaveBeenCalledTimes(1);
+		expect(halt).not.toHaveBeenCalled();
+		await voice.toggle();
+		expect(halt).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not start when the check fails', async () => {
+		const serve = vi.fn();
+		const voice = new Voice(quietParts({ ready: async () => 'Voice mode stays off.', serve }));
+		await voice.toggle();
+		expect(serve).not.toHaveBeenCalled();
+	});
+
+	it('starts again at the next press, for a transcriber that failed', async () => {
+		const serve = vi.fn();
+		const { voice, time } = await ready({ serve });
+		await hold(voice, time, 1_000);
+		expect(serve).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not start when the terminal ends during the check', async () => {
+		let answer: (problem: string | undefined) => void = () => {};
+		const serve = vi.fn();
+		const voice = new Voice(
+			quietParts({ ready: () => new Promise((resolve) => (answer = resolve)), serve }),
+		);
+		const toggled = voice.toggle();
+		voice.dispose();
+		answer(undefined);
+		await toggled;
+		expect(serve).not.toHaveBeenCalled();
+		expect(voice.on).toBe(false);
+	});
+
+	it('ends at dispose', async () => {
+		const halt = vi.fn();
+		const { voice } = await ready({ halt });
+		voice.dispose();
+		expect(halt).toHaveBeenCalledTimes(1);
+	});
+
+	it('shows the loading line while the model loads, in every phase', async () => {
+		let loading = true;
+		const { voice, time } = await ready({ loading: () => loading });
+		expect(voice.line).toContain('loading model');
+		voice.press(space, true);
+		expect(voice.line).toBe('listening');
+		time.at += 1_000;
+		const released = voice.release();
+		expect(voice.line).toBe('loading model');
+		loading = false;
+		await released;
+		expect(voice.line).toContain('hold Space to talk');
+	});
+
+	it('records while the model loads, and sends the take after the model is ready', async () => {
+		let loaded!: () => void;
+		const model = new Promise<void>((resolve) => (loaded = resolve));
+		const { voice, time, log } = await ready({
+			loading: () => true,
+			transcribe: async () => {
+				await model;
+				return 'check the supply';
+			},
+		});
+		voice.press(space, true);
+		time.at += 1_000;
+		const released = voice.release();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(log.delivered).toEqual([]);
+		loaded();
+		await released;
+		expect(log.delivered).toEqual(['check the supply']);
+	});
+
+	it('shows the line of a transcriber that ended, and clears it at the next press', async () => {
+		let shown: string | undefined;
+		const { voice } = await ready({
+			problem: (line) => {
+				shown = line;
+			},
+			shown: () => shown,
+		});
+		voice.crashed('whisper-server stopped: failed to load');
+		expect(shown).toBe('whisper-server stopped: failed to load');
+		voice.press(space, true);
+		expect(shown).toBeUndefined();
+	});
+
+	it('ignores the end of a transcriber when voice mode is off', async () => {
+		const { voice, log } = await ready();
+		await voice.toggle();
+		voice.crashed('whisper-server stopped: late');
+		expect(log.problems).toEqual([]);
+	});
+});
+
 describe('the Space key', () => {
 	it('is not taken when voice mode is off', () => {
 		const voice = new Voice(quietParts());
@@ -348,11 +450,11 @@ describe('a failure', () => {
 	it('shows one line when whisper fails, and deletes the file', async () => {
 		const { voice, time, log } = await ready({
 			transcribe: async () => {
-				throw new Error('whisper-cli failed: failed to open model\nstack');
+				throw new Error('whisper-server answered 500: failed to open model\nstack');
 			},
 		});
 		await hold(voice, time, 1_000);
-		expect(log.problems.at(-1)).toBe('whisper-cli failed: failed to open model');
+		expect(log.problems.at(-1)).toBe('whisper-server answered 500: failed to open model');
 		expect(log.delivered).toEqual([]);
 		expect(log.discarded).toEqual(['/tmp/one.wav']);
 		expect(voice.phase).toBe('idle');
@@ -375,7 +477,7 @@ describe('a failure', () => {
 		const shown = { line: undefined as string | undefined };
 		const { voice, time } = await ready({
 			transcribe: async () => {
-				throw new Error('whisper-cli failed: no model');
+				throw new Error('whisper-server answered 500: no model');
 			},
 			problem: (line) => {
 				shown.line = line;
@@ -383,7 +485,7 @@ describe('a failure', () => {
 			shown: () => shown.line,
 		});
 		await hold(voice, time, 1_000);
-		expect(shown.line).toBe('whisper-cli failed: no model');
+		expect(shown.line).toBe('whisper-server answered 500: no model');
 		voice.press(space, true);
 		expect(shown.line).toBeUndefined();
 	});
@@ -402,7 +504,7 @@ describe('a failure', () => {
 		});
 		const { voice, time } = await ready({
 			transcribe: async () => {
-				throw new Error('whisper-cli failed: no model');
+				throw new Error('whisper-server answered 500: no model');
 			},
 			problem,
 			shown: () => shown.line,
@@ -557,7 +659,7 @@ describe('dispose', () => {
 	});
 });
 
-describe('the text of whisper-cli', () => {
+describe('the text of whisper-server', () => {
 	it('joins the lines and trims', () => {
 		expect(cleanTranscript(' Hello there.\n  Check the supply. \n')).toBe(
 			'Hello there. Check the supply.',
