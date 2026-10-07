@@ -81,11 +81,17 @@ sudo WORKBENCH_UID_BASE=6000 WORKBENCH_GID=6000 bash workstation/macos/setup.sh
 the first privileged change. A script that stops on a check leaves nothing
 behind:
 
-- every account and the group are free, or carry the comment of the setup;
+- every account and both groups are free, or carry the comment of the setup;
 - the home of a new account does not exist;
 - no name in `/` clashes with a root link, whatever the case of its letters;
+- no line of `/etc/synthetic.conf` names a root folder with another target,
+  with another case, or with no tab. The script writes its own lines only;
 - `/Users/Shared/workbench` and its `srv` folder are plain folders of root;
 - each existing home and its `.ssh` folder are plain folders of their account.
+
+Three steps need an earlier change and run later: the host key, which the
+script makes when it is missing, the check of the drop-in with `sshd -t` and
+`sshd -T`, and the check login of the next paragraph.
 
 **The setup ends with a check.** It logs in as Engineer with the key of
 Engineer, as the admin, and runs the tools that the backend needs. It prints
@@ -94,16 +100,17 @@ with an exit status of 1.
 
 ## What the setup makes
 
-| Item                    | Where                                       | Content                                                                          |
-| ----------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
-| One user for each seat  | uid 5000 and up, in the order of `accounts` | Hidden, standard, home `/Users/<name>`, 0700                                     |
-| The git account         | `workbench-git`, uid 5900                   | Hidden, standard, outside the group                                              |
-| The group `workbench`   | gid 5000                                    | Every account of `accounts`                                                      |
-| The data folder         | `/Users/Shared/workbench`                   | `srv/audit`, `srv/rooms`, `srv/snapshots`, `shared`, `datasheets`, `attachments` |
-| The root links          | `/etc/synthetic.conf`                       | `/datasheets`, `/shared`, `/attachments`                                         |
-| The sshd drop-in        | `/etc/ssh/sshd_config.d/100-workbench.conf` | One `Match User` block                                                           |
-| The shims and the state | `/usr/local/libexec/workbench`              | `setsid`, `flock`, and the state of Remote Login                                 |
-| The keys and the config | `.workstation/` in the repository           | `keys/`, `macos.json`, `macos.known_hosts`                                       |
+| Item                      | Where                                       | Content                                                                          |
+| ------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| One user for each seat    | uid 5000 and up, in the order of `accounts` | Hidden, standard, home `/Users/<name>`, 0700                                     |
+| The git account           | `workbench-git`, uid 5900                   | Hidden, standard, outside the group `workbench`, primary group `workbench-git`   |
+| The group `workbench`     | gid 5000                                    | Every account of `accounts`, as member and as primary group                      |
+| The group `workbench-git` | gid 5900                                    | The primary group of the git account. It has no member and owns no file          |
+| The data folder           | `/Users/Shared/workbench`                   | `srv/audit`, `srv/rooms`, `srv/snapshots`, `shared`, `datasheets`, `attachments` |
+| The root links            | `/etc/synthetic.conf`                       | `/datasheets`, `/shared`, `/attachments`                                         |
+| The sshd drop-in          | `/etc/ssh/sshd_config.d/100-workbench.conf` | One `Match User` block                                                           |
+| The shims and the state   | `/usr/local/libexec/workbench`              | `setsid`, `flock`, and the state of Remote Login                                 |
+| The keys and the config   | `.workstation/` in the repository           | `keys/`, `macos.json`, `macos.known_hosts`                                       |
 
 **The setup reuses the key layout of the container.** The files
 `keys/<account>` and `keys/<account>.pub` stay if they exist, so the
@@ -138,8 +145,16 @@ its folder, so no setgid bit is needed.
   stops when `/Users/Shared/workbench` or its `srv` folder is a link or does
   not belong to root, because every user may create a folder in
   `/Users/Shared`.
-- **Protect your own home.** Run `chmod 700 ~`. The home folder of macOS has
-  mode 0755, and the seats are other users of the Mac, so they can list it.
+- **No seat is in `staff`.** The primary group of each seat is `workbench`.
+  The group `staff` is the default group of the users of a Mac, and it can
+  read the files that your account shares with it. The git account has the
+  primary group `workbench-git`. That group has no other member and owns no
+  file, so it grants nothing. The setup makes both groups with the comment
+  `workbench-macos`, and the teardown deletes both.
+- **Your own home keeps the mode of macOS.** A seat is a user outside `staff`
+  and `admin`. It can list and read only what the mode of a file gives to
+  every user. A home of mode 0755 shows its file names to every user. Run
+  `chmod 700 ~` when your home holds a name that a seat must not see.
 - **No limit on network egress.** A seat can open any connection that a
   standard user can open.
 - **The rule to switch the power supply on is text.** Only the skill
@@ -234,7 +249,8 @@ The script does these steps, and a second run finds nothing to do:
    that group, delete the group.
 3. Delete the users and their homes with `sysadminctl -deleteUser`. Only a
    record with the comment `workbench-macos` goes.
-4. Delete the group `workbench`, when it has the same comment.
+4. Delete the groups `workbench` and `workbench-git`, when each has the same
+   comment.
 5. Remove the three lines that the setup added to `/etc/synthetic.conf`. The
    links in `/` stay until the next restart.
 6. Put Remote Login back to its state before the setup, then remove

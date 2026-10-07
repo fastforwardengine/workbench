@@ -4,7 +4,7 @@
 #   sudo bash workstation/macos/teardown.sh [--yes] [state-dir]
 #
 # The script asks once, and then it removes the sshd drop-in, the accounts
-# with their homes, the group, the root links of /etc/synthetic.conf, and
+# with their homes, the groups, the root links of /etc/synthetic.conf, and
 # the shims. It puts Remote Login back to the state that it had before
 # setup.sh. It deletes the group com.apple.access_ssh when setup.sh made it.
 # A second question asks about /Users/Shared/workbench, which holds the notes
@@ -40,6 +40,7 @@ STATE="${STATE:-$REPO/.workstation}"
 # space around each name. An account of the same name with another comment stays.
 USERS_FOUND=" "
 HAS_GROUP=""
+HAS_GIT_GROUP=""
 HAS_SSH_GROUP=""
 HAS_DROPIN=""
 HAS_LINKS=""
@@ -67,6 +68,17 @@ links_present() {
 	return 1
 }
 
+# Print 1 when the group exists with our comment. A group of the same name with
+# another comment stays.
+survey_group() {
+	group_exists "$1" || return 0
+	if group_marked "$1"; then
+		echo 1
+	else
+		warn "the group $1 exists, and setup.sh did not make it. The script leaves it." >&2
+	fi
+}
+
 survey() {
 	local name
 	while read -r name; do
@@ -78,13 +90,8 @@ survey() {
 			warn "the user $name exists, and setup.sh did not make it. The script leaves it."
 		fi
 	done < <(all_accounts)
-	if group_exists "$GROUP"; then
-		if group_marked "$GROUP"; then
-			HAS_GROUP=1
-		else
-			warn "the group $GROUP exists, and setup.sh did not make it. The script leaves it."
-		fi
-	fi
+	HAS_GROUP="$(survey_group "$GROUP")"
+	HAS_GIT_GROUP="$(survey_group "$GIT_GROUP")"
 	if [ -f "$SSH_GROUP_MARKER" ] && group_exists "$SSH_GROUP"; then
 		if group_marked "$SSH_GROUP"; then
 			HAS_SSH_GROUP=1
@@ -104,6 +111,7 @@ plan() {
 	[ -z "$HAS_DROPIN" ] || say "  the sshd drop-in $SSHD_DROPIN"
 	[ "$USERS_FOUND" = " " ] || say "  the users:${USERS_FOUND% }, with their homes"
 	[ -z "$HAS_GROUP" ] || say "  the group $GROUP"
+	[ -z "$HAS_GIT_GROUP" ] || say "  the group $GIT_GROUP"
 	[ -z "$HAS_SSH_GROUP" ] || say "  the group $SSH_GROUP, which setup.sh made for Remote Login"
 	[ -z "$HAS_LINKS" ] || say "  the root links of $SYNTHETIC (the lines that setup.sh added)"
 	[ -z "$HAS_LIBEXEC" ] || say "  the shims and the state in $LIBEXEC"
@@ -168,9 +176,14 @@ remove_users() {
 }
 
 remove_group() {
-	[ -n "$HAS_GROUP" ] || return 0
-	say "group $GROUP: delete"
-	run dseditgroup -o delete "$GROUP"
+	if [ -n "$HAS_GROUP" ]; then
+		say "group $GROUP: delete"
+		run dseditgroup -o delete "$GROUP"
+	fi
+	if [ -n "$HAS_GIT_GROUP" ]; then
+		say "group $GIT_GROUP: delete"
+		run dseditgroup -o delete "$GIT_GROUP"
+	fi
 }
 
 # The group that limits Remote Login goes only when setup.sh made it. Remote
@@ -226,7 +239,7 @@ remove_share() {
 
 check_platform
 survey
-if [ -z "$HAS_DROPIN$HAS_GROUP$HAS_SSH_GROUP$HAS_LINKS$HAS_LIBEXEC$HAS_SHARE$HAS_CONFIG" ] && [ "$USERS_FOUND" = " " ]; then
+if [ -z "$HAS_DROPIN$HAS_GROUP$HAS_GIT_GROUP$HAS_SSH_GROUP$HAS_LINKS$HAS_LIBEXEC$HAS_SHARE$HAS_CONFIG" ] && [ "$USERS_FOUND" = " " ]; then
 	say "Nothing to do: this Mac holds no workstation of Workbench."
 	exit 0
 fi

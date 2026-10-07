@@ -170,7 +170,10 @@ function settle(out: string): void {
 	const files = writes(out);
 	const users = EVERY.map((name, i) => `${name} ${5000 + (name === GIT ? 900 : i)} ${MARK}`);
 	writeFileSync(join(mac.root, 'fake', 'users'), `${users.join('\n')}\n`);
-	writeFileSync(join(mac.root, 'fake', 'groups'), `workbench 5000 ${MARK}\n`);
+	writeFileSync(
+		join(mac.root, 'fake', 'groups'),
+		`workbench 5000 ${MARK}\nworkbench-git 5900 ${MARK}\n`,
+	);
 	writeFileSync(join(mac.root, 'fake', 'remotelogin'), 'On');
 	writeFileSync(
 		join(mac.root, 'fake', 'members'),
@@ -198,10 +201,18 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 			expect(made).toContain(`dscl . -create /Users/${name} IsHidden 1`);
 			expect(made).toContain(`dscl . -create /Users/${name} Comment ${MARK}`);
 			expect(made).toContain(`dscl . -create /Users/${name} Password \\*`);
-			expect(made).toContain(`dscl . -create /Users/${name} PrimaryGroupID 20`);
+			expect(made).toContain(
+				`dscl . -create /Users/${name} PrimaryGroupID ${name === GIT ? 5900 : 5000}`,
+			);
 		}
+		expect(made.join('\n')).not.toContain('PrimaryGroupID 20');
 		expect(made).toContain(`dseditgroup -o create -r Workbench\\ seats -i 5000 workbench`);
 		expect(made).toContain(`dscl . -create /Groups/workbench Comment ${MARK}`);
+		expect(made).toContain(
+			`dseditgroup -o create -r Workbench\\ git\\ account -i 5900 workbench-git`,
+		);
+		expect(made).toContain(`dscl . -create /Groups/workbench-git Comment ${MARK}`);
+		expect(made).not.toContain(`dseditgroup -o edit -a ${GIT} -t user workbench-git`);
 		for (const name of ACCOUNTS)
 			expect(made).toContain(`dseditgroup -o edit -a ${name} -t user workbench`);
 		expect(made).not.toContain(`dseditgroup -o edit -a ${GIT} -t user workbench`);
@@ -291,7 +302,8 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 		const made = commands(setup().out);
 		const homes = mac.env.WORKBENCH_HOMES ?? '';
 		for (const name of EVERY) {
-			expect(made).toContain(`install -d -m 0700 -o ${name} -g staff ${homes}/${name}`);
+			const group = name === GIT ? 'workbench-git' : 'workbench';
+			expect(made).toContain(`install -d -m 0700 -o ${name} -g ${group} ${homes}/${name}`);
 		}
 		const share = mac.env.WORKBENCH_SHARE ?? '';
 		expect(made).toContain(
@@ -313,8 +325,9 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 		for (const name of EVERY) {
 			expect(made).toContain(`sudo -n -u ${name} -H install -d -m 0700 ${homes}/${name}/.ssh`);
 			expect(made.join('\n')).not.toMatch(new RegExp(`^install .*${homes}/${name}/\\.ssh`, 'm'));
+			const group = name === GIT ? 'workbench-git' : 'workbench';
 			expect(run.out).toContain(
-				`+ write ${homes}/${name}/.ssh/authorized_keys mode=0600 owner=${name}:staff`,
+				`+ write ${homes}/${name}/.ssh/authorized_keys mode=0600 owner=${name}:${group}`,
 			);
 			expect(files.has(`${homes}/${name}/.zshenv`)).toBe(true);
 		}
@@ -416,6 +429,53 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 			expect(setup().err).toContain('/Shared exists');
 		});
 
+		describe('in synthetic.conf', () => {
+			const conf = () => mac.env.WORKBENCH_SYNTHETIC ?? '';
+
+			function stopped(content: string, line: string): void {
+				writeFileSync(conf(), content);
+				const run = setup();
+				expect(run.code).toBe(1);
+				expect(run.err).toContain(`${conf()} has the line '${line}'`);
+				expect(run.err).toContain('The script changed nothing.');
+				expect(run.out).toBe('');
+			}
+
+			it('stops before any change when a line links a root name elsewhere', () => {
+				stopped('datasheets\tsome/other/place\n', 'datasheets<tab>some/other/place');
+			});
+
+			it('stops before any change on a line that holds only a name', () => {
+				stopped('data\tSystem/Volumes/Data\nshared\n', 'shared');
+			});
+
+			it('stops before any change on a name with another case', () => {
+				stopped(
+					`Attachments\t${target('attachments')}\n`,
+					`Attachments<tab>${target('attachments')}`,
+				);
+			});
+
+			it('keeps the lines that it wrote, adds the missing ones, and writes no second line', () => {
+				writeFileSync(conf(), `data\tSystem/Volumes/Data\ndatasheets\t${target('datasheets')}`);
+				const run = setup();
+				expect(run.code).toBe(0);
+				expect(writes(run.out).get(conf())).toBe(
+					`data\tSystem/Volumes/Data\ndatasheets\t${target('datasheets')}\nshared\t${target('shared')}\nattachments\t${target('attachments')}\n`,
+				);
+			});
+
+			it('writes nothing when every line exists', () => {
+				writeFileSync(
+					conf(),
+					['datasheets', 'shared', 'attachments'].map((n) => `${n}\t${target(n)}\n`).join(''),
+				);
+				const run = setup();
+				expect(run.code).toBe(0);
+				expect(writes(run.out).has(conf())).toBe(false);
+			});
+		});
+
 		it('accepts the links that a first run made, and other names in /', () => {
 			mkdirSync(join(rootdir(), 'Library'), { recursive: true });
 			for (const name of ['datasheets', 'shared', 'attachments'])
@@ -439,6 +499,23 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 			expect(run.err).toContain(message);
 			expect(commands(run.out)).toEqual([]);
 		}
+
+		it('makes the data folder with mkdir, and no -p, before any other change under it', () => {
+			const made = commands(setup().out);
+			const make = made.indexOf(`mkdir -m 0755 ${share()}`);
+			expect(make).toBeGreaterThan(-1);
+			expect(made.join('\n')).not.toContain('mkdir -p');
+			const first = made.findIndex(
+				(line) => line.startsWith('install -d') && line.includes(share()),
+			);
+			expect(make).toBeLessThan(first);
+		});
+
+		it('does not make a data folder that exists', () => {
+			mkdirSync(share(), { recursive: true });
+			chmodSync(share(), 0o755);
+			expect(commands(setup().out).join('\n')).not.toContain(`mkdir -m 0755 ${share()}`);
+		});
 
 		it('stops when the data folder is a link', () => {
 			mkdirSync(join(share(), '..'), { recursive: true });
@@ -501,7 +578,9 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 			const run = setup();
 			expect(run.code).toBe(0);
 			const made = commands(run.out);
-			expect(made.join('\n')).not.toContain(`-o engineer -g staff ${join(homes(), 'engineer')}`);
+			expect(made.join('\n')).not.toContain(
+				`-o engineer -g workbench ${join(homes(), 'engineer')}`,
+			);
 			expect(made).toContain(
 				`sudo -n -u engineer -H install -d -m 0700 ${join(homes(), 'engineer')}/.ssh`,
 			);
@@ -526,6 +605,22 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 		const run = setup();
 		expect(run.code).toBe(1);
 		expect(run.err).toContain('the user engineer exists, and this script did not make it');
+	});
+
+	it.each(['workbench', 'workbench-git'])('refuses a group %s that it did not make', (group) => {
+		writeFileSync(join(mac.root, 'fake', 'groups'), `${group} 7000 \n`);
+		const run = setup();
+		expect(run.code).toBe(1);
+		expect(run.err).toContain(`the group ${group} exists, and this script did not make it`);
+		expect(commands(run.out)).toEqual([]);
+	});
+
+	it('refuses a gid that another group holds, for the group of the git account too', () => {
+		writeFileSync(join(mac.root, 'fake', 'groups'), 'other 5900 \n');
+		const run = setup();
+		expect(run.code).toBe(1);
+		expect(run.err).toContain('the gid 5900 belongs to the group other');
+		expect(commands(run.out)).toEqual([]);
 	});
 
 	it('changes nothing on a second run', () => {
@@ -560,6 +655,7 @@ describe.skipIf(!tooling)('workstation/macos/teardown.sh in a dry run', () => {
 		const removed = commands(run.out);
 		for (const name of EVERY) expect(removed).toContain(`sysadminctl -deleteUser ${name}`);
 		expect(removed).toContain('dseditgroup -o delete workbench');
+		expect(removed).toContain('dseditgroup -o delete workbench-git');
 		expect(removed).toContain(`rm -f ${mac.env.WORKBENCH_SSHD_DROPIN}`);
 		expect(removed).toContain(`rm -rf ${mac.env.WORKBENCH_LIBEXEC}`);
 		expect(removed).toContain(`rm -rf ${mac.env.WORKBENCH_SHARE}`);

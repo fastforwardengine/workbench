@@ -336,6 +336,22 @@ class Camera:
         for flight in flights:
             flight.done.wait()
 
+    def capture_frame(self, index, path):
+        """Write one frame to `path`. ffmpeg accepts `-framerate` only for a rate that the camera lists. When
+        it refuses the rate, the capture runs once more with the rate that the camera chooses."""
+        def run(rate):
+            subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "avfoundation",
+                            *(["-framerate", rate] if rate else []), "-video_size", self.resolution,
+                            "-i", str(index), "-vf", f"trim=start_frame={SKIPPED_FRAMES},setpts=PTS-STARTPTS",
+                            "-frames:v", "1", "-update", "1", str(path)],
+                           check=True, capture_output=True, timeout=30)
+        try:
+            run(self.framerate)
+        except subprocess.CalledProcessError as error:
+            if not re.search(rb"framerate .* is not supported", error.stderr or b""):
+                raise
+            run(None)
+
     def acquire(self, sensor="camera"):
         if sensor == "microphone":
             return self.record()
@@ -348,11 +364,7 @@ class Camera:
             # Temporary capture stays outside Git. A timeout bounds acquisition.
             with tempfile.TemporaryDirectory(dir=self.data) as folder:
                 path = Path(folder) / "frame.png"
-                subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "avfoundation",
-                                "-framerate", self.framerate, "-video_size", self.resolution, "-i", str(index),
-                                "-vf", f"trim=start_frame={SKIPPED_FRAMES},setpts=PTS-STARTPTS",
-                                "-frames:v", "1", "-update", "1", str(path)],
-                               check=True, capture_output=True, timeout=30)
+                self.capture_frame(index, path)
                 png = path.read_bytes()
                 if not png.startswith(b"\x89PNG\r\n\x1a\n"):
                     raise ValueError("Capture did not produce a PNG.")

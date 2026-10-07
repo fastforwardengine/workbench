@@ -29,9 +29,24 @@ MARK=workbench-macos
 UID_BASE="${WORKBENCH_UID_BASE:-5000}"
 GIT_UID=$((UID_BASE + 900))
 GROUP_GID="${WORKBENCH_GID:-5000}"
-# The primary group of every account: staff, the group of a standard user.
-PRIMARY_GROUP=staff
+# The primary group of the git account. The group has no member and no file
+# of its own, so it grants nothing. A group of the Mac, such as staff, would
+# grant the account the files that the admin shares with staff. The group
+# carries the same comment as the group of the seats.
+GIT_GROUP=workbench-git
+GIT_GID=$((GROUP_GID + 900))
 ACCOUNT_SHELL=/bin/zsh
+
+# The primary group of an account: the group of the seats, or for the git
+# account its own group.
+primary_group() {
+	if [ "$1" = "$GIT_ACCOUNT" ]; then echo "$GIT_GROUP"; else echo "$GROUP"; fi
+}
+
+# The primary group id of an account.
+primary_gid() {
+	if [ "$1" = "$GIT_ACCOUNT" ]; then echo "$GIT_GID"; else echo "$GROUP_GID"; fi
+}
 
 # The host account writes the room mirror, the snapshots, and the datasheets.
 HOST_ACCOUNT=""
@@ -111,7 +126,7 @@ put_seat() {
 	temp="$(mktemp)"
 	cat >"$temp"
 	if [ -n "$DRY" ]; then
-		printf '+ write %s mode=%s owner=%s:%s\n' "$dest" "$mode" "$name" "$PRIMARY_GROUP"
+		printf '+ write %s mode=%s owner=%s:%s\n' "$dest" "$mode" "$name" "$(primary_group "$name")"
 		sed 's/^/| /' "$temp"
 		printf '+ end %s\n' "$dest"
 	else

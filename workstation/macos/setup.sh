@@ -9,8 +9,12 @@
 # this Mac. Workbench then reaches the workstation on 127.0.0.1, port 22,
 # the same as it reaches the container of workstation/setup.sh. The script
 # keeps what exists, so a second run changes nothing. teardown.sh undoes it.
-# Each check runs before the first change, so a script that stops on a check
-# leaves nothing behind.
+# Every check of the Mac and of the files in `/` runs before the first
+# change, so a script that stops on one of them leaves nothing behind. Three
+# steps need an earlier change and stop later: the host key, which the script
+# makes when it is missing, the check of the drop-in with `sshd -t` and
+# `sshd -T`, which reads the drop-in file, and the check login, which uses
+# the accounts.
 #
 # To use other ids, run: sudo WORKBENCH_UID_BASE=6000 bash workstation/macos/setup.sh
 #
@@ -115,13 +119,20 @@ check_ids() {
 		[ ! -e "$HOMES/$name" ] && [ ! -L "$HOMES/$name" ] ||
 			die "the folder $HOMES/$name exists, and the user $name does not. Move the folder away, and run this script again."
 	done < <(account_ids)
-	if group_exists "$GROUP"; then
-		group_marked "$GROUP" ||
-			die "the group $GROUP exists, and this script did not make it. Rename or delete it first."
+	check_group "$GROUP" "$GROUP_GID"
+	check_group "$GIT_GROUP" "$GIT_GID"
+}
+
+# Stop when a group or its id belongs to something that this script did not make.
+check_group() {
+	local group="$1" gid="$2" owner
+	if group_exists "$group"; then
+		group_marked "$group" ||
+			die "the group $group exists, and this script did not make it. Rename or delete it first."
 	else
-		owner="$(dscl . -list /Groups PrimaryGroupID 2>/dev/null | awk -v id="$GROUP_GID" '$2 == id { print $1; exit }' || true)"
+		owner="$(dscl . -list /Groups PrimaryGroupID 2>/dev/null | awk -v id="$gid" '$2 == id { print $1; exit }' || true)"
 		[ -z "$owner" ] ||
-			die "the gid $GROUP_GID belongs to the group $owner. Use a free id: sudo WORKBENCH_GID=6000 bash $0"
+			die "the gid $gid belongs to the group $owner. Use a free id: sudo WORKBENCH_GID=6000 bash $0"
 	fi
 }
 
@@ -137,11 +148,34 @@ path_mode() {
 	ls -ld "$1" | awk '{ print $1 }'
 }
 
+# The lines of /etc/synthetic.conf that name a root folder, whatever the case
+# of the name. A line with a name and no tab counts too: macOS makes an empty
+# folder of it.
+synthetic_lines() {
+	[ -f "$SYNTHETIC" ] || return 0
+	awk -F '\t' -v n="$1" 'tolower($1) == n' "$SYNTHETIC"
+}
+
+# Stop when a line of /etc/synthetic.conf clashes with a root link. The only
+# line that may carry the name is the line that this script writes.
+check_synthetic() {
+	local name line
+	for name in "${ROOT_NAMES[@]}"; do
+		while IFS= read -r line; do
+			[ "$line" != "$(synthetic_line "$name")" ] ||
+				continue
+			die "$SYNTHETIC has the line '${line//$'\t'/<tab>}', and it clashes with the root link /$name. Remove that line, and run this script again. The script changed nothing."
+		done < <(synthetic_lines "$name")
+	done
+}
+
 # Stop when a name in `/` clashes with a root link. macOS compares names
 # without regard to case, so /Datasheets blocks /datasheets. The only entry
-# that may carry the name is the link that this script made.
+# that may carry the name is the link that this script made. The check also
+# covers /etc/synthetic.conf.
 check_root_names() {
 	local dir="${ROOT_DIR:-/}" name entry
+	check_synthetic
 	[ -d "$dir" ] || return 0
 	for name in "${ROOT_NAMES[@]}"; do
 		while IFS= read -r entry; do
@@ -225,14 +259,16 @@ make_keys() {
 	done < <(all_accounts)
 }
 
+# One group: create_group NAME GID DESCRIPTION. The comment follows at once.
 create_group() {
-	if group_exists "$GROUP"; then
-		say "group $GROUP: exists"
+	local group="$1" gid="$2" description="$3"
+	if group_exists "$group"; then
+		say "group $group: exists"
 		return 0
 	fi
-	say "group $GROUP: create, gid $GROUP_GID"
-	run dseditgroup -o create -r "Workbench seats" -i "$GROUP_GID" "$GROUP"
-	run dscl . -create "/Groups/$GROUP" Comment "$MARK"
+	say "group $group: create, gid $gid"
+	run dseditgroup -o create -r "$description" -i "$gid" "$group"
+	run dscl . -create "/Groups/$group" Comment "$MARK"
 }
 
 # One hidden standard user. The password is `*`, a value that no password
@@ -251,7 +287,7 @@ create_account() {
 	run dscl . -create "/Users/$name" UserShell "$ACCOUNT_SHELL"
 	run dscl . -create "/Users/$name" RealName "Workbench $name"
 	run dscl . -create "/Users/$name" UniqueID "$uid"
-	run dscl . -create "/Users/$name" PrimaryGroupID 20
+	run dscl . -create "/Users/$name" PrimaryGroupID "$(primary_gid "$name")"
 	run dscl . -create "/Users/$name" NFSHomeDirectory "$HOMES/$name"
 	run dscl . -create "/Users/$name" GeneratedUID "$(new_uuid)"
 	run dscl . -create "/Users/$name" IsHidden 1
@@ -272,7 +308,7 @@ install_account_files() {
 	# Root makes only a home that does not exist. The seat makes .ssh and
 	# writes its own files, so a link in the home leads root nowhere.
 	if [ ! -e "$home" ]; then
-		run install -d -m 0700 -o "$name" -g "$PRIMARY_GROUP" "$home"
+		run install -d -m 0700 -o "$name" -g "$(primary_group "$name")" "$home"
 	fi
 	run sudo -n -u "$name" -H install -d -m 0700 "$home/.ssh"
 	put_seat "$name" 0600 "$home/.ssh/authorized_keys" <<EOF
@@ -289,7 +325,8 @@ EOF
 # Make accounts, the group, and the homes.
 make_accounts() {
 	local name uid
-	create_group
+	create_group "$GROUP" "$GROUP_GID" "Workbench seats"
+	create_group "$GIT_GROUP" "$GIT_GID" "Workbench git account"
 	while read -r name uid; do
 		create_account "$name" "$uid"
 	done < <(account_ids)
@@ -321,6 +358,13 @@ add_acl() {
 make_layout() {
 	local folder
 	check_layout
+	# /Users/Shared has mode 1777, so another user can create $SHARE between
+	# the checks and the first change. mkdir with no -p fails when the folder
+	# exists. The second check then finds an owner or a link that is not root.
+	if [ ! -e "$SHARE" ] && [ ! -L "$SHARE" ]; then
+		run mkdir -m 0755 "$SHARE"
+		check_layout
+	fi
 	run install -d -m 0755 -o root -g wheel "$SHARE" "$SHARE/srv"
 	run install -d -m 0770 -o root -g "$GROUP" "$SHARE/srv/audit" "$SHARE/shared"
 	for folder in "$SHARE/srv/audit" "$SHARE/shared"; do
@@ -333,24 +377,16 @@ make_layout() {
 # The three root folders are links in `/`, which is read-only on macOS.
 # /etc/synthetic.conf is the supported way to add them. The script adds a
 # line for each folder that has none, and keeps every other line.
+# check_synthetic has stopped the script on a line that clashes.
 make_root_links() {
-	local name line current="" changed="" target
+	local name line current="" changed=""
 	[ -f "$SYNTHETIC" ] && current="$(cat "$SYNTHETIC")"
 	for name in "${ROOT_NAMES[@]}"; do
 		line="$(synthetic_line "$name")"
-		target="$(printf '%s\n' "$current" | awk -F '\t' -v n="$name" '$1 == n { print $2; exit }')"
-		if [ -n "$target" ] && [ "$target" != "${SHARE#/}/$name" ]; then
-			die "$SYNTHETIC links /$name to $target already. Remove that line, and run this script again."
+		if printf '%s\n' "$current" | grep -qxF "$line"; then
+			continue
 		fi
-		[ -z "$target" ] || continue
-		if [ -e "$ROOT_DIR/$name" ] && [ ! -L "$ROOT_DIR/$name" ]; then
-			die "/$name exists and is not a link. Move it away, and run this script again."
-		fi
-		if [ -n "$current" ]; then
-			current="$current"$'\n'"$line"
-		else
-			current="$line"
-		fi
+		current="${current:+$current$'\n'}$line"
 		changed=1
 	done
 	if [ -z "$changed" ]; then

@@ -129,7 +129,16 @@ const SIZE_ADVICE: Record<Kind, string> = {
 const kindOf = (path: string): Kind =>
 	isDatabasePath(path) ? 'database' : isImagePath(path) ? 'image' : 'text';
 
-export async function readFile(workspace: Workspace, path: string): Promise<FileContent> {
+/**
+ * One file of the workspace, as the host account reads it. A root may be a
+ * symbolic link, as on a Mac, where `/etc/synthetic.conf` makes it. A link
+ * below a root is refused.
+ */
+export async function readFile(
+	workspace: Workspace,
+	roots: readonly string[],
+	path: string,
+): Promise<FileContent> {
 	const parts = path.split('/').slice(1);
 	if (
 		!path.startsWith('/') ||
@@ -139,18 +148,27 @@ export async function readFile(workspace: Workspace, path: string): Promise<File
 	}
 	const kind = kindOf(path);
 	return workspace.use(workspace.mirrorAgent, async (env) => {
-		await checkAncestors(env, parts, kind);
+		await checkAncestors(env, parts, kind, roots);
 		return readAs(env, path, kind);
 	});
 }
 
-/** Every part of the path must be a plain file or folder, and small enough for the preview. */
-async function checkAncestors(env: Env, parts: readonly string[], kind: Kind): Promise<void> {
+/**
+ * Every part of the path must be a plain file or folder, and small enough for
+ * the preview. A part that is exactly a configured root may be a link.
+ */
+async function checkAncestors(
+	env: Env,
+	parts: readonly string[],
+	kind: Kind,
+	roots: readonly string[],
+): Promise<void> {
 	let prefix = '';
 	for (const part of parts) {
 		prefix += `/${part}`;
 		const info = await env.fileInfo(prefix);
 		if (!info.ok) fail('File not found.');
+		if (info.value.kind === 'symlink' && roots.includes(prefix)) continue;
 		checkFile(info.value, kind);
 	}
 }

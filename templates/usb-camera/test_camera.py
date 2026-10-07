@@ -163,6 +163,34 @@ class CameraTests(unittest.TestCase):
         self.assertEqual(observation["parts"][0]["text"],
                          "USB camera AVFoundation video 4; timestamp is capture receipt time.")
 
+    def check_framerate_retry(self, stderr, calls):
+        live = camera.Camera(self.source, self.folder.name, "4")
+        commands = []
+        def capture(command, **_kwargs):
+            commands.append(command)
+            if len(commands) == 1:
+                raise subprocess.CalledProcessError(1, "ffmpeg", stderr=stderr)
+            Path(command[-1]).write_bytes(camera.demo_png())
+        with patch("camera.subprocess.run", side_effect=capture):
+            if calls == 2:
+                live.acquire()
+            else:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    live.acquire()
+        self.assertEqual(len(commands), calls)
+        return commands
+
+    def test_capture_runs_again_without_framerate_when_the_camera_refuses_it(self):
+        commands = self.check_framerate_retry(
+            b"[avfoundation @ 0x1] Selected framerate (30.000000) is not supported by the device.\n", 2)
+        self.assertIn("-framerate", commands[0])
+        self.assertNotIn("-framerate", commands[1])
+        self.assertEqual([part for part in commands[0] if part not in ("-framerate", "30")], commands[1])
+
+    def test_capture_does_not_run_again_for_another_error(self):
+        self.check_framerate_retry(b"[avfoundation @ 0x1] Selected video size (1x1) is not supported.\n", 1)
+        self.check_framerate_retry(None, 1)
+
     def test_launch_source_stays_fixed_when_branch_advances(self):
         with tempfile.TemporaryDirectory() as folder:
             def git(*args):

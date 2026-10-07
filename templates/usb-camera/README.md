@@ -27,6 +27,10 @@ frames each second. This server has no preview and no captions.
    index, such as `[1] Logitech BRIO`, and it ends with an error. That is
    normal. `device-scan` prints the same lists. Select a resolution and a
    frame rate that the camera lists. `1280x720` at `30` is the default.
+   `ffmpeg` accepts `-framerate` only for a rate that the camera lists. When
+   it refuses the rate, the server captures the frame once more with the rate
+   that the camera chooses. Give `--framerate` a listed rate to avoid the
+   second capture.
    For the microphone, give `--audio-device` the name of the audio device,
    such as `BRIO`, or its index. The name stays the same after a
    reconnect. The index can change. The server records mono, 48 kHz,

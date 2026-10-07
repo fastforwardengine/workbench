@@ -274,7 +274,7 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 			return rooms.create(name, trimmed);
 		},
 		files: () => rooms.withWorkspace(() => listFiles(rooms.workspace, rooms.roots)),
-		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path)),
+		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, rooms.roots, path)),
 		snapshot: (ref) => rooms.withWorkspace(() => readSnapshotFile(rooms.workspace, ref)),
 		commit: (ref) => rooms.withWorkspace(() => readCommitFile(rooms.workspace, ref)),
 		attach: (localPath) => rooms.withWorkspace(() => attachFile(rooms.workspace, localPath)),
