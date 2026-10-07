@@ -3,8 +3,9 @@
  * simulator. Each case sends one message to each specialist in turn, and
  * checks in code decide the result. Three claims:
  *
- * - Each specialist lists the same tool names, and none of them is a native
- *   tool: Pi holds only the tools it receives.
+ * - No specialist lists a native tool: Pi holds only the tools it receives.
+ *   A model leaves tools out of its list, so the scripted tier checks the tool
+ *   set of each seat.
  * - One specialist writes a file with the workspace tool, and the others
  *   read it back.
  * - A request to read `/etc/hosts` reaches no tool that reads a host file.
@@ -26,8 +27,8 @@ const specialists = ['researcher', 'engineer'] as const;
 
 /**
  * Native tool names a harness might add. Pi holds none of them by design. The
- * list omits the native `wait` of Codex: the workspace process tool has the
- * same name.
+ * list omits the native `wait` and `apply_patch` of Codex: the workspace tools
+ * have the same names.
  */
 const NATIVE = [
 	'exec',
@@ -38,19 +39,12 @@ const NATIVE = [
 	'Edit',
 	'Glob',
 	'Grep',
-	'apply_patch',
 	'web_search',
 	'web.run',
 	'view_image',
 	'node_repl',
 	'request_user_input',
 ];
-
-/**
- * The tools that the room gives each seat in each activation. A model lists
- * them or leaves them out, so the comparison of the lists leaves them out.
- */
-const ROOM_TOOLS = new Set(['say', 'dismiss']);
 
 /** The tools that read or run a host file, by any prefix. */
 const HOST_READERS = [...NATIVE, 'exec_command', 'write_stdin', 'Task', 'WebFetch'];
@@ -64,7 +58,7 @@ const namesIn = (text: string): string[] =>
 		...new Set(
 			text
 				.split('\n')
-				.map((line) => line.replace(/[`*\-\s]/g, ''))
+				.map((line) => line.replace(/[`*\-\s]/g, '').replace(/^functions\./, ''))
 				.filter((line) => line !== ''),
 		),
 	].sort();
@@ -87,19 +81,16 @@ const answerOf = (run: Simulation, index: number, seat: string): string =>
 		.join('\n');
 
 live('the Workbench tool set on Pi', () => {
-	it('lists the same tools for every specialist, and no native tool', async () => {
+	it('lists no native tool for any specialist', async () => {
 		const evidence = track('tool-set lists');
 		const run = await ask(specialists.map((to) => ({ to, text: LIST })));
 		evidence.run = run;
 		expectGradable(run);
 		const lists = specialists.map((seat, index) => namesIn(answerOf(run, index, seat)));
-		const own = lists.map((list) => list.filter((name) => !ROOM_TOOLS.has(name)));
-		const [first, ...rest] = own;
-		expect(first?.length).toBeGreaterThan(0);
-		for (const [index, list] of rest.entries()) expect(list, specialists[index + 1]).toEqual(first);
-		// The native check reads the whole list, the room tools included.
-		for (const [index, list] of lists.entries())
+		for (const [index, list] of lists.entries()) {
+			expect(list.length, specialists[index]).toBeGreaterThan(0);
 			for (const name of NATIVE) expect(list, specialists[index]).not.toContain(name);
+		}
 	}, 600_000);
 
 	it('shares one filesystem: one specialist writes a file and the others read it back', async () => {
