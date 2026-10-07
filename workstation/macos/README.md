@@ -46,9 +46,14 @@ The steps, by hand:
    commands as the admin. Homebrew refuses root.
 
    ```sh
-   brew install coreutils python
-   python3 -m pip install pyserial numpy pillow
+   brew install python coreutils ffmpeg
+   python3 -m pip install --break-system-packages pyserial numpy pillow
    ```
+
+   Python 3.11 or newer is the floor of the templates. `ffmpeg` serves the
+   camera and the microphone. Homebrew marks its Python as externally
+   managed, so `pip` needs `--break-system-packages` to write to it. The
+   seats use that one Python.
 
 2. Run the setup. The argument is the state folder, `.workstation` by
    default.
@@ -216,16 +221,11 @@ uses it on Linux.
 
 ## What is not ready
 
-**The Linux device tools do not run on macOS.** This change ports no
-template and no skill. These files assume Linux:
-
-| File                                      | Assumes                                                         |
-| ----------------------------------------- | --------------------------------------------------------------- |
-| `templates/device-scan` (`scan/scan.py`)  | `lsusb`, `/sys`, and `/dev/video*`                              |
-| `templates/usb-camera`                    | `v4l2-ctl`, `fswebcam`, and `arecord`                           |
-| `templates/psu` (`psu.json`, `hm310p.py`) | The serial path `/dev/ttyUSB0`. macOS has `/dev/cu.usbserial-*` |
-| `skills/engineer/observe-the-camera`      | The tools of the `usb-camera` template                          |
-| `skills/engineer/scan-the-bench`          | The `device-scan` template                                      |
+**The device templates target macOS.** `device-scan` reads `system_profiler`,
+pyserial, and the AVFoundation list of `ffmpeg`. `usb-camera` captures with
+`ffmpeg -f avfoundation`. `psu` finds the serial port of the HM310P by its
+USB ID. The templates run only on macOS. Tests check them with fixtures, and
+no Mac ran them.
 
 **No script ran on a real Mac.** Tests run both scripts in a dry run, with
 stubs for `dscl`, `dseditgroup`, `systemsetup`, and `launchctl`. They check
@@ -238,4 +238,10 @@ macOS does with them is unverified:
 - the ACL entries, the `synthetic.conf` lines, and `apfs.util -t`;
 - `systemsetup` and the `launchctl` fallback for Remote Login;
 - the `.zshenv` PATH, and `setsid` and `flock` from the shims;
-- the camera permission of macOS for a process that ssh starts.
+- the camera and microphone permission of macOS (TCC) for a process that
+  ssh starts under a hidden account. macOS can refuse `ffmpeg`, or hold it
+  until its time limit, because no window can show the question;
+- the field names of `system_profiler` and the text of the `ffmpeg` device
+  list, which the tests assume from the output of macOS 14 and 15;
+- the CH340 serial adapter of the HM310P as `/dev/cu.usbserial-*`, and the
+  driver that macOS uses for it.

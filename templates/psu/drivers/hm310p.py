@@ -6,7 +6,7 @@ The supply's own OVP and OCP act only when the panel arms them.
 """
 
 from . import ChannelRating, Description, Reading, Settings, SupplyError
-from .modbus import SerialBus
+from .modbus import SerialBus, find_port
 
 # The registers of the supply, from docs/hm310p.md.
 OUTPUT, PROTECT, MODEL, TAIL, DECIMALS = 0x0001, 0x0002, 0x0003, 0x0004, 0x0005
@@ -22,6 +22,7 @@ MAX_OVP, MAX_OCP = 33.0, 10.5
 
 PROTECTION_BITS = ["OVP", "OCP", "OPP", "OTP", "SCP"]
 CHANNEL = "ch1"
+CH340_USB_ID = "1a86:7523"
 
 
 class Hm310p:
@@ -33,7 +34,8 @@ class Hm310p:
     @classmethod
     def from_config(cls, config, state_path=None):
         transport = config.get("transport", {})
-        return cls(SerialBus(transport.get("port", "/dev/ttyUSB0"), transport.get("address", 1)))
+        port = transport.get("port") or find_port(transport.get("usb_id", CH340_USB_ID))
+        return cls(SerialBus(port, transport.get("address", 1)))
 
     def _channel(self, channel):
         if channel != CHANNEL:

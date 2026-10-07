@@ -7,6 +7,14 @@ locks. `drivers/` holds one file for each kind of supply. The `hm310p`
 driver speaks to a HANMATEK HM310P over USB (`docs/hm310p.md` holds its
 register map). The `sim` driver is a simulated supply with no hardware.
 
+**The `transport` of `psu.json` names the serial port.** The default is
+`"usb_id": "1a86:7523"`, the ID of the CH340 chip in the HM310P. The driver
+asks pyserial for the port with that USB ID each time it starts, so a new
+device name, such as `/dev/cu.usbserial-1410`, needs no change. Two adapters
+with one ID stop the driver with an error. Then set `"port"` to the device
+file. A `port` wins over a `usb_id`. `pyserial` must be installed. The
+`--sim` option needs no port and no pyserial.
+
 1. Read the supply before you change it: `python3 psu.py status`. Read
    `psu.json` and `python3 psu.py info` to learn the channels, the limits,
    and the capabilities of the driver.

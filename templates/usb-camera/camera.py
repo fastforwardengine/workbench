@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Agent-owned Linux USB camera and microphone, sensor API v2.
+"""Agent-owned macOS USB camera and microphone, sensor API v2.
 
-Python 3.11+, fswebcam for the camera, arecord (alsa-utils) for the
+Python 3.11+ and ffmpeg (Homebrew) with AVFoundation, for the camera and for the
 microphone. One process owns the USB device and serves two sensors: `camera`
 (one PNG frame) and `microphone` (one WAV clip with its level series).
 
@@ -9,8 +9,9 @@ The server listens on 127.0.0.1 at the port of the PORT variable, which the
 workspace sets for each process that bash starts. It prints nothing. A reader
 calls `fetch` with `GET /`, `GET /<sensor>/observe`, and `GET /files/<sha256>`.
 
-Select the camera with --usb-id where no udev runs, or with --device. The server finds the capture
-node of a USB ID at each capture, so a reconnect that renumbers /dev/videoN needs no restart.
+Select the camera with --usb-id, or with --device. The server asks system_profiler for the name of
+a USB ID, and ffmpeg for the AVFoundation index of that name, at each capture. A reconnect that
+renumbers the indexes needs no restart.
 
 Lifecycle adapted from Ambion v0.6.0 examples/camera-chat. No daemon,
 preview, captions, automatic device selection, or framework dependency.
@@ -55,9 +56,12 @@ STAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z")
 RATE = 48000
 WINDOW = 480  # Samples in 10 ms at 48 kHz.
 FLOOR = -120.0
-AUDIO_DEVICE = r"[A-Za-z0-9_:=,.-]+"
+DEVICE_NAME = r"[A-Za-z0-9 _:=,.()'+-]+"  # An AVFoundation name, or an index.
 USB_ID = r"[0-9a-fA-F]{4}:[0-9a-fA-F]{4}"
-VIDEO4LINUX = Path("/sys/class/video4linux")
+SKIPPED_FRAMES = 10  # The exposure settles in these frames.
+USB_TYPES = ("SPUSBDataType", "SPUSBHostDataType")  # The second one is for a newer macOS.
+VENDOR_KEYS = ("vendor_id", "apple_vendor_id", "USBDeviceKeyVendorID", "idVendor")
+PRODUCT_KEYS = ("product_id", "USBDeviceKeyProductID", "idProduct")
 
 
 def samples_of(frames):
@@ -108,27 +112,85 @@ def clip_levels(wav):
     return peak_level, dbfs(total, len(data)), envelope
 
 
-def usb_id_of(entry):
-    """The USB ID, in lower case, of the device behind one video4linux entry."""
-    usb = (entry / "device").resolve().parent  # The `device` link names the USB interface.
-    return f"{(usb / 'idVendor').read_text().strip()}:{(usb / 'idProduct').read_text().strip()}".lower()
+def hex_id(entry, keys):
+    """The four hex digits in the first of these keys that has a value, such as 0x046d  (Logitech Inc.)."""
+    for key in keys:
+        found = re.search(r"0x([0-9a-fA-F]{1,4})", str(entry.get(key, "")))
+        if found:
+            return found.group(1).lower().zfill(4)
+    return None
 
 
-def capture_node(usb_id, root=VIDEO4LINUX):
-    """The /dev/videoN path of the capture node of the USB device with this ID.
-    A UVC camera also has a metadata node, whose index is 1. An entry that sysfs cannot read has no match."""
-    found = []
-    for entry in sorted(root.iterdir()) if root.is_dir() else []:
+def usb_names(tree, usb_id):
+    """The names of the USB devices with this ID, from the JSON of system_profiler, at any depth."""
+    names = []
+    if isinstance(tree, dict):
+        if f"{hex_id(tree, VENDOR_KEYS)}:{hex_id(tree, PRODUCT_KEYS)}" == usb_id and tree.get("_name"):
+            names.append(str(tree["_name"]))
+        for value in tree.values():
+            names += usb_names(value, usb_id)
+    elif isinstance(tree, list):
+        for value in tree:
+            names += usb_names(value, usb_id)
+    return names
+
+
+def usb_name(usb_id):
+    """The name of the one USB device with this ID. A newer macOS lists devices under another data type."""
+    names = []
+    for data_type in USB_TYPES:
+        done = subprocess.run(["system_profiler", data_type, "-json"], capture_output=True, text=True, timeout=60)
         try:
-            if (entry / "index").read_text().strip() == "0" and usb_id_of(entry) == usb_id:
-                found.append(f"/dev/{entry.name}")
-        except OSError:
+            names = sorted(set(usb_names(json.loads(done.stdout), usb_id)))
+        except json.JSONDecodeError:
             continue
+        if names:
+            break
+    if not names:
+        raise ValueError(f"No USB device has ID {usb_id}. Attach the camera, then scan again.")
+    if len(names) > 1:
+        raise ValueError(f"More than one USB device has ID {usb_id}: {', '.join(names)}. Use --device.")
+    return names[0]
+
+
+def avfoundation_devices():
+    """The AVFoundation devices of ffmpeg: {"video": [(index, name)], "audio": [...]}.
+    ffmpeg prints the list on stderr, and it exits with status 1 because the input is empty."""
+    done = subprocess.run(["ffmpeg", "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
+                          capture_output=True, text=True, timeout=30)
+    found, kind = {"video": [], "audio": []}, None
+    for line in (done.stderr + done.stdout).splitlines():
+        if "AVFoundation video devices:" in line:
+            kind = "video"
+        elif "AVFoundation audio devices:" in line:
+            kind = "audio"
+        entry = re.match(r"\[AVFoundation[^\]]*\]\s+\[(\d+)\]\s+(.+?)\s*$", line)
+        if entry and kind:
+            found[kind].append((int(entry.group(1)), entry.group(2)))
+    return found
+
+
+def pick(kind, wanted, devices=None):
+    """The (index, name) of the AVFoundation device of this kind, from a name or an index.
+    An index passes as it is, with no name. A name matches in any case. An exact match wins over a part of a name."""
+    if re.fullmatch(r"[0-9]+", wanted):
+        return int(wanted), None
+    devices = (devices or avfoundation_devices())[kind]
+    key = wanted.casefold()
+    found = [one for one in devices if one[1].casefold() == key]
+    found = found or [one for one in devices if key in one[1].casefold() or one[1].casefold() in key]
     if not found:
-        raise ValueError(f"No capture node has USB ID {usb_id}. Attach the camera, then scan again.")
+        listing = ", ".join(f"{index} {name}" for index, name in devices) or "none"
+        raise ValueError(f"No AVFoundation {kind} device is named {wanted}. The {kind} devices are: {listing}.")
     if len(found) > 1:
-        raise ValueError(f"More than one camera has USB ID {usb_id}: {', '.join(found)}. Use --device.")
+        raise ValueError(f"More than one AVFoundation {kind} device matches {wanted}: "
+                         f"{', '.join(f'{index} {name}' for index, name in found)}. Use the index.")
     return found[0]
+
+
+def video_choice(device, usb_id):
+    """The (index, name) of the video device. A USB ID goes to its name, and the name to an index."""
+    return pick("video", usb_name(usb_id) if usb_id else device)
 
 
 class CheckoutError(ValueError):
@@ -193,12 +255,13 @@ class Camera:
     """One USB device, two sensors: `camera` (frames) and `microphone` (clips)."""
 
     def __init__(self, source, data, device, resolution="1280x720", demo=False, audio_device=None, seconds=5,
-                 usb_id=None):
+                 usb_id=None, framerate="30"):
         self.source = source
         self.data = Path(data)
         self.device = device
         self.usb_id = usb_id
         self.resolution = resolution
+        self.framerate = framerate
         self.demo = demo
         self.audio_device = audio_device
         self.seconds = seconds
@@ -276,23 +339,26 @@ class Camera:
     def acquire(self, sensor="camera"):
         if sensor == "microphone":
             return self.record()
-        # A USB ID resolves at each capture, so a reconnect that renumbers the nodes needs no restart.
-        node = None if self.demo else self.device or capture_node(self.usb_id, VIDEO4LINUX)
+        index, name = None, None
         if self.demo:
             png = demo_png()
         else:
+            # A name resolves at each capture, so a reconnect that renumbers the devices needs no restart.
+            index, name = video_choice(self.device, self.usb_id)
             # Temporary capture stays outside Git. A timeout bounds acquisition.
             with tempfile.TemporaryDirectory(dir=self.data) as folder:
                 path = Path(folder) / "frame.png"
-                subprocess.run(["fswebcam", "-d", node, "-r", self.resolution,
-                                "-S", "10", "--no-banner", "--png", "6", str(path)],
+                subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "avfoundation",
+                                "-framerate", self.framerate, "-video_size", self.resolution, "-i", str(index),
+                                "-vf", f"trim=start_frame={SKIPPED_FRAMES},setpts=PTS-STARTPTS",
+                                "-frames:v", "1", "-update", "1", str(path)],
                                check=True, capture_output=True, timeout=30)
                 png = path.read_bytes()
                 if not png.startswith(b"\x89PNG\r\n\x1a\n"):
                     raise ValueError("Capture did not produce a PNG.")
         at = utc()  # Receipt time, not a camera hardware clock.
         digest = hashlib.sha256(png).hexdigest()
-        where = f"{self.usb_id} at {node}" if self.usb_id else node
+        where = ", ".join(filter(None, [self.usb_id, f"AVFoundation video {index}" + (f' "{name}"' if name else "")]))
         label = "SYNTHETIC DEMO: not a bench measurement." if self.demo else f"USB camera {where}; timestamp is capture receipt time."
         parts = [{"kind": "text", "text": label}, {"kind": "frame", "file": digest, "mediaType": "image/png"}]
         return self.keep("camera", at, parts, digest, png)
@@ -303,11 +369,13 @@ class Camera:
             wav, started, seconds = demo_wav(), utc(), 1
         else:
             seconds = self.seconds
+            index, _name = pick("audio", self.audio_device)  # The index can change after a reconnect.
             with tempfile.TemporaryDirectory(dir=self.data) as folder:
                 path = Path(folder) / "clip.wav"
-                started = utc()  # The series starts when arecord is launched.
-                subprocess.run(["arecord", "-q", "-D", self.audio_device, "-f", "S16_LE", "-r", str(RATE),
-                                "-c", "1", "-d", str(seconds), "-t", "wav", str(path)],
+                started = utc()  # The series starts when ffmpeg is launched.
+                subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "avfoundation",
+                                "-i", f":{index}", "-t", str(seconds), "-ac", "1", "-ar", str(RATE),
+                                "-c:a", "pcm_s16le", "-f", "wav", str(path)],
                                check=True, capture_output=True, timeout=seconds + 15)
                 wav = path.read_bytes()
         peak, rms, envelope = clip_levels(wav)
@@ -318,7 +386,7 @@ class Camera:
             label = f"SYNTHETIC DEMO: not a bench measurement. A 440 Hz tone pulsed at 10 Hz; {what}"
         else:
             label = (f"USB microphone {self.audio_device}; {what} "
-                     "The series starts when arecord is launched; the timestamp is receipt time.")
+                     "The series starts when ffmpeg is launched; the timestamp is receipt time.")
         parts = [{"kind": "text", "text": label},
                  {"kind": "file", "file": digest, "name": "clip.wav", "mediaType": "audio/wav"},
                  {"kind": "series", "channel": "level", "unit": "dBFS", "from": started,
@@ -401,11 +469,12 @@ def port_of(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", help="Explicit V4L2 capture node, e.g. /dev/video0. Use it on a host with udev or one camera")
-    parser.add_argument("--usb-id", help="USB ID of the camera from device-scan, e.g. 046d:085e. The server finds the node at each capture")
-    parser.add_argument("--audio-device", help="ALSA PCM of the microphone from arecord -l, e.g. plughw:CARD=BRIO,DEV=0")
+    parser.add_argument("--device", help="AVFoundation video device, a name or an index from the ffmpeg list, e.g. 'Logitech BRIO'")
+    parser.add_argument("--usb-id", help="USB ID of the camera from device-scan, e.g. 046d:085e. The server finds the device at each capture")
+    parser.add_argument("--audio-device", help="AVFoundation audio device, a name or an index from the ffmpeg list, e.g. BRIO")
     parser.add_argument("--seconds", type=int, default=5, help="Length of each clip, 1 to 30")
     parser.add_argument("--resolution", default="1280x720")
+    parser.add_argument("--framerate", default="30", help="Frames per second that the camera lists, e.g. 30")
     parser.add_argument("--demo", action="store_true")
     args = parser.parse_args()
     if args.device and args.usb_id is not None:
@@ -416,8 +485,12 @@ def main():
         if not re.fullmatch(USB_ID, args.usb_id):
             parser.error("Invalid USB ID. Give four hex digits, a colon, and four hex digits, such as 046d:085e.")
         args.usb_id = args.usb_id.lower()
-    if args.audio_device and not re.fullmatch(AUDIO_DEVICE, args.audio_device):
+    if args.device and not re.fullmatch(DEVICE_NAME, args.device):
+        parser.error("Invalid video device.")
+    if args.audio_device and not re.fullmatch(DEVICE_NAME, args.audio_device):
         parser.error("Invalid audio device.")
+    if not re.fullmatch(r"[1-9][0-9]{0,2}(\.[0-9]{1,6})?", args.framerate):
+        parser.error("Invalid frame rate.")
     if not 1 <= args.seconds <= 30:
         parser.error("--seconds must be from 1 to 30.")
     if not re.fullmatch(r"[1-9][0-9]{0,3}x[1-9][0-9]{0,3}", args.resolution):
@@ -438,7 +511,7 @@ def main():
     except ValueError as error:
         parser.error(str(error))
     camera = Camera(source, data, args.device, args.resolution, args.demo, args.audio_device, args.seconds,
-                    args.usb_id)
+                    args.usb_id, args.framerate)
     for sensor in camera.sensors():
         camera.acquire(sensor)  # The server listens only after the first usable evidence.
     try:
@@ -456,7 +529,7 @@ def main():
         pass
     finally:
         server.server_close()
-        # A handler thread is a daemon. Wait for its capture, so that no fswebcam or arecord
+        # A handler thread is a daemon. Wait for its capture, so that no ffmpeg
         # keeps the device and no temporary folder stays in the data directory.
         camera.drain()
 

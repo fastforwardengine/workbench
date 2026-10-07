@@ -73,24 +73,30 @@ pnpm start ./bench                # another directory
   `agent 'assistant' has no binding`. Move the data directory away, and
   start again.
 
-## Run on a local workstation
+## Run on the workstation of this Mac
 
-**A workstation runs the shell and the git repositories of the
-specialists, one Unix account for each.** `workstation/` builds one in a
-container, with `sshd` on `127.0.0.1:2222`. The journals stay in the
-SQLite file of the data directory.
+**The Mac is the workstation.** A workstation runs the shell and the git
+repositories of the specialists, one Unix account for each.
+[`workstation/macos/`](workstation/macos/README.md) sets one up on the sshd of
+the Mac, with one hidden macOS user for each seat. The USB devices stay
+native. The journals stay in the SQLite file of the data directory. The
+device templates (`device-scan`, `usb-camera`, `psu`) run on macOS only.
 
 ```sh
-make                  # the workstation up, then Workbench on it
-make stop             # stop the workstation; the volumes keep every file
+brew install python coreutils ffmpeg
+python3 -m pip install --break-system-packages pyserial numpy pillow
+make mac-workstation  # once: users, keys, and sshd settings; asks for sudo
+make                  # Workbench on the workstation of the Mac
 ```
 
-**`make` does each step that is not done yet.** It installs the
-dependencies, writes the keys into `.workstation/`, builds and starts the
-container, waits for `sshd`, and starts Workbench with
-`WORKBENCH_WORKSTATION`. The `Makefile` lists the other targets.
-[`workstation/README.md`](workstation/README.md) holds the accounts, the
-layout, and the tests.
+**`make` stops with a message when `make mac-workstation` has not run.** It
+needs `.workstation/macos.json`, which the setup writes. `DATA=` names the
+data directory. The `Makefile` lists the other targets.
+
+**The container is the old path.** `make workbench` builds the container of
+[`workstation/README.md`](workstation/README.md), with `sshd` on
+`127.0.0.1:2222`. Its device tools are Linux tools, and the device
+templates no longer fit them. A later change removes the container.
 
 ## The team
 

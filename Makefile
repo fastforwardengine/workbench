@@ -1,24 +1,27 @@
-# Workbench on a local workstation. `make` alone runs `make workbench`.
+# Workbench on the workstation of this Mac. `make` alone runs `make mac-workbench`.
 #
-#   make workbench              the workstation up, then Workbench on it
-#   make workbench DATA=./bench another data directory
-#   make workstation            the workstation and the object store up, and the USB devices attached
-#   make usb                    attach the USB devices of this Mac to OrbStack's Linux
-#   make usb-detach             give them back to macOS
-#   make stop                   stop the workstation; the volumes keep every file
-#   make logs                   follow the logs of sshd and the object store
-#   make shell                  a root shell in the workstation
-#   make ssh ACCOUNT=researcher   a shell as one account, over ssh
-#   make test-workstation       the workspace tier on the workstation, no model
-#   make reset                  remove the workstation and its volumes, after a prompt
+#   make mac-workstation        once: the workstation on this Mac, one hidden OS user per seat; asks for sudo
+#   make                        Workbench on that workstation (make mac-workbench). DATA= names the data directory
+#   make mac-teardown           remove that workstation, after a prompt; asks for sudo
 #   make voice                  whisper.cpp and its model for /voice, once
 #
-#   make mac-workstation        the workstation on this Mac, for one OS user per seat; asks for sudo
-#   make mac-workbench          Workbench on that workstation. DATA= names the data directory
-#   make mac-teardown           remove that workstation, after a prompt; asks for sudo
+# The container is the old path. Its targets stay for now:
 #
-# workstation/README.md describes the workstation in a container.
+#   make workbench              the container workstation up, then Workbench on it
+#   make workbench DATA=./bench another data directory
+#   make workstation            the container and the object store up, and the USB devices attached
+#   make usb                    attach the USB devices of this Mac to OrbStack's Linux
+#   make usb-detach             give them back to macOS
+#   make stop                   stop the container; the volumes keep every file
+#   make logs                   follow the logs of sshd and the object store
+#   make shell                  a root shell in the container
+#   make ssh ACCOUNT=researcher   a shell as one account, over ssh
+#   make test-workstation       the workspace tier on the container, no model
+#   make reset                  remove the container and its volumes, after a prompt
+#
 # workstation/macos/README.md describes the workstation on this Mac.
+# workstation/README.md describes the old workstation in a container. The device
+# templates (usb-camera, device-scan, psu) run on macOS only.
 
 COMPOSE := docker compose -f workstation/compose.yaml
 STATE := .workstation
@@ -29,7 +32,7 @@ ACCOUNT ?= researcher
 WHISPER_MODEL := $(HOME)/.cache/whisper/ggml-large-v3.bin
 WHISPER_URL := https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
 
-.DEFAULT_GOAL := workbench
+.DEFAULT_GOAL := mac-workbench
 .PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset voice mac-workstation mac-workbench mac-teardown
 
 # The dependencies, again when the manifest or the lockfile changes.
@@ -71,7 +74,8 @@ workbench: workstation node_modules/.modules.yaml
 mac-workstation:
 	sudo bash workstation/macos/setup.sh $(STATE)
 
-## Workbench, with the bash and git backends on the workstation of this Mac.
+## Workbench, with the bash and git backends on the workstation of this Mac. It
+## stops with a message when make mac-workstation has not run.
 mac-workbench: node_modules/.modules.yaml
 	@test -f $(MAC_CONFIG) || { echo 'No $(MAC_CONFIG). Run make mac-workstation first.' >&2; exit 1; }
 	WORKBENCH_WORKSTATION=$(MAC_CONFIG) pnpm start $(DATA)

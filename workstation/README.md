@@ -1,4 +1,12 @@
-# A local workstation
+# A local workstation, in a container
+
+**This is the old path. The Mac is the workstation now.**
+[`macos/`](macos/README.md) sets up the workstation on the Mac itself, and
+`make` runs it. The container below still builds and starts with
+`make workbench`. The device templates (`device-scan`, `usb-camera`, `psu`)
+use `system_profiler` and AVFoundation, so they do not work in the container.
+The sections on the devices describe the Linux tools of the container.
+A later change removes the container.
 
 **This folder builds a workstation in a container.** A workstation is one
 server with one Unix account for each specialist
@@ -9,9 +17,9 @@ templates and the forks. The journals of the rooms stay in the SQLite file
 of Workbench. A second container, an object store, keeps the bytes of the
 snapshots.
 
-**A Mac can host the workstation itself.** [`macos/`](macos/README.md) sets up
+**A Mac hosts the workstation itself.** [`macos/`](macos/README.md) sets up
 the same backend on the sshd of the Mac, with one hidden OS user for each
-seat and the USB devices native. The container stays.
+seat and the USB devices native.
 
 ```mermaid
 flowchart LR
@@ -36,13 +44,14 @@ flowchart LR
 
 ## Start it
 
-**`make` does the four steps below, and starts Workbench.** Run it from
-the root of the repository. It skips each step that is done: the keys stay,
-and the image builds again only when a file of it changes.
+**`make workbench` does the four steps below, and starts Workbench.** Run it
+from the root of the repository. `make` alone runs the workstation of the
+Mac. Each step skips what is done: the keys stay, and the image builds
+again only when a file of it changes.
 
 | Target                        | What it does                                                               |
 | ----------------------------- | -------------------------------------------------------------------------- |
-| `make`, `make workbench`      | The workstation up, then Workbench on it. `DATA=` names the data directory |
+| `make workbench`              | The workstation up, then Workbench on it. `DATA=` names the data directory |
 | `make workstation`            | The workstation and the object store up, and the USB devices attached      |
 | `make usb`, `make usb-detach` | Attach the USB devices to OrbStack's Linux, or give them back              |
 | `make stop`                   | Stop the workstation. The volumes keep every file                          |
@@ -144,9 +153,11 @@ ACL again. It also installs the public key of each account from
 
 ## Devices
 
+**These are the Linux device tools of the container.** The templates
+`device-scan` and `usb-camera` no longer use them: they run on macOS. The
+section stays until the container goes.
+
 **The Engineer has the tools to find and drive the devices of the bench.**
-The `device-scan` template runs them all, and writes one report
-(`templates/device-scan`).
 
 | Tool                  | Finds                                              |
 | --------------------- | -------------------------------------------------- |
@@ -200,9 +211,9 @@ container. `arecord -l` still works.
 
 To keep the frames and the clips as evidence, the Engineer forks the
 [`usb-camera` template](../templates/usb-camera/README.md). The template
-uses the Python, `fswebcam`, and `arecord` tools of the image, so the image
-needs no change. The server listens on the loopback address of the workstation, on the
-port of `$PORT`. Ambion 0.7.0 carries each `fetch` through SSH forwarding.
+uses AVFoundation, which exists only on macOS, so it does not run in the
+container. The server listens on the loopback address of the workstation,
+on the port of `$PORT`. Ambion 0.7.0 carries each `fetch` through SSH forwarding.
 `fetch` saves the observation and the frame or clip in the snapshot store.
 Docker publishes no sensor port. Other seats fetch from the same process and
 need no access to the home of Engineer.

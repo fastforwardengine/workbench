@@ -6,9 +6,10 @@ description: Capture and keep a USB camera frame or a USB microphone sound clip 
 1. Ask the person to set the microscope to its PC camera mode (UVC).
    Then follow `scan-the-bench` before you open a camera or a microphone.
    Find the USB ID of each camera in the inventory, the resolution, and the
-   card id of a microphone, as the README of the `usb-camera` template
-   says. Select a camera with `--usb-id`. Do not assume that `/dev/video0`
-   is the camera.
+   AVFoundation name of a microphone, as the README of the `usb-camera`
+   template says. Select a camera with `--usb-id`. Do not assume that
+   AVFoundation index 0 is the camera: on a Mac it is often the built-in
+   camera.
 2. Fork `usb-camera` with `fork`, with `clone` set to a path in your home. Follow the
    README of the clone for the offline tests, the push, and the start of
    the foreground server. One process owns one USB device and serves its
@@ -27,12 +28,12 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    | TOMLOV TM4K-AF microscope | `scope-camera`   | `scope` | Microscope   |
 
    Start the microscope with `--resolution 1920x1080` and no
-   `--audio-device`. It probably has no microphone, and `fswebcam` does
-   not decode its H264 modes. The manual of the TM4K family says that the
-   microscope has a storage mode (MSDC) and a PC camera mode (UVC). These
-   facts about the microscope are unverified. When `device-scan` does not find
-   the microscope, run the bench camera only, and tell the person that the
-   microscope is missing.
+   `--audio-device`. It probably has no microphone. Its 3840x2160 mode is
+   H264, and no capture of that mode has been tried. The manual of the TM4K
+   family says that the microscope has a storage mode (MSDC) and a PC camera
+   mode (UVC). These facts about the microscope are unverified. When
+   `device-scan` does not find the microscope, run the bench camera only,
+   and tell the person that the microscope is missing.
 
 5. Read a sensor with `fetch({ process: handle, path: '/camera/observe' })`
    or `'/microphone/observe'`. A microphone request records a clip of

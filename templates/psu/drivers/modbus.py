@@ -1,9 +1,34 @@
 """Modbus RTU framing over a serial port."""
 
+import re
 import struct
 import time
 
 from . import SupplyError
+
+USB_ID = re.compile(r"[0-9a-fA-F]{4}:[0-9a-fA-F]{4}")
+
+
+def find_port(usb_id):
+    """The serial device of the one USB-serial adapter with this ID, such as /dev/cu.usbserial-1410.
+    pyserial reads the USB ID of each port, so the name of the device file may change at a reconnect."""
+    if not USB_ID.fullmatch(str(usb_id)):
+        raise SupplyError(f"The USB ID {usb_id!r} is not four hex digits, a colon, and four hex digits.")
+    try:
+        from serial.tools import list_ports  # pyserial, only for real hardware
+    except ImportError as error:
+        raise SupplyError("pyserial is not installed. Run: python3 -m pip install pyserial") from error
+    wanted = usb_id.lower()
+    found = sorted(
+        port.device for port in list_ports.comports()
+        if port.vid is not None and port.pid is not None and f"{port.vid:04x}:{port.pid:04x}" == wanted
+    )
+    found = [device for device in found if not device.startswith("/dev/tty.")]  # macOS lists cu.* and tty.*
+    if not found:
+        raise SupplyError(f"No serial port has USB ID {wanted}. Attach the supply, or set transport.port in psu.json.")
+    if len(found) > 1:
+        raise SupplyError(f"More than one serial port has USB ID {wanted}: {', '.join(found)}. Set transport.port in psu.json.")
+    return found[0]
 
 
 def crc16(data):

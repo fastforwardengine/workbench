@@ -53,8 +53,9 @@ commit bytecode.
 
 The `usb-camera` template follows the
 [Ambion 0.7.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.7.0/examples/camera-chat).
-It captures frames with Python and V4L2 on the workstation. It records
-clips from the microphone of the camera with ALSA. One process owns the
+It captures frames and records clips with Python and `ffmpeg` (AVFoundation)
+on the workstation of the Mac. It finds a camera by its USB ID, through
+`system_profiler`. One process owns the
 USB device and serves two sensors, `camera` and `microphone`. The server follows the sensor protocol, version 2. The Engineer forks and
 saves the server, and starts it with `bash` under the name `camera`. The
 workspace gives the process a port in `$PORT`. The Engineer then reads the

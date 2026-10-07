@@ -25,7 +25,7 @@ capability that is about the bench goes into Workbench.
 RTX 4090 GPUs and 128 GB of RAM. The shells of the specialists, the git
 repositories, and the perception of images and sound run on it. The
 terminal of the person connects to it over SSH, as it connects to the
-local container of `workstation/` today.
+workstation of the Mac (`workstation/macos/`) today.
 
 - **The bench devices plug into it.** The HM310P, the BRIO, the USB
   microphone, the Pico, and the radio connect to its USB ports. Linux sees
@@ -34,6 +34,9 @@ local container of `workstation/` today.
   camera, and an audio model classifies what the microphone hears.
 - **The frames and the sound stay on it.** No image or recording leaves the
   lab for a remote model unless the person asks.
+- **The device templates target macOS today.** `device-scan` and
+  `usb-camera` use `system_profiler` and AVFoundation. A Linux workstation
+  needs a Linux version of them.
 - **The layout of the workspace carries over.** The accounts, the groups,
   and the folders follow `workstation/Dockerfile` and
   `workstation/entrypoint.sh`, in a container or on the host.
@@ -61,8 +64,10 @@ part. The BRIO keeps the view of the whole bench.
   TOF sensor, an articulated arm, LED lights, and HDMI and USB output
   ([Amazon B0FFSXMJ79](https://www.amazon.com/dp/B0FFSXMJ79)).
 - **Done: the template selects a camera by its USB ID** (#77). The
-  `--usb-id` option of `camera.py` replaces the `/dev/videoN` node, which
-  changes after a reconnect.
+  `--usb-id` option of `camera.py` replaces the device number, which
+  changes after a reconnect. On the Mac, `camera.py` goes from the USB ID
+  to a name with `system_profiler`, and from the name to an AVFoundation
+  index with `ffmpeg`.
 - **Done: the Engineer skills run both cameras.** The `bench` widget shows
   the BRIO, and the `scope` widget shows the microscope. Each camera has
   its own fork, process, and data directory. The viewfinder stacks both,
@@ -72,12 +77,13 @@ part. The BRIO keeps the view of the whole bench.
   of the sibling TM4K and TM4K Max lists a storage mode (MSDC) and a PC
   camera mode (UVC). The person sets the UVC mode. In that mode the manual
   lists 3840x2160 at 30 fps as H264, 1920x1080 at 30 fps, and 1280x720 at
-  60 fps. `fswebcam` does not decode H264, so the skill uses 1920x1080. The
+  60 fps. The skill uses 1920x1080, a mode that needs no H264 decoder. The
   autofocus runs in the microscope, so the team expects no focus control
   over USB. It probably has no microphone.
-- **Unverified:** the USB ID, the formats on Linux, whether the autofocus
-  settles within the 10 skipped frames of a capture, and whether Linux can
-  control the focus or the LED lights.
+- **Unverified:** the USB ID, the formats that AVFoundation lists for it,
+  whether `ffmpeg` captures the H264 mode, whether the autofocus settles
+  within the 10 skipped frames of a capture, and whether macOS can control
+  the focus or the LED lights.
 
 **Done when** `device-scan` finds the microscope on the workstation, the
 `usb-camera` template captures a frame of a solder joint, and the facts

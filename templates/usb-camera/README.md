@@ -1,14 +1,16 @@
 # USB camera sensor
 
-This template holds `camera.py`, a sensor server for a Linux UVC camera and
-its integrated USB microphone, such as the Logitech BRIO.
+This template holds `camera.py`, a sensor server for a UVC camera and its
+integrated USB microphone on macOS, such as the Logitech BRIO.
 It follows the sensor protocol, version 2, of Ambion. The
 [sensor contract](https://github.com/ambionframework/ambion/blob/v0.7.0/examples/workbench/docs/sensors.md)
 defines the protocol. The
 [Ambion 0.7.0 camera-chat example](https://github.com/ambionframework/ambion/tree/v0.7.0/examples/camera-chat)
 shows the same lifecycle.
-It needs Python 3.11 or newer, `fswebcam`, and `arecord`. The workstation
-has all three. It has no pip or npm dependency.
+It needs Python 3.11 or newer and `ffmpeg` with AVFoundation. Homebrew
+installs `ffmpeg` (`brew install ffmpeg`), and the workstation of the Mac
+puts it on the PATH of each seat. `camera.py` has no pip or npm dependency.
+macOS asks for camera and microphone permission. See the last section.
 
 One process owns the USB device and serves two sensors: `camera` and
 `microphone`. The camera sensor captures one still PNG. The microphone
@@ -18,32 +20,28 @@ waits for that capture and receives the same observation. Otherwise the
 request starts a new capture. The upstream Mac example captures five
 frames each second. This server has no preview and no captions.
 
-1. Record the USB ID and the capture node of the camera in the inventory
-   of the `device-scan` fork.
-2. Run `v4l2-ctl --list-devices` and
-   `v4l2-ctl -d /dev/video0 --list-formats-ext`. Select a video capture
-   node and a supported resolution. `/dev/video0` is an example. The
-   Engineer account has the `video` group. If no node exists, attach
-   the camera and scan again after five seconds.
-   For the microphone, run `arecord -l`. A line such as
-   `card 1: BRIO [Logitech BRIO]` names the card id `BRIO`. The card id
-   stays the same after a reconnect. The card number can change. Give
-   `--audio-device` the name `plughw:CARD=BRIO,DEV=0`, with your card id.
-   Do not use a card number. The `plughw` plug-in converts the sound to
-   mono, 48 kHz, 16-bit samples. The Engineer account has the `audio`
-   group.
-3. Select the camera. The kernel can give a camera a different
-   `/dev/videoN` number after a reconnect or a reboot. The workstation
-   container runs no udev, so it has no `/dev/v4l/by-id/`. There, give
-   `--usb-id` the USB ID from the inventory of `device-scan`, such as
-   `046d:085e`. The server reads `/sys/class/video4linux` at each capture
-   and uses the capture node of that USB device. A reconnect needs no
-   restart. The workstation makes the new node within 5 seconds, and a
-   capture before that gives status 503. A request for a camera that is absent gives status 503. Two
-   cameras with one USB ID also give status 503. For them, give `--device`.
-   On a host with udev, give `--device` the stable path under
-   `/dev/v4l/by-id/`. The server stops at start when you give both
-   options.
+1. Record the USB ID and the AVFoundation name of the camera in the
+   inventory of the `device-scan` fork.
+2. List the devices. Run `ffmpeg -f avfoundation -list_devices true -i ""`.
+   It prints the video devices and the audio devices on stderr, each with an
+   index, such as `[1] Logitech BRIO`, and it ends with an error. That is
+   normal. `device-scan` prints the same lists. Select a resolution and a
+   frame rate that the camera lists. `1280x720` at `30` is the default.
+   For the microphone, give `--audio-device` the name of the audio device,
+   such as `BRIO`, or its index. The name stays the same after a
+   reconnect. The index can change. The server records mono, 48 kHz,
+   16-bit samples whatever the format of the microphone is.
+3. Select the camera. macOS can give a camera a different AVFoundation
+   index after a reconnect or a restart. Give `--usb-id` the USB ID from
+   the inventory of `device-scan`, such as `046d:085e`. At each capture the
+   server asks `system_profiler SPUSBDataType -json` for the name of that
+   USB device. On a newer macOS it also reads `SPUSBHostDataType`. The
+   server then finds that name in the `ffmpeg` list and uses its index. A
+   reconnect needs no restart. A request for a camera that is absent gives
+   status 503. A camera whose AVFoundation name differs from its USB name
+   also gives status 503. Two cameras with one USB ID give status 503
+   too. For these cases, give `--device` the AVFoundation name or the index
+   of the camera. The server stops at start when you give both options.
 4. Fork and clone, then make a branch:
 
    ```ts
@@ -67,8 +65,8 @@ frames each second. This server has no preview and no captions.
    ```
 
 6. Start one foreground server with `bash`. Use your fork ID, USB ID,
-   resolution, and card id. Give `--usb-id` or `--device`, `--audio-device`,
-   or both. The server serves a sensor for each option you give. Give the
+   resolution, and audio device. Give `--usb-id` or `--device`,
+   `--audio-device`, or both. The server serves a sensor for each option you give. Give the
    process a `name`, such as `camera`, so that the process list names it.
    The workspace sets `$PORT` for the process, and the server listens on
    that port. Do not add `&`, `nohup`, `--port`, or a supervisor.
@@ -78,7 +76,7 @@ frames each second. This server has no preview and no captions.
 
    ```ts
    bash({
-     command: 'cd ~/bench-camera && AMBION_SENSOR_REPOSITORY=engineer/bench-camera AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-camera" python3 -u -B camera.py --usb-id 046d:085e --resolution 1280x720 --audio-device plughw:CARD=BRIO,DEV=0 --seconds 5',
+     command: 'cd ~/bench-camera && AMBION_SENSOR_REPOSITORY=engineer/bench-camera AMBION_SENSOR_DATA_DIR="$HOME/sensor-data/bench-camera" python3 -u -B camera.py --usb-id 046d:085e --resolution 1280x720 --audio-device BRIO --seconds 5',
      name: 'camera', wait: 0, timeout: 86400,
    });
    ```
@@ -110,9 +108,9 @@ frames each second. This server has no preview and no captions.
 
 9. Know what each `GET /<sensor>/observe` does. It starts a capture, or it
    joins the capture that runs for the same sensor. A joined request can
-   return a frame that started before the call. A capture writes a new PNG
-   at compression level 6, skips ten frames so the exposure settles, and
-   records the UTC time of receipt. A failed capture returns status 503
+   return a frame that started before the call. A capture runs `ffmpeg`,
+   skips ten frames so the exposure settles, writes one PNG, and records
+   the UTC time of receipt. A failed capture returns status 503
    and no frame, to every request that waits for it. The server closes a
    connection that stays idle for 10 seconds.
 
@@ -124,12 +122,12 @@ frames each second. This server has no preview and no captions.
    16-bit. The observation holds three parts: a text with the peak and RMS
    level in dBFS, the WAV file `clip.wav`, and the series `level`. The
    series holds the RMS level in dBFS of each 10 ms window. It starts at
-   the time that the server launches `arecord`. The timestamp of the
+   the time that the server launches `ffmpeg`. The timestamp of the
    observation is the receipt time.
 10. Know where the server listens. It binds to `127.0.0.1` and the port in
     `$PORT`. It exits at start when `PORT` is absent. `fetch` reaches the
     port through the endpoint of the workspace on the workstation. Do not
-    publish the port in Docker and do not build a tunnel. The in-process
+    build a tunnel. The in-process
     just-bash backend has no endpoints and no camera runtime.
 11. Cite the **snapshot refs** that `fetch` returns for the observation and
     for the frame. `fetch` saves each body in the snapshot store under
@@ -192,7 +190,17 @@ owns one camera and one microphone.
 - Give each process a distinct `name`, such as `bench-camera` and
   `scope-camera`, and a distinct `AMBION_SENSOR_DATA_DIR`.
 - Give each process the `--usb-id` of its camera. Two cameras of one
-  model share an ID. For them, give each process its `--device`.
+  model share an ID. For them, give each process its `--device`, with
+  the index from the `ffmpeg` list.
 - A UVC camera reserves isochronous USB bandwidth while it streams. Two
   cameras on one USB 2 bus can fail when both capture at once. Plug them
   into separate USB controllers.
+
+## macOS permission
+
+**macOS asks before a program uses a camera or a microphone.** The
+permission belongs to the app that starts the program. A seat runs `ffmpeg`
+under `sshd` as a hidden account, so no window can show the question. The
+capture can fail, or it can stop until the time limit. Nobody has tested
+this on the workstation of the Mac. When a capture fails with status 503, run
+`ffmpeg` by hand in a session of the same account, and read its error.

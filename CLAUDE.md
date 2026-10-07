@@ -25,7 +25,7 @@ floor).
 | `skills/`      | One folder of skills for each specialist, and `shared/` for all. `docs/skills.md` holds the pattern            |
 | `seed/`        | The files of a new workspace, by workspace path: `seed/shared/kit.md` is `/shared/kit.md`                      |
 | `notes/`       | The first files of the team notes, the shared git repository `shared/notes`. `docs/notes.md` holds the pattern |
-| `workstation/` | A workstation in a container: the bash and git backends over SSH (`macos/`: the same on a Mac)                 |
+| `workstation/` | The workstation: `macos/` runs the bash and git backends on the Mac. The container is the old path             |
 | `docs/`        | Design pages, such as `templates.md`, the git templates                                                        |
 | `planning/`    | `next.md` (the milestone and its activities) and `fm-radio.md` — read before a change                          |
 
@@ -40,8 +40,10 @@ unused import or variable.
 ## Commands
 
 - `pnpm start` — run the terminal.
-- `make` — bring up the local workstation in `workstation/`, and run the
-  terminal on it. The `Makefile` lists the other targets.
+- `make` — run the terminal on the workstation of this Mac. The Mac is the
+  workstation. `make mac-workstation` sets it up once, with sudo, and `make`
+  stops with a message until then. `make workbench` runs the old container
+  workstation in `workstation/`. The `Makefile` lists the other targets.
 - `pnpm check` — format, types, lint, knip, the scripted test tier, and the
   `python` stage. The stage runs `ruff check` on the Python and the Python
   suites. It needs `ruff` and Python 3.11 or newer on PATH. The floor is the

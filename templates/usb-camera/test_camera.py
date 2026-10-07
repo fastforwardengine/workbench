@@ -1,4 +1,4 @@
-"""Offline checks. No device is opened; synthetic evidence only."""
+"""Offline checks. No device is opened and no tool runs; synthetic evidence and fixtures only."""
 from array import array
 import copy
 import hashlib
@@ -117,7 +117,7 @@ class CameraTests(unittest.TestCase):
             self.assertEqual(self.request("/camera/observe")[0], 200)
 
     def check_capture_failure(self, run):
-        live = camera.Camera(self.source, self.folder.name, "/dev/video4")
+        live = camera.Camera(self.source, self.folder.name, "4")
         self.stop_server()
         self.start_server(live)
         log = Path(self.folder.name) / "observations.jsonl"
@@ -131,10 +131,10 @@ class CameraTests(unittest.TestCase):
         self.assertEqual([path.name for path in Path(self.folder.name).iterdir() if path.is_dir()], ["blobs"])
 
     def test_capture_timeout_gives_503(self):
-        self.check_capture_failure(subprocess.TimeoutExpired("fswebcam", 30))
+        self.check_capture_failure(subprocess.TimeoutExpired("ffmpeg", 30))
 
     def test_capture_error_gives_503(self):
-        self.check_capture_failure(subprocess.CalledProcessError(1, "fswebcam"))
+        self.check_capture_failure(subprocess.CalledProcessError(1, "ffmpeg"))
 
     def test_capture_without_file_gives_503(self):
         self.check_capture_failure(lambda *_args, **_kwargs: None)
@@ -144,17 +144,24 @@ class CameraTests(unittest.TestCase):
             Path(command[-1]).write_bytes(b"not a png")
         self.check_capture_failure(capture)
 
-    def test_v4l2_capture_arguments_and_receipt_timestamp(self):
-        live = camera.Camera(self.source, self.folder.name, "/dev/video4", "640x480")
+    def test_ffmpeg_capture_arguments_and_receipt_timestamp(self):
+        live = camera.Camera(self.source, self.folder.name, "4", "640x480", framerate="15")
         def capture(command, **kwargs):
-            self.assertEqual(command[:5], ["fswebcam", "-d", "/dev/video4", "-r", "640x480"])
+            self.assertEqual(command[:-1], [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "avfoundation", "-framerate", "15",
+                "-video_size", "640x480", "-i", "4", "-vf", "trim=start_frame=10,setpts=PTS-STARTPTS",
+                "-frames:v", "1", "-update", "1"])
+            self.assertEqual(Path(command[-1]).name, "frame.png")
             self.assertEqual(kwargs["timeout"], 30)
             self.assertTrue(kwargs["check"])
             Path(command[-1]).write_bytes(camera.demo_png())
-        with patch("camera.subprocess.run", side_effect=capture), patch("camera.utc", return_value="2026-01-01T00:00:00.123Z"):
+        with patch("camera.subprocess.run", side_effect=capture) as run, \
+                patch("camera.utc", return_value="2026-01-01T00:00:00.123Z"):
             observation = live.acquire()
+        run.assert_called_once()  # An index needs no list of devices.
         self.assertEqual(observation["at"], "2026-01-01T00:00:00.123Z")
-        self.assertNotIn("SYNTHETIC", observation["parts"][0]["text"])
+        self.assertEqual(observation["parts"][0]["text"],
+                         "USB camera AVFoundation video 4; timestamp is capture receipt time.")
 
     def test_launch_source_stays_fixed_when_branch_advances(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -389,8 +396,8 @@ class MicrophoneTests(unittest.TestCase):
         with response:
             return response.status, json.loads(response.read())
 
-    def live(self, **options):
-        return camera.Camera(self.source, self.folder.name, None, audio_device="plughw:CARD=BRIO,DEV=0", **options)
+    def live(self, audio_device="1", **options):
+        return camera.Camera(self.source, self.folder.name, None, audio_device=audio_device, **options)
 
     def test_demo_observation_has_text_file_and_series(self):
         self.start_server(camera.Camera(self.source, self.folder.name, None, demo=True))
@@ -408,12 +415,12 @@ class MicrophoneTests(unittest.TestCase):
         log = (Path(self.folder.name) / "observations.jsonl").read_text().splitlines()
         self.assertEqual(json.loads(log[0])["sensor"], "microphone")
 
-    def test_arecord_arguments_and_timestamps(self):
+    def test_ffmpeg_arguments_and_timestamps(self):
         clip = wav_bytes([1000, -1000] * 24000)
         def fake(command, **kwargs):
-            self.assertEqual(command[:12], ["arecord", "-q", "-D", "plughw:CARD=BRIO,DEV=0", "-f", "S16_LE",
-                                            "-r", "48000", "-c", "1", "-d", "3"])
-            self.assertEqual(command[12:14], ["-t", "wav"])
+            self.assertEqual(command[:-1], [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "avfoundation", "-i", ":1", "-t", "3",
+                "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", "-f", "wav"])
             self.assertEqual((kwargs["timeout"], kwargs["check"]), (18, True))
             Path(command[-1]).write_bytes(clip)
         times = iter(["2026-01-01T00:00:00.000Z", "2026-01-01T00:00:03.050Z"])
@@ -421,21 +428,39 @@ class MicrophoneTests(unittest.TestCase):
             observation = self.live(seconds=3).acquire("microphone")
         self.assertEqual(observation["at"], "2026-01-01T00:00:03.050Z")
         text, file, series = observation["parts"]
-        self.assertIn("USB microphone plughw:CARD=BRIO,DEV=0; 3 s clip", text["text"])
+        self.assertIn("USB microphone 1; 3 s clip", text["text"])
+        self.assertIn("The series starts when ffmpeg is launched", text["text"])
         self.assertNotIn("SYNTHETIC", text["text"])
         self.assertEqual(series["from"], "2026-01-01T00:00:00.000Z")
         self.assertEqual(file["file"], hashlib.sha256(clip).hexdigest())
         self.assertEqual(Path(self.folder.name, "blobs", file["file"]).read_bytes(), clip)
 
-    def test_fake_arecord_on_path(self):
+    def test_an_audio_name_goes_to_its_index_at_each_clip(self):
+        tools = FakeTools()
+        with patch("camera.subprocess.run", side_effect=tools):
+            self.live("BRIO").acquire("microphone")
+            tools.audio = [(0, "BRIO"), (1, "MacBook Pro Microphone")]
+            self.live("BRIO").acquire("microphone")
+        self.assertEqual([command[command.index("-i") + 1] for command in tools.captures], [":1", ":0"])
+
+    def test_an_unknown_audio_name_gives_503(self):
+        self.start_server(self.live("Studio Mic"))
+        with patch("camera.subprocess.run", side_effect=FakeTools()):
+            status, body = self.request("/microphone/observe")
+        self.assertEqual((status, body["code"]), (503, "unavailable"))
+
+    def test_fake_ffmpeg_on_path(self):
         with tempfile.TemporaryDirectory() as bin_dir:
-            script = Path(bin_dir) / "arecord"
+            script = Path(bin_dir) / "ffmpeg"
             clip = Path(bin_dir) / "source.wav"
+            listing = Path(bin_dir) / "list.txt"
             clip.write_bytes(wav_bytes([500] * 4800))
-            script.write_text(f'#!/bin/sh\nfor last; do :; done\ncp "{clip}" "$last"\n')
+            listing.write_text(FFMPEG_LIST)
+            script.write_text(f'#!/bin/sh\ncase "$*" in *list_devices*) cat "{listing}" >&2; exit 1;; esac\n'
+                              f'for last; do :; done\ncp "{clip}" "$last"\n')
             script.chmod(0o755)
             with patch.dict(os.environ, {"PATH": bin_dir + os.pathsep + os.environ["PATH"]}):
-                observation = self.live().acquire("microphone")
+                observation = self.live("BRIO").acquire("microphone")
         self.assertEqual(len(observation["parts"][2]["values"]), 10)
 
     def test_bad_capture_gives_503_and_keeps_nothing(self):
@@ -447,7 +472,7 @@ class MicrophoneTests(unittest.TestCase):
                 status, body = self.request("/microphone/observe")
             self.assertEqual((status, body["code"], body["api"]), (503, "unavailable", 2))
             self.assertIn("Microphone", body["message"])
-        with patch("camera.subprocess.run", side_effect=subprocess.TimeoutExpired("arecord", 20)):
+        with patch("camera.subprocess.run", side_effect=subprocess.TimeoutExpired("ffmpeg", 20)):
             self.assertEqual(self.request("/microphone/observe")[0], 503)
         self.assertFalse((Path(self.folder.name) / "observations.jsonl").exists())
         self.assertEqual([path.name for path in Path(self.folder.name).iterdir()], ["blobs"])
@@ -460,7 +485,7 @@ class MicrophoneTests(unittest.TestCase):
         self.assertEqual(names(), ["microphone"])
         self.assertEqual(self.request("/camera/observe")[0], 404)
         self.stop_server()
-        self.start_server(camera.Camera(self.source, self.folder.name, "/dev/video4"))
+        self.start_server(camera.Camera(self.source, self.folder.name, "4"))
         self.assertEqual(names(), ["camera"])
         self.assertEqual(self.request("/microphone/observe")[0], 404)
         self.assertEqual(self.request("/radio/observe")[0], 404)
@@ -474,41 +499,136 @@ class MicrophoneTests(unittest.TestCase):
         self.assertEqual(self.request("/microphone/observe?" + span)[0], 422)
 
 
-class FakeSysfs:
-    """A sysfs tree in a temporary folder: USB devices under `devices`, capture nodes under `video4linux`."""
+# What system_profiler prints for SPUSBDataType -json. The field names come from the output of macOS 14
+# and 15 (an inference: no Mac ran this suite). A hub holds its devices in `_items`. A vendor_id has a text suffix.
+SYSTEM_PROFILER = json.dumps({"SPUSBDataType": [{
+    "_name": "USB31Bus", "host_controller": "AppleT8112USBXHCI",
+    "_items": [
+        {"_name": "Logitech BRIO", "manufacturer": "Logitech", "location_id": "0x01100000 / 1",
+         "product_id": "0x085e", "vendor_id": "0x046d  (Logitech Inc.)", "serial_num": "A1B2"},
+        {"_name": "USB2.0 Hub", "location_id": "0x01200000 / 2", "product_id": "0x0610",
+         "vendor_id": "0x05e3  (Genesys Logic, Inc.)", "_items": [
+             {"_name": "TOMLOV TM4K-AF", "location_id": "0x01210000 / 4", "product_id": "0xabcd", "vendor_id": "0x1234"},
+             {"_name": "USB Serial", "location_id": "0x01220000 / 5", "product_id": "0x7523", "vendor_id": "0x1A86"}]},
+    ]}]})
 
-    def __init__(self, base):
-        self.base = Path(base)
-        self.root = self.base / "video4linux"
-        self.root.mkdir(parents=True)
+# The same devices, with the keys of a newer macOS, which lists them under SPUSBHostDataType.
+SYSTEM_PROFILER_HOST = json.dumps({"SPUSBHostDataType": [{
+    "_name": "USB31Bus", "_items": [
+        {"_name": "Logitech BRIO", "product_id": "0x085e", "vendor_id": "0x046d  (Logitech Inc.)"}]}]})
 
-    def usb(self, name, usb_id):
-        """One USB device with one interface. Returns the interface folder."""
-        vendor, product = usb_id.split(":")
-        device = self.base / "devices" / "usb1" / name
-        interface = device / f"{name}:1.0"
-        interface.mkdir(parents=True, exist_ok=True)
-        (device / "idVendor").write_text(vendor + "\n")
-        (device / "idProduct").write_text(product + "\n")
-        return interface
+# What `ffmpeg -f avfoundation -list_devices true -i ""` prints on stderr.
+FFMPEG_LIST = """[AVFoundation indev @ 0x6000012a8000] AVFoundation video devices:
+[AVFoundation indev @ 0x6000012a8000] [0] FaceTime HD Camera
+[AVFoundation indev @ 0x6000012a8000] [1] Logitech BRIO
+[AVFoundation indev @ 0x6000012a8000] [2] TOMLOV TM4K-AF
+[AVFoundation indev @ 0x6000012a8000] [3] Capture screen 0
+[AVFoundation indev @ 0x6000012a8000] AVFoundation audio devices:
+[AVFoundation indev @ 0x6000012a8000] [0] MacBook Pro Microphone
+[AVFoundation indev @ 0x6000012a8000] [1] BRIO
+[in#0 @ 0x6000012a8100] Error opening input: Input/output error
+Error opening input file .
+"""
 
-    def node(self, number, interface, index=0):
-        folder = self.root / f"video{number}"
-        folder.mkdir()
-        (folder / "index").write_text(f"{index}\n")
-        (folder / "device").symlink_to(os.path.relpath(interface, folder))
 
-    def camera(self, name, usb_id, first):
-        """A UVC camera: a capture node and a metadata node on one interface."""
-        interface = self.usb(name, usb_id)
-        self.node(first, interface, 0)
-        self.node(first + 1, interface, 1)
+class FakeTools:
+    """A stand-in for subprocess.run: system_profiler, the ffmpeg list, and the ffmpeg captures.
+    Set `video` or `audio` to renumber the devices, and `profiler` to change the USB tree."""
 
-    def clear(self):
-        for folder in self.root.iterdir():
-            for link in folder.iterdir():
-                link.unlink()
-            folder.rmdir()
+    def __init__(self):
+        self.profiler = {"SPUSBDataType": SYSTEM_PROFILER}
+        self.video = [(0, "FaceTime HD Camera"), (1, "Logitech BRIO"), (2, "TOMLOV TM4K-AF"), (3, "Capture screen 0")]
+        self.audio = [(0, "MacBook Pro Microphone"), (1, "BRIO")]
+        self.captures = []
+        self.listings = 0
+
+    def listing(self):
+        lines = ["[AVFoundation indev @ 0x1] AVFoundation video devices:"]
+        lines += [f"[AVFoundation indev @ 0x1] [{index}] {name}" for index, name in self.video]
+        lines += ["[AVFoundation indev @ 0x1] AVFoundation audio devices:"]
+        lines += [f"[AVFoundation indev @ 0x1] [{index}] {name}" for index, name in self.audio]
+        return "\n".join(lines + ["Error opening input file ."]) + "\n"
+
+    def __call__(self, command, **_kwargs):
+        if command[0] == "system_profiler":
+            return subprocess.CompletedProcess(command, 0, self.profiler.get(command[1], ""), "")
+        if "-list_devices" in command:
+            self.listings += 1
+            return subprocess.CompletedProcess(command, 1, "", self.listing())  # ffmpeg exits with 1 here.
+        self.captures.append(command)
+        Path(command[-1]).write_bytes(camera.demo_png() if command[-1].endswith(".png") else wav_bytes([700] * 4800))
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+
+class DeviceListTests(unittest.TestCase):
+    def test_the_ffmpeg_list_has_video_and_audio_devices(self):
+        done = subprocess.CompletedProcess([], 1, "", FFMPEG_LIST)
+        with patch("camera.subprocess.run", return_value=done) as run:
+            found = camera.avfoundation_devices()
+        self.assertEqual(run.call_args.args[0], ["ffmpeg", "-hide_banner", "-f", "avfoundation",
+                                                 "-list_devices", "true", "-i", ""])
+        self.assertEqual(found["video"], [(0, "FaceTime HD Camera"), (1, "Logitech BRIO"), (2, "TOMLOV TM4K-AF"),
+                                          (3, "Capture screen 0")])
+        self.assertEqual(found["audio"], [(0, "MacBook Pro Microphone"), (1, "BRIO")])
+
+    def test_an_index_needs_no_list(self):
+        with patch("camera.subprocess.run") as run:
+            self.assertEqual(camera.pick("video", "2"), (2, None))
+        run.assert_not_called()
+
+    def test_a_name_matches_exactly_in_any_case_or_by_a_part(self):
+        found = {"video": [(0, "USB Camera"), (1, "Logitech BRIO"), (2, "Logitech BRIO 4K")], "audio": [(0, "BRIO")]}
+        self.assertEqual(camera.pick("video", "usb camera", found), (0, "USB Camera"))
+        self.assertEqual(camera.pick("video", "Logitech BRIO", found), (1, "Logitech BRIO"))  # Exact beats a part.
+        self.assertEqual(camera.pick("video", "4K", found), (2, "Logitech BRIO 4K"))
+        self.assertEqual(camera.pick("audio", "Logitech BRIO", found), (0, "BRIO"))
+
+    def test_no_match_and_two_matches_raise_value_error(self):
+        found = {"video": [(0, "Logitech BRIO"), (1, "Logitech C920")], "audio": []}
+        with self.assertRaisesRegex(ValueError, r"No AVFoundation video device is named Cam\. .*0 Logitech BRIO"):
+            camera.pick("video", "Cam", found)
+        with self.assertRaisesRegex(ValueError, r"More than one AVFoundation video device matches Logitech.*Use the index"):
+            camera.pick("video", "Logitech", found)
+        with self.assertRaisesRegex(ValueError, "The audio devices are: none"):
+            camera.pick("audio", "BRIO", found)
+
+
+class UsbNameTests(unittest.TestCase):
+    def test_the_name_of_a_usb_id_comes_from_the_profile_at_any_depth(self):
+        with patch("camera.subprocess.run", side_effect=FakeTools()) as run:
+            self.assertEqual(camera.usb_name("046d:085e"), "Logitech BRIO")
+            self.assertEqual(camera.usb_name("1234:abcd"), "TOMLOV TM4K-AF")
+        self.assertEqual(run.call_args.args[0], ["system_profiler", "SPUSBDataType", "-json"])
+
+    def test_the_usb_id_ignores_case_and_the_text_after_the_number(self):
+        self.assertEqual(camera.hex_id({"vendor_id": "0x046D  (Logitech Inc.)"}, camera.VENDOR_KEYS), "046d")
+        self.assertEqual(camera.hex_id({"product_id": "0x85e"}, camera.PRODUCT_KEYS), "085e")
+        self.assertEqual(camera.hex_id({"apple_vendor_id": "0x05ac"}, camera.VENDOR_KEYS), "05ac")
+        self.assertIsNone(camera.hex_id({"vendor_id": "none"}, camera.VENDOR_KEYS))
+        with patch("camera.subprocess.run", side_effect=FakeTools()):
+            self.assertEqual(camera.usb_name("1a86:7523"), "USB Serial")
+
+    def test_no_match_raises_value_error(self):
+        with patch("camera.subprocess.run", side_effect=FakeTools()), \
+                self.assertRaisesRegex(ValueError, "No USB device has ID 0bda:5801"):
+            camera.usb_name("0bda:5801")
+
+    def test_a_newer_macos_lists_the_devices_under_the_host_type(self):
+        tools = FakeTools()
+        tools.profiler = {"SPUSBHostDataType": SYSTEM_PROFILER_HOST}  # SPUSBDataType prints nothing.
+        with patch("camera.subprocess.run", side_effect=tools) as run:
+            self.assertEqual(camera.usb_name("046d:085e"), "Logitech BRIO")
+        self.assertEqual([call.args[0][1] for call in run.call_args_list], ["SPUSBDataType", "SPUSBHostDataType"])
+
+    def test_two_names_with_one_usb_id_raise_value_error(self):
+        tools = FakeTools()
+        tree = json.loads(SYSTEM_PROFILER)
+        tree["SPUSBDataType"][0]["_items"].append(
+            {"_name": "Other BRIO", "product_id": "0x085e", "vendor_id": "0x046d"})
+        tools.profiler = {"SPUSBDataType": json.dumps(tree)}
+        with patch("camera.subprocess.run", side_effect=tools), \
+                self.assertRaisesRegex(ValueError, r"More than one USB device has ID 046d:085e.*--device"):
+            camera.usb_name("046d:085e")
 
 
 class UsbIdTests(unittest.TestCase):
@@ -516,71 +636,46 @@ class UsbIdTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.folder = Path(folder.name)
-        self.sysfs = FakeSysfs(self.folder / "sys")
-        self.sysfs.camera("1-1", "046d:085e", 0)
-        self.sysfs.camera("1-2", "1234:abcd", 2)
         self.source = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
         self.data = self.folder / "data"
+        self.tools = FakeTools()
+        patcher = patch("camera.subprocess.run", side_effect=self.tools)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def live(self, usb_id="046d:085e"):
         return camera.Camera(self.source, self.data, None, usb_id=usb_id)
 
-    def capture(self, live):
-        """Capture one frame with fswebcam patched. Returns the fswebcam command and the observation."""
-        commands = []
-        def run(command, **_kwargs):
-            commands.append(command)
-            Path(command[-1]).write_bytes(camera.demo_png())
-        with patch("camera.subprocess.run", side_effect=run), patch("camera.VIDEO4LINUX", self.sysfs.root):
-            observation = live.acquire()
-        return commands[0], observation
+    def index_of(self, command):
+        return command[command.index("-i") + 1]
 
-    def test_the_capture_node_is_the_one_with_index_0(self):
-        self.assertEqual(camera.capture_node("046d:085e", self.sysfs.root), "/dev/video0")
-        self.assertEqual(camera.capture_node("1234:abcd", self.sysfs.root), "/dev/video2")
-
-    def test_the_usb_id_ignores_case(self):
-        (self.sysfs.base / "devices" / "usb1" / "1-2" / "idVendor").write_text("ABCD\n")
-        self.assertEqual(camera.capture_node("abcd:abcd", self.sysfs.root), "/dev/video2")
-
-    def test_no_match_raises_value_error(self):
-        with self.assertRaisesRegex(ValueError, "No capture node has USB ID 0bda:5801"):
-            camera.capture_node("0bda:5801", self.sysfs.root)
-
-    def test_a_missing_root_or_an_unreadable_entry_is_no_match(self):
-        with self.assertRaises(ValueError):
-            camera.capture_node("046d:085e", self.folder / "absent")
-        (self.sysfs.root / "video0" / "index").unlink()
-        with self.assertRaises(ValueError):
-            camera.capture_node("046d:085e", self.sysfs.root)
-        self.assertEqual(camera.capture_node("1234:abcd", self.sysfs.root), "/dev/video2")
-
-    def test_two_cameras_with_one_usb_id_raise_value_error(self):
-        self.sysfs.camera("1-3", "046d:085e", 4)
-        with self.assertRaisesRegex(ValueError, r"More than one camera has USB ID 046d:085e.*--device"):
-            camera.capture_node("046d:085e", self.sysfs.root)
-
-    def test_a_metadata_node_alone_is_no_match(self):
-        self.sysfs.node(6, self.sysfs.usb("1-4", "0bda:5801"), index=1)
-        with self.assertRaises(ValueError):
-            camera.capture_node("0bda:5801", self.sysfs.root)
-
-    def test_each_capture_looks_up_the_node_after_a_reconnect(self):
+    def test_each_capture_looks_up_the_index_after_a_reconnect(self):
         live = self.live()
-        command, observation = self.capture(live)
-        self.assertEqual(command[:3], ["fswebcam", "-d", "/dev/video0"])
+        observation = live.acquire()
+        self.assertEqual(self.index_of(self.tools.captures[0]), "1")
         self.assertEqual(observation["parts"][0]["text"],
-                         "USB camera 046d:085e at /dev/video0; timestamp is capture receipt time.")
-        self.sysfs.clear()
-        self.sysfs.camera("1-2", "1234:abcd", 0)
-        self.sysfs.camera("1-1", "046d:085e", 2)
-        command, observation = self.capture(live)
-        self.assertEqual(command[:3], ["fswebcam", "-d", "/dev/video2"])
+                         'USB camera 046d:085e, AVFoundation video 1 "Logitech BRIO"; timestamp is capture receipt time.')
+        self.tools.video = [(0, "TOMLOV TM4K-AF"), (1, "FaceTime HD Camera"), (2, "Logitech BRIO")]
+        observation = live.acquire()
+        self.assertEqual(self.index_of(self.tools.captures[1]), "2")
         self.assertEqual(observation["parts"][0]["text"],
-                         "USB camera 046d:085e at /dev/video2; timestamp is capture receipt time.")
+                         'USB camera 046d:085e, AVFoundation video 2 "Logitech BRIO"; timestamp is capture receipt time.')
+
+    def test_two_cameras_run_together_each_by_its_usb_id(self):
+        bench, scope = self.live("046d:085e"), self.live("1234:abcd")
+        bench.acquire()
+        scope.acquire()
+        self.assertEqual([self.index_of(command) for command in self.tools.captures], ["1", "2"])
+
+    def test_a_device_name_goes_to_its_index_with_no_usb_lookup(self):
+        live = camera.Camera(self.source, self.data, "tomlov", usb_id=None)
+        observation = live.acquire()
+        self.assertEqual(self.index_of(self.tools.captures[0]), "2")
+        self.assertIn('USB camera AVFoundation video 2 "TOMLOV TM4K-AF";', observation["parts"][0]["text"])
+        self.assertNotIn("system_profiler", [call.args[0][0] for call in camera.subprocess.run.call_args_list])
 
     def test_a_missing_camera_gives_503(self):
-        self.sysfs.clear()
+        self.tools.profiler = {"SPUSBDataType": json.dumps({"SPUSBDataType": []})}
         server = camera.open_server(self.live())
         thread = threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True)
         thread.start()
@@ -588,12 +683,17 @@ class UsbIdTests(unittest.TestCase):
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         url = f"http://127.0.0.1:{server.server_port}/camera/observe"
-        with patch("camera.VIDEO4LINUX", self.sysfs.root), patch("camera.subprocess.run") as run, \
-                self.assertRaises(urllib.error.HTTPError) as caught:
+        with self.assertRaises(urllib.error.HTTPError) as caught:
             urllib.request.urlopen(url, timeout=5)
         self.assertEqual(caught.exception.code, 503)
         caught.exception.close()
-        run.assert_not_called()
+        self.assertEqual(self.tools.captures, [])
+
+    def test_a_camera_that_ffmpeg_does_not_list_gives_503_and_no_capture(self):
+        self.tools.video = [(0, "FaceTime HD Camera")]
+        with self.assertRaisesRegex(ValueError, "No AVFoundation video device is named Logitech BRIO"):
+            self.live().acquire()
+        self.assertEqual(self.tools.captures, [])
 
     def test_the_usb_id_alone_serves_the_camera_sensor(self):
         self.assertEqual(list(self.live().sensors()), ["camera"])
@@ -731,8 +831,8 @@ class MainTests(unittest.TestCase):
             self.assertEqual(out, "")
 
     def test_usb_id_options_exit_with_2(self):
-        self.check_exit("--device", "/dev/video0", "--usb-id", "046d:085e")
-        self.check_exit("--demo", "--device", "/dev/video0", "--usb-id", "046d:085e")
+        self.check_exit("--device", "0", "--usb-id", "046d:085e")
+        self.check_exit("--demo", "--device", "0", "--usb-id", "046d:085e")
         for value in ("046d085e", "046d:085", "046d:085e0", "046g:085e", "0x46d:085e", "046d:085e ", ""):
             self.check_exit("--usb-id", value)
             self.check_exit("--demo", "--usb-id", value)
@@ -745,6 +845,8 @@ class MainTests(unittest.TestCase):
 
     def test_invalid_audio_options_exit_with_2(self):
         self.check_exit("--audio-device", "x;rm")
+        self.check_exit("--device", "x;rm")
+        self.check_exit("--demo", "--framerate", "fast")
         self.check_exit("--demo", "--seconds", "0")
         self.check_exit("--demo", "--seconds", "31")
 
