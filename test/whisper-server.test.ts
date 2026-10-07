@@ -323,9 +323,11 @@ describe('the end', () => {
 	it('fails a take that waits for the model when the server stops', async () => {
 		const { server, wav } = setup({ loadMs: 2_000 });
 		const running = server.transcribe(wav, signal());
+		// Attach the expectation before the stop, so the rejection always has a handler.
+		const failed = expect(running).rejects.toThrow(/^whisper-server stopped$/);
 		await new Promise((resolve) => setTimeout(resolve, 100));
 		await server.stop();
-		await expect(running).rejects.toThrow(/^whisper-server stopped$/);
+		await failed;
 	});
 
 	it('starts a new process after a stop, with none left from before', async () => {
