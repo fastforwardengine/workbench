@@ -130,6 +130,10 @@ export const KEYMAP = {
 		bindings: {
 			leave: { keys: [{ name: 'o', ctrl: true }], does: 'Give the keys back to the composer' },
 			cycle: { keys: [{ name: 'tab' }], does: 'Show the next layer' },
+			actions: {
+				keys: [{ name: 'l', ctrl: true }],
+				does: 'Choose a camera action, while the camera layer is on top',
+			},
 		},
 	},
 	files: {

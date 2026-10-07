@@ -108,7 +108,6 @@ class EngineTui {
 		const dock = new Dock({
 			surfaces,
 			panel,
-			transcript,
 			width: () => renderer.width,
 		});
 		const body = new BoxRenderable(renderer, {

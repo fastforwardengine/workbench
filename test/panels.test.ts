@@ -40,7 +40,7 @@ async function mount(width = 100, height = 30) {
 		const dock = new DockPanel(setup.renderer);
 		dock.add(layer.root);
 		layer.root.visible = true;
-		dock.layout({ visible: true, whole: false, keyed: true });
+		dock.layout({ visible: true, overlay: undefined, keyed: true });
 		dock.draw([id], id);
 		body.add(dock.root);
 		return dock;
@@ -146,14 +146,18 @@ describe('the files panel', () => {
 		expect(text).toContain('Copied to the clipboard.');
 	});
 
-	it('takes the whole width when the dock replaces the conversation', async () => {
+	it('sits at the right edge with the width of an overlay', async () => {
 		const { dock, frame } = await opened();
 		await frame();
 		const share = dock.root.width;
 		expect(share).toBe(50);
-		dock.layout({ visible: true, whole: true, keyed: true });
+		dock.layout({ visible: true, overlay: 80, keyed: true });
 		await frame();
-		expect(dock.root.width).toBe(100);
+		expect(dock.root.width).toBe(80);
+		expect(dock.root.x).toBe(20);
+		dock.layout({ visible: true, overlay: undefined, keyed: true });
+		await frame();
+		expect(dock.root.width).toBe(share);
 	});
 });
 
@@ -259,9 +263,9 @@ describe('the frames of the panels', () => {
 		expect(trimmed(await frame())).toMatchSnapshot();
 	});
 
-	it('draws the files panel over the whole width', async () => {
+	it('draws the files panel as an overlay', async () => {
 		const { browser, panel, dock, frame } = await files(100, 30);
-		dock.layout({ visible: true, whole: true, keyed: true });
+		dock.layout({ visible: true, overlay: 80, keyed: true });
 		panel.draw(browser);
 		expect(trimmed(await frame())).toMatchSnapshot();
 	});

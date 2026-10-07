@@ -1,5 +1,39 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`the frames of the panels > draws the files panel as an overlay 1`] = `
+"                    │ files
+                    │
+                    │ Files › ▌   3 of 3
+                    │   /library/cell-18650.md  797 B
+                    │   /shared/notes.md        40 B
+                    │ ▸ /shared/plan.txt        400 B
+                    │
+                    │
+                    │
+                    │
+                    │
+                    │ /shared/plan.txt   1.8 KB, 61 lines
+                    │ line of /shared/plan.txt 1                                                  ▀
+                    │ line of /shared/plan.txt 2
+                    │ line of /shared/plan.txt 3
+                    │ line of /shared/plan.txt 4
+                    │ line of /shared/plan.txt 5
+                    │ line of /shared/plan.txt 6
+                    │ line of /shared/plan.txt 7
+                    │ line of /shared/plan.txt 8
+                    │ line of /shared/plan.txt 9
+                    │ line of /shared/plan.txt 10
+                    │ line of /shared/plan.txt 11
+                    │ line of /shared/plan.txt 12
+                    │ line of /shared/plan.txt 13
+                    │ line of /shared/plan.txt 14
+                    │ line of /shared/plan.txt 15
+                    │ line of /shared/plan.txt 16
+                    │ line of /shared/plan.txt 17
+                    │ line of /shared/plan.txt 18
+"
+`;
+
 exports[`the frames of the panels > draws the files panel in a short terminal 1`] = `
 "│ files
 │
@@ -15,40 +49,6 @@ exports[`the frames of the panels > draws the files panel in a short terminal 1`
 │ /shared/plan.txt   1.8 KB, 61 lines
 │ line of /shared/plan.txt 1          ▀
 │ line of /shared/plan.txt 2
-"
-`;
-
-exports[`the frames of the panels > draws the files panel over the whole width 1`] = `
-"│ files
-│
-│ Files › ▌   3 of 3
-│   /library/cell-18650.md  797 B
-│   /shared/notes.md        40 B
-│ ▸ /shared/plan.txt        400 B
-│
-│
-│
-│
-│
-│ /shared/plan.txt   1.8 KB, 61 lines
-│ line of /shared/plan.txt 1                                                                      ▀
-│ line of /shared/plan.txt 2
-│ line of /shared/plan.txt 3
-│ line of /shared/plan.txt 4
-│ line of /shared/plan.txt 5
-│ line of /shared/plan.txt 6
-│ line of /shared/plan.txt 7
-│ line of /shared/plan.txt 8
-│ line of /shared/plan.txt 9
-│ line of /shared/plan.txt 10
-│ line of /shared/plan.txt 11
-│ line of /shared/plan.txt 12
-│ line of /shared/plan.txt 13
-│ line of /shared/plan.txt 14
-│ line of /shared/plan.txt 15
-│ line of /shared/plan.txt 16
-│ line of /shared/plan.txt 17
-│ line of /shared/plan.txt 18
 "
 `;
 

@@ -150,8 +150,8 @@ A bench script comes from a template.
   left edge. A tabs line names the open layers, and the top one is bright.
   A new layer opens on top. A layer that is open comes to the top when you
   open it again, and the other layers keep their state below it. Only the
-  top layer draws and reads. A terminal under 100 columns shows the dock in
-  place of the conversation, only while the dock has the keys.
+  top layer draws and reads. A terminal under 100 columns draws the dock over
+  the right part of the conversation, only while the dock has the keys.
 - **Dock keys:** the composer keeps the keys. The files, the processes, and
   the keys sheet take them when they open, and the camera leaves them with
   the composer. Esc gives the keys back to the composer, and the layer stays

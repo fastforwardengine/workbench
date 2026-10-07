@@ -13,21 +13,31 @@ import { tui as palette } from './brand.ts';
 /** The share of the width that the dock takes beside the conversation. */
 const SHARE = '50%';
 
-/** The fewest columns of the dock beside the conversation. */
+/** The share of the terminal width that the dock takes over the conversation. */
+const OVERLAY_SHARE = 0.8;
+
+/** The fewest columns of the dock. */
 const MIN_WIDTH = 40;
+
+/** The zIndex of the dock. It draws above the conversation. */
+const ABOVE = 10;
+
+/** The width in columns of the dock over the conversation: 80% of the terminal, 40 columns at least, and no more than the terminal. */
+export const overlayWidth = (columns: number): number =>
+	Math.min(columns, Math.max(MIN_WIDTH, Math.floor(columns * OVERLAY_SHARE)));
 
 /** How the dock sits in the terminal. */
 export interface DockLayout {
 	/** True while the dock draws. */
 	visible: boolean;
-	/** True when the dock takes the whole width, because it replaces the conversation. */
-	whole: boolean;
+	/** The width in columns when the dock draws over the right part of the conversation. Undefined when it sits beside the conversation. */
+	overlay: number | undefined;
 	/** True while the dock has the keys. The line at its edge turns to the accent. */
 	keyed: boolean;
 }
 
 /**
- * The box at the right of the conversation. It has the `panel` background, one
+ * The box at the right of the conversation, beside it or over it. It has the `panel` background, one
  * line at its left edge, and a tabs line that names the open layers. The top
  * layer fills the rest. The box has no other border.
  */
@@ -42,6 +52,7 @@ export class DockPanel {
 			width: SHARE,
 			minWidth: MIN_WIDTH,
 			flexShrink: 0,
+			zIndex: ABOVE,
 			border: ['left'],
 			borderColor: palette.line,
 			backgroundColor: palette.panel,
@@ -65,9 +76,16 @@ export class DockPanel {
 		this.body.add(layer);
 	}
 
-	layout({ visible, whole, keyed }: DockLayout): void {
+	layout({ visible, overlay, keyed }: DockLayout): void {
 		this.root.visible = visible;
-		this.root.width = whole ? '100%' : SHARE;
+		// An overlay sits at the right edge of the body and takes its height. Its box leaves the row of the conversation.
+		const edge = overlay === undefined ? undefined : 0;
+		this.root.position = overlay === undefined ? 'relative' : 'absolute';
+		this.root.width = overlay ?? SHARE;
+		this.root.minWidth = overlay === undefined ? MIN_WIDTH : 0;
+		this.root.right = edge;
+		this.root.top = edge;
+		this.root.bottom = edge;
 		this.root.borderColor = keyed ? palette.accent : palette.line;
 	}
 

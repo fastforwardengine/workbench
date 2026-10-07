@@ -103,7 +103,7 @@ describe('the thumbnails under a message', () => {
 describe('the painter and the thumbnails', () => {
 	const PHOTO = snapshotUri('workbench', 'ab'.repeat(32), '/attachments/bench.png');
 
-	async function paint(graphics: boolean) {
+	async function paint(graphics: boolean, covers = false) {
 		const view2 = await mount();
 		const { host, session } = await started();
 		host.table.set(
@@ -131,7 +131,7 @@ describe('the painter and the thumbnails', () => {
 			session,
 			transcript: view2.transcript,
 			composer,
-			dock: { draw: () => {} } as never,
+			dock: { draw: () => {}, covers } as never,
 			header: new Header(renderer),
 			voice: quietVoice(),
 			pictures: new PictureCache((ref) => host.snapshot(ref), redraw),
@@ -147,6 +147,12 @@ describe('the painter and the thumbnails', () => {
 
 	it('loads nothing and draws nothing without Kitty graphics', async () => {
 		const { host, view: shown } = await paint(false);
+		expect(host.reads).toEqual([]);
+		expect(images(shown.transcript.root)).toHaveLength(0);
+	});
+
+	it('loads nothing and draws nothing while the dock covers the conversation', async () => {
+		const { host, view: shown } = await paint(true, true);
 		expect(host.reads).toEqual([]);
 		expect(images(shown.transcript.root)).toHaveLength(0);
 	});

@@ -1,11 +1,13 @@
 import type { KeyEvent } from '@opentui/core';
 import { LAYERS, type LayerId, LayerStack } from '../state/layers.ts';
-import type { DockPanel } from '../widgets/dock.ts';
-import type { Transcript } from '../widgets/transcript.ts';
+import { type DockPanel, overlayWidth } from '../widgets/dock.ts';
 import type { Exits, Surface } from './surface.ts';
 
-/** Below this width, the dock replaces the conversation, and the camera does not show. */
+/** Below this width, the dock draws over the conversation, and the camera does not show. */
 export const NARROW = 100;
+
+/** Where the dock draws: not at all, beside the conversation, or over it. */
+type Placement = 'off' | 'beside' | 'over';
 
 /** What the dock reaches into. */
 export interface DockParts {
@@ -13,8 +15,6 @@ export interface DockParts {
 	surfaces: Readonly<Record<LayerId, Surface>>;
 	/** The box at the right of the conversation. */
 	panel: DockPanel;
-	/** The conversation. The dock hides it while the dock replaces it. */
-	transcript: Transcript;
 	/** The width of the terminal. */
 	width: () => number;
 }
@@ -23,23 +23,22 @@ export interface DockParts {
  * The dock: one box at the right of the conversation, with the open layers in
  * a stack. Only the top layer draws and runs its work. The layers below keep
  * their state. A narrow terminal shows the dock only while it has the keys, and
- * then it replaces the conversation.
+ * then the dock draws over the right part of the conversation. The conversation
+ * keeps its width.
  */
 export class Dock {
 	private readonly stack = new LayerStack();
 	private readonly surfaces: Readonly<Record<LayerId, Surface>>;
 	private readonly panel: DockPanel;
-	private readonly transcript: Transcript;
 	private readonly width: () => number;
 	/** The layer that runs its work now. */
 	private live: LayerId | undefined;
-	/** True while the dock draws beside the conversation, or over it. */
-	private visible = false;
+	/** Where the dock draws now. */
+	private placement: Placement = 'off';
 
 	constructor(parts: DockParts) {
 		this.surfaces = parts.surfaces;
 		this.panel = parts.panel;
-		this.transcript = parts.transcript;
 		this.width = parts.width;
 	}
 
@@ -48,7 +47,12 @@ export class Dock {
 
 	/** True while the dock shows on the screen. */
 	get onScreen(): boolean {
-		return this.visible;
+		return this.placement !== 'off';
+	}
+
+	/** True while the dock draws over the conversation. */
+	get covers(): boolean {
+		return this.placement === 'over';
 	}
 
 	/** The layer on top that fits the terminal, or undefined when the dock has none to show. */
@@ -106,17 +110,22 @@ export class Dock {
 	/**
 	 * Place the dock for the terminal and the keys, and start the work of the top
 	 * layer. Every other layer stops its work. A call that changes nothing has no
-	 * effect, so a draw may call it. It returns true when the dock appeared or
-	 * went away, so the conversation redraws at its new width.
+	 * effect, so a draw may call it. It returns true when the dock appeared, went
+	 * away, or moved between beside and over the conversation, so the conversation
+	 * redraws.
 	 */
 	layout(keyed: boolean): boolean {
 		const wide = this.width() >= NARROW;
 		const shown = this.shown;
 		const visible = shown !== undefined && (wide || keyed);
-		const changed = visible !== this.visible;
-		this.visible = visible;
-		this.transcript.root.visible = wide || !visible;
-		this.panel.layout({ visible, whole: !wide, keyed });
+		const placement = !visible ? 'off' : wide ? 'beside' : 'over';
+		const changed = placement !== this.placement;
+		this.placement = placement;
+		this.panel.layout({
+			visible,
+			overlay: placement === 'over' ? overlayWidth(this.width()) : undefined,
+			keyed,
+		});
 		this.run(visible ? shown : undefined);
 		return changed;
 	}

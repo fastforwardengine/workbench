@@ -173,7 +173,7 @@ export class Keys {
 
 	// The dock
 
-	/** Open the files layer, and give it the keys. A narrow terminal gives it the whole width. */
+	/** Open the files layer, and give it the keys. A narrow terminal draws it over the conversation. */
 	openFiles(): void {
 		this.openLayer('files');
 	}
@@ -191,17 +191,20 @@ export class Keys {
 
 	/**
 	 * Open the camera layer when it is closed or below another layer, and close it
-	 * when it shows. The composer keeps the keys. A narrow terminal does not show it.
+	 * when it shows. The composer keeps the keys. A narrow terminal does not show
+	 * the camera: it says so, and it changes no layer.
 	 */
 	toggleCamera(): void {
-		const narrow = this.renderer.width < NARROW;
-		if (this.dock.shown === 'camera' || (narrow && this.dock.has('camera'))) {
+		if (this.renderer.width < NARROW) this.sayCameraWidth();
+		else if (this.dock.shown === 'camera') {
 			this.dock.close('camera');
 			this.render();
-		} else if (narrow) {
-			this.session.say(`The camera shows when the terminal is at least ${NARROW} columns wide.`);
-			this.render();
 		} else this.openLayer('camera');
+	}
+
+	private sayCameraWidth(): void {
+		this.session.say(`The camera shows when the terminal is at least ${NARROW} columns wide.`);
+		this.render();
 	}
 
 	/** End the layers without drawing, when the terminal ends. Their polls and timers stop. */
@@ -227,7 +230,8 @@ export class Keys {
 	/** Give the keys to the top layer. The composer keeps its draft. */
 	private enterDock(): void {
 		if (!this.dock.shown) {
-			this.session.say('No layer is open. Use /files, /ps, /camera, or ? to open one.');
+			if (this.renderer.width < NARROW && this.dock.has('camera')) this.sayCameraWidth();
+			else this.session.say('No layer is open. Use /files, /ps, /camera, or ? to open one.');
 			return;
 		}
 		if (this.mode === 'actions') this.leaveActions();
@@ -257,7 +261,7 @@ export class Keys {
 		this.render();
 	}
 
-	/** One key in the dock: the tab key and the leave key, else the top layer. */
+	/** One key in the dock: the tab key, the actions key, and the leave key, else the top layer. */
 	private dockKey(key: KeyEvent): void {
 		const act = actOf('dock', key);
 		if (!act) {
@@ -268,7 +272,8 @@ export class Keys {
 		if (act === 'cycle') {
 			this.dock.cycle();
 			this.render();
-		} else this.leaveDock();
+		} else if (act === 'actions') this.enterActions();
+		else this.leaveDock();
 	}
 
 	// The actions of the cameras
