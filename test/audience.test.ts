@@ -105,20 +105,20 @@ describe('the audience of a message', () => {
 		expect(audienceOf('/nonsense', team, seated)).toEqual({ mode: 'command', names: [] });
 	});
 
-	it('names the twins in a breakout room, and no root seat', () => {
+	it('names the seats of a breakout room, and no root seat', () => {
 		const breakout = view('build-scan', {
 			unavailable: [],
 			breakout: { parent: 'build', opener: 'engineer', state: 'running' },
-			participants: [agent('engineer-bg', 'broadcast'), agent('researcher-bg', 'named')],
+			participants: [agent('engineer', 'broadcast')],
 		});
 		expect(audienceOf('hello', team, breakout)).toEqual({
 			mode: 'plain',
-			names: ['engineer-bg'],
+			names: ['engineer'],
 		});
-		expect(audienceOf('@researcher-bg look', team, breakout)).toEqual({
+		expect(audienceOf('@engineer look', team, breakout)).toEqual({
 			mode: 'mention',
-			names: ['researcher-bg'],
+			names: ['engineer'],
 		});
-		expect(audienceOf('@engineer look', team, breakout)).toEqual({ mode: 'plain', names: [] });
+		expect(audienceOf('@researcher look', team, breakout)).toEqual({ mode: 'plain', names: [] });
 	});
 });

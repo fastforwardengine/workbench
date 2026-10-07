@@ -127,7 +127,7 @@ describe('the Engineer', () => {
 	it('tells each specialist to say a result with no `to`, and the Engineer to hand a result to the Researcher with `to`', async () => {
 		for (const prompt of Object.values(await prompts())) {
 			const speaking = groupOf(prompt, 'Speaking').join('\n');
-			expect(speaking).toContain('Say a result with no `to`.');
+			expect(speaking).toContain('In a root room, say a result with no `to`.');
 			expect(speaking).toContain('Post one message for each result.');
 			for (const word of ['assignment', 'broadcast', 'acknowledgment'])
 				expect(prompt).not.toContain(word);
@@ -150,11 +150,11 @@ describe('the Engineer', () => {
 				'Follow the guide-a-build-step skill',
 				'the check-a-photo skill',
 				'Change no setting and no output of a device outside a script from a template.',
-				'You cannot hold a tool.',
+				'you cannot hold a tool.',
 			])
 				expect(rules).toContain(rule);
 			expect(rules).toContain(
-				'Ask the person before the first run that turns on an output of a device.',
+				'In a root room, ask the person before the first run that turns on an output of a device.',
 			);
 			expect(groupOf(rules, 'Speaking').join('\n')).toContain(
 				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
