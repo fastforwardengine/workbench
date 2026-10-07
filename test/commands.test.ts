@@ -156,6 +156,70 @@ describe('suggest', () => {
 		expect(rows[0]).toMatchObject({ insert: '/room characterization', run: true });
 	});
 
+	it('lists a breakout room after its parent, with its state and its goal', () => {
+		const breakout = (state: 'running' | 'stopped' | 'archived', extra = {}) => ({
+			parent: 'cycling',
+			state,
+			goal: 'Compare the datasheets of three tuners',
+			...extra,
+		});
+		const withChildren: Choices = {
+			...choices,
+			rooms: [
+				rooms[0] as RoomChoice,
+				rooms[1] as RoomChoice,
+				{ name: 'tuners', status: 'running', working: true, breakout: breakout('running') },
+				{ name: 'plan', status: 'running', working: false, breakout: breakout('running') },
+				{ name: 'idle', status: 'stopped', working: false, breakout: breakout('stopped') },
+				{
+					name: 'old',
+					status: 'stopped',
+					working: false,
+					breakout: breakout('archived', { result: 'done' }),
+				},
+				{
+					name: 'lost',
+					status: 'stopped',
+					working: false,
+					breakout: breakout('archived', { result: 'failed' }),
+				},
+				rooms[2] as RoomChoice,
+			],
+		};
+		const rows = suggest('/room ', withChildren);
+		const goal = 'Compare the datasheets of three tuners';
+		expect(rows.map((row) => [row.label, row.detail])).toEqual([
+			['characterization', 'running'],
+			['cycling', 'working'],
+			['tuners', `working · ${goal}`],
+			['plan', `running · ${goal}`],
+			['idle', `stopped · ${goal}`],
+			['old', `done · ${goal}`],
+			['lost', `failed · ${goal}`],
+			['budget', 'stopped'],
+		]);
+		expect(rows[2]).toMatchObject({ insert: '/room tuners', run: true });
+	});
+
+	it('cuts the goal of a breakout room to fit', () => {
+		const goal = 'Compare the datasheets of three tuners and rank them by sensitivity and cost';
+		const rows = suggest('/room ', {
+			...choices,
+			rooms: [
+				{
+					name: 'tuners',
+					status: 'running',
+					working: false,
+					breakout: { parent: 'cycling', state: 'running', goal },
+				},
+			],
+		});
+		const detail = rows[0]?.detail ?? '';
+		expect(detail.startsWith('running · Compare the datasheets')).toBe(true);
+		expect(detail.endsWith('…')).toBe(true);
+		expect(detail.length).toBeLessThan(`running · ${goal}`.length);
+	});
+
 	it('lists the people after /user, with their role', () => {
 		expect(suggest('/user ', choices).map((row) => [row.label, row.detail, row.insert])).toEqual([
 			['priya', 'Hardware lead', '/user priya'],

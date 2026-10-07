@@ -44,3 +44,15 @@ export function specialistSkills(
 		},
 	});
 }
+
+/** The specialist whose skills the worker of a breakout room receives, with the shared skills. */
+export const WORKER_SKILLS_FROM = 'researcher';
+
+/**
+ * The skills of the worker of a breakout room: the shared skills and the
+ * skills of the Researcher. The worker has no folder of its own. No skill of
+ * these two folders drives a device, and the worker has no access to the
+ * devices.
+ */
+export const workerSkills = (directory = skillsDirectory): Promise<SkillSet> =>
+	specialistSkills(WORKER_SKILLS_FROM, directory);

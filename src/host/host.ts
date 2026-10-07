@@ -58,6 +58,12 @@ export interface Lab {
 	 * that room current. The return value ends the watch.
 	 */
 	watch(room: string, changed: () => void): () => void;
+	/**
+	 * Call `changed` when a room opens, starts, stops, or is archived. A breakout
+	 * room is a room, so its opening and its end count. A widget and an answer
+	 * do not. The return value ends the watch.
+	 */
+	watchRooms(changed: () => void): () => void;
 	/** Enter a room as a person. Entering twice records one arrival. */
 	join(room: string, person: string): Promise<void>;
 	/** Leave a room. A person who is not present has nothing to leave. */
@@ -66,7 +72,9 @@ export interface Lab {
 	 * Send a message, with the refs it cites. The same key and text return the
 	 * first exchange and add no message. `to` names one seat that the message
 	 * wakes. The host seats it at `named` first when the room has not seated
-	 * it. A seat at `none` wakes for nothing, so the host refuses the message.
+	 * it. A breakout room is the exception: the host seats no seat there, and
+	 * refuses a `to` that the room does not seat. A seat at `none` wakes for
+	 * nothing, so the host refuses the message.
 	 */
 	send(
 		room: string,
@@ -214,15 +222,36 @@ interface Delivery {
 	text: string;
 	refs: string[];
 	to?: string;
+	/** Whether the room is a breakout room. Its seats are the workers that the opener chose. */
+	breakout?: boolean;
+}
+
+/**
+ * Check the seat that a message addresses, and seat it when the room has not. A breakout room
+ * seats no other seat: its task goes to its workers alone.
+ */
+async function addressSeat(
+	live: Room,
+	snapshot: Parameters<typeof attentionOf>[0],
+	to: string,
+	breakout: boolean,
+): Promise<void> {
+	const attention = attentionOf(snapshot, to);
+	if (attention === 'none') fail(`'${to}' listens at none, so no message wakes it.`);
+	if (attention !== undefined) return;
+	if (breakout) fail(`'${to}' is not a seat of this breakout room.`);
+	await live.seat(to, { attention: 'named' });
 }
 
 /** Send the message of a person who is in the room. Seat the addressed seat first when the room has not. */
-async function deliver(live: Room, who: Person, { key, text, refs, to }: Delivery): Promise<void> {
+async function deliver(
+	live: Room,
+	who: Person,
+	{ key, text, refs, to, breakout = false }: Delivery,
+): Promise<void> {
 	const snapshot = await live.read({ messages: false });
 	if (!present(snapshot, who.name)) fail('Enter this room before sending.');
-	const attention = to === undefined ? undefined : attentionOf(snapshot, to);
-	if (attention === 'none') fail(`'${to}' listens at none, so no message wakes it.`);
-	if (to !== undefined && attention === undefined) await live.seat(to, { attention: 'named' });
+	if (to !== undefined) await addressSeat(live, snapshot, to, breakout);
 	const visit = await live.visit(who);
 	await visit.send({
 		key,
@@ -241,6 +270,7 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		rooms: () => rooms.list(),
 		read: (room, since) => rooms.read(room, since),
 		watch: (room, changed) => rooms.watch(room, changed),
+		watchRooms: (changed) => rooms.watchRooms(changed),
 		async join(room, person) {
 			const who = personNamed(person);
 			await inRoom(room, async (live) => void (await live.visit(who)));
@@ -255,10 +285,12 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		async send(room, person, key, text, refs = [], to) {
 			const who = personNamed(person);
 			if (!key || !text.trim()) fail('Supply a nonempty key and message.');
-			if (to !== undefined && !rooms.team.some((seat) => seat.name === to))
+			// A breakout room names its own seats: `deliver` checks them.
+			const breakout = rooms.isBreakout(room);
+			if (to !== undefined && !breakout && !rooms.team.some((seat) => seat.name === to))
 				fail(`No seat or specialist named '${to}'.`);
 			await inRoom(room, async (live) => {
-				await deliver(live, who, { key, text, refs, to });
+				await deliver(live, who, { key, text, refs, to, breakout });
 			});
 		},
 		control: (room, action) => rooms.lifecycle(room, action),

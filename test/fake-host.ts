@@ -93,6 +93,18 @@ export class FakeHost implements Lab {
 	notify(room: string): void {
 		for (const listener of [...(this.watching.get(room) ?? [])]) listener();
 	}
+	/** The listeners of the room list, as `watchRooms` registered them. */
+	readonly roomWatchers = new Set<() => void>();
+	watchRooms(changed: () => void) {
+		this.roomWatchers.add(changed);
+		return () => {
+			this.roomWatchers.delete(changed);
+		};
+	}
+	/** Tell every listener of the room list that a room opened, started, stopped, or ended. */
+	notifyRooms(): void {
+		for (const listener of [...this.roomWatchers]) listener();
+	}
 	listeners(room: string): number {
 		return this.watching.get(room)?.size ?? 0;
 	}

@@ -22,7 +22,7 @@ import { createExecutionServices, fileCredentials, piExecution } from '@ambionfr
 import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
-import { people, team } from '../../src/domain/definitions.ts';
+import { people, team, WORKER_TEAM } from '../../src/domain/definitions.ts';
 import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/domain/model.ts';
 import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
@@ -80,19 +80,23 @@ export async function openRoom(
 	});
 	await seedWorkspace(workspace, ledFiles);
 	const runtime = createRuntime({ execution, storage: memoryJournals() });
-	// The canvas exists first, so the Engineer holds the widget bundle, as in the host.
+	// The canvas exists first, so the seats hold its bundles, as in the host.
 	const canvas = openCanvas({
 		name: 'workbench-eval',
 		runtime,
 		store: memoryCanvas(),
 		workspace,
-		breakout: { team: [] },
+		breakout: { team: WORKER_TEAM },
 		widgets: { kinds: [FRAME_KIND] },
 	});
-	const built = await team(workspace, ledProject, canvas.widgetTools());
-	await canvas.resume({ agents: built.specialists });
+	const built = await team(workspace, ledProject, {
+		widgets: canvas.widgetTools(),
+		opener: canvas.tools(),
+		worker: canvas.workerTools(),
+	});
+	await canvas.resume({ agents: [...built.specialists, built.worker] });
 	const room = await canvas.open({
-		name: `workbench-eval-${crypto.randomUUID()}`,
+		name: `eval-${crypto.randomUUID().slice(0, 8)}`,
 		goal: sweep.goal,
 		seats: sweep.seats,
 		seating: false,

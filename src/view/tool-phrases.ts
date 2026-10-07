@@ -194,6 +194,30 @@ const verb = (name: string, field: string): Phrase['words'] => {
 	};
 };
 
+/** The seq of the message that a post landed as, from the details of the result. */
+function postedResult({ details }: Output): string | undefined {
+	return typeof details.from === 'number' ? `#${details.from}` : undefined;
+}
+
+/** The full name of the breakout room that a result names. */
+const roomResult = ({ details }: Output): string | undefined => stringOf(details.room);
+
+/** `breakout <name>: <goal>`: the short name of the room, then its goal. */
+function breakoutWords(input: Fields): string | undefined {
+	const name = lineOf(input.name);
+	if (name === undefined) return undefined;
+	const goal = lineOf(input.goal);
+	return goal === undefined ? `breakout ${name}` : `breakout ${name}: ${goal}`;
+}
+
+/** `archive <room> done`: the room, then how it closed. */
+function archiveWords(input: Fields): string | undefined {
+	const room = lineOf(input.room);
+	if (room === undefined) return undefined;
+	const result = stringOf(input.result);
+	return result === undefined ? `archive ${room}` : `archive ${room} ${result}`;
+}
+
 /** The tools of the seats that have a phrase of their own, by name. */
 const TOOLS: ReadonlyMap<string, Phrase> = new Map<string, Phrase>([
 	[
@@ -242,6 +266,10 @@ const TOOLS: ReadonlyMap<string, Phrase> = new Map<string, Phrase>([
 			failure: processFailure,
 		},
 	],
+	['breakout', { icon: '⇉', words: breakoutWords, result: roomResult }],
+	['tell', { icon: '⇢', words: verb('tell', 'room'), result: postedResult }],
+	['archive', { icon: '⇥', words: archiveWords, result: () => '' }],
+	['report', { icon: '⇇', words: verb('report', 'text'), result: postedResult }],
 ]);
 
 /**

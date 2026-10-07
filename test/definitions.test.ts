@@ -50,7 +50,7 @@ async function prompts(project?: string): Promise<Record<string, string>> {
 }
 
 describe('the structure of a prompt', () => {
-	it('opens with the project, then four groups in order, each rule on its own line', async () => {
+	it('opens with the project, then five groups in order, each rule on its own line', async () => {
 		for (const prompt of Object.values(await prompts('A test project.'))) {
 			const parts = prompt.split('\n\n');
 			expect(parts[0]).toBe('A test project.');
@@ -58,6 +58,7 @@ describe('the structure of a prompt', () => {
 				'## Project',
 				'## Evidence',
 				'## Constraints',
+				'## Background',
 				'## Speaking',
 			]);
 			for (const part of parts.slice(1))

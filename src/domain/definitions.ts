@@ -1,9 +1,9 @@
 import { userInfo } from 'node:os';
 import { defineAgent, definePerson, type ToolBundle } from '@ambionframework/ambion';
 import { pi } from '@ambionframework/pi';
-import type { Workspace } from '@ambionframework/workspace';
+import type { SkillSet, Workspace } from '@ambionframework/workspace';
 import { piModel, THINKING } from './model.ts';
-import { specialistSkills } from './skills.ts';
+import { specialistSkills, workerSkills } from './skills.ts';
 
 /** The name of the account running this process. The one person of Workbench uses it. */
 const owner = userInfo().username;
@@ -30,8 +30,12 @@ export type Person = (typeof people)[number];
 /** The project that the seats work on, as the shared prompt states it. The room goal lists the phases. */
 export const radioProject = 'Workbench is a lab workspace for one bench project: an FM radio kit.';
 
+/** The skills of research. The Researcher and the worker of a breakout room follow them. */
+const RESEARCH_SKILLS =
+	'Follow the cite-a-limit skill for a limit and for a choice between parts, and the write-a-test-plan skill for a test plan.';
+
 /** The groups of rules in the prompt of a seat, in order. */
-const GROUPS = ['Project', 'Evidence', 'Constraints', 'Speaking'] as const;
+const GROUPS = ['Project', 'Evidence', 'Constraints', 'Background', 'Speaking'] as const;
 
 /** A group of rules. */
 type Group = (typeof GROUPS)[number];
@@ -39,7 +43,7 @@ type Group = (typeof GROUPS)[number];
 /** The rules of a seat for each group. Each rule is one line of the prompt. */
 type Rules = Partial<Record<Group, string[]>>;
 
-/** The rules every specialist follows. The kernel adds the collaboration rules. */
+/** The rules every seat follows, the worker included. The kernel adds the collaboration rules. */
 const SHARED_RULES: Rules = {
 	Project: [
 		'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act.',
@@ -57,10 +61,37 @@ const SHARED_RULES: Rules = {
 	Constraints: [
 		'Respect explicit human constraints. They override role defaults and survive every specialist handoff. When the person says not to edit files, do not call write or shell tools that change files, and give the answer in your reply. A clone or a pull of the notes is not an edit.',
 	],
+};
+
+/** The rules of the specialists only. The worker of a breakout room follows `WORKER_RULES`. */
+const SPECIALIST_RULES: Rules = {
+	Background: [
+		'A breakout room runs one task in the background while this room continues. A worker does the task, and it sees only your `goal` and `message`.',
+		'Open a breakout room for a self-contained task of many steps whose result this room does not need for its next step.',
+		'Open one breakout room for each independent task, so that the tasks run in parallel.',
+		'Keep in this room a task that drives a device of the bench, or that needs the person for an approval, hands-on work, or a photo. A worker has no access to the devices.',
+		'Keep in this room a task that you can finish in this activation.',
+		'In the `message`, give the task, its inputs, each constraint of the person, and the form of the result. The worker cannot read your home, so give a file of your home as a snapshot ref. In the `goal`, state the result in one sentence.',
+		'After you open a breakout room, say in one line what runs in the background, and continue the work of this room.',
+		'A report is the claim of a worker. Read its `refs` before you say its result.',
+	],
 	Speaking: [
 		'Say a result with no `to`.',
 		'Use `to` to ask a colleague for work.',
 		'Post one message for each result.',
+		PREFERENCE,
+	],
+};
+
+/** The rules of the worker of a breakout room. */
+const WORKER_RULES: Rules = {
+	Project: [RESEARCH_SKILLS],
+	Constraints: [
+		'Your breakout room has no access to the devices of the bench. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
+	],
+	Speaking: [
+		'Send your result with `report`, once, at the end of the task. Cite in `refs` what the result relies on.',
+		'When the brief lacks an input that the task needs, report what is missing as your result.',
 		PREFERENCE,
 	],
 };
@@ -74,14 +105,14 @@ function render(project: string, groups: Rules): string {
 	return [project.trim(), ...sections].join('\n\n');
 }
 
-/** Add the rules of a seat after the shared rules, group by group. */
-function merge(extra: Rules): Rules {
+/** Join layers of rules, group by group. A layer that comes later adds its rules after the earlier ones. */
+function merge(...layers: Rules[]): Rules {
 	return Object.fromEntries(
-		GROUPS.map((group) => [group, [...(SHARED_RULES[group] ?? []), ...(extra[group] ?? [])]]),
+		GROUPS.map((group) => [group, layers.flatMap((layer) => layer[group] ?? [])]),
 	);
 }
 
-/** The shared rules every specialist follows, for a project. The kernel adds the collaboration rules. */
+/** The shared rules every seat follows, for a project. The kernel adds the collaboration rules. */
 export function sharedRules(project: string): string {
 	return render(project, SHARED_RULES);
 }
@@ -96,10 +127,11 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 		identity:
 			'Researcher specialist. Finds and interprets the datasheets and manuals in /library, and turns a question into a test plan.',
 		rules: {
-			Project: [
-				'Follow the cite-a-limit skill for a limit and for a choice between parts, and the write-a-test-plan skill for a test plan.',
-			],
+			Project: [RESEARCH_SKILLS],
 			Evidence: ['Never state a value without a datasheet path.'],
+			Background: [
+				'Examples of a breakout task: compare the datasheets of several parts, or draft a test plan.',
+			],
 		},
 	},
 	{
@@ -114,6 +146,9 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 				'Follow the drive-the-power-supply skill to run a power supply, and the observe-the-camera skill to look at the bench with the cameras.',
 				'Follow the guide-a-build-step skill for a build step, and the check-a-photo skill for a photo.',
 			],
+			Background: [
+				'Examples of a breakout task: write and test a script, or read the data files of a capture.',
+			],
 			Constraints: [
 				'Change no setting and no output of a device outside a script from a template.',
 				'Ask the person before the first run that turns on an output of a device.',
@@ -127,32 +162,71 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 	},
 ];
 
+/** The name of the worker of a breakout room. */
+export const WORKER = 'worker';
+
+/** The worker team of the canvas: the definitions that no root room seats. */
+export const WORKER_TEAM: readonly string[] = [WORKER];
+
+/** What the worker of a breakout room is. */
+const WORKER_IDENTITY =
+	'Worker of a breakout room. Does one task that a specialist hands over, in the background, and reports the result to that specialist.';
+
+/** The tool bundles that the canvas gives to the seats. A seat receives only the bundles that suit its job. */
+export interface CanvasBundles {
+	/** `show` and `hide`. The Engineer holds them. */
+	widgets?: ToolBundle;
+	/** `breakout`, `tell`, and `archive`. Each specialist holds them. */
+	opener?: ToolBundle;
+	/** `report`. The worker holds it. */
+	worker?: ToolBundle;
+}
+
 /**
  * Build the team for one workspace. Every room reuses these definitions. Each
  * specialist reads its own skills from `skills/<name>/`. `project` is the
  * paragraph that opens the instructions of every seat: the FM radio project by
- * default, and another one for an eval. `widgets` is the widget bundle of the
- * canvas. A specialist that shows widgets holds it. Without it, no seat does.
+ * default, and another one for an eval. `bundles` holds the tool bundles of the
+ * canvas. A bundle that is absent adds no tool: a team without `widgets` shows
+ * no widget, and a team without `opener` opens no breakout room. The result
+ * holds the specialists and, apart from them, the worker of the breakout rooms.
  */
 export async function team(
 	workspace: Workspace,
 	project: string = radioProject,
-	widgets?: ToolBundle,
+	bundles: CanvasBundles = {},
 ) {
 	const model = piModel();
+	const defined = async (
+		definition: { name: string; identity: string },
+		rules: Rules,
+		skills: SkillSet,
+		extra: (ToolBundle | undefined)[],
+	) =>
+		defineAgent({
+			...definition,
+			executor: pi({
+				instructions: render(project, rules),
+				model,
+				thinking: THINKING,
+				bundles: [workspace.tools({ skills }), ...extra.filter((bundle) => bundle !== undefined)],
+			}),
+		});
 	const definitions = await Promise.all(
-		specialists.map(async ({ rules, shows, ...definition }) => {
-			const skills = await specialistSkills(definition.name);
-			return defineAgent({
-				...definition,
-				executor: pi({
-					instructions: render(project, merge(rules)),
-					model,
-					thinking: THINKING,
-					bundles: [workspace.tools({ skills }), ...(shows && widgets ? [widgets] : [])],
-				}),
-			});
-		}),
+		specialists.map(async ({ rules, shows, ...definition }) =>
+			defined(
+				definition,
+				merge(SHARED_RULES, SPECIALIST_RULES, rules),
+				await specialistSkills(definition.name),
+				[shows ? bundles.widgets : undefined, bundles.opener],
+			),
+		),
 	);
-	return { workspace, specialists: definitions };
+	const worker = await defined(
+		{ name: WORKER, identity: WORKER_IDENTITY },
+		merge(SHARED_RULES, WORKER_RULES),
+		await workerSkills(),
+		[bundles.worker],
+	);
+	return { workspace, specialists: definitions, worker };
 }

@@ -1009,3 +1009,126 @@ describe('Session activation lines', () => {
 		expect(lines(session)).toEqual([]);
 	});
 });
+
+describe('Session breakout rooms', () => {
+	const breakout = (state: 'running' | 'archived', extra: Record<string, unknown> = {}) => ({
+		breakout: { parent: 'characterization', opener: 'engineer', state },
+		...extra,
+	});
+
+	it('reads the room list again when the watch on the room list reports a change', async () => {
+		const { host, session } = await started();
+		expect(session.background).toEqual({ running: 0, working: false });
+		host.table.set('tuners', view('tuners', breakout('running')));
+		host.notifyRooms();
+		await vi.waitFor(() => expect(session.background).toEqual({ running: 1, working: false }));
+		host.table.set('tuners', view('tuners', breakout('running', { exchange: { id: 'x1' } })));
+		host.notifyRooms();
+		await vi.waitFor(() => expect(session.background).toEqual({ running: 1, working: true }));
+		host.table.set('tuners', view('tuners', breakout('archived', { status: 'stopped' })));
+		host.notifyRooms();
+		await vi.waitFor(() => expect(session.background).toEqual({ running: 0, working: false }));
+	});
+
+	it('reads no room list on a change of the open room, and stops the watch on leave', async () => {
+		const { host, session } = await started();
+		let reads = 0;
+		host.rooms = async () => {
+			reads += 1;
+			return [...host.table.values()];
+		};
+		host.notify('characterization');
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(reads).toBe(0);
+		expect(host.roomWatchers.size).toBe(1);
+		await session.leave();
+		expect(host.roomWatchers.size).toBe(0);
+	});
+
+	it('lists a breakout room under its parent in the palette', async () => {
+		const { host, session } = await started();
+		host.table.set('tuners', view('tuners', breakout('running')));
+		host.notifyRooms();
+		await vi.waitFor(() =>
+			expect(session.suggestions('/room ').map((row) => row.label)).toEqual([
+				'characterization',
+				'tuners',
+				'budget',
+			]),
+		);
+		expect(session.suggestions('/room tun')[0]?.detail).toBe('running · tuners goal');
+	});
+
+	it('reads the list once more, and no more, for changes that land during a read', async () => {
+		const { host, session } = await started();
+		let reads = 0;
+		let release = () => {};
+		host.rooms = async () => {
+			reads += 1;
+			await new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			return [...host.table.values()];
+		};
+		for (let call = 0; call < 5; call += 1) host.notifyRooms();
+		await vi.waitFor(() => expect(reads).toBe(1));
+		release();
+		await vi.waitFor(() => expect(reads).toBe(2));
+		release();
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(reads).toBe(2);
+		expect(session.offline).toBeUndefined();
+	});
+
+	it('keeps the last room list after a failed list read', async () => {
+		const { host, session } = await started();
+		let calls = 0;
+		host.rooms = async () => {
+			calls += 1;
+			throw new Error('journal busy');
+		};
+		host.notifyRooms();
+		await vi.waitFor(() => expect(calls).toBe(1));
+		expect(session.rooms.map((room) => room.name)).toEqual(['characterization', 'budget']);
+		expect(session.room).toBe('characterization');
+	});
+
+	const worker = {
+		kind: 'agent',
+		name: 'worker',
+		identity: 'W',
+		status: 'idle',
+		attention: 'broadcast',
+	};
+
+	it('offers and accepts the seated agents of a breakout room, and no specialist', async () => {
+		const { host, session } = await started();
+		host.table.set('tuners', view('tuners', breakout('running', { participants: [worker] })));
+		await session.refreshRooms();
+		await session.switchRoom('tuners');
+		expect(session.suggestions('@').map((row) => [row.label, row.detail])).toEqual([
+			['@worker', 'broadcast'],
+		]);
+		await session.submit('@worker add the TEA5767');
+		expect(host.sentTo).toEqual(['worker']);
+		await session.submit('@engineer hello');
+		expect(session.error).toContain('No seat or specialist named @engineer');
+		expect(host.sentTo).toEqual(['worker']);
+	});
+
+	it('opens an archived breakout room to read, joins nothing, and says it is archived on a send', async () => {
+		const { host, session } = await started();
+		host.table.set('old', view('old', breakout('archived', { status: 'stopped' })));
+		await session.refreshRooms();
+		host.calls.length = 0;
+		await session.switchRoom('old');
+		expect(host.calls).toEqual(['leave:characterization:priya']);
+		expect(session.error).toBeUndefined();
+		expect(session.view?.name).toBe('old');
+		await session.submit('Hello?');
+		expect(session.error).toBe('old is archived. It takes no message.');
+		expect(host.calls).toEqual(['leave:characterization:priya']);
+		await session.switchRoom('budget');
+		expect(host.calls).toEqual(['leave:characterization:priya', 'join:budget:priya']);
+	});
+});
