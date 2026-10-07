@@ -1,6 +1,6 @@
 import { commitUri, type Message, snapshotUri } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
-import { chipLine, type Known, refItems, resolveRef } from '../src/view/refs.ts';
+import { chipLine, citedFiles, type Known, refItems, resolveRef } from '../src/view/refs.ts';
 import type { Block } from '../src/view/timeline.ts';
 
 const known: Known = {
@@ -163,5 +163,100 @@ describe('refItems', () => {
 		const items = refItems(blocks, known);
 		expect(items.map((item) => item.id)).toEqual(['1#0', '1#1', '3#0']);
 		expect(items.map((item) => item.resolved.kind)).toEqual(['message', 'file', 'file']);
+	});
+});
+
+describe('citedFiles', () => {
+	const at = (minute: number) => `2026-01-01T12:${String(minute).padStart(2, '0')}:00Z`;
+	const cite = (seq: number, from: string, refs: string[], minute = seq): Message =>
+		({ seq, kind: 'said', from, text: `m${seq}`, at: at(minute), refs }) as Message;
+	const FILE = 'file:///library/cell-18650.md';
+	const SNAP_A = snapshotUri('workbench', DIGEST, '/shared/my notes.md');
+	const SNAP_B = snapshotUri('workbench', 'f'.repeat(64), '/shared/my notes.md');
+	const COMMIT_A = commitUri('workbench', 'researcher/plan', HASH, { branch: 'led' });
+	const COMMIT_B = commitUri('workbench', 'researcher/plan', 'b'.repeat(40), { branch: 'led' });
+
+	it('lists each path once, newest citation first, with the author and the time of that citation', () => {
+		const rows = citedFiles(
+			[
+				cite(1, 'priya', [FILE]),
+				cite(2, 'engineer', ['file:///shared/my%20notes.md']),
+				cite(3, 'researcher', [FILE]),
+			],
+			known,
+		);
+		expect(rows.map((row) => [row.key, row.author, row.at, row.seq])).toEqual([
+			['/library/cell-18650.md', 'researcher', at(3), 3],
+			['/shared/my notes.md', 'engineer', at(2), 2],
+		]);
+	});
+
+	it('groups the snapshots of one path and the file itself as the versions of one row', () => {
+		const [row, ...rest] = citedFiles(
+			[
+				cite(1, 'engineer', [SNAP_A]),
+				cite(2, 'researcher', ['file:///shared/my%20notes.md']),
+				cite(3, 'engineer', [SNAP_B, SNAP_B]),
+			],
+			known,
+		);
+		expect(rest).toEqual([]);
+		expect(row).toMatchObject({
+			key: '/shared/my notes.md',
+			label: '/shared/my notes.md',
+			open: SNAP_B,
+			author: 'engineer',
+			seq: 3,
+		});
+		expect(row?.opens).toEqual([
+			{ open: SNAP_A, seq: 1 },
+			{ open: '/shared/my notes.md', seq: 2 },
+			{ open: SNAP_B, seq: 3 },
+		]);
+	});
+
+	it('groups the commits of one repository and keeps the label of the newest', () => {
+		const rows = citedFiles(
+			[cite(1, 'engineer', [COMMIT_A]), cite(2, 'engineer', [COMMIT_B])],
+			known,
+		);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			key: 'commit:researcher/plan',
+			open: COMMIT_B,
+			label: 'researcher/plan led bbbbbbb',
+		});
+		expect(rows[0]?.opens).toEqual([
+			{ open: COMMIT_A, seq: 1 },
+			{ open: COMMIT_B, seq: 2 },
+		]);
+	});
+
+	it('leaves out a ref that opens no file: a message, a missing file, another workspace, a scheme', () => {
+		const rows = citedFiles(
+			[
+				cite(1, 'priya', [
+					'ambion://room/characterization/message/2',
+					'file:///library/missing.md',
+					snapshotUri('elsewhere', DIGEST, '/a.csv'),
+					'https://example.com/a',
+				]),
+				cite(2, 'priya', []),
+			],
+			known,
+		);
+		expect(rows).toEqual([]);
+	});
+
+	it('reads only the messages that say something, and shows the author as the message names it', () => {
+		const presence = {
+			seq: 1,
+			kind: 'joined',
+			from: 'priya',
+			at: at(1),
+			refs: [FILE],
+		} as unknown as Message;
+		const rows = citedFiles([presence, cite(2, 'engineer', [FILE])], known);
+		expect(rows.map((row) => row.author)).toEqual(['engineer']);
 	});
 });

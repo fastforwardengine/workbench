@@ -13,9 +13,9 @@ import { SCROLLBAR } from './space.ts';
 /** How many rows of the list a layer shows. */
 export const LIST_ROWS = 8;
 
-/** The rows to show: a window of the matches that keeps the chosen row in view. */
-export function windowStart(index: number, count: number): number {
-	return Math.max(0, Math.min(index - Math.floor(LIST_ROWS / 2), count - LIST_ROWS));
+/** The rows to show: a window of the matches that keeps the chosen row in view. `rows` is the height of the list. */
+export function windowStart(index: number, count: number, rows = LIST_ROWS): number {
+	return Math.max(0, Math.min(index - Math.floor(rows / 2), count - rows));
 }
 
 /** A line of a layer that never shrinks and never wraps: a heading, a search box, or a tab line. */

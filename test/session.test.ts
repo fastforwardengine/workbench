@@ -392,6 +392,48 @@ describe('Session push updates', () => {
 		expect(host.readCount).toBeGreaterThan(stopped);
 	});
 
+	it('lists the homes of the seats when the files layer opens, and keeps them between polls', async () => {
+		const { host, session } = await started();
+		host.fileList = [
+			{ path: '/shared/kit.md', size: 1, group: '/shared', relative: 'kit.md' },
+			{ path: '/home/engineer/a.py', size: 1, group: '~engineer', relative: 'a.py' },
+		];
+		host.fileCalls.length = 0;
+		await session.poll();
+		await session.poll();
+		expect(host.fileCalls).toEqual([false, false]);
+		expect(session.files.map((file) => file.path)).toEqual(['/shared/kit.md']);
+		await session.submit('/files');
+		expect(host.fileCalls.at(-1)).toBe(true);
+		expect(session.files.map((file) => file.path)).toEqual([
+			'/shared/kit.md',
+			'/home/engineer/a.py',
+		]);
+		await session.poll();
+		expect(host.fileCalls.at(-1)).toBe(false);
+		expect(session.files.map((file) => file.path)).toEqual([
+			'/shared/kit.md',
+			'/home/engineer/a.py',
+		]);
+	});
+
+	it('does not start a second poll while one runs, and reads once more after it', async () => {
+		const { host, session } = await started();
+		const gate = Promise.withResolvers<void>();
+		const files = host.files.bind(host);
+		host.files = async (homes?: boolean) => {
+			await gate.promise;
+			return files(homes);
+		};
+		host.fileCalls.length = 0;
+		const first = session.poll();
+		await session.poll();
+		await session.poll();
+		gate.resolve();
+		await first;
+		expect(host.fileCalls).toHaveLength(2);
+	});
+
 	it('reports a failed read from a change, and recovers on the next one', async () => {
 		const { host, session } = await started();
 		host.table.delete('characterization');

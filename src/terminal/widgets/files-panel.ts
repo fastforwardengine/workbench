@@ -11,7 +11,8 @@ import {
 import type { FileContent, ImageContent, TableView } from '../../host/host.ts';
 import type { FileBrowser } from '../state/browser.ts';
 import { tui as palette } from './brand.ts';
-import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
+import { bytes, type ListLine, listLines, listRows, visibleLines } from './file-list.ts';
+import { LIST_ROWS, lineText, listText, SidePanel } from './side-panel.ts';
 
 const MAX_COLUMN = 40;
 
@@ -78,8 +79,14 @@ function tabsText(tables: readonly TableView[], shown: number): StyledText {
 	);
 }
 
-const bytes = (size: number): string =>
-	size < 1024 ? `${size} B` : `${(size / 1024).toFixed(1)} KB`;
+/** The chunks of one line of the list. The chosen row has the selected background. */
+function paintLine(line: ListLine, chosen: boolean) {
+	if (line.kind === 'gap') return [fg(palette.muted)('')];
+	if (line.kind === 'heading') return [fg(line.cited ? palette.accent : palette.dim)(line.text)];
+	const mark = chosen ? '▸ ' : line.mark === 'cited' ? '• ' : '  ';
+	const text = `${mark}${line.text}`;
+	return [chosen ? bg(palette.selected)(fg(palette.accent)(text)) : fg(palette.muted)(text)];
+}
 
 /** The files layer: a search box, the matching files, and the chosen file. */
 export class FilesPanel extends SidePanel {
@@ -91,6 +98,10 @@ export class FilesPanel extends SidePanel {
 	private readonly image: ImageRenderable;
 	private readonly tabs: TextRenderable;
 	private shown: string | undefined;
+	/** The browser that the last draw showed, for a redraw when the layer changes size. */
+	private browser: FileBrowser | undefined;
+	/** The width and the height of the layer at the last draw of the list. */
+	private fitted = '';
 	private flashing: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(renderer: CliRenderer) {
@@ -119,34 +130,45 @@ export class FilesPanel extends SidePanel {
 		this.addBody(this.body, this.markdown, this.image);
 		for (const part of [this.search, this.list, this.title, this.tabs, this.scroll, this.message])
 			this.root.add(part);
+		// The columns and the rows of the list follow the size of the layer.
+		this.root.onSizeChange = () => {
+			if (this.browser && this.fitted !== this.size()) this.draw(this.browser);
+		};
 	}
 
 	/** Draw the browser's state. The preview scrolls back to the top when the file changes. */
 	draw(browser: FileBrowser): void {
 		if (!browser.open) return;
-		const matches = browser.matches;
-		const count = `${matches.length} of ${browser.total}`;
+		this.browser = browser;
+		const count = `${browser.matches.length} of ${browser.total}`;
+		const cited = browser.cited > 0 ? ` · ${browser.cited} cited` : '';
 		this.search.content = new StyledText([
 			fg(palette.accent)('Files › '),
 			fg(palette.text)(browser.query),
 			fg(palette.accent)('▌'),
-			fg(palette.dim)(`   ${count}`),
+			fg(palette.dim)(`   ${count}${cited}`),
 		]);
 		this.list.content = this.rows(browser);
 		this.drawPreview(browser);
 	}
 
+	private size(): string {
+		return `${this.root.width}x${this.root.height}`;
+	}
+
 	private rows(browser: FileBrowser): StyledText {
 		const matches = browser.matches;
+		this.fitted = this.size();
 		if (matches.length === 0) return new StyledText([fg(palette.muted)('No file matches.')]);
-		const start = windowStart(browser.index, matches.length);
-		const width = Math.max(...matches.map((file) => (file.label ?? file.path).length));
-		const chunks = matches.slice(start, start + LIST_ROWS).flatMap((file, offset) => {
-			const chosen = start + offset === browser.index;
-			const line = `${chosen ? '▸ ' : '  '}${(file.label ?? file.path).padEnd(width)}  ${file.kind ? file.kind : bytes(file.size)}`;
-			const tail = offset === LIST_ROWS - 1 ? '' : '\n';
+		const lines = listLines(matches, this.root.width);
+		// A short list keeps eight lines, and a long one takes more while the layer is tall.
+		const rows = Math.min(listRows(this.root.height), Math.max(LIST_ROWS, lines.length));
+		this.list.height = rows;
+		const [start, end] = visibleLines(lines, browser.index, rows);
+		const chunks = lines.slice(start, end).flatMap((line, offset) => {
+			const tail = start + offset === end - 1 ? '' : '\n';
 			return [
-				chosen ? bg(palette.selected)(fg(palette.accent)(line)) : fg(palette.muted)(line),
+				...paintLine(line, line.kind === 'row' && line.index === browser.index),
 				fg(palette.muted)(tail),
 			];
 		});

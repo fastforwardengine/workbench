@@ -4,9 +4,9 @@ exports[`the frames of the panels > draws the files panel as an overlay 1`] = `
 "                    │ files
                     │
                     │ Files › ▌   3 of 3
-                    │   /library/cell-18650.md  797 B
-                    │   /shared/notes.md        40 B
-                    │ ▸ /shared/plan.txt        400 B
+                    │   /library/cell-18650.md                                                797 B
+                    │   /shared/notes.md                                                       40 B
+                    │ ▸ /shared/plan.txt                                                      400 B
                     │
                     │
                     │
@@ -38,9 +38,9 @@ exports[`the frames of the panels > draws the files panel in a short terminal 1`
 "│ files
 │
 │ Files › ▌   3 of 3
-│   /library/cell-18650.md  797 B
-│   /shared/notes.md        40 B
-│ ▸ /shared/plan.txt        400 B
+│   /library/cell-18650.md
+│   /shared/notes.md
+│ ▸ /shared/plan.txt
 │
 │
 │
@@ -56,9 +56,9 @@ exports[`the frames of the panels > draws the files panel with a long text file 
 "│ files
 │
 │ Files › ▌   3 of 3
-│   /library/cell-18650.md  797 B
-│   /shared/notes.md        40 B
-│ ▸ /shared/plan.txt        400 B
+│   /library/cell-18650.md                  797 B
+│   /shared/notes.md                         40 B
+│ ▸ /shared/plan.txt                        400 B
 │
 │
 │
@@ -90,7 +90,7 @@ exports[`the frames of the panels > draws the files panel with a search and a fl
 "│ files
 │
 │ Files › plan▌   1 of 3
-│ ▸ /shared/plan.txt  400 B
+│ ▸ /shared/plan.txt                        400 B
 │
 │
 │

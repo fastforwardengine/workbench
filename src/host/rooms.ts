@@ -197,8 +197,10 @@ export async function openRooms(
 		await workspace.dispose().catch(() => {});
 		throw error;
 	}
+	// Every seat that the host runs. Each one has a home in the workspace.
+	const seatNames = roomTeam.specialists.map(({ name }) => name);
 	// One model serves every seat, so a missing login makes every seat unavailable.
-	const missing = reason === undefined ? [] : roomTeam.specialists.map(({ name }) => name);
+	const missing = reason === undefined ? [] : seatNames;
 	/** The row of a room, or a refusal. */
 	function known(name: string): CanvasRoom {
 		return canvas.rooms().find((row) => row.name === name) ?? fail('Unknown room.');
@@ -296,6 +298,8 @@ export async function openRooms(
 		},
 		/** The folders that the files panel lists. */
 		roots,
+		/** The seats whose homes the files panel lists and reads, as the seat that owns each one. */
+		seatNames,
 		lifecycle,
 		/** The steps of one activation that this process logged. */
 		activation: async (name: string, id: string) => {

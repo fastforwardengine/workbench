@@ -94,7 +94,13 @@ export interface Lab {
 	 */
 	activation(room: string, id: string): Promise<ActivationSteps | undefined>;
 	create(name: string, goal: string): Promise<RoomView>;
-	files(): Promise<FileEntry[]>;
+	/**
+	 * The files of the workspace, group by group: each root, then, with `homes`, the
+	 * home of each seat, which the host reads as the seat that owns it. A home takes
+	 * one SSH read for each folder on a workstation, so a caller that repeats the
+	 * call asks for the roots alone.
+	 */
+	files(homes?: boolean): Promise<FileEntry[]>;
 	file(path: string): Promise<FileContent>;
 	/** The bytes of a snapshot ref of the workspace, from its object store. */
 	snapshot(ref: string): Promise<FileContent>;
@@ -305,8 +311,9 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 				fail(`Give a room goal of 1 to ${MAX_GOAL} characters.`);
 			return rooms.create(name, trimmed);
 		},
-		files: () => rooms.withWorkspace(() => listFiles(rooms.workspace, rooms.roots)),
-		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path)),
+		files: (homes = false) =>
+			rooms.withWorkspace(() => listFiles(rooms.workspace, rooms.roots, rooms.seatNames, homes)),
+		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path, rooms.seatNames)),
 		snapshot: (ref) => rooms.withWorkspace(() => readSnapshotFile(rooms.workspace, ref)),
 		commit: (ref) => rooms.withWorkspace(() => readCommitFile(rooms.workspace, ref)),
 		attach: (localPath) => rooms.withWorkspace(() => attachFile(rooms.workspace, localPath)),

@@ -36,7 +36,7 @@ export interface WorkstationConfig {
 	readonly layout: WorkspaceLayout;
 	/** The object store for the snapshots. Without it, the workstation keeps them in `layout.snapshots`. */
 	readonly objects?: ObjectsConfig;
-	/** The folders that the files panel lists. Each home has mode 0700, so the panel lists none. */
+	/** The folders that the files panel lists as the host account. Each home has mode 0700, so the panel lists it apart, as its seat. */
 	readonly roots: readonly string[];
 }
 

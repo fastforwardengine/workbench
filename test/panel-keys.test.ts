@@ -103,7 +103,7 @@ async function build(width = 120, voice = quietVoice()) {
 	const header = new Header(renderer);
 	const viewfinder = new ViewfinderSurface(camera, cameraPanel, () => kitty.on);
 	const surfaces = {
-		files: new FilesSurface(session.browser, panel),
+		files: new FilesSurface(session.browser, panel, (seq) => session.jump(seq)),
 		processes: new ProcessesSurface(processes, processPanel, render),
 		keys: new KeysSurface(keysPanel),
 		camera: viewfinder,
@@ -831,6 +831,62 @@ describe('the files layer keys', () => {
 		built.press('z', { ctrl: true });
 		built.press('z', { meta: true });
 		expect(built.session.browser.query).toBe('');
+	});
+
+	/** A room whose message 2 cites a file of the workspace, and whose message 3 does not. */
+	function citing(built: Built): void {
+		built.host.table.set(
+			'characterization',
+			view('characterization', {
+				participants: [{ name: 'priya', kind: 'person' }],
+				messages: [
+					{ seq: 1, kind: 'said', from: 'priya', text: 'one', at: AT },
+					{
+						seq: 2,
+						kind: 'said',
+						from: 'design',
+						text: 'two',
+						at: AT,
+						refs: ['file:///shared/notes.md'],
+					},
+					{ seq: 3, kind: 'said', from: 'researcher', text: 'three', at: AT },
+				],
+			}),
+		);
+	}
+
+	it('starts /files on the newest cited file, and Enter closes the layer on the message that cites it', async () => {
+		const built = await build();
+		citing(built);
+		await built.session.refresh();
+		await openFiles(built);
+		expect(built.session.browser.selected).toMatchObject({
+			kind: 'cited',
+			path: '/shared/notes.md',
+		});
+		built.press('return');
+		expect(built.dock.has('files')).toBe(false);
+		expect(built.session.browser.open).toBe(false);
+		expect(built.keys.mode).toBe('compose');
+		expect(built.session.focus).toBe(2);
+	});
+
+	it('says in the status line that nothing cites a file, keeps the layer, and clears the words on the next key', async () => {
+		const built = await build();
+		citing(built);
+		await built.session.refresh();
+		await openFiles(built);
+		built.press('down');
+		expect(built.session.browser.selected).toMatchObject({
+			kind: 'file',
+			path: '/library/cell-18650.md',
+		});
+		built.press('return');
+		expect(built.dock.status).toBe('No message of this room cites this file.');
+		expect(built.dock.has('files')).toBe(true);
+		expect(built.session.focus).toBeUndefined();
+		built.press('down');
+		expect(built.dock.status).toMatch(/Browsing the workspace files/);
 	});
 
 	it('copies the file on Ctrl+Y and says so, or says the terminal cannot', async () => {

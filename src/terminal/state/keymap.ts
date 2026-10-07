@@ -148,6 +148,10 @@ export const KEYMAP = {
 		bindings: {
 			up: { keys: [UP], does: 'Choose the file above' },
 			down: { keys: [DOWN], does: 'Choose the file below' },
+			open: {
+				keys: [ENTER],
+				does: 'Close the layer and focus the newest message that cites the file',
+			},
 			previousTable: {
 				keys: [{ name: 'left' }],
 				does: 'Choose the previous table, when the file has more than one',

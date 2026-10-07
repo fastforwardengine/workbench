@@ -39,6 +39,13 @@ export function imageMimeType(path: string): string {
 export interface FileEntry {
 	path: string;
 	size: number;
+	/**
+	 * The heading that the list puts the file under: a root such as `/shared`, or a
+	 * home such as `~engineer`. A snapshot or a commit has none.
+	 */
+	group?: string;
+	/** The path of the file inside its group. */
+	relative?: string;
 	/** A snapshot or a commit that the panel lists for a ref. A file of the workspace has none. */
 	kind?: 'snapshot' | 'commit';
 	/** What the list shows in place of the path, for a snapshot or a commit. */
@@ -75,40 +82,148 @@ async function listFolder(env: Env, folder: string, root: boolean) {
 	return result.ok ? result.value : [];
 }
 
+/** The folder that holds the homes of the seats, on a workstation and on a local directory. */
+const HOMES = '/home';
+
+/** The home of a seat. */
+const homeOf = (seat: string): string => `${HOMES}/${seat}`;
+
+/** The most entries that the walk of the roots reads. */
+const ROOT_ENTRIES = 500;
+
+/** The most files that the list takes from the home of one seat. */
+const HOME_FILES = 200;
+
+/** The most entries that one home lists before it stops, so a large clone does not hold the list. */
+const HOME_VISITS = 1_000;
+
 /**
- * The files under `roots`, as the host account reads them, up to 500
- * entries. A local directory lists `/`. A workstation lists its shared
- * folders, because each home has mode 0700.
+ * The heading of a file below a root. The root `/` of a local directory has no
+ * heading of its own, so the top folder of the file names its group.
+ */
+function groupOf(path: string, root: string): string {
+	if (root !== '/') return root;
+	const parts = path.split('/');
+	return parts.length > 2 ? `/${parts[1]}` : '/';
+}
+
+/** A file below a root, with its group and its path inside the group. */
+function rootEntry(path: string, size: number, root: string): FileEntry {
+	const group = groupOf(path, root);
+	return { path, size, group, relative: path.slice(group === '/' ? 1 : group.length + 1) };
+}
+
+/** A folder to walk, and the root that it lies under. */
+interface Walk {
+	folder: string;
+	root: string;
+}
+
+/** What a listing says of one entry. */
+interface Listed {
+	kind: string;
+	path: string;
+	size: number;
+}
+
+const byPath = (a: FileEntry, b: FileEntry): number => a.path.localeCompare(b.path);
+
+/**
+ * The files below a root that a listing holds, and the folders to walk next. The
+ * walk leaves out `/dev`, where the shell keeps its virtual devices, and each
+ * folder in `skipped`.
+ */
+function intake(entries: readonly Listed[], root: string, skipped: ReadonlySet<string>) {
+	return {
+		files: entries
+			.filter((entry) => entry.kind === 'file')
+			.map((entry) => rootEntry(entry.path, entry.size, root)),
+		folders: entries
+			.filter((entry) => entry.kind === 'directory')
+			.filter((entry) => entry.path !== '/dev' && !skipped.has(entry.path))
+			.map((entry): Walk => ({ folder: entry.path, root })),
+	};
+}
+
+/**
+ * The files under `roots`, up to 500 entries read, in the order of the roots and
+ * then by path. A folder in `skipped` stays out of the walk.
+ */
+async function listRoots(env: Env, roots: readonly string[], skipped: ReadonlySet<string>) {
+	const found = new Map<string, FileEntry[]>(roots.map((root) => [root, []]));
+	const pending: Walk[] = roots.map((root) => ({ folder: root, root }));
+	let visited = 0;
+	for (let walk = pending.shift(); walk && visited < ROOT_ENTRIES; walk = pending.shift()) {
+		const listed = await listFolder(env, walk.folder, walk.folder === walk.root);
+		const entries = listed.slice(0, ROOT_ENTRIES - visited);
+		visited += entries.length;
+		const taken = intake(entries, walk.root, skipped);
+		found.get(walk.root)?.push(...taken.files);
+		pending.push(...taken.folders);
+	}
+	return [...found.values()].flatMap((files) => files.sort(byPath));
+}
+
+/** A name that starts with a dot: a hidden file, or a folder such as `.git` or `.cache`. */
+const hidden = (path: string): boolean => path.split('/').pop()?.startsWith('.') ?? false;
+
+/** Walk the home of a seat as that seat: up to 200 files, and no hidden file or folder. */
+async function walkHome(env: Env, seat: string): Promise<FileEntry[]> {
+	const home = homeOf(seat);
+	const files: FileEntry[] = [];
+	const pending = [home];
+	let visited = 0;
+	for (let folder = pending.shift(); folder !== undefined; folder = pending.shift()) {
+		const listed = await env.listDir(folder);
+		const entries = (listed.ok ? listed.value : []).filter((entry) => !hidden(entry.path));
+		visited += entries.length;
+		files.push(
+			...entries
+				.filter((entry) => entry.kind === 'file')
+				.map(({ path, size }) => ({
+					path,
+					size,
+					group: `~${seat}`,
+					relative: path.slice(home.length + 1),
+				})),
+		);
+		pending.push(...entries.filter((entry) => entry.kind === 'directory').map((e) => e.path));
+		if (files.length >= HOME_FILES || visited >= HOME_VISITS) break;
+	}
+	return files.sort(byPath).slice(0, HOME_FILES);
+}
+
+/**
+ * The files in the home of one seat, read as that seat. A home that fails to
+ * list gives an empty group, so one seat does not fail the whole list.
+ */
+async function listHome(workspace: Workspace, seat: string): Promise<FileEntry[]> {
+	try {
+		return await workspace.use({ name: seat }, (env) => walkHome(env, seat));
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * The files of the workspace: those under `roots`, as the host account reads
+ * them, up to 500 entries. With `homes`, the home of each seat in `seats` follows,
+ * read as that seat, up to 200 files for each home, one seat after the other. A
+ * local directory lists `/`, and its walk always leaves the homes to the seats.
+ * A workstation lists its shared folders, because each home has mode 0700 and
+ * only its seat reads it.
  */
 export async function listFiles(
 	workspace: Workspace,
 	roots: readonly string[],
+	seats: readonly string[] = [],
+	homes = true,
 ): Promise<FileEntry[]> {
-	return workspace.use(workspace.mirrorAgent, async (env) => {
-		const files: FileEntry[] = [];
-		const pending = [...roots];
-		let visited = 0;
-		while (pending.length > 0 && visited < 500) {
-			const folder = pending.shift() ?? '/';
-			const entries = (await listFolder(env, folder, roots.includes(folder))).slice(
-				0,
-				500 - visited,
-			);
-			visited += entries.length;
-			files.push(
-				...entries
-					.filter((entry) => entry.kind === 'file')
-					.map(({ path, size }) => ({ path, size })),
-			);
-			pending.push(
-				...entries
-					// Virtual shell devices are infrastructure, not project artifacts.
-					.filter((entry) => entry.kind === 'directory' && entry.path !== '/dev')
-					.map((entry) => entry.path),
-			);
-		}
-		return files.sort((a, b) => a.path.localeCompare(b.path));
-	});
+	const skipped = new Set(seats.map(homeOf));
+	const files = await workspace.use(workspace.mirrorAgent, (env) => listRoots(env, roots, skipped));
+	if (!homes) return files;
+	for (const seat of seats) files.push(...(await listHome(workspace, seat)));
+	return files;
 }
 
 /** What the panel previews a file as. */
@@ -129,7 +244,27 @@ const SIZE_ADVICE: Record<Kind, string> = {
 const kindOf = (path: string): Kind =>
 	isDatabasePath(path) ? 'database' : isImagePath(path) ? 'image' : 'text';
 
-export async function readFile(workspace: Workspace, path: string): Promise<FileContent> {
+/** The agent that reads a path: the seat that owns the home the path lies in, else the host account. */
+function ownerOf(workspace: Workspace, path: string, seats: readonly string[]) {
+	const seat = seats.find((name) => path.startsWith(`${homeOf(name)}/`));
+	return seat === undefined ? workspace.mirrorAgent : { name: seat };
+}
+
+/** The list leaves out the hidden files of a home, such as `.ssh`, and a read refuses them too. */
+function refuseHidden(path: string, seats: readonly string[]): void {
+	const seat = seats.find((name) => path.startsWith(`${homeOf(name)}/`));
+	if (seat === undefined) return;
+	const inside = path.slice(homeOf(seat).length + 1).split('/');
+	if (inside.some((part) => part.startsWith('.')))
+		fail('The file browser does not read hidden files in a home.');
+}
+
+/** Read one file. A file in the home of a seat of `seats` reads as that seat. */
+export async function readFile(
+	workspace: Workspace,
+	path: string,
+	seats: readonly string[] = [],
+): Promise<FileContent> {
 	const parts = path.split('/').slice(1);
 	if (
 		!path.startsWith('/') ||
@@ -138,7 +273,8 @@ export async function readFile(workspace: Workspace, path: string): Promise<File
 		fail('Use an absolute workspace file path.');
 	}
 	const kind = kindOf(path);
-	return workspace.use(workspace.mirrorAgent, async (env) => {
+	refuseHidden(path, seats);
+	return workspace.use(ownerOf(workspace, path, seats), async (env) => {
 		await checkAncestors(env, parts, kind);
 		return readAs(env, path, kind);
 	});
