@@ -13,7 +13,7 @@ import { ProcessBrowser } from '../state/process-browser.ts';
 import { type Intent, Session } from '../state/session.ts';
 import { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import { Voice } from '../state/voice.ts';
-import { tui as palette } from '../widgets/brand.ts';
+import { brand, tui as palette } from '../widgets/brand.ts';
 import { Composer } from '../widgets/composer.ts';
 import { FilesPanel } from '../widgets/files-panel.ts';
 import { Header } from '../widgets/header.ts';
@@ -324,6 +324,7 @@ export async function runEngine(options: RunOptions): Promise<void> {
 		}
 		const renderer = await openRenderer();
 		renderer.setBackgroundColor(palette.bg);
+		renderer.setTerminalTitle(`${brand.name} ${brand.product}`);
 		const app = new EngineTui(renderer, host, identity);
 		const stop = () => renderer.destroy();
 		process.once('SIGTERM', stop);
