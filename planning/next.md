@@ -15,9 +15,11 @@ instrument reads, what the radio does, and what the bench sounds like, at
 all times. It notices a change with no word from the person, and backs
 each claim with evidence.
 
-**Ambion and Workbench grow in parallel.** Each activity names what it
-needs from each. A capability that serves any room goes into Ambion. A
-capability that is about the bench goes into Workbench.
+**Each activity names what it needs from Ambion and from Workbench.** A
+capability that serves any room belongs in Ambion. This project does not
+change Ambion: it writes each Ambion need as a brief in the project files,
+and the person takes the brief to Ambion. A capability that is about the
+bench goes into Workbench.
 
 ## The workstation: a Lambda Vector
 
@@ -41,14 +43,18 @@ local container of `workstation/` today.
 ## The first bench, in the garage
 
 **The person sets up the first physical bench in the garage.** The date is
-open, possibly the weekend of 2026-10-03.
+open. The software for the supply and both cameras is ready, and has run
+only on the simulator and in the container.
 
 - [ ] **Test the `psu` template on the real HM310P first.** The HM310P
       driver and the controller have run only on the `sim` driver. Run
       `status`, then each actuator, on the real supply.
+- [ ] **Bring up the microscope.** `device-scan` finds it, and the
+      `usb-camera` template captures a frame of a solder joint. Settle the
+      unverified facts of the next section.
 
 **Done when** each command of the `psu` template gives the same result on
-the HM310P as on the simulator.
+the HM310P as on the simulator, and the microscope gives a frame.
 
 ## The microscope: a TOMLOV TM4K-AF
 
@@ -79,9 +85,8 @@ part. The BRIO keeps the view of the whole bench.
   settles within the 10 skipped frames of a capture, and whether Linux can
   control the focus or the LED lights.
 
-**Done when** `device-scan` finds the microscope on the workstation, the
-`usb-camera` template captures a frame of a solder joint, and the facts
-above are settled.
+**The first bench settles the rest.** Its microscope item holds the check
+on real hardware.
 
 ## The outcome
 
@@ -133,8 +138,9 @@ Every activity feeds it, and every activity reads it.
 **Ambion:** observation entries in the journal (source, time, confidence,
 media refs), wake sources that activate a seat on an external event, a
 shared state resource of the room, and reminders that give each seat what
-changed since it last looked. Since 0.4.0, the host wakes a seat with
-`room.post`.
+changed since it last looked. Each need goes into a brief. A breakout room
+([`docs/breakouts.md`](../docs/breakouts.md)) can hold a background task of
+perception, such as a scan of the band.
 
 **Workbench:** the bench model and its schema, a perception service on the
 GPUs of the workstation, and a bench panel in the terminal.
@@ -180,7 +186,9 @@ is in the kit?" with each part and its evidence.
 
 ### 3. Hear the radio
 
-- [ ] The microphone on the workstation, with its level and spectrum as
+- [x] The microphone of the camera records a WAV clip with a series of
+      its level (the `usb-camera` template).
+- [ ] The USB microphone on the workstation, with its level and spectrum as
       readings.
 - [ ] The audio model tells a station from noise and from silence.
 - [ ] A clip of the radio as the evidence of each claim about its sound.
