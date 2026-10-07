@@ -75,6 +75,8 @@ describe('newestLine', () => {
 		['a\tb\u0000c\n', 'a bc'],
 		['one\r\ntwo\r\n', 'two'],
 		['\u001b[2K\n', ''],
+		['\u001b[1mbold\u001b(B\u001b[m done\n', 'bold done'],
+		['a\u009b31mb\u0085c\n', 'a31mbc'],
 	])('takes the newest line of %j as %j', (text, line) => {
 		expect(newestLine(text)).toBe(line);
 	});
@@ -279,5 +281,18 @@ describe('the tails of the running seats', () => {
 		texts.set('bash-1', 'done\n');
 		await vi.advanceTimersByTimeAsync(TAILS_MS);
 		expect(tails.bySeat.get('engineer')?.[0]?.line).toBe('done');
+	});
+
+	it('starts no timer after dispose, for a room read that lands late', async () => {
+		const { host, counts } = hostOf(process('bash-1'));
+		const { tails } = tailsOf(host);
+		tails.watch('build', ['engineer']);
+		await vi.advanceTimersByTimeAsync(0);
+		tails.dispose();
+		tails.watch('build', ['engineer']);
+		await vi.advanceTimersByTimeAsync(5 * TAILS_MS);
+		expect(vi.getTimerCount()).toBe(0);
+		expect(counts.lists).toBe(1);
+		expect(tails.bySeat.size).toBe(0);
 	});
 });

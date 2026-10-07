@@ -140,7 +140,8 @@ export class Session {
 		this.view = view;
 		this.offline = undefined;
 		await this.readSide(view.name);
-		this.tails.watch(view.name, runningSeats(view));
+		// A view of the room that the person left lands late. Its seats are not the open room's.
+		if (view.name === this.room) this.tails.watch(view.name, runningSeats(view));
 		this.rebuild();
 	}
 
@@ -631,7 +632,7 @@ export class Session {
 	/** End the person's visit, so the room shows them as gone after the terminal exits. */
 	async leave(): Promise<void> {
 		this.reader.stop();
-		this.tails.stop();
+		this.tails.dispose();
 		if (this.room && this.entered && this.identity)
 			await this.host.leave(this.room, this.identity.name).catch(() => {});
 	}

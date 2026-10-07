@@ -12,19 +12,22 @@ export const MOST = 3;
 const ESC = '\u001b';
 const BEL = '\u0007';
 
-/** The escape sequences of a terminal: the CSI sequences, the OSC sequences, and the short ones. */
+/**
+ * The escape sequences of a terminal: the CSI sequences, the OSC sequences,
+ * the character set sequences such as `ESC ( B`, and the short ones.
+ */
 const SEQUENCE = new RegExp(
-	`${ESC}\\[[0-?]*[ -/]*[@-~]|${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)?|${ESC}[@-Z\\\\-_]`,
+	`${ESC}\\[[0-?]*[ -/]*[@-~]|${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)?|${ESC}[()*+][0-9A-Za-z]|${ESC}[@-Z\\\\-_]`,
 	'g',
 );
 
-/** A line with each tab as a space and no other control character. */
+/** A line with each tab as a space and no other control character, C1 included. */
 function plain(line: string): string {
 	let text = '';
 	for (const char of line) {
 		const code = char.charCodeAt(0);
 		if (char === '\t') text += ' ';
-		else if (code >= 0x20 && code !== 0x7f) text += char;
+		else if (code >= 0x20 && (code < 0x7f || code > 0x9f)) text += char;
 	}
 	return text.trim();
 }
@@ -60,6 +63,8 @@ export class ProcessTails {
 	/** Counts each stop and each change of room, so a read that lands after one of them is dropped. */
 	private generation = 0;
 	private reading = false;
+	/** True after `dispose`. A disposed tails object starts no timer again. */
+	private closed = false;
 	private readonly host: TailHost;
 	private readonly changed: () => void;
 	private readonly now: () => number;
@@ -81,6 +86,7 @@ export class ProcessTails {
 	 * each read of the room. With no seat, it stops the reads and drops the lines.
 	 */
 	watch(room: string, seats: readonly string[]): void {
+		if (this.closed) return;
 		if (seats.length === 0) {
 			this.stop();
 			return;
@@ -89,14 +95,24 @@ export class ProcessTails {
 		this.seats = new Set(seats);
 		if (this.timer) return;
 		this.timer = setInterval(() => void this.poll(), TAILS_MS);
+		this.timer.unref?.();
 		void this.poll();
 	}
 
-	/** Stop the reads and drop the lines. The timer does not outlive the terminal. */
+	/** Stop the reads and drop the lines. A later `watch` starts them again. */
 	stop(): void {
 		clearInterval(this.timer);
 		this.timer = undefined;
 		this.reset('');
+	}
+
+	/**
+	 * Stop the reads for good. A room read that lands after the person leaves
+	 * calls `watch`, and `watch` then starts nothing.
+	 */
+	dispose(): void {
+		this.closed = true;
+		this.stop();
 	}
 
 	private reset(room: string): void {
