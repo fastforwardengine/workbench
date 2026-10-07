@@ -1,5 +1,5 @@
 import { fg, StyledText } from '@opentui/core';
-import type { RefItem } from '../../view/refs.ts';
+import { type RefItem, stayOfPick } from '../../view/refs.ts';
 import { stagedCue } from '../state/attachments.ts';
 import { bindingLabel, KEYMAP } from '../state/keymap.ts';
 import type { Mode } from '../state/mode.ts';
@@ -81,6 +81,11 @@ export class Painter {
 		this.reveal = `message-${seq}`;
 	}
 
+	/** Reveal the folded line of one activation at the next draw, so its steps show when it expands. */
+	revealStay(activation: string): void {
+		this.reveal = `stay-${activation}`;
+	}
+
 	/** Force the next draw, after a change the signature does not show. */
 	invalidate(): void {
 		this.drawn = '';
@@ -145,6 +150,11 @@ export class Painter {
 
 	/** What the status line says about the chosen ref: why it does not open, or what Enter does. */
 	private refStatus(picking: string | undefined): string {
+		const stay = picking === undefined ? undefined : stayOfPick(picking);
+		if (stay !== undefined)
+			return this.session.unfolded?.id === stay
+				? 'Enter folds this activation.'
+				: 'Enter shows the steps of this activation.';
 		const resolved = this.session.refItems.find((item) => item.id === picking)?.resolved;
 		if (!resolved) return 'No ref is chosen.';
 		if (!resolved.target)

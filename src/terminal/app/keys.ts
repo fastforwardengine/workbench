@@ -1,4 +1,5 @@
 import type { CliRenderer, KeyEvent } from '@opentui/core';
+import { stayOfPick } from '../../view/refs.ts';
 import { type Act, actOf, KEYMAP } from '../state/keymap.ts';
 import type { LayerId } from '../state/layers.ts';
 import type { Mode } from '../state/mode.ts';
@@ -31,6 +32,13 @@ export interface KeyParts {
 	/** The clock for the window of the second Ctrl+D, in milliseconds. It defaults to `Date.now`. */
 	now?: () => number;
 }
+
+/**
+ * The pick that the Tab key starts on: the newest ref of a message, and the last
+ * activation line when no ref shows.
+ */
+const firstPick = (ids: readonly string[]): string | undefined =>
+	ids.findLast((id) => stayOfPick(id) === undefined) ?? ids.at(-1);
 
 /** The time in which a second Ctrl+D leaves the terminal. */
 export const QUIT_WINDOW_MS = 2000;
@@ -84,8 +92,8 @@ export class Keys {
 	 * composer takes the keys back from a mode that has lost what it works on.
 	 */
 	reconcile(): void {
-		const ids = this.session.refItems.map((item) => item.id);
-		if (this.picking && !ids.includes(this.picking)) this.picking = ids.at(-1);
+		const ids = this.session.pickIds;
+		if (this.picking && !ids.includes(this.picking)) this.picking = firstPick(ids);
 		if (this.mode === 'refs' && !this.picking) {
 			this.mode = 'compose';
 			this.composer.focus();
@@ -355,17 +363,14 @@ export class Keys {
 	// Refs
 
 	private enterRefs(): void {
-		const items = this.session.refItems;
-		if (items.length === 0) {
-			this.session.say('No shown message has a ref.');
+		const ids = this.session.pickIds;
+		if (ids.length === 0) {
+			this.session.say('No shown message has a ref, and no activation line shows.');
 			return;
 		}
 		this.mode = 'refs';
 		this.composer.blur();
-		this.picking =
-			this.picking && items.some((item) => item.id === this.picking)
-				? this.picking
-				: items.at(-1)?.id;
+		this.picking = this.picking && ids.includes(this.picking) ? this.picking : firstPick(ids);
 		this.painter.invalidate();
 		this.render();
 	}
@@ -379,19 +384,25 @@ export class Keys {
 	}
 
 	private moveRef(step: number): void {
-		const ids = this.session.refItems.map((item) => item.id);
+		const ids = this.session.pickIds;
 		const at = this.picking ? ids.indexOf(this.picking) : -1;
 		this.picking = ids[Math.max(0, Math.min(ids.length - 1, at + step))];
 		this.session.clearFocus();
 		this.render();
 	}
 
-	/** Open the chosen ref. A message ref jumps, and a file or a table opens the files layer. */
+	/**
+	 * Open the chosen ref. A message ref jumps, and a file or a table opens the files
+	 * layer. A folded activation line expands, or folds when it is open.
+	 */
 	private async openPicked(): Promise<void> {
-		const picked = this.session.refItems.find((item) => item.id === this.picking);
-		if (picked?.resolved.target?.kind === 'message')
-			this.painter.revealMessage(picked.resolved.target.seq);
-		const intent = this.picking ? await this.session.openRef(this.picking) : undefined;
+		const picking = this.picking;
+		if (!picking) return;
+		const target = this.session.refItems.find((item) => item.id === picking)?.resolved.target;
+		if (target?.kind === 'message') this.painter.revealMessage(target.seq);
+		const stay = stayOfPick(picking);
+		if (stay !== undefined) this.painter.revealStay(stay);
+		const intent = await this.session.openPick(picking);
 		if (intent) this.openFiles();
 	}
 

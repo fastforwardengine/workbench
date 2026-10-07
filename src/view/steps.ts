@@ -32,6 +32,9 @@ export interface PassView {
 	readonly lines: StepLine[];
 }
 
+/** What the terminal says about an activation whose trace holds no steps. */
+export const NO_STEPS = 'The trace of that activation holds no steps.';
+
 /** Format a token count, as in `12.3k`. */
 function tokens(count: number): string {
 	return count < 1000 ? String(count) : `${(count / 1000).toFixed(1)}k`;

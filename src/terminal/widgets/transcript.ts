@@ -11,10 +11,18 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import type { LiveActivation, LiveCall, LiveProcess } from '../../view/live.ts';
-import { chipLine, type RefItem } from '../../view/refs.ts';
-import { failedKind } from '../../view/steps.ts';
+import { chipLine, type RefItem, stayPick } from '../../view/refs.ts';
+import { failedKind, NO_STEPS, type PassView } from '../../view/steps.ts';
 import { ellipsize } from '../../view/text.ts';
-import type { Block, LiveBlock, MessageBlock, Role, StepsBlock } from '../../view/timeline.ts';
+import type {
+	Block,
+	LiveBlock,
+	MessageBlock,
+	Role,
+	StayItem,
+	StaysBlock,
+	StepsBlock,
+} from '../../view/timeline.ts';
 import { type Strip, stripKey } from '../state/pictures.ts';
 import { tui as palette } from './brand.ts';
 import { markdownBody } from './markdown-style.ts';
@@ -140,6 +148,10 @@ interface Entry {
 	node: BoxRenderable | TextRenderable;
 }
 
+/** The pick ids of the folded lines that a block draws. */
+const staysOf = (block: Block): string[] =>
+	block.type === 'stays' ? block.items.map((item) => stayPick(item.id)) : [];
+
 /** The seqs of the messages that a block draws, for the marks that fall on it. */
 function seqsOf(block: Block): number[] {
 	return block.type === 'message' ? [block.message.seq] : [];
@@ -159,7 +171,10 @@ function signatureOf(block: Block, marks: Marks, width: number) {
 	// The key of each strip holds no bytes. A loaded picture changes the key.
 	const strips = seqs.flatMap((seq) => (marks.pictures?.get(seq) ?? []).map(stripKey));
 	const shape = strips.length > 0 ? [width, marks.cellAspect ?? CELL_ASPECT] : null;
-	return JSON.stringify([block, refs, picked, focus, refs.length > 0 ? width : 0, strips, shape]);
+	// A folded line that the person chose changes its block, and a width change refits its title.
+	const chosen = staysOf(block).find((id) => id === marks.picked) ?? null;
+	const fit = refs.length > 0 || block.type === 'stays' ? width : 0;
+	return JSON.stringify([block, refs, picked, focus, fit, strips, shape, chosen]);
 }
 
 /**
@@ -291,6 +306,7 @@ export class Transcript {
 		if (block.type === 'message') return this.messageNode(block, marks);
 		if (block.type === 'live') return this.liveNode(block);
 		if (block.type === 'steps') return this.stepsNode(block);
+		if (block.type === 'stays') return this.staysNode(block, marks);
 		return this.plain([paint(block.text, { color: palette.dim })]);
 	}
 
@@ -382,7 +398,13 @@ export class Transcript {
 				paint(state, { color: palette.coral }),
 			]),
 		);
-		for (const pass of block.passes) {
+		this.addPasses(box, block.passes);
+		return box;
+	}
+
+	/** The passes of an activation, each with its step lines, as `/steps` and an expanded line draw them. */
+	private addPasses(box: BoxRenderable, passes: readonly PassView[]): void {
+		for (const pass of passes) {
 			box.add(
 				this.text([
 					paint(`Pass ${pass.pass}`, { strong: true }),
@@ -399,7 +421,49 @@ export class Transcript {
 				);
 			}
 		}
+	}
+
+	/** The folded activation lines that lead to a message. Each is one row, and an expanded one adds its steps. */
+	private staysNode(block: StaysBlock, marks: Marks): BoxRenderable {
+		const box = new BoxRenderable(this.renderer, {
+			flexDirection: 'column',
+			width: '100%',
+			paddingLeft: INSET,
+		});
+		for (const item of block.items) box.add(this.stayRow(item, stayPick(item.id) === marks.picked));
 		return box;
+	}
+
+	private stayRow(item: StayItem, picked: boolean): BoxRenderable {
+		const fill = picked ? palette.selected : undefined;
+		const row = new BoxRenderable(this.renderer, {
+			id: `stay-${item.id}`,
+			flexDirection: 'column',
+			width: '100%',
+		});
+		row.add(this.line(this.stayChunks(item, fill)));
+		if (!item.open) return row;
+		if (item.open.passes.length === 0)
+			row.add(this.text([paint(`  ${NO_STEPS}`, { color: palette.dim })]));
+		this.addPasses(row, item.open.passes);
+		return row;
+	}
+
+	/**
+	 * The chunks of a folded activation: the mark, the title in the dim colour, and
+	 * the reason of a failure in red. The line fits one row.
+	 */
+	private stayChunks(item: StayItem, fill: string | undefined): Chunk[] {
+		const mark = ACTIVATION_MARK[item.state];
+		const room = Math.max(CALL_MIN, this.root.width - CALL_MARGIN);
+		const title = ellipsize(item.title, room);
+		const left = room - title.length - 3;
+		const reason = item.reason && left > 1 ? ellipsize(item.reason, left) : '';
+		return [
+			paint(`${mark.text} `, { color: mark.color, fill }),
+			paint(title, { color: palette.dim, fill }),
+			...(reason ? [paint(` · ${reason}`, { color: palette.red, fill })] : []),
+		];
 	}
 
 	/** The live block: one line of state, then each activation with its latest calls. */

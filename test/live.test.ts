@@ -189,7 +189,7 @@ describe('liveActivations header of a running activation', () => {
 		expect(live?.title).toBe('engineer · respond');
 	});
 
-	it('prefers the newest call that has no result, across passes', () => {
+	it('prefers the call of the newest pass that has no result', () => {
 		const live = running(
 			read(
 				[call('c1', 'sql', { sql: 'select 1' }), said('thinking', 'later')],
@@ -197,6 +197,16 @@ describe('liveActivations header of a running activation', () => {
 			),
 		);
 		expect(live?.step).toBe('⇄ fetch bench /t');
+	});
+
+	it('ignores a call without a result in an earlier pass', () => {
+		const live = running(
+			read(
+				[call('c1', 'bash', { command: 'sleep 9' })],
+				[said('thinking', 'The call never answered.\nMore.')],
+			),
+		);
+		expect(live?.step).toBe('The call never answered.');
 	});
 
 	it('shows the first line of the newest thinking or text when every call has a result', () => {
@@ -263,7 +273,7 @@ describe('liveActivations of an ended activation', () => {
 		const [live] = liveActivations([failed], reads, new Map([['a1', 'rate limit']]));
 		expect(live).toMatchObject({
 			state: 'failed',
-			title: 'engineer · respond · attempt 2 · 1 call · 1:02:03: rate limit',
+			title: 'engineer · respond · attempt 2 · 1 call · 1:02:03 · rate limit',
 		});
 	});
 
@@ -296,7 +306,7 @@ describe('liveActivations of an ended activation', () => {
 		const abandoned = activation('a2', { kind: 'abandoned', cause: 'permanent' });
 		const live = liveActivations([failed, abandoned], new Map(), new Map([['a1', 'rate limit']]));
 		expect(live.map(({ state, title }) => ({ state, title }))).toEqual([
-			{ state: 'failed', title: 'engineer · respond · attempt 2: rate limit' },
+			{ state: 'failed', title: 'engineer · respond · attempt 2 · rate limit' },
 			{ state: 'failed', title: 'engineer · respond' },
 		]);
 	});

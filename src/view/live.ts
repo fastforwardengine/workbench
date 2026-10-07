@@ -76,57 +76,111 @@ const wordsOf = (step: TraceStep): string | undefined =>
 	step.type === 'thinking' || step.type === 'text' ? brief(firstLine(step.text)) : undefined;
 
 /**
- * What an activation does now: the newest call that has no result, else the
- * first line of the newest thinking or text. It is empty before the first step.
+ * What an activation does now: the newest call of the newest pass that has no
+ * result, else the first line of the newest thinking or text. A call of an
+ * earlier pass that has no result does not count, because the seat has gone on
+ * from it. The text is empty before the first step.
  */
-function currentStep(steps: readonly TraceStep[]): string {
+function currentStep(read: ActivationSteps | undefined): string {
+	const latest = read?.passes.at(-1)?.steps ?? [];
 	const answered = new Set(
-		steps.flatMap((step) => (step.type === 'tool_result' ? [step.call] : [])),
+		latest.flatMap((step) => (step.type === 'tool_result' ? [step.call] : [])),
 	);
-	const pending = steps.findLast((step) => step.type === 'tool_call' && !answered.has(step.call));
+	const pending = latest.findLast((step) => step.type === 'tool_call' && !answered.has(step.call));
 	if (pending?.type === 'tool_call') return callPhrase(pending.name, pending.input);
-	return steps.map(wordsOf).findLast((words) => words) ?? '';
+	return (
+		stepsOf(read)
+			.map(wordsOf)
+			.findLast((words) => words) ?? ''
+	);
 }
 
 const failedEnd = (activation: ExchangeActivation): boolean =>
 	activation.outcome.kind === 'failed' || activation.outcome.kind === 'abandoned';
 
-/** `1 call`, or `6 calls`. It is empty when the activation made none. */
-function callCount(steps: readonly TraceStep[]): string {
-	const count = steps.filter((step) => step.type === 'tool_call').length;
-	return count === 0 ? '' : `${count} call${count === 1 ? '' : 's'}`;
+/** What the title of an ended activation counts from its steps: its calls and its span of time. */
+export interface StepTotals {
+	/** How many tool calls the activation made. */
+	calls: number;
+	/** Milliseconds from its first step to its last. It is zero when the steps hold no time. */
+	span: number;
 }
 
-/**
- * How long an activation took: from its first step to its last, as `m:ss`. It
- * is empty when the steps hold no time, or the span is under one second.
- */
-function duration(steps: readonly TraceStep[]): string {
+/** The totals of the steps of an activation. They stay small, and the steps themselves can go. */
+export function totalsOf(read: ActivationSteps | undefined): StepTotals {
+	const steps = stepsOf(read);
 	const times = steps.map((step) => Date.parse(step.at)).filter((time) => !Number.isNaN(time));
-	const span = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
+	return {
+		calls: steps.filter((step) => step.type === 'tool_call').length,
+		span: times.length > 1 ? Math.max(...times) - Math.min(...times) : 0,
+	};
+}
+
+/** `1 call`, or `6 calls`. It is empty when the activation made none. */
+function callCount({ calls }: StepTotals): string {
+	return calls === 0 ? '' : `${calls} call${calls === 1 ? '' : 's'}`;
+}
+
+/** How long an activation took, as `m:ss`. It is empty when the span is under one second. */
+function duration({ span }: StepTotals): string {
 	return span >= 1000 ? clock(span) : '';
 }
 
 /**
- * The title: seat, purpose, and the attempt after the first. An ended
- * activation adds its calls, its duration, and its cost, and a failed one adds
- * the reason. A part that is zero or unknown is left out.
+ * The parts of the title: seat, purpose, and the attempt after the first. An
+ * ended activation adds its calls, its duration, and its cost. A part that is
+ * zero or unknown is left out.
  */
-function titleOf(
-	activation: ExchangeActivation,
-	steps: readonly TraceStep[],
-	reason: string | undefined,
-): string {
+function titleParts(activation: ExchangeActivation, totals: StepTotals): string[] {
 	const running = activation.outcome.kind === 'running';
-	const spent = running ? [] : [callCount(steps), duration(steps), formatUsage(activation.usage)];
-	const parts = [
+	const spent = running ? [] : [callCount(totals), duration(totals), formatUsage(activation.usage)];
+	return [
 		activation.seat,
 		activation.purpose,
 		...(activation.attempt > 1 ? [`attempt ${activation.attempt}`] : []),
 		...spent.filter((part) => part !== ''),
 	];
-	const title = parts.join(' · ');
-	return failedEnd(activation) && reason ? `${title}: ${reason}` : title;
+}
+
+/** The reason that a failed activation ended, when this process heard it. */
+const reasonOf = (activation: ExchangeActivation, reason: string | undefined) =>
+	failedEnd(activation) && reason ? reason : undefined;
+
+/** The title: its parts, and the reason of a failed activation, joined with ` · `. */
+function titleOf(
+	activation: ExchangeActivation,
+	totals: StepTotals,
+	reason: string | undefined,
+): string {
+	const why = reasonOf(activation, reason);
+	return [...titleParts(activation, totals), ...(why ? [why] : [])].join(' · ');
+}
+
+/** One ended activation as the line that stays in the conversation. */
+export interface EndedLine {
+	state: 'done' | 'failed';
+	/** The title of the live block, without the reason. */
+	title: string;
+	/** Why a failed activation failed, when this process heard it. */
+	reason?: string;
+}
+
+/**
+ * The line of an activation of a closed exchange. It has the title that the
+ * live block shows for an ended activation. Without the totals of its steps,
+ * the title has no calls and no duration.
+ */
+export function endedLine(
+	activation: ExchangeActivation,
+	totals: StepTotals | undefined,
+	reason: string | undefined,
+): EndedLine {
+	const why = reasonOf(activation, reason);
+	return {
+		state: failedEnd(activation) ? 'failed' : 'done',
+		title: titleParts(activation, totals ?? { calls: 0, span: 0 }).join(' · '),
+		...(why ? { reason: why } : {}),
+	};
 }
 
 function liveActivation(
@@ -136,12 +190,12 @@ function liveActivation(
 	processes: readonly LiveProcess[] = [],
 ): LiveActivation {
 	const steps = stepsOf(read);
-	const title = titleOf(activation, steps, reason);
+	const title = titleOf(activation, totalsOf(read), reason);
 	const { id } = activation;
 	if (activation.outcome.kind !== 'running')
 		return { id, state: failedEnd(activation) ? 'failed' : 'done', title, calls: [], earlier: 0 };
 	const calls = callsOf(steps);
-	const step = currentStep(steps);
+	const step = currentStep(read);
 	return {
 		id,
 		state: 'running',
