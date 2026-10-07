@@ -1,7 +1,7 @@
 /**
  * The spacing scale of the terminal. A cell is about twice as tall as it is
- * wide, so a gap of one row and a gap of two cells look alike. Every padding,
- * margin, and gap in `src/terminal` takes its value from this file.
+ * wide, so a gap of one row and a gap of two cells look alike. The paddings,
+ * margins, and gaps in `src/terminal` take their values from this file.
  */
 
 /** The cells between a rail, a border, or the window edge and the text beside it. */
