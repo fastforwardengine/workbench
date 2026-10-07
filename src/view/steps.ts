@@ -96,6 +96,8 @@ function lineOf(step: TraceStep, names: CallNames): StepLine {
 	switch (step.type) {
 		case 'pass':
 			return { kind: 'pass', text: `pass ${step.pass}` };
+		case 'input':
+			return { kind: 'notice', text: `input ${step.part}, ${Buffer.byteLength(step.text)} bytes` };
 		case 'thinking':
 			return { kind: 'thinking', text: brief(step.text) };
 		case 'text':

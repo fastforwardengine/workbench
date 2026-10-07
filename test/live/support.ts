@@ -22,7 +22,7 @@ import { createExecutionServices, fileCredentials, piExecution } from '@ambionfr
 import type { Simulation, SimulationExchange, Verdict } from '@ambionframework/simulator';
 import { openWorkspace, type Workspace } from '@ambionframework/workspace';
 import { describe, expect, onTestFailed, onTestFinished } from 'vitest';
-import { BREAKOUT_TEAM, people, team } from '../../src/domain/definitions.ts';
+import { people, team } from '../../src/domain/definitions.ts';
 import { modelHasLogin, piCredentialsPath, piModel, THINKING } from '../../src/domain/model.ts';
 import { sharedRegistrations } from '../../src/domain/notes.ts';
 import { labRepositories } from '../../src/host/repositories.ts';
@@ -86,18 +86,17 @@ export async function openRoom(
 		runtime,
 		store: memoryCanvas(),
 		workspace,
-		breakout: { team: BREAKOUT_TEAM },
 		widgets: { kinds: [FRAME_KIND] },
 	});
 	const built = await team(workspace, ledProject, {
 		widgets: canvas.widgetTools(),
-		opener: canvas.tools(),
-		worker: canvas.workerTools(),
+		canvas: canvas.tools(),
 	});
-	await canvas.resume({ agents: [...built.specialists, ...built.twins] });
+	await canvas.resume({ agents: built.specialists });
 	const room = await canvas.open({
 		name: `eval-${crypto.randomUUID().slice(0, 8)}`,
 		goal: sweep.goal,
+		agents: built.specialists.map((agent) => agent.name),
 		seats: sweep.seats,
 		seating: false,
 	});

@@ -56,7 +56,7 @@ const keyboard = device('k', '05ac:024f', 'Keychron K3', 'input');
 const billboard = device('b', '2109:8888', 'USB Billboard Device', 'billboard');
 const camera = device('c', '046d:085e', 'Logitech BRIO', 'video');
 const supply = device('s1', '1a86:7523', 'USB2.0-Serial');
-const twin = device('s2', '1a86:7523', 'USB2.0-Serial');
+const sibling = device('s2', '1a86:7523', 'USB2.0-Serial');
 
 describe.skipIf(!python)('the USB plan of the workstation', () => {
 	it('keeps input devices, billboards, and ignored IDs with macOS', () => {
@@ -89,10 +89,10 @@ describe.skipIf(!python)('the USB plan of the workstation', () => {
 		expect(steps).toEqual([['s1', 'elsewhere', 'ubuntu']]);
 	});
 
-	it('finds a lost device by the count of its ID, when a twin still shows', () => {
+	it('finds a lost device by the count of its ID, when a device with the same ID still shows', () => {
 		const steps = plan(
 			'attach',
-			[supply, twin],
+			[supply, sibling],
 			{ s1: 'default', s2: 'default' },
 			{
 				'1a86:7523': 1,
@@ -104,7 +104,7 @@ describe.skipIf(!python)('the USB plan of the workstation', () => {
 		]);
 		const whole = plan(
 			'attach',
-			[supply, twin],
+			[supply, sibling],
 			{ s1: 'default', s2: 'default' },
 			{
 				'1a86:7523': 2,
@@ -121,7 +121,7 @@ describe.skipIf(!python)('the USB plan of the workstation', () => {
 	it('detaches only the devices of the workstation', () => {
 		const steps = plan(
 			'detach',
-			[keyboard, camera, supply, twin],
+			[keyboard, camera, supply, sibling],
 			{ c: 'default', s1: 'ubuntu', s2: null },
 			null,
 		);

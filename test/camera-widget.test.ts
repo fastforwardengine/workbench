@@ -14,7 +14,7 @@ import { memoryJournals } from '@ambionframework/journal';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
-import { BREAKOUT_TEAM, people, team } from '../src/domain/definitions.ts';
+import { people, team } from '../src/domain/definitions.ts';
 import { seats } from '../src/domain/room.ts';
 import { frameActions } from '../src/host/actions.ts';
 import { labRepositories } from '../src/host/repositories.ts';
@@ -45,16 +45,14 @@ async function setup(script: Script = byAgent({})) {
 		runtime,
 		store: memoryCanvas(),
 		workspace,
-		breakout: { team: BREAKOUT_TEAM },
 		widgets: { kinds: [FRAME_KIND] },
 	});
 	cleanups.push(() => canvas.close());
 	const built = await team(workspace, undefined, {
 		widgets: canvas.widgetTools(),
-		opener: canvas.tools(),
-		worker: canvas.workerTools(),
+		canvas: canvas.tools(),
 	});
-	await canvas.resume({ agents: [...built.specialists, ...built.twins] });
+	await canvas.resume({ agents: built.specialists });
 	return { canvas, built };
 }
 
@@ -158,6 +156,7 @@ describe('the frame widget kind', () => {
 		const room = await canvas.open({
 			name: 'bench-room',
 			goal: 'Show the camera.',
+			agents: ['researcher', 'engineer'],
 			seats,
 			seating: false,
 		});
@@ -196,6 +195,7 @@ describe('the frame widget kind', () => {
 		const room = await canvas.open({
 			name: 'bench-room',
 			goal: 'Show the camera.',
+			agents: ['researcher', 'engineer'],
 			seats,
 			seating: false,
 		});
@@ -236,6 +236,7 @@ describe('the frame widget kind', () => {
 		const room = await canvas.open({
 			name: 'bench-room',
 			goal: 'Show the camera.',
+			agents: ['researcher', 'engineer'],
 			seats,
 			seating: false,
 		});

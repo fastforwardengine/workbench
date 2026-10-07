@@ -23,49 +23,76 @@ const call = (name: string, input: Parameters<typeof fauxToolCall>[1]) =>
 
 const quiet = () => fauxAssistantMessage('quiet', { stopReason: 'stop' });
 
-/** The Engineer opens a breakout room. The twin reports, and the Engineer archives the room. */
-function fullPath(agent: string, count: number): AssistantMessage {
-	if (agent === 'engineer' && count === 1)
-		return call('breakout', {
-			name: 'datasheets',
-			goal: 'Write and test a sweep script.',
-			message: 'Write a script that sweeps the supply, and test it.',
-			agents: ['engineer-bg'],
-		});
-	if (agent === 'engineer' && count === 2)
+/**
+ * What a request shows of its seat. The Engineer has a seat in the root room and one in the
+ * breakout room. `calls` lists the tools that the seat called in this activation, oldest first.
+ */
+interface Seat {
+	agent: string;
+	breakout: boolean;
+	reported: boolean;
+	calls: string[];
+}
+
+const BREAKOUT_INPUT = {
+	name: 'datasheets',
+	goal: 'Write and test a sweep script.',
+	message: 'Write a script that sweeps the supply, and test it.',
+	agents: ['engineer'],
+};
+
+/** The Engineer opens a breakout room, and says so. */
+function opening({ calls }: Seat): AssistantMessage | undefined {
+	if (calls.length === 0) return call('breakout', BREAKOUT_INPUT);
+	if (calls.at(-1) === 'breakout')
 		return call('say', { text: 'The script runs in the background.' });
-	if (agent === 'engineer-bg' && count === 1)
-		return call('report', { text: 'The script passes its test.' });
-	// A request that follows a `say` ends the activation: the script answers it with `quiet`.
-	if (agent === 'engineer' && count === 4)
+	return undefined;
+}
+
+/**
+ * The Engineer opens a breakout room and seats itself. It reports there, and archives the room
+ * when the report lands. The report can land during the activation that opened the room, or after it.
+ */
+function fullPath(seat: Seat): AssistantMessage {
+	if (seat.agent !== 'engineer') return quiet();
+	if (seat.breakout)
+		return seat.calls.length === 0
+			? call('report', { text: 'The script passes its test.' })
+			: quiet();
+	if (seat.reported && !seat.calls.includes('archive'))
 		return call('archive', { room: ROOM, result: 'done', note: 'Reported.' });
-	if (agent === 'engineer' && count === 5)
-		return call('say', { text: 'The script passes its test.' });
-	return quiet();
+	if (seat.calls.at(-1) === 'archive') return call('say', { text: 'The script passes its test.' });
+	return opening(seat) ?? quiet();
 }
 
-/** The Engineer opens a breakout room. The twin does nothing, so the room stays open. */
-function openOnly(agent: string, count: number): AssistantMessage {
-	if (agent === 'engineer' && count === 1)
-		return call('breakout', {
-			name: 'datasheets',
-			goal: 'Write and test a sweep script.',
-			message: 'Write a script that sweeps the supply, and test it.',
-			agents: ['engineer-bg'],
-		});
-	if (agent === 'engineer' && count === 2)
-		return call('say', { text: 'The script runs in the background.' });
-	return quiet();
+/** The Engineer opens a breakout room. Its seat there does nothing, so the room stays open. */
+function openOnly(seat: Seat): AssistantMessage {
+	return seat.agent === 'engineer' && !seat.breakout ? (opening(seat) ?? quiet()) : quiet();
 }
 
-const streamOf = (respond: (agent: string, count: number) => AssistantMessage) => {
-	const counts = new Map<string, number>();
+/** The names of the tools that the assistant messages of a context called, oldest first. */
+function calledIn(messages: readonly { role: string; content?: unknown }[]): string[] {
+	return messages.flatMap((message) =>
+		message.role === 'assistant' && Array.isArray(message.content)
+			? message.content.flatMap((block: { type: string; name?: string }) =>
+					block.type === 'toolCall' && block.name ? [block.name] : [],
+				)
+			: [],
+	);
+}
+
+const streamOf = (respond: (seat: Seat) => AssistantMessage) => {
 	const stream: PiExecutionOptions['stream'] = (_model, context) => {
 		const output = createAssistantMessageEventStream();
 		const agent = getCurrentSystemPrompt(context.messages).match(/You are '([^']+)'/)?.[1] ?? '';
-		const count = (counts.get(agent) ?? 0) + 1;
-		counts.set(agent, count);
-		const response = respond(agent, count);
+		const text = JSON.stringify(context.messages);
+		const response = respond({
+			agent,
+			// The reminder of a breakout room names its opener. A root room has no such line.
+			breakout: text.includes('opened this room from'),
+			reported: text.includes(`breakout ${ROOM}:`),
+			calls: calledIn(context.messages),
+		});
 		queueMicrotask(() => {
 			output.push({ type: 'start', partial: response });
 			output.push({
@@ -88,7 +115,7 @@ afterEach(async () => {
 	}
 });
 
-async function open(respond: (agent: string, count: number) => AssistantMessage) {
+async function open(respond: (seat: Seat) => AssistantMessage) {
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-breakout-'));
 	const lab = await openLab({ directory, stream: streamOf(respond) });
 	opened.push({ lab, directory });
@@ -148,14 +175,14 @@ describe('a breakout room in the host', () => {
 		await ask(lab);
 		await until(lab, (all) => all.some((room) => room.breakout?.state === 'archived'));
 		stop();
-		// The breakout room opens and archives, and its twin starts: three events at least.
+		// The breakout room opens and archives, and its seat starts: three events at least.
 		expect(heard).toBeGreaterThanOrEqual(3);
 		const after = heard;
 		await lab.control('build', 'stop');
 		expect(heard).toBe(after);
 	});
 
-	it('refuses a message to a specialist that the breakout room does not seat, and takes one for the twin', async () => {
+	it('refuses a message to a specialist that the breakout room does not seat, and takes one for its own seat', async () => {
 		const lab = await open(openOnly);
 		await ask(lab);
 		const rooms = await until(lab, (all) => all.some((room) => room.name === ROOM));
@@ -170,7 +197,7 @@ describe('a breakout room in the host', () => {
 		const seated = (await lab.read(ROOM, 0)).participants.map((seat) => seat.name);
 		expect(seated).not.toContain('researcher');
 		await expect(
-			lab.send(ROOM, person, 'to-twin', 'Add the TEA5767.', [], 'engineer-bg'),
+			lab.send(ROOM, person, 'to-engineer', 'Add the TEA5767.', [], 'engineer'),
 		).resolves.toBe(undefined);
 		await expect(lab.send(ROOM, person, 'to-nobody', 'Hello.', [], 'nobody')).rejects.toThrow(
 			"'nobody' is not a seat of this breakout room.",

@@ -255,6 +255,23 @@ describe('the macro drive-the-power-supply/stop', () => {
 		expect(result.finallyExitCode).toBe(1);
 	}, 30_000);
 
+	it('passes the sim file of a run on the simulator to finally.py', async () => {
+		const texts = await runCalls('engineer', [
+			{ tool: 'fork', input: { source: 'templates/psu', name: 'bench-psu', clone: '~/bench-psu' } },
+			{
+				tool: 'write',
+				input: { path: '~/bench-psu/finally.py', content: 'import sys\nprint(sys.argv[1:])\n' },
+			},
+			macro('drive-the-power-supply/stop', {
+				handle: 'bash-000000000000',
+				clone: '~/bench-psu',
+				sim: 'sim.json',
+			}),
+		]);
+		const result = returned(texts[2] ?? '');
+		expect(result.finally).toContain("['--sim', 'sim.json']");
+	}, 30_000);
+
 	it('reports safe and skips finally.py after an exit 0', async () => {
 		const result = await stopped('true', 5);
 		expect(result).toEqual({ state: 'exited', exitCode: 0, safe: true });

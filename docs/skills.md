@@ -15,7 +15,7 @@ holds the contract.
 | The skills | `skills/<specialist>/<skill>/` | `SKILL.md`, and any scripts, macros, references, and assets   |
 | The shared | `skills/shared/<skill>/`       | A skill that every specialist receives                        |
 | The loader | `src/domain/skills.ts`         | `specialistSkills`, which reads two folders with `loadSkills` |
-| The wiring | `src/domain/definitions.ts`    | `workspace.tools({ skills })` in each specialist and twin     |
+| The wiring | `src/domain/definitions.ts`    | `workspace.tools({ skills })` in each specialist              |
 | The check  | `test/skills.test.ts`          | The folders, the guidance, and the copy into the home         |
 | The macros | `test/skill-macros.test.ts`    | Each macro in a scripted room, and the guidance that lists it |
 
@@ -27,14 +27,13 @@ holds `keep-notes`. A specialist receives its own skills and the shared
 skills. A skill of the specialist replaces a shared skill of the same name.
 The folder `shared` names no specialist.
 
-**The twin of a specialist has no folder.** It receives the skills of its
-specialist, which `specialistSkills` reads for both seats. The twin of the
-Engineer receives the skills that drive a device, and its breakout room has
-no access to the devices. It runs a skill of this kind only on its
-simulator. Only `drive-the-power-supply` has one: the twin puts `--sim` before
-the command, as the skill says. The other skills of the Engineer need a
-device, so the twin reports the step that needs one.
-[Breakout rooms](breakouts.md) describes the twin.
+**A specialist has the same skills in every room.** The Engineer receives
+the skills that drive a device in a breakout room too, and the breakout rule
+forbids a device there. The Engineer runs a skill of this kind in a breakout
+room only on its simulator. Only `drive-the-power-supply` has one: the
+Engineer puts `--sim` before the command, as the skill says. For the other
+skills of the Engineer, which need a device, it reports the step to the
+opener. [Breakout rooms](breakouts.md) gives the rule.
 
 ## How a specialist reads a skill
 

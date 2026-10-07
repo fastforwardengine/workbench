@@ -49,17 +49,17 @@
 		"prepack": "pnpm run build"
 	},
 	"dependencies": {
-		"@ambionframework/ambion": "^0.7.0",
-		"@ambionframework/canvas": "^0.7.0",
-		"@ambionframework/journal": "^0.7.0",
-		"@ambionframework/just-bash": "^0.7.0",
-		"@ambionframework/pi": "^0.7.0",
-		"@ambionframework/workspace": "^0.7.0",
-		"@ambionframework/workstation": "^0.7.0",
+		"@ambionframework/ambion": "^0.8.0",
+		"@ambionframework/canvas": "^0.8.0",
+		"@ambionframework/journal": "^0.8.0",
+		"@ambionframework/just-bash": "^0.8.0",
+		"@ambionframework/pi": "^0.8.0",
+		"@ambionframework/workspace": "^0.8.0",
+		"@ambionframework/workstation": "^0.8.0",
 		"@opentui/core": "0.5.14"
 	},
 	"devDependencies": {
-		"@ambionframework/simulator": "^0.7.0",
+		"@ambionframework/simulator": "^0.8.0",
 		"@biomejs/biome": "^2.5.15",
 		"@earendil-works/pi-ai": "^1.0.4",
 		"@types/node": "^26.6.4",

@@ -7,7 +7,7 @@ import { memoryJournals } from '@ambionframework/journal';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
-import { people, team, twinOf } from '../src/domain/definitions.ts';
+import { people, team } from '../src/domain/definitions.ts';
 import { SHARED_SKILLS, skillsDirectory, specialistSkills } from '../src/domain/skills.ts';
 import { labRepositories } from '../src/host/repositories.ts';
 
@@ -58,21 +58,19 @@ describe('the Workbench skills', () => {
 			expect(await skillNames(specialist), specialist).toEqual(expect.arrayContaining(shared));
 	});
 
-	it('gives the twin of each specialist the skills of that specialist', async () => {
+	it('keeps one folder of skills for each specialist, and one definition for each', async () => {
 		const workspace = openWorkspace({
 			name: 'workbench',
 			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
 		});
 		try {
 			const built = await team(workspace);
-			expect(readdirSync(skillsDirectory)).not.toContain('researcher-bg');
-			for (const [index, twin] of built.twins.entries()) {
-				const specialist = built.specialists[index]?.name ?? '';
-				expect(twin.name).toBe(twinOf(specialist));
-				expect(twin.executor.guidance, twin.name).toBe(built.specialists[index]?.executor.guidance);
-				for (const name of await skillNames(specialist))
-					expect(twin.executor.guidance, twin.name).toContain(`~/.skills/${name}/SKILL.md`);
-			}
+			expect(readdirSync(skillsDirectory).sort()).toEqual([
+				'engineer',
+				'researcher',
+				SHARED_SKILLS,
+			]);
+			expect(built.specialists.map((seat) => seat.name)).toEqual(specialists);
 		} finally {
 			await workspace.dispose();
 		}

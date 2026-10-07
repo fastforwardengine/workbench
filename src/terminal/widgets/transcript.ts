@@ -1,4 +1,4 @@
-import type { Message, PostedMessage } from '@ambionframework/ambion';
+import type { Message, SystemMessage } from '@ambionframework/ambion';
 import {
 	BoxRenderable,
 	bg,
@@ -89,7 +89,7 @@ const clock = (at: string | undefined): string => {
 };
 
 function bodyOf(message: Message): string {
-	if (message.kind === 'said' || message.kind === 'posted') return message.text ?? '';
+	if (message.kind === 'said' || message.kind === 'system') return message.text ?? '';
 	return '';
 }
 
@@ -100,9 +100,9 @@ function returnsAt({ message, dismissed }: MessageBlock): string {
 	return `  returns ${clock(new Date(Date.parse(message.at) + message.delaySeconds * 1000).toISOString())}`;
 }
 
-/** A post of the host reads `posted`, and a say that the room returned reads `returned`. */
-function postedHeader(message: PostedMessage, at: Chunk, fill?: string): Chunk[] {
-	const label = message.returns === undefined ? 'posted' : 'returned';
+/** A post of the host reads `system`, and a say that the room returned reads `returned`. */
+function systemHeader(message: SystemMessage, at: Chunk, fill?: string): Chunk[] {
+	const label = message.returns === undefined ? 'system' : 'returned';
 	return [
 		paint(label, { color: palette.green, strong: true, fill }),
 		paint(` → ${message.to ?? 'the room'}`, { color: palette.muted, fill }),
@@ -116,7 +116,7 @@ function headerOf(block: MessageBlock, fill?: string): Chunk[] {
 	const to = message.kind === 'said' ? message.to : undefined;
 	const at = paint(`  ${clock(message.at)}`, { color: palette.dim, fill });
 	if (role === 'question') return [paint(from, { strong: true, fill }), at];
-	if (message.kind === 'posted') return postedHeader(message, at, fill);
+	if (message.kind === 'system') return systemHeader(message, at, fill);
 	const arrow = to ? paint(` → ${to}`, { color: palette.muted, fill }) : paint('', { fill });
 	const returns = paint(returnsAt(block), { color: palette.accent, fill });
 	return [paint(from, { color: palette.accent, fill }), arrow, returns, at];
@@ -139,7 +139,7 @@ const CALL_MARK = {
 const railOf: Record<Role, string> = {
 	question: palette.text,
 	said: palette.line,
-	posted: palette.green,
+	system: palette.green,
 };
 
 /** One row of the conversation: its node, and the signature of everything the node was built from. */

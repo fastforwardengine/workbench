@@ -1144,27 +1144,27 @@ describe('Session breakout rooms', () => {
 		expect(session.room).toBe('characterization');
 	});
 
-	const twin = {
+	const seated = {
 		kind: 'agent',
-		name: 'engineer-bg',
+		name: 'engineer',
 		identity: 'W',
 		status: 'idle',
 		attention: 'broadcast',
 	};
 
-	it('offers and accepts the seated agents of a breakout room, and no specialist', async () => {
+	it('offers and accepts the seated agents of a breakout room, and no other specialist', async () => {
 		const { host, session } = await started();
-		host.table.set('tuners', view('tuners', breakout('running', { participants: [twin] })));
+		host.table.set('tuners', view('tuners', breakout('running', { participants: [seated] })));
 		await session.refreshRooms();
 		await session.switchRoom('tuners');
 		expect(session.suggestions('@').map((row) => [row.label, row.detail])).toEqual([
-			['@engineer-bg', 'broadcast'],
+			['@engineer', 'broadcast'],
 		]);
-		await session.submit('@engineer-bg add the TEA5767');
-		expect(host.sentTo).toEqual(['engineer-bg']);
-		await session.submit('@engineer hello');
-		expect(session.error).toContain('No seat or specialist named @engineer');
-		expect(host.sentTo).toEqual(['engineer-bg']);
+		await session.submit('@engineer add the TEA5767');
+		expect(host.sentTo).toEqual(['engineer']);
+		await session.submit('@researcher hello');
+		expect(session.error).toContain('No seat or specialist named @researcher');
+		expect(host.sentTo).toEqual(['engineer']);
 	});
 
 	it('opens an archived breakout room to read, joins nothing, and says it is archived on a send', async () => {

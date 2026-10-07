@@ -72,6 +72,10 @@ pnpm start ./bench                # another directory
   Its journal seats the assistant, and Ambion stops with the error
   `agent 'assistant' has no binding`. Move the data directory away, and
   start again.
+- **Ambion 0.8.0 does not open a journal that holds a `posted` message.**
+  A breakout report, a close notice, and a returned say wrote one in
+  0.7.0. The room list then fails. Move the data directory away, and start
+  again.
 
 ## Run on a local workstation
 
@@ -107,9 +111,10 @@ with a directed say.
 | Researcher | States limits from `/library`, with the source, and writes a test plan | Workspace |
 | Engineer   | Watches the bench, runs the bench scripts, and guides a build          | Workspace |
 
-**Each specialist can open a breakout room.** Its twin does a task of many
-steps in the background and reports the result. The header counts the
-breakout rooms that run, and Ctrl+R lists them under their parent room.
+**Each specialist can open a breakout room.** It seats itself there, does a
+task of many steps in the background, and reports the result. The header
+counts the breakout rooms that run, and Ctrl+R lists them under their
+parent room.
 See [`docs/breakouts.md`](docs/breakouts.md).
 
 **The workspace tools do the work of the bench.** They read and write files,
