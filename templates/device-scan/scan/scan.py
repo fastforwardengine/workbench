@@ -14,7 +14,7 @@ import json
 import os
 import shutil
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # The USB devices of the machine. A test names a fake sysfs folder in
@@ -131,7 +131,7 @@ def run(command):
     if not shutil.which(command[0]):
         return f"{command[0]} is not installed"
     try:
-        done = subprocess.run(command, capture_output=True, text=True, timeout=60)
+        done = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
     except subprocess.TimeoutExpired:
         return f"{command[0]} did not end within 60 seconds"
     return (done.stdout + done.stderr).strip()
@@ -177,7 +177,7 @@ def main():
     parser.add_argument("--out", default="scans", help="the folder of the reports")
     args = parser.parse_args()
 
-    time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
+    time = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
     report = {
         "time": time,
         "host": os.uname().nodename,

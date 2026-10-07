@@ -84,7 +84,7 @@ class Controllers(Isolated):
 
     def run_finally(self, *arguments):
         command = ["finally.py", "--config", str(self.config), "--sim", str(self.state), *arguments]
-        return subprocess.run([sys.executable, "-B", *command], cwd=ROOT, env=self.environment(self.events), capture_output=True, text=True, timeout=20)
+        return subprocess.run([sys.executable, "-B", *command], cwd=ROOT, env=self.environment(self.events), capture_output=True, text=True, timeout=20, check=False)
 
 
 class Ramp(Controllers):

@@ -40,7 +40,7 @@ class Processes(Isolated):
         config.write_text(json.dumps(CONFIG_TWO))
         command = ["psu.py", "--config", str(config), "--sim", str(self.state), "measure", "--count", "2", "--interval", "0"]
         env = {"PATH": "/usr/bin:/bin", "PSU_LOCK_DIR": str(self.locks)}
-        done = subprocess.run([sys.executable, "-B", *command], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+        done = subprocess.run([sys.executable, "-B", *command], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60, check=False)
         self.assertEqual(done.returncode, 0, done.stderr)
         rows = [json.loads(line) for line in done.stdout.splitlines()]
         self.assertEqual(len(rows), 2)

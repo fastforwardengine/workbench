@@ -18,7 +18,7 @@ permissions:
 
 env:
   # The ruff version of every run. `pnpm check` lints the Python with it.
-  RUFF_VERSION: 0.15.20
+  RUFF_VERSION: 0.16.10
 
 jobs:
   check:

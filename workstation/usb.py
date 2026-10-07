@@ -24,9 +24,9 @@ holds, and a detach that fails stops the attach again.
 
 import json
 import shutil
-from collections import Counter
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 IGNORE_FILE = Path(__file__).with_name("usb-ignore")
@@ -44,7 +44,7 @@ KEEP_ON_MAC = {"input": "an input device, which macOS needs", "billboard": "a hu
 
 
 def orb(*args):
-    return subprocess.run(["orb", *args], capture_output=True, text=True)
+    return subprocess.run(["orb", *args], capture_output=True, text=True, check=False)
 
 
 def ignored():
@@ -68,6 +68,7 @@ def linux_ids():
         ["docker", "compose", "-f", str(COMPOSE_FILE), "exec", "-T", "workstation", "sh", "-c", LIST_IDS],
         capture_output=True,
         text=True,
+        check=False,
     )
     return Counter(listed.stdout.split()) if listed.returncode == 0 else None
 
