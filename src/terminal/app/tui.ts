@@ -191,6 +191,7 @@ class EngineTui {
 				this.stopped = true;
 				this.keys.release();
 				this.voice.dispose();
+				this.processes.dispose();
 				this.microphone.dispose();
 				clearInterval(slow);
 				resolve();

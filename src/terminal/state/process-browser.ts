@@ -3,11 +3,15 @@ import { errorText } from '../../view/text.ts';
 
 type ProcessHost = Pick<Lab, 'processes' | 'processOutput' | 'cancelProcess' | 'watchProcesses'>;
 
+/** While the chosen process runs, the panel reads the end of its output at this interval, in milliseconds. */
+export const FOLLOW_MS = 1_000;
+
 /**
  * The processes panel, without drawing: the background processes of the
  * seats, the chosen one, and the end of its output. The output loads as the
  * selection moves. While the panel is open, a start or an end of a process
- * reads the list again.
+ * reads the list again. While the panel is open and the chosen process runs,
+ * a timer reads the end of the output once each interval.
  */
 export class ProcessBrowser {
 	open = false;
@@ -27,6 +31,9 @@ export class ProcessBrowser {
 	/** Counts each open and each close, so a read that lands after one of them is dropped. */
 	private generation = 0;
 	private unwatch: (() => void) | undefined;
+	private follower: ReturnType<typeof setInterval> | undefined;
+	/** How many output reads are in flight. A timer tick waits while one runs. */
+	private reading = 0;
 	private readonly host: ProcessHost;
 	private readonly changed: () => void;
 
@@ -65,7 +72,13 @@ export class ProcessBrowser {
 		this.token += 1;
 		this.unwatch?.();
 		this.unwatch = undefined;
+		this.unfollow();
 		this.changed();
+	}
+
+	/** Stop the timer, so a terminal that ends leaves no timer. `hide` also stops it. */
+	dispose(): void {
+		this.unfollow();
 	}
 
 	move(step: number): void {
@@ -140,16 +153,35 @@ export class ProcessBrowser {
 		this.changed();
 	}
 
+	/** Run the timer while the panel is open and the chosen process runs. Stop it otherwise. */
+	private follow(): void {
+		if (this.open && this.selected?.state === 'running')
+			this.follower ??= setInterval(() => this.tick(), FOLLOW_MS);
+		else this.unfollow();
+	}
+
+	private unfollow(): void {
+		clearInterval(this.follower);
+		this.follower = undefined;
+	}
+
+	/** Read the output again, unless the last read still runs. */
+	private tick(): void {
+		if (this.reading === 0) void this.load();
+	}
+
 	private async load(): Promise<void> {
 		this.token += 1;
 		const mine = this.token;
 		const process = this.selected;
+		this.follow();
 		if (!this.open) return;
 		if (!process) {
 			this.output = undefined;
 			this.changed();
 			return;
 		}
+		this.reading += 1;
 		try {
 			const output = await this.host.processOutput(process.handle, process.agent);
 			if (mine !== this.token) return;
@@ -158,6 +190,8 @@ export class ProcessBrowser {
 			if (mine !== this.token) return;
 			this.output = undefined;
 			this.problem = errorText(error);
+		} finally {
+			this.reading -= 1;
 		}
 		this.changed();
 	}
