@@ -117,7 +117,7 @@ class EngineTui {
 		});
 		this.composer = new Composer(renderer, {
 			submit: () => void this.onSubmit(),
-			change: () => this.keys.refreshPalette(),
+			change: () => this.renderChrome(),
 		});
 		this.painter = new Painter({
 			session: this.session,
@@ -252,6 +252,13 @@ class EngineTui {
 		// A message that failed to send goes to the box, so the person can send it again.
 		if (isMessage && this.session.error && this.composer.text === '') this.composer.setText(text);
 		if (intent) this.apply(intent);
+	}
+
+	/** Repaint the chrome and the palette after an edit of the composer text. The conversation keeps its one-shot flags. */
+	private renderChrome(): void {
+		if (this.stopped) return;
+		this.painter.renderChrome(this.keys.mode, this.keys.picking);
+		this.keys.refreshPalette();
 	}
 
 	private render(): void {
