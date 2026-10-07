@@ -9,7 +9,7 @@ import { LOST, NO_CAMERA } from '../src/host/viewfinder.ts';
 import { Dock } from '../src/terminal/app/dock.ts';
 import { Painter } from '../src/terminal/app/draw.ts';
 import { FilesSurface } from '../src/terminal/app/files-surface.ts';
-import { Keys } from '../src/terminal/app/keys.ts';
+import { Keys, QUIT_WINDOW_MS } from '../src/terminal/app/keys.ts';
 import { KeysSurface } from '../src/terminal/app/keys-surface.ts';
 import { ProcessesSurface } from '../src/terminal/app/process-surface.ts';
 import { ViewfinderSurface } from '../src/terminal/app/viewfinder-surface.ts';
@@ -67,6 +67,8 @@ async function build(width = 120, voice = quietVoice()) {
 	];
 	const renders = { count: 0 };
 	const quit = vi.fn();
+	/** The clock of the second Ctrl+D. A test moves it. */
+	const clock = { at: 1_000 };
 	// Like `tui.ts`: the keys settle their selection, the painter draws, the palette follows.
 	let keys: Keys;
 	const render = vi.fn(() => {
@@ -142,6 +144,7 @@ async function build(width = 120, voice = quietVoice()) {
 		voice,
 		render,
 		quit,
+		now: () => clock.at,
 	});
 	composer.focus();
 	const prevented = { count: 0 };
@@ -163,6 +166,7 @@ async function build(width = 120, voice = quietVoice()) {
 		keys,
 		palette,
 		quit,
+		clock,
 		press,
 		prevented,
 		transcript,
@@ -545,26 +549,39 @@ describe('the camera layer', () => {
 		expect(built.session.notice ?? '').not.toContain('No layer is open');
 	});
 
-	it('says the width on the camera command in a narrow terminal, and leaves the open layer alone', async () => {
+	it('closes a hidden camera on the camera command in a narrow terminal, and says so', async () => {
 		const built = await build(120);
 		built.kitty.on = true;
 		built.keys.toggleCamera();
 		await wait(20);
 		built.setup.resize(80, 30);
 		built.render();
-		built.session.say('Cleared.');
-		built.keys.toggleCamera();
-		expect(built.session.notice ?? '').toContain('at least 100 columns wide');
 		expect(built.dock.has('camera')).toBe(true);
-		built.session.say('Cleared.');
+		expect(built.dock.shown).toBeUndefined();
 		built.keys.toggleCamera();
-		expect(built.session.notice ?? '').toContain('at least 100 columns wide');
-		expect(built.dock.has('camera')).toBe(true);
+		expect(built.session.notice).toBe(
+			'Closed the camera. It shows when the terminal is at least 100 columns wide.',
+		);
+		expect(built.dock.has('camera')).toBe(false);
 		built.setup.resize(120, 30);
 		built.render();
 		await wait(20);
-		expect(built.dock.shown).toBe('camera');
-		expect(built.camera.open).toBe(true);
+		expect(built.dock.shown).toBeUndefined();
+		expect(built.camera.open).toBe(false);
+	});
+
+	it('keeps the other layers when the camera command closes a hidden camera', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.openProcesses();
+		built.keys.toggleCamera();
+		built.keys.openProcesses();
+		await wait(20);
+		built.setup.resize(80, 30);
+		built.render();
+		built.keys.toggleCamera();
+		expect(built.dock.has('camera')).toBe(false);
+		expect(built.dock.has('processes')).toBe(true);
 	});
 
 	it('hides when the terminal becomes narrow, and shows again with a new poll when it widens', async () => {
@@ -771,6 +788,26 @@ describe('the files layer keys', () => {
 		expect(built.session.browser.open).toBe(true);
 		expect(built.panel.root.visible).toBe(true);
 		expect(built.transcript.root.visible).toBe(true);
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('closes on the third Escape: clear the search, give the keys back, close', async () => {
+		const built = await build();
+		await openFiles(built);
+		built.press('c');
+		built.press('escape');
+		expect(built.session.browser.query).toBe('');
+		expect(built.keys.mode).toBe('dock');
+		built.press('escape');
+		expect(built.keys.mode).toBe('compose');
+		expect(built.dock.has('files')).toBe(true);
+		expect(built.dock.onScreen).toBe(true);
+		built.press('escape');
+		expect(built.dock.has('files')).toBe(false);
+		expect(built.session.browser.open).toBe(false);
+		expect(built.dock.onScreen).toBe(false);
+		expect(built.dockPanel.root.visible).toBe(false);
+		expect(built.keys.mode).toBe('compose');
 		expect(built.composer.input.focused).toBe(true);
 	});
 
@@ -1255,7 +1292,9 @@ describe('Ctrl+C and Ctrl+D', () => {
 		expect(built.session.pendingRefs).toEqual([]);
 		expect(built.session.notice).toBe('Dropped 1 staged attachment.');
 		built.press('c', ctrl);
-		expect(built.session.notice).toBe('Press Ctrl+D or type /quit to leave.');
+		expect(built.session.notice).toBe(
+			'Press Ctrl+D twice on an empty composer, or type /quit to leave.',
+		);
 	});
 
 	it('Ctrl+C cancels a room that waits for its goal, and clears the goal text', async () => {
@@ -1308,6 +1347,35 @@ describe('Ctrl+C and Ctrl+D', () => {
 		expect(built.quit).not.toHaveBeenCalled();
 	});
 
+	it('Escape dismisses the palette first, and keeps the layer', async () => {
+		const built = await build();
+		await openFiles(built);
+		built.press('escape');
+		expect(built.keys.mode).toBe('compose');
+		built.composer.setText('/');
+		built.render();
+		expect(built.palette.open).toBe(true);
+		built.press('escape');
+		expect(built.palette.open).toBe(false);
+		expect(built.dock.has('files')).toBe(true);
+		expect(built.dock.onScreen).toBe(true);
+		built.press('escape');
+		expect(built.dock.has('files')).toBe(false);
+	});
+
+	it('Escape on a composer with no layer on the screen is not handled', async () => {
+		const built = await build();
+		built.press('escape');
+		expect(built.prevented.count).toBe(0);
+		built.keys.toggleCamera();
+		built.setup.resize(80, 30);
+		built.render();
+		expect(built.dock.onScreen).toBe(false);
+		built.press('escape');
+		expect(built.prevented.count).toBe(0);
+		expect(built.dock.has('camera')).toBe(true);
+	});
+
 	it('Ctrl+C redraws, and opens a dismissed palette again', async () => {
 		const built = await build();
 		built.composer.setText('/');
@@ -1339,14 +1407,71 @@ describe('Ctrl+C and Ctrl+D', () => {
 		expect(built.host.sentRefs[0]).toHaveLength(1);
 	});
 
-	it('Ctrl+D leaves on an empty composer, and only then', async () => {
+	it('one Ctrl+D does not leave, and says how to leave', async () => {
+		const built = await build();
+		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
+		expect(built.session.notice).toBe('Press Ctrl+D again to leave.');
+		expect(built.prevented.count).toBe(1);
+	});
+
+	it('two quick Ctrl+D leave from an empty composer', async () => {
+		const built = await build();
+		built.press('d', ctrl);
+		built.clock.at += QUIT_WINDOW_MS;
+		built.press('d', ctrl);
+		expect(built.quit).toHaveBeenCalledTimes(1);
+	});
+
+	it('Ctrl+D with a draft goes to the textarea, says nothing, and never leaves', async () => {
 		const built = await build();
 		built.composer.setText('draft');
 		built.press('d', ctrl);
+		built.press('d', ctrl);
 		expect(built.quit).not.toHaveBeenCalled();
-		built.composer.setText('');
+		expect(built.session.notice).toBeUndefined();
+		expect(built.prevented.count).toBe(0);
+		expect(built.composer.text).toBe('draft');
+	});
+
+	it('another key between two Ctrl+D ends the window', async () => {
+		const built = await build();
+		built.press('d', ctrl);
+		built.press('a');
+		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
 		built.press('d', ctrl);
 		expect(built.quit).toHaveBeenCalledTimes(1);
+	});
+
+	it('two Ctrl+D split by the window do not leave', async () => {
+		const built = await build();
+		built.press('d', ctrl);
+		built.clock.at += QUIT_WINDOW_MS + 1;
+		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
+		expect(built.session.notice).toBe('Press Ctrl+D again to leave.');
+	});
+
+	it('Ctrl+D in the dock does not arm, and the first one in the composer then only says so', async () => {
+		const built = await build();
+		await openFiles(built);
+		built.press('d', ctrl);
+		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
+		expect(built.session.notice ?? '').not.toContain('Ctrl+D');
+		built.press('escape');
+		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
+		expect(built.session.notice).toBe('Press Ctrl+D again to leave.');
+	});
+
+	it('Ctrl+Shift+D never leaves', async () => {
+		const built = await build();
+		const shifted = { ctrl: true, shift: true, sequence: '' };
+		built.press('d', shifted);
+		built.press('d', shifted);
+		expect(built.quit).not.toHaveBeenCalled();
 	});
 });
 
@@ -1511,6 +1636,34 @@ describe('the keys sheet', () => {
 		expect(await built.frame()).toContain('? keys');
 		built.keys.openFiles();
 		expect(await built.frame()).not.toContain('? keys');
+	});
+
+	it('shows the Esc close hint only while a layer is on the screen', async () => {
+		const built = await build();
+		built.render();
+		expect(await built.frame()).not.toContain('Esc close');
+		built.keys.openFiles();
+		built.press('escape');
+		expect(await built.frame()).toContain('Esc close · ? keys');
+		built.press('escape');
+		expect(await built.frame()).not.toContain('Esc close');
+		expect(await built.frame()).toContain('? keys');
+	});
+
+	it('shows no Esc close hint in a narrow terminal while the layer is hidden', async () => {
+		const built = await build(80);
+		built.keys.openFiles();
+		built.press('escape');
+		expect(built.dock.onScreen).toBe(false);
+		expect(await built.frame()).not.toContain('Esc close');
+	});
+
+	it('states in the keys sheet that Escape in the composer closes the top layer', async () => {
+		const built = await build();
+		built.press('?');
+		const frame = await built.frame();
+		expect(frame).toContain('Esc');
+		expect(frame).toContain('close the top layer');
 	});
 
 	it('shows the hint while a layer is open and the composer has the keys', async () => {

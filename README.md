@@ -154,9 +154,12 @@ A bench script comes from a template.
   the right part of the conversation, only while the dock has the keys.
 - **Dock keys:** the composer keeps the keys. The files, the processes, and
   the keys sheet take them when they open, and the camera leaves them with
-  the composer. Esc gives the keys back to the composer, and the layer stays
-  open. Ctrl+O gives them back to the dock. Tab shows the next layer. Ctrl+C
-  closes the top layer, and so does `q` in every layer but the files.
+  the composer. In a layer, Esc gives the keys back to the composer, and the
+  layer stays open. In the composer, Esc closes the top layer while the dock
+  shows. In the files layer, the first Esc clears the search. Ctrl+O gives
+  the keys back to the dock. Tab shows the next layer. Ctrl+C closes the top
+  layer while the dock has the keys, and so does `q` in every layer but the
+  files. The footer shows `Esc close` while the dock shows.
 - **Camera viewfinder:** `/camera` shows a layer in the dock with the
   cameras that the open room shows. The Engineer shows a camera with a
   `frame` widget after its camera server answers. The layer draws one box
@@ -176,8 +179,8 @@ A bench script comes from a template.
   closes the layer when it is on top. The composer stays active while the
   layer shows. Another layer on top covers the camera and stops its reads.
   The camera shows again when that layer closes. A terminal under 100
-  columns does not show it. The layer needs a terminal with Kitty graphics,
-  such as Ghostty.
+  columns does not show it, and `/camera` closes an open camera layer
+  there. The layer needs a terminal with Kitty graphics, such as Ghostty.
 - **Look now:** the Engineer shows each camera with the action "Look now".
   The layer draws it as a button under the box of the camera. Ctrl+L takes
   the keys, Up and Down choose a button, Enter presses it, and Esc goes
@@ -186,9 +189,9 @@ A bench script comes from a template.
   another person, or when the room is stopped. A refusal shows its reason,
   and a press that the host could not confirm goes again as it was.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
-  waits for its goal. In the dock it closes the top layer. Ctrl+D leaves
-  the terminal when the composer is empty, and `/quit` also leaves. The
-  rooms stop with the terminal.
+  waits for its goal. In the dock it closes the top layer. Ctrl+D twice
+  in 2 seconds leaves the terminal from an empty composer, and `/quit`
+  also leaves. The rooms stop with the terminal.
 - **Voice mode:** `/voice` switches voice mode on and off. Hold Space on
   an empty composer to record, and let go to send what you said as a message.
   A press under 300 ms sends nothing. Ctrl+C drops a recording. A transcript

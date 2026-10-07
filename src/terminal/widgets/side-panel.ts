@@ -82,6 +82,8 @@ export abstract class SidePanel {
 
 	/** Show a short message under the body, such as the result of a copy. Without text, the line hides. */
 	protected showMessage(text: string | undefined): void {
+		// A timer that hides the line can run after the terminal ends.
+		if (this.message.isDestroyed) return;
 		this.message.visible = Boolean(text);
 		this.message.content = new StyledText(text ? [fg(palette.note)(text)] : []);
 	}
