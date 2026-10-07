@@ -17,8 +17,8 @@ export interface TitleSource {
 /**
  * The title of the terminal window. With a person and an open room, it starts
  * with the room and one mark for the state: a reply that waits for the person,
- * a seat that works, or a message that goes out. A reply that waits wins over
- * the other two. An idle room shows its name alone. Without a person or a room,
+ * a seat that works, or a message that goes out. A reply that waits comes
+ * before the other two. An idle room shows its name alone. Without a person or a room,
  * the title is the product name.
  */
 export function titleOf(source: TitleSource, product: string): string {
