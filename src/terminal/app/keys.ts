@@ -280,6 +280,10 @@ export class Keys {
 
 	/** Give the keys to the actions of the cameras. A camera layer that is not on top, or a camera with no action, keeps the composer. */
 	private enterActions(): void {
+		if (this.renderer.width < NARROW) {
+			this.sayCameraWidth();
+			return;
+		}
 		if (this.dock.shown !== 'camera') {
 			this.session.say('The camera layer is not on top. Use /camera to show the cameras.');
 			return;
