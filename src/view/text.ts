@@ -17,6 +17,27 @@ export function ellipsize(text: string, width: number): string {
 	return `${edge.trimEnd()}…`;
 }
 
+/**
+ * Fit a path on one line of `width` cells, with the ellipsis in the middle, so the
+ * file name stays. The path keeps as many whole leading folders as fit. A text with
+ * no folder, or a name too long for the width, loses its middle. It counts each
+ * character as one cell, as `ellipsize` does.
+ */
+export function ellipsizeMiddle(text: string, width: number): string {
+	if (text.length <= width) return text;
+	if (width < 1) return '';
+	const slash = text.lastIndexOf('/');
+	const tail = slash > 0 ? text.slice(slash) : '';
+	const room = width - 1 - tail.length;
+	if (tail && room >= 1) {
+		const head = text.slice(0, room);
+		const folder = head.lastIndexOf('/');
+		return `${folder > 0 ? head.slice(0, folder + 1) : head}…${tail}`;
+	}
+	const left = Math.ceil((width - 1) / 2);
+	return `${text.slice(0, left)}…${text.slice(text.length - (width - 1 - left))}`;
+}
+
 /** The message of an error, or the text of any other thrown value. */
 export const errorText = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);

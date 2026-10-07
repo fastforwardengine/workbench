@@ -82,12 +82,16 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 		// The real dock and surface over a panel that draws nothing: the keys of the files layer are the code under test.
 		dock: new Dock({
 			surfaces: {
-				files: new FilesSurface(session.browser, {
-					root: {},
-					draw: () => {},
-					scrollBy: () => {},
-					page: 4,
-				} as unknown as FilesPanel),
+				files: new FilesSurface(
+					session.browser,
+					{
+						root: {},
+						draw: () => {},
+						scrollBy: () => {},
+						page: 4,
+					} as unknown as FilesPanel,
+					(seq) => session.jump(seq),
+				),
 				processes: {} as never,
 				keys: {} as never,
 				camera: {} as never,
@@ -158,11 +162,13 @@ describe('the refs of a message', () => {
 		expect(await session.openRef('2#0')).toEqual({ type: 'files' });
 		await vi.waitFor(() => expect(session.browser.file?.path).toBe(SNAPSHOT));
 		expect(session.browser.selected).toMatchObject({
-			kind: 'snapshot',
-			label: '/shared/readings.csv @abababab',
+			kind: 'cited',
+			label: '/shared/readings.csv',
+			path: SNAPSHOT,
 		});
 		expect(session.browser.matches.map((entry) => entry.path)).toEqual([
 			SNAPSHOT,
+			COMMIT,
 			'/library/cell-18650.md',
 		]);
 		await session.openRef('2#1');

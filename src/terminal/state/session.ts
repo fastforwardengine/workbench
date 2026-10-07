@@ -8,7 +8,16 @@ import {
 	type Working,
 	workingOf,
 } from '../../view/live.ts';
-import { type Known, pickIds, type RefItem, refItems, shows, stayOfPick } from '../../view/refs.ts';
+import {
+	type CitedFile,
+	citedFiles,
+	type Known,
+	pickIds,
+	type RefItem,
+	refItems,
+	shows,
+	stayOfPick,
+} from '../../view/refs.ts';
 import { type WaitingMessage, waitingMessages } from '../../view/steering.ts';
 import {
 	type ActivationSteps,
@@ -38,6 +47,9 @@ import { ProcessTails } from './process-tails.ts';
 import { RoomReader } from './room-reader.ts';
 import { DONE, HELP, mentionRefusal, notesOf, refusal, seatChoices } from './session-text.ts';
 
+/** True for a file of the home of a seat. The host names such a group `~<seat>`. */
+const inHome = (file: FileEntry): boolean => file.group?.startsWith('~') ?? false;
+
 /** What the terminal does after a command, beyond what the session already changed. */
 export type Intent =
 	{ type: 'quit' | 'files' | 'processes' | 'camera' | 'voice' } | { type: 'compose'; text: string };
@@ -58,6 +70,8 @@ export class Session {
 	identity: Person | undefined;
 	rooms: RoomView[] = [];
 	files: FileEntry[] = [];
+	/** The files of the homes of the seats, as the last read of the homes left them. */
+	private homeFiles: FileEntry[] = [];
 	/** The seq of the message that a ref jumped to. The terminal highlights it. */
 	focus: number | undefined;
 	/** The files layer. It searches `files` and loads the chosen one. */
@@ -133,7 +147,7 @@ export class Session {
 		// A room that opens, starts, stops, or is archived changes the list, and a breakout room is one.
 		this.unwatchRooms ??= this.host.watchRooms(() => void this.listRooms());
 		this.count.start();
-		await this.refreshRooms();
+		await this.refreshRooms(true);
 		if (!this.identity) {
 			const names = this.host.people.map((person) => person.name).join(', ');
 			this.say(`Who are you in the lab? Pick a person: ${names}.`);
@@ -147,15 +161,27 @@ export class Session {
 		if (first) await this.switchRoom(first.name);
 	}
 
-	async refreshRooms(): Promise<void> {
+	/**
+	 * Read the room list and the files. The roots come each time. The homes of the
+	 * seats come only with `homes`, because each home takes many reads on a
+	 * workstation. Between those reads, the list keeps the last homes it read.
+	 */
+	async refreshRooms(homes = false): Promise<void> {
 		try {
 			this.rooms = await this.host.rooms();
-			this.files = await this.host.files();
+			await this.readFiles(homes);
 			this.offline = undefined;
 		} catch (error) {
 			this.offline = errorText(error);
 		}
 		this.changed();
+	}
+
+	/** Read the files of the workspace. Without `homes`, the homes stay as the last read left them. */
+	private async readFiles(homes: boolean): Promise<void> {
+		const listed = await this.host.files(homes);
+		this.homeFiles = homes ? listed.filter(inHome) : this.homeFiles;
+		this.files = homes ? listed : [...listed.filter((file) => !inHome(file)), ...this.homeFiles];
 	}
 
 	/**
@@ -221,12 +247,13 @@ export class Session {
 	/**
 	 * The slow fallback. It reads the room list and the workspace files, which no
 	 * room watch reports. It reads the open room only when the room does not run,
-	 * because a stopped room records nothing for a watch to report.
+	 * because a stopped room records nothing for a watch to report. A call during a
+	 * read asks for one more read after it.
 	 */
-	async poll(): Promise<void> {
+	readonly poll = coalesced(async () => {
 		await this.refreshRooms();
 		if (this.view?.status !== 'running') await this.refresh();
-	}
+	});
 
 	/** Read what a room read does not hold: the open steps and the live steps. */
 	private async readSide(room: string): Promise<void> {
@@ -661,14 +688,15 @@ export class Session {
 
 	// Files
 
-	private async openFiles(path?: string, extra?: FileEntry): Promise<Intent | undefined> {
+	/** Open the files layer, on the path when it names a row. The files that the open room cites come first. */
+	private async openFiles(path?: string): Promise<Intent | undefined> {
 		try {
-			this.files = await this.host.files();
+			await this.readFiles(true);
 		} catch (error) {
 			this.fail(error);
 			return undefined;
 		}
-		this.browser.show(this.files, path, extra);
+		this.browser.show(this.files, path, this.cited);
 		return { type: 'files' };
 	}
 
@@ -681,6 +709,11 @@ export class Session {
 			files: this.files.map((file) => file.path),
 			seqs: new Set(this.reader.messages.map((message) => message.seq)),
 		};
+	}
+
+	/** The files that the messages of the open room cite, newest citation first. */
+	private get cited(): CitedFile[] {
+		return citedFiles(this.reader.messages, this.known);
 	}
 
 	/** The refs of the messages the conversation shows, top to bottom. */
@@ -730,14 +763,7 @@ export class Session {
 			this.jump(target.seq);
 			return undefined;
 		}
-		if (target.kind === 'snapshot' || target.kind === 'commit')
-			return this.openFiles(target.ref, {
-				path: target.ref,
-				size: 0,
-				kind: target.kind,
-				label: target.label,
-			});
-		return this.openFiles(target.path);
+		return this.openFiles(target.kind === 'file' ? target.path : target.ref);
 	}
 
 	/** Focus one message. */
@@ -758,7 +784,8 @@ export class Session {
 	}
 
 	private async openFile(argument: string): Promise<Intent | undefined> {
-		if (!argument) return this.openFiles();
+		// With no argument, the layer starts on the newest file that the room cites.
+		if (!argument) return this.openFiles(this.cited[0]?.open);
 		const wanted = argument.toLowerCase();
 		const matches = this.files.filter(
 			(file) => file.path.toLowerCase() === wanted || file.path.toLowerCase() === `/${wanted}`,

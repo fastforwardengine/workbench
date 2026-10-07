@@ -1,4 +1,4 @@
-import type { Message } from '@ambionframework/ambion';
+import type { Message, SaidMessage } from '@ambionframework/ambion';
 import { parseCommitUri, parseRoomUri, parseSnapshotUri } from '@ambionframework/ambion';
 import { ellipsize } from './text.ts';
 import type { Block } from './timeline.ts';
@@ -171,6 +171,95 @@ export function refItems(blocks: readonly Block[], known: Known): RefItem[] {
 			resolved: resolveRef(ref, known),
 		})),
 	);
+}
+
+/**
+ * One file, snapshot path, or repository that the messages cite. The row keeps
+ * the newest citation: who cited it, when, and in which message.
+ */
+export interface CitedFile {
+	/** Names the thing across its versions: a workspace path, or `commit:<repository>`. */
+	key: string;
+	/** What the files layer opens for the newest citation: a workspace path, a snapshot ref, or a commit ref. */
+	open: string;
+	/** The text that names the row: a path, or a repository with its branch and hash. */
+	label: string;
+	/**
+	 * Every ref the messages cite under the key, one for each version: the file, each
+	 * snapshot, each commit. `seq` is the newest message that cites that ref.
+	 */
+	opens: readonly { open: string; seq: number }[];
+	/** The name of the author of the newest citing message, as the message gives it. */
+	author: string;
+	/** When that message landed. */
+	at: string;
+	/** The seq of that message. */
+	seq: number;
+}
+
+/** What one resolved ref cites, before the messages are counted. */
+type Citation = Pick<CitedFile, 'key' | 'open' | 'label'>;
+
+/** The thing a ref cites in the files layer, or undefined when the ref opens no file. */
+function citation(target: RefTarget | undefined): Citation | undefined {
+	if (target?.kind === 'file') return { key: target.path, open: target.path, label: target.path };
+	if (target?.kind === 'snapshot') {
+		const path = parseSnapshotUri(target.ref)?.path ?? target.label;
+		return { key: path, open: target.ref, label: path };
+	}
+	if (target?.kind === 'commit') {
+		const repository = parseCommitUri(target.ref)?.repository ?? target.label;
+		return { key: `commit:${repository}`, open: target.ref, label: target.label };
+	}
+	return undefined;
+}
+
+/** What `citedFiles` gathers: the newest citation of each key, and the things cited under it. */
+interface Gathered {
+	rows: Map<string, CitedFile>;
+	opens: Map<string, Map<string, number>>;
+}
+
+/** Add one citation by the message at hand. The newest message keeps the row. */
+function gather(gathered: Gathered, message: SaidMessage, cited: Citation): void {
+	const { rows, opens } = gathered;
+	opens.set(
+		cited.key,
+		(opens.get(cited.key) ?? new Map<string, number>()).set(cited.open, message.seq),
+	);
+	const before = rows.get(cited.key);
+	if (before && message.seq < before.seq) return;
+	rows.set(cited.key, {
+		...cited,
+		opens: [],
+		author: message.from,
+		at: message.at,
+		seq: message.seq,
+	});
+}
+
+/**
+ * The files that the messages cite, newest citation first. A ref to a file or to
+ * a snapshot of it joins one row for its path, and a ref to a commit joins one
+ * row for its repository. A ref that does not resolve, and a ref to a message,
+ * cite no file. The row names the author of the newest message that cites the
+ * thing, as that message gives the name.
+ */
+export function citedFiles(messages: readonly Message[], known: Known): CitedFile[] {
+	const gathered: Gathered = { rows: new Map(), opens: new Map() };
+	for (const message of messages) {
+		if (message.kind !== 'said') continue;
+		for (const ref of message.refs ?? []) {
+			const cited = citation(resolveRef(ref, known).target);
+			if (cited) gather(gathered, message, cited);
+		}
+	}
+	return [...gathered.rows.values()]
+		.map((row) => ({
+			...row,
+			opens: [...(gathered.opens.get(row.key) ?? [])].map(([open, seq]) => ({ open, seq })),
+		}))
+		.sort((a, b) => b.seq - a.seq);
 }
 
 /** True when the blocks show the message at `seq`. */

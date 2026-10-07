@@ -167,8 +167,12 @@ export class FakeHost implements Lab {
 		this.calls.push(`activation:${id}`);
 		return this.traces.get(id);
 	}
-	async files() {
-		return this.fileList;
+	/** The `homes` argument of each call of `files`. */
+	readonly fileCalls: boolean[] = [];
+	/** The files of the roots, and the files of the homes when the call asks for them. */
+	async files(homes = false) {
+		this.fileCalls.push(homes);
+		return this.fileList.filter((file) => homes || !file.group?.startsWith('~'));
 	}
 	/** Every path the session asked the host to read. */
 	readonly reads: string[] = [];

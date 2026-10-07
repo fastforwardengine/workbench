@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { brief, clock, ellipsize, firstLine, render } from '../src/view/text.ts';
+import { brief, clock, ellipsize, ellipsizeMiddle, firstLine, render } from '../src/view/text.ts';
 
 describe('ellipsize', () => {
 	it('returns text that already fits, with its spaces collapsed', () => {
@@ -69,5 +69,29 @@ describe('clock', () => {
 		[-5, '0:00'],
 	])('shows %i ms as %s', (ms, text) => {
 		expect(clock(ms)).toBe(text);
+	});
+});
+
+describe('ellipsizeMiddle', () => {
+	it('leaves a path that fits', () => {
+		expect(ellipsizeMiddle('/shared/kit.md', 14)).toBe('/shared/kit.md');
+	});
+
+	it('keeps the file name and the leading folders that fit', () => {
+		expect(ellipsizeMiddle('/shared/rf/ldo-compare.md', 24)).toBe('/shared/…/ldo-compare.md');
+		expect(ellipsizeMiddle('/shared/rf/ldo-compare.md', 20)).toBe('/sha…/ldo-compare.md');
+	});
+
+	it('cuts the middle of a name that is too long, or of a text with no folder', () => {
+		expect(ellipsizeMiddle('/a/ldo-compare-long-name.md', 10)).toBe('/a/ld…e.md');
+		expect(ellipsizeMiddle('sweep-rig main 7c1e2a9', 12)).toBe('sweep-…1e2a9');
+		expect(ellipsizeMiddle('abc', 0)).toBe('');
+	});
+
+	it('never returns more than the width', () => {
+		for (const width of [1, 2, 5, 9, 17, 30])
+			expect(
+				ellipsizeMiddle('/attachments/2026/scope-capture-0042.png', width).length,
+			).toBeLessThanOrEqual(width);
 	});
 });

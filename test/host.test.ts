@@ -264,6 +264,10 @@ describe('Workbench host', () => {
 		expect(messages.some((message) => message.kind === 'summary')).toBe(false);
 		const path = '/home/researcher/shared/plan.md';
 		expect((await lab.file(path)).text).toBe(PLAN);
+		// The list holds the home of the seat that wrote the file, once.
+		expect((await lab.files()).some((file) => file.path === path)).toBe(false);
+		const listed = (await lab.files(true)).filter((file) => file.path === path);
+		expect(listed).toMatchObject([{ group: '~researcher', relative: 'shared/plan.md' }]);
 		await lab.close();
 		lab = await open(directory);
 		expect((await lab.file(path)).text).toBe(PLAN);
