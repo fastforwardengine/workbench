@@ -1,5 +1,5 @@
 import type { RoomView } from '../../host/host.ts';
-import { type RefItem, stayOfPick } from '../../view/refs.ts';
+import { type RefItem, stayOfPick, systemOfPick } from '../../view/refs.ts';
 import { type Audience, audienceOf } from '../state/audience.ts';
 import { cueLines } from '../state/cue.ts';
 import { bindingLabel, KEYMAP } from '../state/keymap.ts';
@@ -187,13 +187,24 @@ export class Painter {
 		return audienceOf(this.composer.text, session.host.team, session.view);
 	}
 
+	/** What Enter does on a system row or on a folded activation line, or undefined when the pick is a ref. */
+	private rowStatus(picking: string): string | undefined {
+		const system = systemOfPick(picking);
+		if (system !== undefined)
+			return this.session.opened.has(system)
+				? 'Enter folds this message.'
+				: 'Enter shows this message.';
+		const stay = stayOfPick(picking);
+		if (stay === undefined) return undefined;
+		return this.session.unfolded?.id === stay
+			? 'Enter folds this activation.'
+			: 'Enter shows the steps of this activation.';
+	}
+
 	/** What the status line says about the chosen ref: why it does not open, or what Enter does. */
 	private refStatus(picking: string | undefined): string {
-		const stay = picking === undefined ? undefined : stayOfPick(picking);
-		if (stay !== undefined)
-			return this.session.unfolded?.id === stay
-				? 'Enter folds this activation.'
-				: 'Enter shows the steps of this activation.';
+		const row = picking === undefined ? undefined : this.rowStatus(picking);
+		if (row !== undefined) return row;
 		const resolved = this.session.refItems.find((item) => item.id === picking)?.resolved;
 		if (!resolved) return 'No ref is chosen.';
 		if (!resolved.target)

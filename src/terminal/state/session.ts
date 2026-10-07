@@ -17,6 +17,7 @@ import {
 	refItems,
 	shows,
 	stayOfPick,
+	systemOfPick,
 } from '../../view/refs.ts';
 import { type WaitingMessage, waitingMessages } from '../../view/steering.ts';
 import {
@@ -97,6 +98,8 @@ export class Session {
 	private totals = new Map<string, StepTotals>();
 	/** The folded line that the person expanded, and the steps that the host held for it. */
 	unfolded: { id: string; read: ActivationSteps | undefined } | undefined;
+	/** The seqs of the system messages that the person opened. Any other system message shows as a folded row. */
+	opened: ReadonlySet<number> = new Set();
 	/** The newest output line of the processes that the running seats of the open exchange own. */
 	private readonly tails: ProcessTails;
 	/** How many background processes of the specialists run. */
@@ -385,6 +388,7 @@ export class Session {
 			failures: view.failures,
 			totals: this.totals,
 			expanded: this.unfolded,
+			opened: this.opened,
 		});
 		this.changed();
 	}
@@ -540,6 +544,7 @@ export class Session {
 		this.live = new Map();
 		this.totals = new Map();
 		this.unfolded = undefined;
+		this.opened = new Set();
 		this.tails.stop();
 		this.notice = undefined;
 		const dropped = this.pendingRefs.length;
@@ -721,17 +726,33 @@ export class Session {
 		return refItems(this.blocks, this.known);
 	}
 
-	/** What the pick key can choose, top to bottom: the refs and the folded activation lines. */
+	/** What the pick key can choose, top to bottom: the system rows, the refs, and the folded activation lines. */
 	get pickIds(): string[] {
 		return pickIds(this.blocks, this.known);
 	}
 
-	/** Open what the pick key chose. A folded line expands or folds, and a ref opens as `openRef` says. */
+	/**
+	 * Open what the pick key chose. A system row opens or folds, a folded line expands
+	 * or folds, and a ref opens as `openRef` says.
+	 */
 	async openPick(id: string): Promise<Intent | undefined> {
+		const system = systemOfPick(id);
+		if (system !== undefined) {
+			this.toggleSystem(system);
+			return undefined;
+		}
 		const activation = stayOfPick(id);
 		if (activation === undefined) return this.openRef(id);
 		await this.toggleStay(activation);
 		return undefined;
+	}
+
+	/** Open the full message under the row of a system message, or fold it when it is open. */
+	private toggleSystem(seq: number): void {
+		const next = new Set(this.opened);
+		if (!next.delete(seq)) next.add(seq);
+		this.opened = next;
+		this.rebuild();
 	}
 
 	/**

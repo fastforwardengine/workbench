@@ -11,8 +11,9 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import type { LiveActivation, LiveCall, LiveProcess } from '../../view/live.ts';
-import { chipLine, type RefItem, stayPick } from '../../view/refs.ts';
+import { chipLine, type RefItem, stayPick, systemPick } from '../../view/refs.ts';
 import { failedKind, NO_STEPS, type PassView } from '../../view/steps.ts';
+import { systemRow } from '../../view/system.ts';
 import { ellipsize } from '../../view/text.ts';
 import type {
 	Block,
@@ -27,7 +28,7 @@ import { type Strip, stripKey } from '../state/pictures.ts';
 import { tui as palette } from './brand.ts';
 import { markdownBody } from './markdown-style.ts';
 import { planRows } from './row-diff.ts';
-import { GAP, GUTTER, INSET, SCROLLBAR, TRACK } from './space.ts';
+import { APART, GAP, GUTTER, INSET, SCROLLBAR, TRACK } from './space.ts';
 
 /** The cells a chip loses to the rail and its gutter, the padding, and the scrollbar track. */
 const CHIP_MARGIN = INSET + SCROLLBAR + TRACK;
@@ -39,6 +40,13 @@ const CALL_PREFIX = 6;
 /** The cells that a live call line loses to the inset, the prefix, the padding, and the scrollbar track. */
 const CALL_MARGIN = INSET + CALL_PREFIX + SCROLLBAR + TRACK;
 const CALL_MIN = 20;
+
+/** The cells that a folded system row loses to the inset, the scrollbar, and its track. */
+const ROW_MARGIN = INSET + SCROLLBAR + TRACK;
+const ROW_MIN = 20;
+
+/** The most cells that the source of a folded system row takes. */
+const SOURCE_MAX = 20;
 
 /** The rows of one thumbnail. */
 const THUMB_ROWS = 8;
@@ -148,9 +156,15 @@ interface Entry {
 	node: BoxRenderable | TextRenderable;
 }
 
-/** The pick ids of the folded lines that a block draws. */
-const staysOf = (block: Block): string[] =>
-	block.type === 'stays' ? block.items.map((item) => stayPick(item.id)) : [];
+/** The pick ids of the rows that a block draws: the folded activation lines, or the row of a system message. */
+function rowPicksOf(block: Block): string[] {
+	if (block.type === 'stays') return block.items.map((item) => stayPick(item.id));
+	return block.type === 'message' && block.role === 'system' ? [systemPick(block.message.seq)] : [];
+}
+
+/** True when the block draws a row that fits its text to the width. */
+const fitsRow = (block: Block): boolean =>
+	block.type === 'stays' || (block.type === 'message' && block.role === 'system' && !block.open);
 
 /** The seqs of the messages that a block draws, for the marks that fall on it. */
 function seqsOf(block: Block): number[] {
@@ -171,9 +185,9 @@ function signatureOf(block: Block, marks: Marks, width: number) {
 	// The key of each strip holds no bytes. A loaded picture changes the key.
 	const strips = seqs.flatMap((seq) => (marks.pictures?.get(seq) ?? []).map(stripKey));
 	const shape = strips.length > 0 ? [width, marks.cellAspect ?? CELL_ASPECT] : null;
-	// A folded line that the person chose changes its block, and a width change refits its title.
-	const chosen = staysOf(block).find((id) => id === marks.picked) ?? null;
-	const fit = refs.length > 0 || block.type === 'stays' ? width : 0;
+	// A row that the person chose changes its block, and a width change refits its text.
+	const chosen = rowPicksOf(block).find((id) => id === marks.picked) ?? null;
+	const fit = refs.length > 0 || fitsRow(block) ? width : 0;
 	return JSON.stringify([block, refs, picked, focus, fit, strips, shape, chosen]);
 }
 
@@ -303,7 +317,7 @@ export class Transcript {
 	}
 
 	private blockNode(block: Block, marks: Marks): BoxRenderable | TextRenderable {
-		if (block.type === 'message') return this.messageNode(block, marks);
+		if (block.type === 'message') return this.messageOrRow(block, marks);
 		if (block.type === 'live') return this.liveNode(block);
 		if (block.type === 'steps') return this.stepsNode(block);
 		if (block.type === 'stays') return this.staysNode(block, marks);
@@ -318,6 +332,14 @@ export class Transcript {
 		});
 	}
 
+	/** A message in full, or a folded system message as one row. */
+	private messageOrRow(block: MessageBlock, marks: Marks): BoxRenderable {
+		const { message } = block;
+		return message.kind === 'system' && !block.open
+			? this.systemRowNode(message, marks)
+			: this.messageNode(block, marks);
+	}
+
 	private messageNode(block: MessageBlock, marks: Marks): BoxRenderable {
 		const focused = marks.focus === block.message.seq;
 		const fill = focused ? palette.selected : undefined;
@@ -329,7 +351,8 @@ export class Transcript {
 			paddingLeft: GUTTER,
 			backgroundColor: fill ?? palette.bg,
 		});
-		box.add(this.text(headerOf(block, fill)));
+		const chosen = marks.picked === systemPick(block.message.seq);
+		box.add(this.text(headerOf(block, chosen ? palette.selected : fill)));
 		const body = bodyOf(block.message);
 		if (body) box.add(markdownBody(this.renderer, body, fill));
 		const width = Math.max(CHIP_MIN, this.root.width - CHIP_MARGIN);
@@ -338,6 +361,38 @@ export class Transcript {
 		for (const strip of marks.pictures?.get(block.message.seq) ?? [])
 			this.addStrip(box, strip, width, marks.cellAspect ?? CELL_ASPECT);
 		return box;
+	}
+
+	/** A system message folded to one dim row. A chosen row or a focused message shows a highlight. */
+	private systemRowNode(message: SystemMessage, marks: Marks): BoxRenderable {
+		const chosen = marks.picked === systemPick(message.seq);
+		const fill = chosen || marks.focus === message.seq ? palette.selected : undefined;
+		const box = new BoxRenderable(this.renderer, {
+			id: `message-${message.seq}`,
+			flexDirection: 'column',
+			width: '100%',
+			paddingLeft: INSET,
+		});
+		box.add(this.line(this.systemChunks(message, fill)));
+		return box;
+	}
+
+	/**
+	 * The chunks of a folded system row: the mark, the source, the first line of the
+	 * text, and the clock time. The text takes the ellipsis, so the row fits one line.
+	 */
+	private systemChunks(message: SystemMessage, fill: string | undefined): Chunk[] {
+		const row = systemRow(message);
+		const source = ellipsize(row.source, SOURCE_MAX);
+		const at = clock(message.at);
+		const fixed = row.mark.length + 1 + source.length + (at ? APART + at.length : 0) + APART;
+		const text = ellipsize(row.text, Math.max(ROW_MIN, this.root.width - ROW_MARGIN) - fixed);
+		return [
+			paint(`${row.mark} `, { color: palette.dim, fill }),
+			paint(source, { color: palette.muted, fill }),
+			...(text ? [paint(`${' '.repeat(APART)}${text}`, { color: palette.dim, fill })] : []),
+			...(at ? [paint(`${' '.repeat(APART)}${at}`, { color: palette.dim, fill })] : []),
+		];
 	}
 
 	/** One thumbnail, then one caption line. A thumbnail wider than the transcript shrinks to fit. */

@@ -1,5 +1,5 @@
 import type { CliRenderer, KeyEvent } from '@opentui/core';
-import { stayOfPick } from '../../view/refs.ts';
+import { isRefPick, stayOfPick, systemOfPick } from '../../view/refs.ts';
 import { type Act, actOf, KEYMAP } from '../state/keymap.ts';
 import type { LayerId } from '../state/layers.ts';
 import type { Mode } from '../state/mode.ts';
@@ -35,10 +35,10 @@ export interface KeyParts {
 
 /**
  * The pick that the Tab key starts on: the newest ref of a message, and the last
- * activation line when no ref shows.
+ * system row or activation line when no ref shows.
  */
 const firstPick = (ids: readonly string[]): string | undefined =>
-	ids.findLast((id) => stayOfPick(id) === undefined) ?? ids.at(-1);
+	ids.findLast(isRefPick) ?? ids.at(-1);
 
 /** The time in which a second Ctrl+D leaves the terminal. */
 export const QUIT_WINDOW_MS = 2000;
@@ -365,7 +365,7 @@ export class Keys {
 	private enterRefs(): void {
 		const ids = this.session.pickIds;
 		if (ids.length === 0) {
-			this.session.say('No shown message has a ref, and no activation line shows.');
+			this.session.say('No shown message has a ref, and no system row or activation line shows.');
 			return;
 		}
 		this.mode = 'refs';
@@ -393,7 +393,8 @@ export class Keys {
 
 	/**
 	 * Open the chosen ref. A message ref jumps, and a file or a table opens the files
-	 * layer. A folded activation line expands, or folds when it is open.
+	 * layer. A system row opens, or folds when it is open. A folded activation line
+	 * expands, or folds when it is open.
 	 */
 	private async openPicked(): Promise<void> {
 		const picking = this.picking;
@@ -402,6 +403,8 @@ export class Keys {
 		if (target?.kind === 'message') this.painter.revealMessage(target.seq);
 		const stay = stayOfPick(picking);
 		if (stay !== undefined) this.painter.revealStay(stay);
+		const system = systemOfPick(picking);
+		if (system !== undefined) this.painter.revealMessage(system);
 		const intent = await this.session.openPick(picking);
 		if (intent) this.openFiles();
 	}

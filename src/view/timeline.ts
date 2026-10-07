@@ -22,6 +22,8 @@ export interface MessageBlock {
 	role: Role;
 	/** Set on a scheduled say that its seat or the host dismissed. It does not return. */
 	dismissed?: true;
+	/** Set on a system message that the person opened. Any other system message shows as one folded row. */
+	open?: true;
 }
 
 interface NoteBlock {
@@ -86,6 +88,8 @@ export interface TimelineInput {
 	totals?: ReadonlyMap<string, StepTotals>;
 	/** The stay that the person expanded, and the steps that the host holds for it. */
 	expanded?: { id: string; read: ActivationSteps | undefined };
+	/** The seqs of the system messages that the person opened. */
+	opened?: ReadonlySet<number>;
 }
 
 const spoken = (message: Message): message is SaidMessage | SystemMessage =>
@@ -236,7 +240,7 @@ const roleOf = (message: Message, humans: ReadonlySet<string>): Role => {
  * Every message shows in the open, in the order of the record. Each activation
  * of a closed exchange shows as one folded line above the first message that it
  * wrote. An activation that wrote no message shows after the last message of
- * its exchange. A closed exchange that waits on a person, or that the room
+ * its exchange. A system message shows as a folded row until the person opens it. A closed exchange that waits on a person, or that the room
  * gave up on, adds one note after its last message and its folded lines. The
  * blocks that follow the messages come next, and a live block ends the list
  * while an exchange is open.
@@ -257,6 +261,7 @@ export function buildTimeline(input: TimelineInput): Block[] {
 				message,
 				role: roleOf(message, input.humans),
 				...(dismissed.has(message.seq) ? { dismissed: true } : {}),
+				...(message.kind === 'system' && input.opened?.has(message.seq) ? { open: true } : {}),
 			},
 			...staysBlock(stays.below.get(message.seq)),
 			...(notes.get(message.seq) ?? []).map((text): Block => ({ type: 'note', text })),

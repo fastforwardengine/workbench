@@ -864,3 +864,104 @@ describe('the body of a message', () => {
 		for (const line of long) expect(line.trimEnd().length).toBeLessThanOrEqual(100 - 4);
 	}, 20_000);
 });
+
+describe('the system rows', () => {
+	const TIME = new Date(AT).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	const system = (seq: number, text: string, extra: object = {}) =>
+		({ seq, kind: 'system', text, at: AT, ...extra }) as never;
+	const MESSAGES = [
+		system(2, 'breakout build-psu: The rail holds 5.02 V at 1 A.\nMore detail.'),
+		system(3, 'check PSU temp', { to: 'Engineer', returns: 1 }),
+		system(4, 'Dropped the key.'),
+	];
+	const blocksOf = (opened: number[] = [], messages: unknown[] = MESSAGES) =>
+		buildTimeline({
+			messages,
+			exchanges: [],
+			open: undefined,
+			humans: new Set(['priya']),
+			opened: new Set(opened),
+		} as never);
+	const draw = async (blocks: Block[], marks?: Marks) => {
+		const view = await mount();
+		view.transcript.render(blocks, undefined, undefined, true, marks);
+		await stable(view.setup, view.transcript.root);
+		return view;
+	};
+	const rows = (view: Awaited<ReturnType<typeof mount>>) =>
+		view.setup
+			.captureCharFrame()
+			.split('\n')
+			.map((line) => line.trimEnd())
+			.filter((line) => line !== '');
+
+	it('draws each system message as one row', async () => {
+		const view = await draw(blocksOf());
+		const folded = rows(view);
+		expect(folded).toHaveLength(3);
+		expect(folded[0]).toBe(`  ▸ build-psu  The rail holds 5.02 V at 1 A.  ${TIME}`);
+		expect(folded[1]).toBe(`  ↩ Engineer  check PSU temp  ${TIME}`);
+		expect(folded[2]).toBe(`  ▸ system  Dropped the key.  ${TIME}`);
+	}, 20_000);
+
+	it('draws the row dim, with the source muted', async () => {
+		const view = await draw(blocksOf());
+		const spans = view.setup.captureSpans().lines.flatMap((line) => line.spans);
+		const colorOf = (text: string) => spans.find((span) => span.text.includes(text))?.fg.toString();
+		expect(colorOf('Dropped the key.')).toBe(RGBA.fromHex(palette.dim).toString());
+		expect(colorOf('Engineer')).toBe(RGBA.fromHex(palette.muted).toString());
+	}, 20_000);
+
+	it('cuts a long text to one row and keeps the source and the time', async () => {
+		const long = [system(2, `breakout build-psu: ${'word '.repeat(60)}`)];
+		const view = await draw(blocksOf([], long));
+		const [row, ...rest] = rows(view);
+		expect(rest).toEqual([]);
+		expect(row).toContain('…');
+		expect(row?.startsWith('  ▸ build-psu  word')).toBe(true);
+		expect(row?.endsWith(TIME)).toBe(true);
+	}, 20_000);
+
+	it('draws an open message in full under its header, and the others folded', async () => {
+		const view = await draw(blocksOf([2]));
+		expect(rows(view)).toEqual([
+			`│ system → the room  ${TIME}`,
+			'│ breakout build-psu: The rail holds 5.02 V at 1 A.',
+			'│ More detail.',
+			`  ↩ Engineer  check PSU temp  ${TIME}`,
+			`  ▸ system  Dropped the key.  ${TIME}`,
+		]);
+	}, 20_000);
+
+	it('draws the ref chips of an open message under its body', async () => {
+		const item: RefItem = {
+			id: '2#0',
+			seq: 2,
+			resolved: {
+				ref: 'file:///library/a.md',
+				kind: 'file',
+				label: '/library/a.md',
+				target: { kind: 'file', path: '/library/a.md' },
+			},
+		};
+		const view = await draw(blocksOf([2]), { refs: new Map([[2, [item]]]) });
+		const frame = rows(view);
+		expect(frame.slice(0, 4).at(-1)).toBe('│ ↗ file  /library/a.md');
+	}, 20_000);
+
+	it('highlights the row that the person chose', async () => {
+		const view = await draw(blocksOf(), { refs: new Map(), picked: 'system:3' });
+		const spans = view.setup.captureSpans().lines.flatMap((line) => line.spans);
+		const fill = (text: string) => spans.find((span) => span.text.includes(text))?.bg.toString();
+		expect(fill('Engineer')).toBe(RGBA.fromHex(palette.selected).toString());
+		expect(fill('Dropped the key.')).not.toBe(RGBA.fromHex(palette.selected).toString());
+	}, 20_000);
+
+	it('highlights the row of the message that has the focus', async () => {
+		const view = await draw(blocksOf(), { refs: new Map(), focus: 4 });
+		const spans = view.setup.captureSpans().lines.flatMap((line) => line.spans);
+		const fill = (text: string) => spans.find((span) => span.text.includes(text))?.bg.toString();
+		expect(fill('Dropped the key.')).toBe(RGBA.fromHex(palette.selected).toString());
+		expect(fill('Engineer')).not.toBe(RGBA.fromHex(palette.selected).toString());
+	}, 20_000);
+});

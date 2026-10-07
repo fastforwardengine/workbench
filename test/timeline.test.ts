@@ -92,6 +92,17 @@ describe('buildTimeline', () => {
 		]);
 	});
 
+	it('marks a system message that the person opened, and no other message', () => {
+		const note = { seq: 70, kind: 'system', text: 'Done.', at: AT } as Message;
+		const other = { ...note, seq: 71 } as Message;
+		const messages = [said(59, 'noor'), note, other, said(72, 'engineer')];
+		const flags = (opened?: ReadonlySet<number>) =>
+			build(messages, [], { opened }).map((block) => block.type === 'message' && block.open);
+		expect(flags()).toEqual([undefined, undefined, undefined, undefined]);
+		expect(flags(new Set([71]))).toEqual([undefined, undefined, true, undefined]);
+		expect(flags(new Set([59, 72]))).toEqual([undefined, undefined, undefined, undefined]);
+	});
+
 	it('marks a scheduled say that a dismissal names', () => {
 		const scheduled = { ...said(61, 'agent', 'agent'), delaySeconds: 600 } as Message;
 		const dismissed = { seq: 62, kind: 'dismissed', message: 61, at: AT } as Message;

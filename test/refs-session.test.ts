@@ -385,3 +385,111 @@ describe('the keys on an activation line', () => {
 		expect(keys.mode).toBe('compose');
 	});
 });
+
+describe('the rows of system messages', () => {
+	const system = (seq: number, text: string, extra: object = {}) => ({
+		seq,
+		kind: 'system',
+		text,
+		at: AT,
+		...extra,
+	});
+
+	async function withSystem() {
+		const made = await started();
+		made.host.fileList = [{ path: '/library/cell-18650.md', size: 797 }];
+		made.host.table.set(
+			'characterization',
+			view('characterization', {
+				participants: [{ name: 'priya', kind: 'person' }],
+				messages: [
+					said(1, 'priya'),
+					system(2, 'breakout build-psu: The rail holds 5.02 V.', { refs: [FILE] }),
+					said(3, 'design', ['ambion://room/characterization/message/2']),
+					system(4, 'check PSU temp', { to: 'design', returns: 3 }),
+				],
+				exchanges: [{ ...exchange, through: 4 }],
+			}),
+		);
+		await made.session.refresh();
+		return made;
+	}
+
+	const openBlocks = (session: Awaited<ReturnType<typeof withSystem>>['session']) =>
+		session.blocks.flatMap((block) =>
+			block.type === 'message' && block.role === 'system' ? [Boolean(block.open)] : [],
+		);
+
+	it('gives a row to each folded message and a ref only to a message that shows in full', async () => {
+		const { session } = await withSystem();
+		expect(session.pickIds).toEqual(['system:2', '3#0', 'system:4']);
+		expect(session.refItems.map((item) => item.id)).toEqual(['3#0']);
+		await session.openPick('system:2');
+		expect(session.pickIds).toEqual(['system:2', '2#0', '3#0', 'system:4']);
+		expect(session.refItems.map((item) => item.id)).toEqual(['2#0', '3#0']);
+	});
+
+	it('opens a folded message with Enter and folds it with Enter again', async () => {
+		const { session } = await withSystem();
+		const { keys, press, log } = keysOver(session);
+		expect(openBlocks(session)).toEqual([false, false]);
+		press('tab');
+		expect(keys.picking).toBe('3#0');
+		press('down');
+		expect(keys.picking).toBe('system:4');
+		press('return');
+		await vi.waitFor(() => expect(openBlocks(session)).toEqual([false, true]));
+		expect(log).toContain('reveal:4');
+		expect(keys.mode).toBe('refs');
+		expect(keys.picking).toBe('system:4');
+		press('return');
+		await vi.waitFor(() => expect(openBlocks(session)).toEqual([false, false]));
+		expect(session.opened.size).toBe(0);
+	});
+
+	it('keeps several messages open, each on its own toggle', async () => {
+		const { session } = await withSystem();
+		await session.openPick('system:2');
+		await session.openPick('system:4');
+		expect(openBlocks(session)).toEqual([true, true]);
+		await session.openPick('system:2');
+		expect(openBlocks(session)).toEqual([false, true]);
+	});
+
+	it('starts Tab on the newest ref, and on the last system row when no ref shows', async () => {
+		const { session } = await withSystem();
+		await session.openPick('system:2');
+		const { keys, press } = keysOver(session);
+		press('tab');
+		expect(keys.picking).toBe('3#0');
+		press('escape');
+		keys.picking = undefined;
+		const none = await started();
+		none.host.table.set(
+			'characterization',
+			view('characterization', { messages: [system(2, 'Done.'), system(3, 'Next.')] }),
+		);
+		await none.session.refresh();
+		const second = keysOver(none.session);
+		second.press('tab');
+		expect(second.keys.picking).toBe('system:3');
+	});
+
+	it('jumps to a folded message that a ref cites, and keeps the message folded', async () => {
+		const { session } = await withSystem();
+		const { keys, press, log } = keysOver(session);
+		press('tab');
+		press('return');
+		expect(session.focus).toBe(2);
+		expect(log).toContain('reveal:2');
+		expect(openBlocks(session)).toEqual([false, false]);
+		expect(keys.mode).toBe('refs');
+	});
+
+	it('folds every message when the person opens another room', async () => {
+		const { session } = await withSystem();
+		await session.openPick('system:2');
+		await session.switchRoom('budget');
+		expect(session.opened.size).toBe(0);
+	});
+});

@@ -1,6 +1,17 @@
 import { commitUri, type Message, snapshotUri } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
-import { chipLine, citedFiles, type Known, refItems, resolveRef } from '../src/view/refs.ts';
+import {
+	chipLine,
+	citedFiles,
+	isRefPick,
+	type Known,
+	pickIds,
+	refItems,
+	resolveRef,
+	shows,
+	systemOfPick,
+	systemPick,
+} from '../src/view/refs.ts';
 import type { Block } from '../src/view/timeline.ts';
 
 const known: Known = {
@@ -9,6 +20,7 @@ const known: Known = {
 	seqs: new Set([1, 2, 3]),
 };
 
+const AT = '2026-01-01T00:00:00Z';
 const DIGEST = '0123456789abcdef'.repeat(4);
 const HASH = 'a1b2c3d4e5'.repeat(4);
 
@@ -258,5 +270,51 @@ describe('citedFiles', () => {
 		} as unknown as Message;
 		const rows = citedFiles([presence, cite(2, 'engineer', [FILE])], known);
 		expect(rows.map((row) => row.author)).toEqual(['engineer']);
+	});
+});
+
+describe('the system rows', () => {
+	const FILE = 'file:///library/cell-18650.md';
+	const system = (seq: number, open?: true): Block => ({
+		type: 'message',
+		role: 'system',
+		message: { seq, kind: 'system', text: 'breakout x: Done.', at: AT, refs: [FILE] } as never,
+		...(open ? { open } : {}),
+	});
+	const said = (seq: number, refs: string[]): Block => ({
+		type: 'message',
+		role: 'said',
+		message: { seq, kind: 'said', from: 'engineer', text: 'Hi', at: AT, refs } as never,
+	});
+
+	it('names a row by the seq of its message', () => {
+		expect(systemPick(12)).toBe('system:12');
+		expect(systemOfPick('system:12')).toBe(12);
+		expect(systemOfPick('12#0')).toBeUndefined();
+		expect(systemOfPick('stay:act-1')).toBeUndefined();
+		expect(systemOfPick('system:x')).toBeUndefined();
+	});
+
+	it('tells a ref pick from a row pick', () => {
+		expect(isRefPick('4#0')).toBe(true);
+		expect(isRefPick('system:4')).toBe(false);
+		expect(isRefPick('stay:act-1')).toBe(false);
+	});
+
+	it('gives the row of a folded system message and no ref', () => {
+		const blocks = [system(2), said(3, [FILE])];
+		expect(pickIds(blocks, known)).toEqual(['system:2', '3#0']);
+		expect(refItems(blocks, known).map((item) => item.id)).toEqual(['3#0']);
+	});
+
+	it('gives the row and then the refs of an open system message', () => {
+		const blocks = [system(2, true), said(3, [FILE])];
+		expect(pickIds(blocks, known)).toEqual(['system:2', '2#0', '3#0']);
+		expect(refItems(blocks, known).map((item) => item.id)).toEqual(['2#0', '3#0']);
+	});
+
+	it('shows a folded system message as shown, so a jump finds its row', () => {
+		expect(shows([system(2)], 2)).toBe(true);
+		expect(shows([system(2)], 3)).toBe(false);
 	});
 });
