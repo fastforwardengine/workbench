@@ -97,7 +97,7 @@ const specialistRules = (self: string): Rules => ({
 /** The rules that a twin adds to the rules of its specialist. Both twins follow them. */
 const BREAKOUT_RULES: Rules = {
 	Constraints: [
-		'Your breakout room has no access to the devices of the bench. A skill that drives a device runs here only on its simulator, when it has one. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
+		'Your breakout room has no access to the devices of the bench. A skill that drives a device runs here only on its simulator, when it has one. A run on a simulator needs no approval. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
 	],
 	Speaking: [
 		'You work in the background, and no person is in your room. Do not ask the person for input, and do not wait for a reply.',
@@ -151,7 +151,7 @@ const specialists: {
 	twinIdentity?: string;
 	/** The rules that the twin follows, as well as the specialist. */
 	rules: Rules;
-	/** The rules that hold only in the main room, where the person and the devices are. The twin has none of them. */
+	/** The rules that hold only in the root room, where the person and the devices are. The twin has none of them. */
 	roomOnly?: Rules;
 	shows?: boolean;
 }[] = [

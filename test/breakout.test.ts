@@ -242,7 +242,7 @@ describe('the prompts of the breakout rooms', () => {
 			);
 			for (const rule of [
 				'Cite the exact datasheet path when you state a specification.',
-				'Your breakout room has no access to the devices of the bench. A skill that drives a device runs here only on its simulator, when it has one. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
+				'Your breakout room has no access to the devices of the bench. A skill that drives a device runs here only on its simulator, when it has one. A run on a simulator needs no approval. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
 				'Send your result with `report`, once, at the end of the task.',
 				'When the brief lacks an input that the task needs, report what is missing as your result.',
 			])
