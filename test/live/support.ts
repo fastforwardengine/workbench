@@ -1,5 +1,5 @@
 /**
- * What the evals of Workbench share: the models, a room on the team of the
+ * What the evals of Workbench share: the model, a room on the team of the
  * lab, the reads of a run, the evidence a failed case keeps, and the cost
  * line. The evals run on `@ambionframework/simulator`: a scripted person
  * asks, and checks in code decide the facts.
@@ -94,7 +94,7 @@ export async function openRoom(
 	return { room, workspace };
 }
 
-/** A run that the checks and the judge can read: it ended cleanly, and a seat spoke in each exchange. */
+/** A run that the checks can read: it ended cleanly, and a seat spoke in each exchange. */
 export function expectGradable(
 	run: Simulation,
 	ended: readonly Simulation['ended'][] = ['limit'],
