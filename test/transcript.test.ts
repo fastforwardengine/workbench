@@ -13,6 +13,7 @@ import {
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Marks, Transcript } from '../src/terminal/widgets/transcript.ts';
+import type { LiveActivation } from '../src/view/live.ts';
 import type { RefItem } from '../src/view/refs.ts';
 import { type Block, buildTimeline } from '../src/view/timeline.ts';
 
@@ -71,7 +72,6 @@ const blocksOf = (state: State): Block[] => {
 		exchanges,
 		open: undefined,
 		humans: new Set(['priya']),
-		working: [],
 		tail: state.tail ?? [],
 		failures: new Map(),
 	} as never);
@@ -88,11 +88,27 @@ const ref = (seq: number, index = 0): RefItem => ({
 	},
 });
 
-const live = (detail: string): Block => ({
+const live = (detail: string, activations: LiveActivation[] = []): Block => ({
 	type: 'live',
 	text: 'Working on priya’s question',
+	activations,
 	detail,
 });
+/** Two activations: one that folded and one that runs with calls. */
+const activations: LiveActivation[] = [
+	{ id: 'a1', state: 'done', title: 'researcher · respond · $0.0012', calls: [], earlier: 0 },
+	{
+		id: 'a2',
+		state: 'running',
+		title: 'engineer · respond',
+		earlier: 2,
+		calls: [
+			{ state: 'done', text: 'bash psu status', result: '0.00 V 0.000 A off' },
+			{ state: 'failed', text: 'bash psu set 3.3 0.05', result: 'failed: port busy' },
+			{ state: 'running', text: 'camera observe bench', result: '' },
+		],
+	},
+];
 const steps = (running: boolean): Block =>
 	({
 		type: 'steps',
@@ -106,6 +122,7 @@ const RUN: [string, State][] = [
 	['three exchanges', { exchanges: 3 }],
 	['a fourth exchange', { exchanges: 4 }],
 	['a live block', { exchanges: 4, tail: [live('engineer: reading')] }],
+	['activations join the live block', { exchanges: 4, tail: [live('x', activations)] }],
 	['the live block changes', { exchanges: 4, tail: [live('engineer: using bash')] }],
 	['a steps block joins it', { exchanges: 4, tail: [live('x'), steps(true)] }],
 	['the steps block ends', { exchanges: 4, tail: [steps(false)] }],
@@ -469,6 +486,39 @@ describe('what the transcript builds', () => {
 	});
 });
 
+describe('the live block', () => {
+	it('draws each activation, and the calls of a running one on one row each', async () => {
+		const view = await mount();
+		view.transcript.render([live('', activations)], undefined, undefined, true);
+		await stable(view.setup, view.transcript.root);
+		const lines = view.setup
+			.captureCharFrame()
+			.split('\n')
+			.map((line) => line.trimEnd());
+		const at = (text: string) => lines.findIndex((line) => line.includes(text));
+		expect(lines[at('Working on')]).toContain('/abort cancels it');
+		expect(lines[at('researcher')]).toContain('✓ researcher · respond · $0.0012');
+		expect(lines[at('engineer')]).toContain('● engineer · respond');
+		expect(lines[at('+2 earlier calls')]).toBe('    +2 earlier calls');
+		expect(lines[at('psu status')]).toBe('    ✓ bash psu status  0.00 V 0.000 A off');
+		expect(lines[at('psu set')]).toBe('    ✗ bash psu set 3.3 0.05  failed: port busy');
+		expect(lines[at('camera observe')]).toBe('    … camera observe bench');
+	}, 20_000);
+
+	it('cuts a long call to one row', async () => {
+		const view = await mount();
+		const long = { state: 'done', text: `bash ${'x'.repeat(200)}`, result: 'ok' } as const;
+		const only: LiveActivation[] = [
+			{ id: 'a', state: 'running', title: 'engineer · respond', earlier: 0, calls: [long] },
+		];
+		view.transcript.render([live('', only)], undefined, undefined, true);
+		await stable(view.setup, view.transcript.root);
+		const lines = view.setup.captureCharFrame().split('\n');
+		expect(lines.filter((line) => line.includes('bash xxx'))).toHaveLength(1);
+		expect(lines.some((line) => line.includes('…'))).toBe(true);
+	}, 20_000);
+});
+
 describe('the body of a message', () => {
 	it('shows Markdown with the markers concealed, below the header', async () => {
 		const view = await mount();
@@ -488,7 +538,6 @@ describe('the body of a message', () => {
 			exchanges: [],
 			open: undefined,
 			humans: new Set(['priya']),
-			working: [],
 			tail: [],
 			failures: new Map(),
 		} as never);

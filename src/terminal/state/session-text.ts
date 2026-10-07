@@ -1,4 +1,4 @@
-import type { Participant, ScheduledSay } from '@ambionframework/ambion';
+import type { ScheduledSay } from '@ambionframework/ambion';
 import type { RoomAction, RoomView } from '../../host/host.ts';
 import type { Block } from '../../view/timeline.ts';
 import { COMMANDS } from './commands.ts';
@@ -40,12 +40,6 @@ export function refusal(action: RoomAction, view: RoomView | undefined): string 
 		return view.status === 'stopped' ? `${view.name} is already stopped.` : undefined;
 	return view.status === 'running' ? `${view.name} is already running.` : undefined;
 }
-
-/** The seats that are at work in a room now. */
-export const workingSeats = (view: RoomView | undefined): string[] =>
-	(view?.participants ?? []).flatMap((participant: Participant) =>
-		participant.kind === 'agent' && participant.status === 'active' ? [participant.name] : [],
-	);
 
 /** What an empty room shows, with the room's suggested first question. */
 export function emptyText(view: RoomView): string {

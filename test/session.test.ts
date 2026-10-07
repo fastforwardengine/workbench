@@ -485,6 +485,55 @@ describe('Session steps', () => {
 	});
 });
 
+describe('Session live block', () => {
+	const open = (activations: unknown[]) =>
+		view('characterization', {
+			exchange: { from: 4, status: 'open', person: 'priya', at: AT, activations },
+			exchanges: [{ from: 4, status: 'open', person: 'priya', at: AT, activations }],
+		});
+	const running = { id: 'act-9', seat: 'engineer', purpose: 'respond', attempt: 1 };
+	const liveBlock = (session: Session) =>
+		session.blocks.find((candidate) => candidate.type === 'live');
+
+	it('shows the calls of a running activation, and reads them again on each change', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization', open([{ ...running, outcome: { kind: 'running' } }]));
+		host.traces.set('act-9', trace('act-9', false));
+		await session.refresh();
+		expect(host.calls).toContain('activation:act-9');
+		expect(liveBlock(session)).toMatchObject({
+			text: 'Working on priya’s question',
+			activations: [
+				{
+					id: 'act-9',
+					state: 'running',
+					title: 'engineer · respond',
+					calls: [{ state: 'running', text: 'read /a', result: '' }],
+				},
+			],
+		});
+		host.table.set('characterization', open([{ ...running, outcome: { kind: 'released' } }]));
+		host.notify('characterization');
+		await vi.waitFor(() =>
+			expect(liveBlock(session)).toMatchObject({
+				activations: [{ state: 'done', calls: [] }],
+			}),
+		);
+	});
+
+	it('keeps the last steps when a read fails, and drops them when the room changes', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization', open([{ ...running, outcome: { kind: 'running' } }]));
+		host.traces.set('act-9', trace('act-9', false));
+		await session.refresh();
+		host.traces.delete('act-9');
+		await session.refresh();
+		expect(liveBlock(session)).toMatchObject({ activations: [{ calls: [{ text: 'read /a' }] }] });
+		await session.switchRoom('budget');
+		expect(liveBlock(session)).toBeUndefined();
+	});
+});
+
 describe('Session scheduled says', () => {
 	it('notes each say that waits to return, with its seat and its time', async () => {
 		const { host, session } = await started();

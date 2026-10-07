@@ -33,12 +33,13 @@ export interface PassView {
 const WIDTH = 100;
 
 /** The first line of a text, cut to a fixed width. */
-function brief(text: string): string {
+export function brief(text: string): string {
 	const line = (text.split('\n')[0] ?? '').trim();
 	return line.length > WIDTH ? `${line.slice(0, WIDTH - 1)}…` : line;
 }
 
-function render(value: unknown): string {
+/** A value as one short line: a string as it is, anything else as JSON. */
+export function render(value: unknown): string {
 	if (typeof value === 'string') return brief(value);
 	const json = JSON.stringify(value);
 	return brief(json ?? '');
@@ -74,7 +75,8 @@ export function activationLine(activation: ExchangeActivation): string {
 }
 
 /** The mark of a call that a `compose` call made. A direct call has none. */
-const nested = (step: { parent?: string }): string => (step.parent === undefined ? '' : '↳ ');
+export const nested = (step: { parent?: string }): string =>
+	step.parent === undefined ? '' : '↳ ';
 
 /** The line of a tool result: the output, or the failure. */
 function resultLine(step: Extract<TraceStep, { type: 'tool_result' }>): StepLine {

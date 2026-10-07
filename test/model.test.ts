@@ -165,7 +165,6 @@ describe('Workbench with no login', () => {
 				messages: view.messages,
 				exchanges: view.exchanges,
 				humans: new Set([person]),
-				working: [],
 				failures: view.failures,
 			});
 			expect(blocks).toContainEqual({

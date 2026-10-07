@@ -1,5 +1,6 @@
 import type { Exchange, Message } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
+import type { LiveActivation } from '../src/view/live.ts';
 import { type Block, buildTimeline } from '../src/view/timeline.ts';
 
 const AT = '2026-01-01T00:00:00Z';
@@ -30,7 +31,6 @@ const build = (
 		messages,
 		exchanges,
 		humans,
-		working: [],
 		...extra,
 	});
 
@@ -170,6 +170,9 @@ describe('buildTimeline', () => {
 	});
 
 	it('keeps the open exchange in the open, and ends with a live block', () => {
+		const live: LiveActivation[] = [
+			{ id: 'a1', state: 'running', title: 'engineer · respond', calls: [], earlier: 0 },
+		];
 		const messages = [said(4, 'priya'), said(6, 'engineer', 'researcher'), said(9, 'priya')];
 		const open: Exchange = {
 			from: 4,
@@ -180,12 +183,21 @@ describe('buildTimeline', () => {
 		};
 		const blocks = build(messages, [open], {
 			open: { person: 'priya' },
-			working: ['engineer', 'researcher'],
+			live,
 		});
 		expect(shape(blocks)).toEqual(['question:4', 'said:6', 'question:9', 'live']);
-		expect(blocks.at(-1)).toMatchObject({
-			text: 'Working on priya’s question with engineer, researcher',
+		expect(blocks.at(-1)).toEqual({
+			type: 'live',
+			text: 'Working on priya’s question',
+			activations: live,
+			detail: undefined,
 		});
+	});
+
+	it('words the live block for the room when the exchange has no person', () => {
+		const open: Exchange = { from: 4, status: 'open', at: AT, activations: [] } as Exchange;
+		const blocks = build([said(4, 'priya')], [open], { open: {} });
+		expect(blocks.at(-1)).toMatchObject({ text: 'Working on the room’s work', activations: [] });
 	});
 
 	it('ignores presence entries', () => {
