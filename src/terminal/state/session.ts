@@ -18,12 +18,19 @@ import {
 	suggest,
 } from './commands.ts';
 import { dismissCommand } from './dismiss.ts';
+import { ProcessTails } from './process-tails.ts';
 import { RoomReader } from './room-reader.ts';
 import { DONE, HELP, mentionRefusal, notesOf, refusal, seatChoices } from './session-text.ts';
 
 /** What the terminal does after a command, beyond what the session already changed. */
 export type Intent =
 	{ type: 'quit' | 'files' | 'processes' | 'camera' | 'voice' } | { type: 'compose'; text: string };
+
+/** The seats that run an activation of the open exchange of a room view. */
+const runningSeats = (view: RoomView): string[] =>
+	(view.exchange?.activations ?? [])
+		.filter((activation) => activation.outcome.kind === 'running')
+		.map((activation) => activation.seat);
 
 /**
  * Everything the terminal does that is not drawing. It holds who the person is,
@@ -56,6 +63,8 @@ export class Session {
 	pendingRefs: StagedAttachment[] = [];
 	/** The steps of each running activation of the open exchange, by activation id. */
 	private live = new Map<string, ActivationSteps>();
+	/** The newest output line of the processes that the running seats of the open exchange own. */
+	private readonly tails: ProcessTails;
 	private readonly reader: RoomReader<RoomView>;
 	private readonly changed: () => void;
 	private sending = false;
@@ -74,6 +83,7 @@ export class Session {
 			},
 		);
 		this.browser = new FileBrowser(entryLoader(host), changed);
+		this.tails = new ProcessTails(host, () => this.rebuild());
 	}
 
 	/** True once when the conversation should scroll to its end, as after a notice. */
@@ -130,6 +140,7 @@ export class Session {
 		this.view = view;
 		this.offline = undefined;
 		await this.readSide(view.name);
+		this.tails.watch(view.name, runningSeats(view));
 		this.rebuild();
 	}
 
@@ -214,7 +225,12 @@ export class Session {
 					.filter((participant) => participant.kind === 'person')
 					.map((participant) => participant.name),
 			),
-			live: liveActivations(view.exchange?.activations ?? [], this.live, view.failures),
+			live: liveActivations(
+				view.exchange?.activations ?? [],
+				this.live,
+				view.failures,
+				this.tails.bySeat,
+			),
 			activity: activity && error ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
 			tail: this.tail(view),
 			failures: view.failures,
@@ -375,6 +391,7 @@ export class Session {
 		this.focus = undefined;
 		this.steps = undefined;
 		this.live = new Map();
+		this.tails.stop();
 		this.notice = undefined;
 		const dropped = this.pendingRefs.length;
 		this.pendingRefs = [];
@@ -614,6 +631,7 @@ export class Session {
 	/** End the person's visit, so the room shows them as gone after the terminal exits. */
 	async leave(): Promise<void> {
 		this.reader.stop();
+		this.tails.stop();
 		if (this.room && this.entered && this.identity)
 			await this.host.leave(this.room, this.identity.name).catch(() => {});
 	}
