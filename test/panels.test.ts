@@ -167,6 +167,7 @@ describe('the processes panel', () => {
 		const { setup, place, frame } = await mount();
 		const host = processes();
 		const browser = new ProcessBrowser(host, () => {});
+		cleanups.unshift(() => browser.dispose());
 		const panel = new ProcessesPanel(setup.renderer);
 		place(panel, 'processes');
 		await browser.show();
@@ -195,6 +196,53 @@ describe('the processes panel', () => {
 		const text = await frame();
 		expect(text).toContain('▸ bash-bbb222');
 		expect(text).toContain('output of bash-bbb222');
+	});
+});
+
+describe('the output of a running process, as it grows', () => {
+	/** A chosen running process whose output has `rows.count` rows. A new read gives the new count. */
+	async function growing() {
+		const { setup, place, frame } = await mount(100, 30);
+		const host = processes();
+		const rows = { count: 80 };
+		host.processOutput = async (handle: string) => {
+			const text = `${Array.from({ length: rows.count }, (_, at) => `row ${at + 1}`).join('\n')}\n`;
+			return { handle, text, size: text.length, truncated: false };
+		};
+		const browser = new ProcessBrowser(host, () => {});
+		cleanups.unshift(() => browser.dispose());
+		const panel = new ProcessesPanel(setup.renderer);
+		place(panel, 'processes');
+		await browser.show();
+		await wait(30);
+		panel.draw(browser);
+		/** What a tick does: read the output again, and draw. */
+		const grow = async (count: number) => {
+			rows.count = count;
+			await browser.refresh();
+			panel.draw(browser);
+			return frame();
+		};
+		return { panel, grow, frame };
+	}
+
+	it('follows the end while the person has not scrolled', async () => {
+		const { grow, frame } = await growing();
+		expect(await frame()).toContain('row 80');
+		expect(await grow(100)).toContain('row 100');
+	});
+
+	it('stays where the person scrolled up', async () => {
+		const { panel, grow, frame } = await growing();
+		await frame();
+		panel.scrollBy(-1000);
+		expect(await frame()).toMatch(/row 1\s/);
+		const grown = await grow(100);
+		expect(grown).toMatch(/row 1\s/);
+		expect(grown).not.toContain('row 100');
+		panel.scrollBy(1000);
+		await frame();
+		expect(await grow(120)).toContain('row 120');
 	});
 });
 
@@ -241,6 +289,7 @@ describe('the frames of the panels', () => {
 			truncated: false,
 		});
 		const browser = new ProcessBrowser(host, () => {});
+		cleanups.unshift(() => browser.dispose());
 		const panel = new ProcessesPanel(setup.renderer);
 		place(panel, 'processes');
 		await browser.show();

@@ -94,6 +94,8 @@ async function build(width = 120, voice = quietVoice()) {
 	);
 	// Stop the poll before the renderer goes, so no tick draws on a destroyed buffer.
 	cleanups.unshift(() => camera.watch(false));
+	// The same for the timer that follows the output of a running process.
+	cleanups.unshift(() => processes.dispose());
 	const kitty = { on: false };
 	const composer = new Composer(renderer, { submit: () => {}, change: () => {} });
 	const palette = new Palette(composer);
