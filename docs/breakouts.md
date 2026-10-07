@@ -13,7 +13,7 @@ holds the contract for the tools, the bridge, and the limits.
 | ---------------- | --------------------------------- | ----------------------------------------------------- |
 | The twins        | `src/domain/definitions.ts`       | `twinOf`, `BREAKOUT_TEAM`, and the rules of the twins |
 | The skills       | `src/domain/skills.ts`            | `specialistSkills`, which both seats of a pair use    |
-| The wiring       | `src/host/rooms.ts`               | `breakout: { team }`, and the bundles of the canvas   |
+| The wiring       | `src/host/rooms.ts`               | `canvas.tools()`, and the `agents` of each root room  |
 | The view         | `src/host/rooms.ts`               | `breakout` in the `RoomView` of a breakout room       |
 | The terminal     | `src/terminal/state/breakouts.ts` | The count, the label, and the order of the room list  |
 | The addressing   | `src/host/host.ts`                | `deliver` seats no specialist in a breakout room      |
@@ -26,18 +26,19 @@ holds the contract for the tools, the bridge, and the limits.
 
 **Each specialist has a twin that does its tasks.** A twin is the seat of a
 specialist in a breakout room. It has the name `<specialist>-bg`:
-`researcher-bg` and `engineer-bg`. Ambion refuses the name of a seat of the
-breakout team in a root room, so the twin has a name of its own. `twinOf`
-makes the name, and `BREAKOUT_TEAM` lists the twins. No root room seats a
-twin. A breakout room seats it at `broadcast`.
+`researcher-bg` and `engineer-bg`. `twinOf` makes the name, and
+`BREAKOUT_TEAM` lists the twins. A root room seats the agents that its
+`agents` list names, and `create` names the specialists. No root room seats
+a twin. A breakout room seats it at `broadcast`.
 
 - **Its identity:** the field `twinIdentity` of the specialist, when it
   has one. The Engineer twin writes and tests scripts and reads data. When
   the field is absent, the identity of the specialist, then one sentence
   that says the twin does one task in a breakout room and reports the
   result. The Researcher twin has that identity.
-- **Its tools:** the workspace tools, and `report`. It has no widget tools
-  and no tool to open a breakout room.
+- **Its tools:** the workspace tools, and `canvas.tools()`. It has no
+  widget tools. The canvas refuses `breakout`, `tell`, and `archive` in a
+  breakout room.
 - **Its skills:** the skills of the specialist.
 - **Its rules:** the shared rules, the groups `Project`, `Evidence`, and
   `Constraints` of the specialist, and the breakout rules. It has no group
@@ -52,7 +53,7 @@ twin. A breakout room seats it at `broadcast`.
 
 | Rule                                                             | Home                                 | Holder          |
 | ---------------------------------------------------------------- | ------------------------------------ | --------------- |
-| When Ambion allows a breakout room, `tell`, `archive`, the reply | Ambion guidance of the opener bundle | Each specialist |
+| When Ambion allows a breakout room, `tell`, `archive`, the reply | Ambion guidance of the canvas bundle | Each specialist |
 | When to open a breakout room, and what to put in the brief       | The group `Background`               | Each specialist |
 | Examples of a breakout task                                      | The `Background` rules of the seat   | Each specialist |
 | Which twin to seat: the own twin of the specialist               | The group `Background`               | Each specialist |

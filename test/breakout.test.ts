@@ -41,14 +41,13 @@ async function setup(script: Script = byAgent({})) {
 		runtime,
 		store: memoryCanvas(),
 		workspace,
-		breakout: { team: BREAKOUT_TEAM },
 		widgets: { kinds: [FRAME_KIND] },
 	});
 	cleanups.push(() => canvas.close());
 	const built = await team(workspace, undefined, {
 		widgets: canvas.widgetTools(),
 		opener: canvas.tools(),
-		worker: canvas.workerTools(),
+		worker: canvas.tools(),
 	});
 	await canvas.resume({ agents: [...built.specialists, ...built.twins] });
 	return { canvas, built };
@@ -60,7 +59,7 @@ const toolNames = (seat: { executor: { tools: readonly { name: string }[] } } | 
 const instructionsOf = (seat: { executor: unknown } | undefined): string =>
 	(seat?.executor as { instructions?: string } | undefined)?.instructions ?? '';
 
-const OPENER_TOOLS = ['breakout', 'tell', 'archive'];
+const CANVAS_TOOLS = ['breakout', 'tell', 'archive', 'report'];
 
 /** The seat of a team with a name. */
 const seatNamed = <T extends { name: string }>(seats: readonly T[], name: string): T | undefined =>
@@ -94,17 +93,11 @@ const ROOM_ONLY: Record<string, string[]> = {
 const SPECIALISTS = ['researcher', 'engineer'];
 
 describe('the tools of the breakout rooms', () => {
-	it('go to both specialists as the opener bundle, and to the twins as the report tool', async () => {
+	it('go to both specialists and to the twins as the one bundle of the canvas', async () => {
 		const { built } = await setup();
-		for (const specialist of built.specialists) {
-			for (const name of OPENER_TOOLS) expect(toolNames(specialist)).toContain(name);
-			expect(toolNames(specialist)).not.toContain('report');
-		}
 		expect(built.twins).toHaveLength(2);
-		for (const twin of built.twins) {
-			expect(toolNames(twin)).toContain('report');
-			for (const name of OPENER_TOOLS) expect(toolNames(twin)).not.toContain(name);
-		}
+		for (const seat of [...built.specialists, ...built.twins])
+			for (const name of CANVAS_TOOLS) expect(toolNames(seat)).toContain(name);
 	});
 
 	it('give the twins no widget tool, and keep the widgets with the Engineer', async () => {
@@ -122,7 +115,7 @@ describe('the tools of the breakout rooms', () => {
 		cleanups.push(() => workspace.dispose());
 		const built = await team(workspace);
 		for (const seat of [...built.specialists, ...built.twins])
-			for (const name of [...OPENER_TOOLS, 'report']) expect(toolNames(seat)).not.toContain(name);
+			for (const name of CANVAS_TOOLS) expect(toolNames(seat)).not.toContain(name);
 	});
 });
 
@@ -151,7 +144,13 @@ describe('the twins', () => {
 
 	it('are seated in no root room', async () => {
 		const { canvas } = await setup();
-		const room = await canvas.open({ name: 'bench-room', goal: 'Work.', seats, seating: false });
+		const room = await canvas.open({
+			name: 'bench-room',
+			goal: 'Work.',
+			agents: SPECIALISTS,
+			seats,
+			seating: false,
+		});
 		cleanups.push(() => room.stop());
 		const read = await room.read({ messages: false });
 		const names = read.participants.map((seat) => seat.name);
@@ -274,8 +273,9 @@ describe('the path of a task', () => {
 						agents: ['engineer-bg'],
 					});
 				if (call === 2) return say('The script runs in the background.');
-				if (call === 3) return callTool('archive', { room, result: 'done', note: 'Reported.' });
-				if (call === 4) return say('The script passes its test.');
+				if (call === 3) return quiet();
+				if (call === 4) return callTool('archive', { room, result: 'done', note: 'Reported.' });
+				if (call === 5) return say('The script passes its test.');
 				return quiet();
 			},
 			'engineer-bg': (_step, _seat, call) => {
@@ -291,6 +291,7 @@ describe('the path of a task', () => {
 		const parent = await canvas.open({
 			name: 'bench-room',
 			goal: 'Sweep the supply.',
+			agents: SPECIALISTS,
 			seats,
 			seating: false,
 		});

@@ -72,6 +72,10 @@ pnpm start ./bench                # another directory
   Its journal seats the assistant, and Ambion stops with the error
   `agent 'assistant' has no binding`. Move the data directory away, and
   start again.
+- **Ambion 0.8.0 does not open a journal that holds a `posted` message.**
+  A breakout report, a close notice, and a returned say wrote one in
+  0.7.0. The room list then fails. Move the data directory away, and start
+  again.
 
 ## Run on a local workstation
 

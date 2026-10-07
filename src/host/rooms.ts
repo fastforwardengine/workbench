@@ -22,7 +22,7 @@ import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journa
 import { directoryBackend } from '@ambionframework/just-bash';
 import { fileCredentials, type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 import { openWorkspace } from '@ambionframework/workspace';
-import { BREAKOUT_TEAM, radioProject, team } from '../domain/definitions.ts';
+import { radioProject, team } from '../domain/definitions.ts';
 import { type Environment, missingLogin, piCredentialsPath } from '../domain/model.ts';
 import { sharedRegistrations } from '../domain/notes.ts';
 import { buildRoom, seats } from '../domain/room.ts';
@@ -177,7 +177,6 @@ export async function openRooms(
 		runtime,
 		store: sqliteCanvas(sql),
 		workspace,
-		breakout: { team: BREAKOUT_TEAM },
 		widgets: { kinds: [FRAME_KIND] },
 		onError: (failure) => reportFailure(stateOf(failure.room), failure),
 	});
@@ -188,7 +187,7 @@ export async function openRooms(
 		roomTeam = await team(workspace, radioProject, {
 			widgets: canvas.widgetTools(),
 			opener: canvas.tools(),
-			worker: canvas.workerTools(),
+			worker: canvas.tools(),
 		});
 		canvas.subscribe((event) => heardEvent(event, stateOf, (name) => canvas.room(name)));
 		await canvas.resume({ agents: [...roomTeam.specialists, ...roomTeam.twins] });
