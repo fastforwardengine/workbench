@@ -32,7 +32,7 @@ export class ProcessBrowser {
 	private generation = 0;
 	private unwatch: (() => void) | undefined;
 	private follower: ReturnType<typeof setInterval> | undefined;
-	/** How many output reads are in flight. A timer tick waits while one runs. */
+	/** How many output reads are in flight. A timer tick skips while one runs. */
 	private reading = 0;
 	private readonly host: ProcessHost;
 	private readonly changed: () => void;
@@ -186,6 +186,7 @@ export class ProcessBrowser {
 			const output = await this.host.processOutput(process.handle, process.agent);
 			if (mine !== this.token) return;
 			this.output = output;
+			this.problem = undefined;
 		} catch (error) {
 			if (mine !== this.token) return;
 			this.output = undefined;
