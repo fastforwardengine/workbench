@@ -174,17 +174,116 @@ describe('liveActivations with processes', () => {
 	});
 });
 
+describe('liveActivations header of a running activation', () => {
+	const said = (type: 'thinking' | 'text', value: string) => ({ type, text: value, final: true });
+
+	it('shows the phrase of the call that has no result', () => {
+		const live = running(
+			read([
+				call('c1', 'read', { path: '/a' }),
+				result('c1', text('x')),
+				call('c2', 'bash', { command: 'psu set 3.3 0.05\nsecond' }),
+			]),
+		);
+		expect(live?.step).toBe('$ psu set 3.3 0.05');
+		expect(live?.title).toBe('engineer · respond');
+	});
+
+	it('prefers the newest call that has no result, across passes', () => {
+		const live = running(
+			read(
+				[call('c1', 'sql', { sql: 'select 1' }), said('thinking', 'later')],
+				[call('c2', 'fetch', { process: 'bench', path: '/t' })],
+			),
+		);
+		expect(live?.step).toBe('⇄ fetch bench /t');
+	});
+
+	it('shows the first line of the newest thinking or text when every call has a result', () => {
+		const live = running(
+			read([
+				said('thinking', 'Consider the load.\nSecond line.'),
+				call('c1', 'read', { path: '/a' }),
+				result('c1', text('x')),
+				said('thinking', 'Check the supply limit.\nMore.'),
+			]),
+		);
+		expect(live?.step).toBe('Check the supply limit.');
+		const spoken = running(
+			read([said('thinking', 'idea'), said('text', '\n  Setting 3.3 V\nthen more')]),
+		);
+		expect(spoken?.step).toBe('Setting 3.3 V');
+	});
+
+	it('cuts a long step, and leaves the step out before the first one', () => {
+		expect(running(read([said('text', 'x'.repeat(300))]))?.step).toHaveLength(100);
+		expect(running(read([said('thinking', '  \n ')]))).not.toHaveProperty('step');
+		expect(running(read([]))).not.toHaveProperty('step');
+		expect(liveActivations([activation('a1')], new Map())[0]).not.toHaveProperty('step');
+	});
+
+	it('shows no step on an ended activation', () => {
+		const ended = activation('a1', { kind: 'released' });
+		const [live] = liveActivations([ended], read([said('text', 'done')]));
+		expect(live).not.toHaveProperty('step');
+	});
+});
+
 describe('liveActivations of an ended activation', () => {
-	it('folds to a title with the cost', () => {
-		const ended = activation('a1', { kind: 'released' }, { usage: usage({ cost: 0.0012 }) });
-		const [live] = liveActivations([ended], read([call('c1', 'bash', { command: 'x' })]));
+	const at = (step: Record<string, unknown>, time: string) => ({ ...step, at: time });
+	const stamped = (...times: [Record<string, unknown>, string][]) =>
+		read(...times.map(([step, time]) => [at(step, time)]));
+	const released = (extra: Record<string, unknown> = {}) =>
+		activation('a1', { kind: 'released' }, extra);
+
+	it('folds to a title with the calls, the duration, and the cost', () => {
+		const reads = stamped(
+			[call('c1', 'bash', { command: 'x' }), '2026-01-01T00:00:00Z'],
+			[result('c1', text('ok')), '2026-01-01T00:00:05Z'],
+			[call('c2', 'read', { path: '/a' }), '2026-01-01T00:00:30Z'],
+			[call('c3', 'read', { path: '/b' }), '2026-01-01T00:00:31Z'],
+			[{ type: 'end', stop: 'stopped' }, '2026-01-01T00:00:42Z'],
+		);
+		const [live] = liveActivations([released({ usage: usage({ cost: 0.0123 }) })], reads);
 		expect(live).toEqual({
 			id: 'a1',
 			state: 'done',
-			title: 'engineer · respond · $0.0012',
+			title: 'engineer · respond · 3 calls · 0:42 · $0.0123',
 			calls: [],
 			earlier: 0,
 		});
+	});
+
+	it('puts the attempt before the counts, and the reason after them', () => {
+		const reads = stamped(
+			[call('c1', 'bash', { command: 'x' }), '2026-01-01T00:00:00Z'],
+			[{ type: 'end', stop: 'cut' }, '2026-01-01T01:02:03Z'],
+		);
+		const failed = activation('a1', { kind: 'failed', cause: 'transient' }, { attempt: 2 });
+		const [live] = liveActivations([failed], reads, new Map([['a1', 'rate limit']]));
+		expect(live).toMatchObject({
+			state: 'failed',
+			title: 'engineer · respond · attempt 2 · 1 call · 1:02:03: rate limit',
+		});
+	});
+
+	it('leaves out the parts that are zero or unknown', () => {
+		const quick = stamped(
+			[call('c1', 'bash', { command: 'x' }), '2026-01-01T00:00:00.000Z'],
+			[{ type: 'end', stop: 'stopped' }, '2026-01-01T00:00:00.900Z'],
+		);
+		expect(liveActivations([released()], quick)[0]?.title).toBe('engineer · respond · 1 call');
+		const none = stamped([{ type: 'end', stop: 'stopped' }, '2026-01-01T00:00:00Z']);
+		expect(liveActivations([released()], none)[0]?.title).toBe('engineer · respond');
+		expect(liveActivations([released()], read([]))[0]?.title).toBe('engineer · respond');
+		const noTime = read([call('c1', 'bash', { command: 'x' })]);
+		expect(liveActivations([released()], noTime)[0]?.title).toBe('engineer · respond · 1 call');
+		expect(liveActivations([released()], new Map())[0]?.title).toBe('engineer · respond');
+	});
+
+	it('shows the tokens when the usage holds no cost', () => {
+		const [live] = liveActivations([released({ usage: usage({ input: 9000 }) })], new Map());
+		expect(live?.title).toBe('engineer · respond · 9.0k tokens');
 	});
 
 	it('counts a cancelled activation as done', () => {

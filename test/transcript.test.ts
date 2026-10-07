@@ -580,7 +580,86 @@ describe('the live block', () => {
 		expect(lines[at('python3')]).toBe('      ✓ $ python3 scan.py  → bash-1a2b');
 		expect(lines[at('read /notes')]).toBe('      ✓ → read /notes/board.md  2 lines');
 		expect(lines[at('edit /notes')]).toBe('      ✗ ✎ edit /notes/board.md  failed: no match');
-		expect(lines[at('sql')]).toBe('      … ◇ sql select 1');
+		expect(lines[at('… ◇ sql')]).toBe('      … ◇ sql select 1');
+	}, 20_000);
+
+	it('draws the step that a running activation does now, and the totals of an ended one', async () => {
+		const view = await mount();
+		const stamp = (time: string, extra: Record<string, unknown>) => ({
+			activation: 'x',
+			at: time,
+			...extra,
+		});
+		const reads = new Map([
+			[
+				'a1',
+				{
+					activation: 'a1',
+					passes: [
+						{
+							pass: 1,
+							input: 'view',
+							through: 4,
+							steps: [
+								stamp(AT, { type: 'pass', pass: 1, input: 'view', through: 4 }),
+								stamp(AT, {
+									type: 'tool_call',
+									call: 'c1',
+									name: 'bash',
+									input: { command: 'make test' },
+								}),
+							],
+						},
+					],
+				},
+			],
+			[
+				'a2',
+				{
+					activation: 'a2',
+					passes: [
+						{
+							pass: 1,
+							input: 'view',
+							through: 4,
+							steps: [
+								stamp(AT, { type: 'tool_call', call: 'c1', name: 'read', input: { path: '/a' } }),
+								stamp(AT, { type: 'tool_call', call: 'c2', name: 'read', input: { path: '/b' } }),
+								stamp('2026-01-01T00:00:42Z', { type: 'end', stop: 'stopped' }),
+							],
+						},
+					],
+				},
+			],
+		]);
+		const seat = (id: string, outcome: string, extra: object = {}) => ({
+			id,
+			seat: 'engineer',
+			attempt: 1,
+			purpose: 'respond',
+			outcome: { kind: outcome },
+			...extra,
+		});
+		const list = [
+			seat('a2', 'released', {
+				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0.0123 },
+			}),
+			seat('a1', 'running'),
+		];
+		view.transcript.render(
+			[live('', liveActivations(list as never, reads as never))],
+			undefined,
+			undefined,
+			true,
+		);
+		await stable(view.setup, view.transcript.root);
+		const lines = view.setup
+			.captureCharFrame()
+			.split('\n')
+			.map((line) => line.trimEnd());
+		const at = (text: string) => lines.findIndex((line) => line.includes(text));
+		expect(lines[at('2 calls')]).toBe('    ✓ engineer · respond · 2 calls · 0:42 · $0.0123');
+		expect(lines[at('engineer · respond · $ make')]).toBe('    ● engineer · respond · $ make test');
 	}, 20_000);
 
 	it('cuts a long call to one row', async () => {

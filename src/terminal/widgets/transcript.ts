@@ -423,15 +423,7 @@ export class Transcript {
 	}
 
 	private addActivation(box: BoxRenderable, activation: LiveActivation): void {
-		const mark = ACTIVATION_MARK[activation.state];
-		box.add(
-			this.line([
-				paint(`  ${mark.text} `, { color: mark.color }),
-				paint(ellipsize(activation.title, Math.max(CALL_MIN, this.root.width - CALL_MARGIN)), {
-					color: palette.muted,
-				}),
-			]),
-		);
+		box.add(this.line(this.headerChunks(activation)));
 		if (activation.earlier > 0)
 			box.add(
 				this.line([
@@ -443,6 +435,24 @@ export class Transcript {
 		for (const call of activation.calls) box.add(this.line(this.callChunks(call)));
 		for (const process of activation.processes ?? [])
 			box.add(this.line(this.processChunks(process)));
+	}
+
+	/**
+	 * The chunks of the header of an activation: the mark, the title, and the
+	 * step it does now. The header fits one row, and the title keeps its room
+	 * before the step.
+	 */
+	private headerChunks(activation: LiveActivation): Chunk[] {
+		const mark = ACTIVATION_MARK[activation.state];
+		const room = Math.max(CALL_MIN, this.root.width - CALL_MARGIN);
+		const title = ellipsize(activation.title, room);
+		const left = room - title.length - 3;
+		const step = activation.step && left > 1 ? ellipsize(activation.step, left) : '';
+		return [
+			paint(`  ${mark.text} `, { color: mark.color }),
+			paint(title, { color: palette.muted }),
+			...(step ? [paint(` · ${step}`, { color: palette.dim })] : []),
+		];
 	}
 
 	/**
