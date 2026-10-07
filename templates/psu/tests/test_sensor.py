@@ -445,7 +445,7 @@ class Process(Isolated):
             if value is not None:
                 env["PORT"] = value
             done = subprocess.run([sys.executable, "-B", "sensor.py", "--config", str(config), "--sim", str(self.state)],
-                                  cwd=ROOT, env=env, capture_output=True, text=True, timeout=30)
+                                  cwd=ROOT, env=env, capture_output=True, text=True, timeout=30, check=False)
             self.assertEqual(done.returncode, 2, value)
             self.assertEqual(done.stdout, "")
             self.assertIn("Set PORT to an integer from 1 to 65535", done.stderr)
@@ -466,7 +466,7 @@ class Process(Isolated):
             env.update({"AMBION_SENSOR_REPOSITORY": "engineer/bench-psu", "GIT_CEILING_DIRECTORIES": folder,
                         "AMBION_SENSOR_DATA_DIR": str(self.directory / "data"), "PORT": str(free_port()), **changes})
             done = subprocess.run([sys.executable, "-B", "sensor.py", "--sim", str(self.state)], cwd=copy, env=env,
-                                  capture_output=True, text=True, timeout=30)
+                                  capture_output=True, text=True, timeout=30, check=False)
         return done, copy.resolve()
 
     def test_main_stops_outside_a_git_checkout(self):

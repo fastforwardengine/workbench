@@ -2,3 +2,11 @@
 # `scripts/check.ts` reads the Python floor from `target-version`.
 [tool.ruff]
 target-version = "py311"
+# I001 keeps an import on one line up to this width. The imports of the templates fit in it.
+line-length = 120
+
+[tool.ruff.lint]
+# EXE001: every script runs as `python3 file.py`, and a fork copies the files without their modes.
+ignore = ["EXE001"]
+# Ruff 0.16 removes these rules from the default set. They stay on.
+extend-select = ["E4", "E7", "E9", "F"]

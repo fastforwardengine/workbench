@@ -1,11 +1,9 @@
 """Offline checks. No device is opened; synthetic evidence only."""
-from array import array
 import copy
 import hashlib
 import io
 import json
 import os
-from pathlib import Path
 import signal
 import socket
 import subprocess
@@ -13,10 +11,12 @@ import sys
 import tempfile
 import threading
 import unittest
-import wave
-from unittest.mock import patch
 import urllib.error
 import urllib.request
+import wave
+from array import array
+from pathlib import Path
+from unittest.mock import patch
 
 import camera
 
@@ -441,7 +441,7 @@ class MicrophoneTests(unittest.TestCase):
     def test_bad_capture_gives_503_and_keeps_nothing(self):
         self.start_server(self.live())
         for clip in [wav_bytes([1] * 100, channels=2), wav_bytes([1] * 100, rate=44100)]:
-            def fake(command, **_kwargs):
+            def fake(command, *, clip=clip, **_kwargs):
                 Path(command[-1]).write_bytes(clip)
             with patch("camera.subprocess.run", side_effect=fake):
                 status, body = self.request("/microphone/observe")
@@ -676,7 +676,7 @@ class MainTests(unittest.TestCase):
                 if value is not None:
                     env["PORT"] = value
                 done = subprocess.run([sys.executable, "-B", "camera.py", "--demo"], cwd=TEMPLATE, env=env,
-                                      capture_output=True, text=True, timeout=10)
+                                      capture_output=True, text=True, timeout=10, check=False)
                 self.assertEqual(done.returncode, 2, value)
                 self.assertEqual(done.stdout, "")
                 self.assertIn("Set PORT to an integer from 1 to 65535", done.stderr)
@@ -691,7 +691,7 @@ class MainTests(unittest.TestCase):
                         "PORT": str(free_port()),
                         "GIT_CEILING_DIRECTORIES": str(Path(folder).resolve().parent), **changes})
             done = subprocess.run([sys.executable, "-B", "camera.py", "--demo"], cwd=folder, env=env,
-                                  capture_output=True, text=True, timeout=10)
+                                  capture_output=True, text=True, timeout=10, check=False)
         return done, copy.parent
 
     def test_outside_a_git_checkout_exits_with_one_line(self):

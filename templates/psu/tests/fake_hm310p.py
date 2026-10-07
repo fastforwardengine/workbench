@@ -1,7 +1,18 @@
 """A register-level fake of the HM310P. It stands in for the serial bus in tests."""
 
 from drivers.hm310p import (
-    DECIMALS, DISPLAY_V, HM310P_DECIMALS, HM310P_MODEL, MODEL, OCP, OUTPUT, OVP, PROTECT, SET_I, SET_V, TAIL,
+    DECIMALS,
+    DISPLAY_V,
+    HM310P_DECIMALS,
+    HM310P_MODEL,
+    MODEL,
+    OCP,
+    OUTPUT,
+    OVP,
+    PROTECT,
+    SET_I,
+    SET_V,
+    TAIL,
 )
 
 DISPLAY_P = DISPLAY_V + 2

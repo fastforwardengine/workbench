@@ -16,15 +16,12 @@ Lifecycle adapted from Ambion v0.6.0 examples/camera-chat. No daemon,
 preview, captions, automatic device selection, or framework dependency.
 """
 import argparse
-from array import array
 import datetime as dt
 import hashlib
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
 import json
 import math
 import os
-from pathlib import Path
 import re
 import signal
 import struct
@@ -32,13 +29,16 @@ import subprocess
 import sys
 import tempfile
 import threading
-from urllib.parse import parse_qsl, urlsplit
 import wave
 import zlib
+from array import array
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qsl, urlsplit
 
 
 def utc():
-    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return dt.datetime.now(dt.UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def demo_png():
@@ -174,7 +174,7 @@ def valid_query(query):
         if not STAMP.fullmatch(value):
             return False
         try:
-            dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+            dt.datetime.fromisoformat(value)
         except ValueError:
             return False
     return values["from"] < values["to"]
@@ -254,7 +254,7 @@ class Camera:
         if leader:
             try:
                 flight.observation = self.acquire(sensor)
-            except BaseException as error:
+            except BaseException as error:  # noqa: BLE001  # the waiting threads receive any error
                 flight.error = error
             finally:
                 with self.lock:

@@ -27,7 +27,7 @@ import os
 import signal
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from drivers import SupplyError, open_driver
 from guard import Guard, choose_channel, hold_drive_locks, load_config
@@ -54,7 +54,7 @@ def events_path():
 
 def emit(actuator, kind, **fields):
     """Append one line to the event log. The file closes before the call returns."""
-    at = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    at = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     line = json.dumps({"v": 1, "at": at, "kind": kind, "actuator": actuator, **fields})
     with open(events_path(), "a") as log:
         log.write(line + "\n")
@@ -135,7 +135,7 @@ class Controller:
                     time.sleep(self.stop_dwell)  # a plain sleep: the stop flag is already set
                 for name, setting in guard.off([channel]).items():
                     self._drive(name, setting)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110  # any error ends the steps, and the sweep follows
             pass
 
     def safe(self, guard, channels):
@@ -163,13 +163,13 @@ def _end(control, guard, channels, body, args):
         control.claim("stopping", control.stop)
     except GaveUp as stop:
         _give_up(control, stop.note)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001  # the safe action runs after any error
         problem = describe(error)
         note = problem
     try:
         still_on = control.safe(guard, channels)
         failure = f"The supply reports these channels on after the turn-off: {', '.join(still_on)}." if still_on else None
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001  # the exit code and a message report any error
         failure = describe(error)
     if failure:
         if problem:

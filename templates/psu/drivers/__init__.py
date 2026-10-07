@@ -9,7 +9,7 @@ DRIVERS below. Then add it to the driver suite in tests/test_drivers.py.
 
 import importlib
 from dataclasses import dataclass, field
-from typing import Optional, Protocol
+from typing import Protocol
 
 # The capabilities that a driver names in Description.capabilities.
 CAPABILITIES = {
@@ -42,7 +42,7 @@ class Description:
     channels: dict[str, ChannelRating]
     capabilities: frozenset[str]
     measure_seconds: float
-    refresh_hz: Optional[float] = None
+    refresh_hz: float | None = None
 
 
 @dataclass(frozen=True)
@@ -59,10 +59,10 @@ class Settings:
     voltage: float
     current: float
     on: bool
-    mode: Optional[str] = None
+    mode: str | None = None
     tripped: list[str] = field(default_factory=list)
-    ovp: Optional[float] = None
-    ocp: Optional[float] = None
+    ovp: float | None = None
+    ocp: float | None = None
 
 
 class Driver(Protocol):
@@ -76,17 +76,17 @@ class Driver(Protocol):
 
     def settings(self) -> dict[str, Settings]: ...
 
-    def set(self, channel: str, voltage: Optional[float] = None, current: Optional[float] = None) -> None:
+    def set(self, channel: str, voltage: float | None = None, current: float | None = None) -> None:
         """Write the given values, the voltage first. A value of None stays as it is."""
         ...
 
     def output(self, channel: str, on: bool) -> None: ...
 
-    def off(self, channels: Optional[list[str]] = None) -> None:
+    def off(self, channels: list[str] | None = None) -> None:
         """Turn the outputs off. Safe to call twice. Needs no state from an earlier process."""
         ...
 
-    def protect(self, channel: str, ovp: Optional[float] = None, ocp: Optional[float] = None) -> None:
+    def protect(self, channel: str, ovp: float | None = None, ocp: float | None = None) -> None:
         """Only with the capability "ovp" or "ocp"."""
         ...
 

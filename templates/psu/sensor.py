@@ -53,7 +53,7 @@ PERCENTILES = (5, 25, 50, 75, 95)
 MAX_SPAN_SAMPLES = 14400  # the most samples that one span answers
 
 HERE = Path(__file__).resolve().parent
-EPOCH = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
+EPOCH = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
 ISO = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z")
 QUANTITIES = (("voltage", "V"), ("current", "A"), ("power", "W"))
 STATISTICS = ("min", "p5", "p25", "p50", "p75", "p95", "max", "mean")
@@ -72,7 +72,7 @@ def iso(ms):
 
 def parse_iso(text):
     """The integer milliseconds of a wire time."""
-    moment = dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    moment = dt.datetime.fromisoformat(text)
     return (moment - EPOCH) // dt.timedelta(milliseconds=1)
 
 
@@ -130,7 +130,7 @@ def span_of(query):
         if not ISO.fullmatch(value):
             raise ValueError("A span time is UTC with three millisecond digits, such as 2026-01-01T00:00:00.000Z.")
         try:
-            dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+            dt.datetime.fromisoformat(value)
         except ValueError as error:
             raise ValueError("A span time is not a real date and time.") from error
     if not values["from"] < values["to"]:
@@ -405,13 +405,13 @@ class Sensor:
             # The sensor drops it, and the gap shows in n.
             if self.clock() < slot + self.period_ms:
                 self.store(sample)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001  # a failed slot must not stop the sensor
             self.fail("sample", slot, error)
         if self.settings_second is None or slot // 1000 >= self.settings_second + SETTINGS_SECONDS:
             try:
                 self.observe_settings(slot)
                 self.clear("settings")
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001  # a failed read must not stop the sensor
                 self.fail("settings", slot, error)
 
     def next_slot(self, slot=None):
