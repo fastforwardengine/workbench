@@ -1,10 +1,11 @@
 # A local workstation
 
 **This folder builds a workstation in a container.** A workstation is one
-server with one Unix account for each specialist
+server with one Unix account for each specialist, and one for the worker of
+the breakout rooms
 ([Ambion: the workstation](https://github.com/ambionframework/ambion/blob/main/docs/workstation.md)).
-Workbench runs the `bash` and file tools of each specialist on it over SSH,
-as that specialist's account. The git account of the workstation holds the
+Workbench runs the `bash` and file tools of each seat on it over SSH, as
+the account of that seat. The git account of the workstation holds the
 templates and the forks. The journals of the rooms stay in the SQLite file
 of Workbench. A second container, an object store, keeps the bytes of the
 snapshots.
@@ -116,7 +117,7 @@ resolves to no object.
 
 | Account          | Group       | Holds                                                    |
 | ---------------- | ----------- | -------------------------------------------------------- |
-| One per seat     | `workbench` | The home of the specialist, mode `0700`, and its clones  |
+| One per seat     | `workbench` | The home of the seat, mode `0700`, and its clones        |
 | `workbench-host` | `workbench` | The host account: it writes the seed and the room mirror |
 | `workbench-git`  | none        | Every repository, in `~/repos`. Agents reach it over SSH |
 
@@ -157,6 +158,11 @@ container mounts `/dev/bus/usb` with a rule for every USB device file, so
 libusb reaches a device that arrives after the start. The container runs no
 udev, so the entrypoint gives `plugdev` read and write on each USB device
 file every 5 seconds.
+
+**The `worker` account is in no device group.** The Dockerfile adds the
+groups of the devices to `engineer` alone. A task of a breakout room
+cannot open a device of the bench. [Breakout rooms](../docs/breakouts.md)
+gives the reason.
 
 **The workstation makes the device file of each camera, serial port,
 USBTMC instrument, and sound device.** The container's own `/dev` holds no
@@ -260,7 +266,8 @@ native, and `make usb` does nothing.
 
 - **Add a specialist.** Add its name to `accounts`, run `setup.sh` again,
   and rebuild with `--build`. `test/workstation-config.test.ts` fails
-  while the list and the team differ.
+  while the list and the team differ. The worker has its line in the list
+  too.
 - **Keep the keys.** `setup.sh` keeps each key that exists, so a second
   run changes nothing for the running container.
 - **Start again from empty.** This command removes the container and its

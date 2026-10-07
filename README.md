@@ -107,7 +107,11 @@ with a directed say.
 | Researcher | States limits from `/library`, with the source, and writes a test plan | Workspace |
 | Engineer   | Watches the bench, runs the bench scripts, and guides a build          | Workspace |
 
-**The workspace tools are the only tools.** They read and write files,
+**Each specialist can open a breakout room.** A worker does a task of many
+steps in the background and reports the result. See
+[`docs/breakouts.md`](docs/breakouts.md).
+
+**The workspace tools do the work of the bench.** They read and write files,
 run shell commands as background processes, fork the git templates, and
 snapshot a file into a stable ref.
 A bench script comes from a template.

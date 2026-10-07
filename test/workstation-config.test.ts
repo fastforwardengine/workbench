@@ -113,7 +113,7 @@ describe('the workstation config', () => {
 		expect((error as Error).cause).toBeDefined();
 	});
 
-	it('holds an account for each specialist and for the host, in workstation/accounts', async () => {
+	it('holds an account for each specialist, the worker, and the host, in workstation/accounts', async () => {
 		const accounts = readFileSync(new URL('../workstation/accounts', import.meta.url), 'utf8')
 			.split('\n')
 			.filter((line) => line !== '' && !line.startsWith('#'));
@@ -123,7 +123,11 @@ describe('the workstation config', () => {
 		});
 		const built = await team(workspace);
 		expect(accounts.sort()).toEqual(
-			[...built.specialists.map((seat) => seat.name), workspace.mirrorAgent.name].sort(),
+			[
+				...built.specialists.map((seat) => seat.name),
+				built.worker.name,
+				workspace.mirrorAgent.name,
+			].sort(),
 		);
 	});
 });

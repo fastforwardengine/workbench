@@ -8,7 +8,13 @@ import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { people, team } from '../src/domain/definitions.ts';
-import { SHARED_SKILLS, skillsDirectory, specialistSkills } from '../src/domain/skills.ts';
+import {
+	SHARED_SKILLS,
+	skillsDirectory,
+	specialistSkills,
+	WORKER_SKILLS_FROM,
+	workerSkills,
+} from '../src/domain/skills.ts';
 import { labRepositories } from '../src/host/repositories.ts';
 
 const specialists = ['researcher', 'engineer'];
@@ -56,6 +62,18 @@ describe('the Workbench skills', () => {
 		expect(shared).toContain('keep-notes');
 		for (const specialist of specialists)
 			expect(await skillNames(specialist), specialist).toEqual(expect.arrayContaining(shared));
+	});
+
+	it('gives the worker of the breakout rooms the shared skills and the skills of the Researcher', async () => {
+		expect(readdirSync(skillsDirectory)).not.toContain('worker');
+		expect(WORKER_SKILLS_FROM).toBe('researcher');
+		const names = (await workerSkills()).skills.map((skill) => skill.name).sort();
+		expect(names).toEqual(
+			[
+				...new Set([...(await skillNames(SHARED_SKILLS)), ...(await skillNames('researcher'))]),
+			].sort(),
+		);
+		expect(names).not.toContain('scan-the-bench');
 	});
 
 	it('lists the skills of a specialist in its guidance, and no skill of another', async () => {

@@ -17,6 +17,30 @@ describe('callPhrase', () => {
 		['ps', {}, '⋯ ps'],
 		['wait', { handles: ['bash-1', 'bash-2'], timeout: 5 }, '⋯ wait bash-1, bash-2'],
 		['cancel', { handle: 'bash-1' }, '⋯ cancel bash-1'],
+		[
+			'breakout',
+			{
+				name: 'datasheets',
+				goal: 'Compare the tuners.\nSecond line',
+				message: 'm',
+				agents: ['worker'],
+			},
+			'⇉ breakout datasheets: Compare the tuners.',
+		],
+		['breakout', { name: 'datasheets', message: 'm' }, '⇉ breakout datasheets'],
+		['tell', { room: 'build-datasheets', text: 'Add the TEA5767.' }, '⇢ tell build-datasheets'],
+		['archive', { room: 'build-datasheets', result: 'done' }, '⇥ archive build-datasheets done'],
+		[
+			'archive',
+			{ room: 'build-datasheets', result: 'failed', note: 'x' },
+			'⇥ archive build-datasheets failed',
+		],
+		['archive', { room: 'build-datasheets' }, '⇥ archive build-datasheets'],
+		[
+			'report',
+			{ text: 'The RDA5807FP wins.\nBecause.', refs: ['file:///library/a.md'] },
+			'⇇ report The RDA5807FP wins.',
+		],
 	])('writes %s as %s', (name, input, phrase) => {
 		expect(callPhrase(name, input)).toBe(phrase);
 	});
@@ -39,6 +63,9 @@ describe('callPhrase', () => {
 		expect(callPhrase('wait', { handles: [] })).toBe('wait {"handles":[]}');
 		expect(callPhrase('fetch', { process: 'bench' })).toBe('fetch bench');
 		expect(callPhrase('constructor', {})).toBe('constructor {}');
+		expect(callPhrase('breakout', { goal: 'Compare.' })).toBe('breakout Compare.');
+		expect(callPhrase('archive', { result: 'done' })).toBe('archive done');
+		expect(callPhrase('tell', {})).toBe('tell {}');
 	});
 });
 
@@ -104,6 +131,23 @@ describe('resultPhrase', () => {
 		expect(resultPhrase('cancel', text('[Process bash-3 is cancelled. Output: /p.]'))).toBe(
 			'cancelled',
 		);
+	});
+
+	it('shows the room of a breakout, the seq of a tell and a report, and nothing for an archive', () => {
+		const opened = text('Opened the breakout room "build-datasheets": running.', {
+			room: 'build-datasheets',
+			state: 'running',
+		});
+		expect(resultPhrase('breakout', opened)).toBe('build-datasheets');
+		expect(resultPhrase('breakout', text('Opened.'))).toBe('Opened.');
+		expect(
+			resultPhrase('tell', text('Posted into "r" as message #7.', { room: 'r', from: 7 })),
+		).toBe('#7');
+		expect(resultPhrase('report', text('Reported into "build" as message #9.', { from: 9 }))).toBe(
+			'#9',
+		);
+		expect(resultPhrase('report', text('Reported into "build".'))).toBe('Reported into "build".');
+		expect(resultPhrase('archive', text('Archived "r" as done.', { result: 'done' }))).toBe('');
 	});
 
 	it('keeps the first line of the output for a tool with no phrase', () => {

@@ -10,6 +10,7 @@ import {
 } from '@ambionframework/ambion';
 import type { Execution } from '@ambionframework/ambion/hosting';
 import {
+	type CanvasClose,
 	type CanvasError,
 	type CanvasEvent,
 	type CanvasRoom,
@@ -21,7 +22,7 @@ import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journa
 import { directoryBackend } from '@ambionframework/just-bash';
 import { fileCredentials, type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 import { openWorkspace } from '@ambionframework/workspace';
-import { radioProject, team } from '../domain/definitions.ts';
+import { radioProject, team, WORKER_TEAM } from '../domain/definitions.ts';
 import { type Environment, missingLogin, piCredentialsPath } from '../domain/model.ts';
 import { sharedRegistrations } from '../domain/notes.ts';
 import { buildRoom, seats } from '../domain/room.ts';
@@ -169,24 +170,35 @@ export async function openRooms(
 		);
 		return result;
 	}
-	// The canvas attaches the mirror of each room, so the host attaches none. No seat opens a
-	// breakout room, so the worker team is empty.
+	// The canvas attaches the mirror of each room, so the host attaches none. The specialists
+	// open breakout rooms, and the worker team does their tasks.
 	const canvas = openCanvas({
 		name: 'workbench',
 		runtime,
 		store: sqliteCanvas(sql),
 		workspace,
-		breakout: { team: [] },
+		breakout: { team: WORKER_TEAM },
 		widgets: { kinds: [FRAME_KIND] },
 		onError: (failure) => reportFailure(stateOf(failure.room), failure),
 	});
 	let roomTeam: Awaited<ReturnType<typeof team>>;
 	try {
-		// The canvas exists first: a specialist reads its widget bundle when it is defined.
+		// The canvas exists first: a seat reads its bundles when it is defined.
 		// Load the skills now, so a skill that breaks a rule stops the start.
-		roomTeam = await team(workspace, radioProject, canvas.widgetTools());
-		canvas.subscribe((event) => heardEvent(event, stateOf, (name) => canvas.room(name)));
-		await canvas.resume({ agents: roomTeam.specialists });
+		roomTeam = await team(workspace, radioProject, {
+			widgets: canvas.widgetTools(),
+			opener: canvas.tools(),
+			worker: canvas.workerTools(),
+		});
+		canvas.subscribe((event) =>
+			heardEvent(
+				event,
+				stateOf,
+				(name) => canvas.room(name),
+				() => canvas.rooms(),
+			),
+		);
+		await canvas.resume({ agents: [...roomTeam.specialists, roomTeam.worker] });
 	} catch (error) {
 		closing = true;
 		await canvas.close().catch(() => {});
@@ -195,15 +207,16 @@ export async function openRooms(
 		throw error;
 	}
 	// One model serves every seat, so a missing login makes every seat unavailable.
-	const missing = reason === undefined ? [] : roomTeam.specialists.map((agent) => agent.name);
+	const missing =
+		reason === undefined ? [] : [...roomTeam.specialists, roomTeam.worker].map(({ name }) => name);
 	/** The row of a room, or a refusal. */
 	function known(name: string): CanvasRoom {
 		return canvas.rooms().find((row) => row.name === name) ?? fail('Unknown room.');
 	}
-	/** The live room, or a refusal that tells the person to resume it. */
+	/** The live room, or a refusal that tells the person to resume it. An archived room never resumes. */
 	function liveRoom(name: string): Room {
 		if (closing) fail('The host is stopping.');
-		known(name);
+		if (known(name).state === 'archived') fail('This breakout room is archived.');
 		return canvas.room(name) ?? fail('Resume this room first.');
 	}
 	async function inRoom<T>(name: string, operation: (room: Room) => Promise<T>) {
@@ -266,8 +279,10 @@ export async function openRooms(
 		await workspace.dispose();
 	}
 	return {
-		/** The specialists that a room can seat. */
+		/** The specialists that a room can seat. The worker of the breakout rooms is not among them. */
 		team: roomTeam.specialists.map(({ name, identity }) => ({ name, identity })),
+		/** Whether a room is a breakout room. */
+		isBreakout: (name: string) => known(name).start.kind === 'breakout',
 		create,
 		inRoom,
 		watch,
@@ -327,7 +342,24 @@ function roomView(
 		failures: new Map(state.failures) as ReadonlyMap<string, string>,
 		pattern: row.name === buildRoom.name ? buildRoom.pattern : undefined,
 		prompt: row.name === buildRoom.name ? buildRoom.prompt : undefined,
+		...breakoutOf(row),
 	};
+}
+
+/** What a breakout room adds to its view: the room that holds it, who opened it, and how it stands. */
+interface BreakoutInfo {
+	parent: string;
+	opener: string;
+	state: 'running' | 'stopped' | 'archived';
+	/** How the opener closed the room. Only an archived room has it. */
+	close?: CanvasClose;
+}
+
+/** The `breakout` field of a view: the facts of a breakout row, and nothing for a root room. */
+function breakoutOf({ start, state, close }: CanvasRoom): { breakout?: BreakoutInfo } {
+	if (start.kind !== 'breakout') return {};
+	const { parent, opener } = start;
+	return { breakout: { parent, opener, state, ...(close === undefined ? {} : { close }) } };
 }
 
 /** Tell every watcher of a room to read again. */
@@ -341,16 +373,38 @@ function roomOf(event: CanvasEvent): string {
 	return event.type === 'opened' ? event.room.name : event.room;
 }
 
-/** Hear the events of a room that the canvas starts, and tell its watchers of each change. */
+/** The events that change how a room stands. */
+const STANDING_EVENTS: ReadonlySet<CanvasEvent['type']> = new Set([
+	'opened',
+	'started',
+	'stopped',
+	'archived',
+]);
+
+/** The room that holds the breakout room which a standing event is about, or undefined. */
+function parentOf(event: CanvasEvent, rows: () => readonly CanvasRoom[]): string | undefined {
+	if (!STANDING_EVENTS.has(event.type)) return undefined;
+	const name = roomOf(event);
+	const row = event.type === 'opened' ? event.room : rows().find((found) => found.name === name);
+	return row?.start.kind === 'breakout' ? row.start.parent : undefined;
+}
+
+/**
+ * Hear the events of a room that the canvas starts, and tell its watchers of each change.
+ * A change in the standing of a breakout room also tells the watchers of its parent, which lists it.
+ */
 function heardEvent(
 	event: CanvasEvent,
 	stateOf: (name: string) => RoomState,
 	room: (name: string) => Room | undefined,
+	rows: () => readonly CanvasRoom[],
 ): void {
 	const name = roomOf(event);
 	const state = stateOf(name);
 	if (event.type === 'started') room(name)?.subscribe((heard) => notify(state, heard));
 	changed(state);
+	const parent = parentOf(event, rows);
+	if (parent !== undefined) changed(stateOf(parent));
 }
 
 /** A failure that the canvas survived goes to the activity list, where the person reads it. */
