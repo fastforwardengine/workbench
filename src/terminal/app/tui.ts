@@ -28,7 +28,8 @@ import { Keys } from './keys.ts';
 import { Microphone } from './microphone.ts';
 import { ProcessesSurface } from './process-surface.ts';
 import { ViewfinderSurface } from './viewfinder-surface.ts';
-import { transcribe, whisperConfig, whisperProblem } from './whisper.ts';
+import { type WhisperConfig, whisperConfig, whisperProblem } from './whisper.ts';
+import { WhisperServer } from './whisper-server.ts';
 
 /** How often the slow fallback reads the room list and a stopped room. */
 const SLOW_MS = 4_000;
@@ -63,12 +64,18 @@ class EngineTui {
 	private readonly processes: ProcessBrowser;
 	private readonly voice: Voice;
 	private readonly microphone = new Microphone();
+	private readonly whisper: WhisperServer;
 	private stopped = false;
 
 	constructor(renderer: CliRenderer, host: Lab, identity: Person | undefined) {
 		this.renderer = renderer;
 		this.session = new Session(host, identity, () => this.render());
-		this.voice = this.newVoice();
+		const config = whisperConfig();
+		this.whisper = new WhisperServer(config, {
+			changed: () => this.render(),
+			stopped: (line) => this.voice.crashed(line),
+		});
+		this.voice = this.newVoice(config);
 		const header = new Header(renderer);
 		const transcript = new Transcript(renderer);
 		this.processes = new ProcessBrowser(host, () => this.render());
@@ -178,6 +185,8 @@ class EngineTui {
 			});
 			void this.begin();
 		});
+		// The server ends with the terminal. `voice.dispose` already asked it to end.
+		await this.whisper.stop();
 	}
 
 	private async begin(): Promise<void> {
@@ -200,14 +209,16 @@ class EngineTui {
 		}, 0);
 	}
 
-	/** Voice mode, over the microphone of this terminal and whisper-cli. */
-	private newVoice(): Voice {
-		const config = whisperConfig();
+	/** Voice mode, over the microphone of this terminal and whisper-server. */
+	private newVoice(config: WhisperConfig): Voice {
 		return new Voice({
 			ready: async () =>
 				keyboardProblem(this.renderer.capabilities) ?? (await whisperProblem(config)),
 			start: () => this.microphone.start(),
-			transcribe: (file, signal) => transcribe(config, file, signal),
+			serve: () => this.whisper.start(),
+			halt: () => void this.whisper.stop(),
+			loading: () => this.whisper.loading(),
+			transcribe: (file, signal) => this.whisper.transcribe(file, signal),
 			discard: (file) => this.microphone.discard(file),
 			place: () => `${this.session.whoami}/${this.session.room}`,
 			deliver: (text) => this.sendVoice(text),

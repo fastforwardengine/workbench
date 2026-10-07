@@ -59,11 +59,11 @@ usb-detach:
 workbench: workstation node_modules/.modules.yaml
 	WORKBENCH_WORKSTATION=$(CONFIG) pnpm start $(DATA)
 
-## What /voice needs: whisper-cli from Homebrew, and the large-v3 model of
+## What /voice needs: whisper-server from Homebrew, and the large-v3 model of
 ## about 3 GB. The download goes to a part file first, so a stopped download
 ## leaves no model that looks complete.
 voice: $(WHISPER_MODEL)
-	@command -v whisper-cli >/dev/null || brew install whisper-cpp
+	@command -v whisper-server >/dev/null || brew install whisper-cpp
 
 $(WHISPER_MODEL):
 	mkdir -p $(dir $@)

@@ -181,15 +181,24 @@ A bench script comes from a template.
   A press under 300 ms sends nothing. Ctrl+C drops a recording. A transcript
   goes to the room that was open when you pressed Space. When you switch
   room before it is ready, Workbench drops it and shows the words. The
-  terminal records mono audio at 16 kHz and runs `whisper-cli` on this
-  computer. No audio leaves it. The terminal must report key release: Kitty
-  and Ghostty do. Set up once with `make voice`. It installs `whisper-cpp`
-  with Homebrew and downloads the model of about 3 GB to
-  `~/.cache/whisper/ggml-large-v3.bin`.
+  terminal records mono audio at 16 kHz. It transcribes with
+  `whisper-server` of whisper.cpp, which runs on this computer. No audio
+  leaves it. The terminal must report key release: Kitty and Ghostty do.
 
-  `WORKBENCH_WHISPER_MODEL` names another model file, such as
-  `ggml-large-v3-turbo.bin` for speed. The first press asks macOS for the
-  microphone.
+  `/voice` starts `whisper-server` on a free port of `127.0.0.1`, and the
+  model stays loaded until you switch voice mode off or leave the terminal.
+  The line "loading model" shows until the model is ready. A recording that
+  you make before then waits for the model, and Workbench sends it when the
+  model is ready. When the server ends by itself, one line shows its last
+  message, and the next press of Space starts it again. When the system
+  kills Workbench with SIGKILL, the server can stay. End it with
+  `pkill whisper-server`.
+
+  Set up once with `make voice`. It installs `whisper-cpp` with Homebrew
+  and downloads the model of about 3 GB to
+  `~/.cache/whisper/ggml-large-v3.bin`. `WORKBENCH_WHISPER_MODEL` names
+  another model file, such as `ggml-large-v3-turbo.bin` for speed. The first
+  press asks macOS for the microphone.
 
 - **Staged pictures:** a row above the composer names the files that wait
   for your next message. Press Enter on an empty composer to send them

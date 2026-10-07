@@ -17,6 +17,9 @@ export function quietParts(over: Partial<VoiceParts> = {}): VoiceParts {
 	return {
 		ready: async () => undefined,
 		start: async () => fakeTake(),
+		serve: () => {},
+		halt: () => {},
+		loading: () => false,
 		transcribe: async () => '',
 		discard: async () => {},
 		place: () => 'priya/bench',
