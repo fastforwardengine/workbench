@@ -76,16 +76,23 @@ const wordsOf = (step: TraceStep): string | undefined =>
 	step.type === 'thinking' || step.type === 'text' ? brief(firstLine(step.text)) : undefined;
 
 /**
- * What an activation does now: the newest call that has no result, else the
- * first line of the newest thinking or text. It is empty before the first step.
+ * What an activation does now: the newest call of the newest pass that has no
+ * result, else the first line of the newest thinking or text. A call of an
+ * earlier pass that has no result does not count, because the seat has gone on
+ * from it. The text is empty before the first step.
  */
-function currentStep(steps: readonly TraceStep[]): string {
+function currentStep(read: ActivationSteps | undefined): string {
+	const latest = read?.passes.at(-1)?.steps ?? [];
 	const answered = new Set(
-		steps.flatMap((step) => (step.type === 'tool_result' ? [step.call] : [])),
+		latest.flatMap((step) => (step.type === 'tool_result' ? [step.call] : [])),
 	);
-	const pending = steps.findLast((step) => step.type === 'tool_call' && !answered.has(step.call));
+	const pending = latest.findLast((step) => step.type === 'tool_call' && !answered.has(step.call));
 	if (pending?.type === 'tool_call') return callPhrase(pending.name, pending.input);
-	return steps.map(wordsOf).findLast((words) => words) ?? '';
+	return (
+		stepsOf(read)
+			.map(wordsOf)
+			.findLast((words) => words) ?? ''
+	);
 }
 
 const failedEnd = (activation: ExchangeActivation): boolean =>
@@ -110,7 +117,7 @@ function duration(steps: readonly TraceStep[]): string {
 /**
  * The title: seat, purpose, and the attempt after the first. An ended
  * activation adds its calls, its duration, and its cost, and a failed one adds
- * the reason. A part that is zero or unknown is left out.
+ * the reason. The parts join with ` · `. A part that is zero or unknown is left out.
  */
 function titleOf(
 	activation: ExchangeActivation,
@@ -124,9 +131,9 @@ function titleOf(
 		activation.purpose,
 		...(activation.attempt > 1 ? [`attempt ${activation.attempt}`] : []),
 		...spent.filter((part) => part !== ''),
+		...(failedEnd(activation) && reason ? [reason] : []),
 	];
-	const title = parts.join(' · ');
-	return failedEnd(activation) && reason ? `${title}: ${reason}` : title;
+	return parts.join(' · ');
 }
 
 function liveActivation(
@@ -141,7 +148,7 @@ function liveActivation(
 	if (activation.outcome.kind !== 'running')
 		return { id, state: failedEnd(activation) ? 'failed' : 'done', title, calls: [], earlier: 0 };
 	const calls = callsOf(steps);
-	const step = currentStep(steps);
+	const step = currentStep(read);
 	return {
 		id,
 		state: 'running',
