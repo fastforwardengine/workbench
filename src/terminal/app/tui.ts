@@ -12,6 +12,7 @@ import { PictureCache } from '../state/picture-cache.ts';
 import { ProcessBrowser } from '../state/process-browser.ts';
 import { type Intent, Session } from '../state/session.ts';
 import { Ticker } from '../state/ticker.ts';
+import { TerminalTitle, titleOf } from '../state/title.ts';
 import { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import { Voice } from '../state/voice.ts';
 import { brand, tui as palette } from '../widgets/brand.ts';
@@ -36,6 +37,9 @@ import { ProcessesSurface } from './process-surface.ts';
 import { ViewfinderSurface } from './viewfinder-surface.ts';
 import { type WhisperConfig, whisperConfig, whisperProblem } from './whisper.ts';
 import { WhisperServer } from './whisper-server.ts';
+
+/** The product name that ends the title of the terminal. */
+const PRODUCT = `${brand.name} ${brand.product}`;
 
 /** How often the slow fallback reads the room list and a stopped room. */
 const SLOW_MS = 4_000;
@@ -74,10 +78,12 @@ class EngineTui {
 	private readonly whisper: WhisperServer;
 	/** Repaints the chrome each second while an activation of the open room runs. */
 	private readonly clock = new Ticker(CLOCK_MS, () => this.tick());
+	private readonly title: TerminalTitle;
 	private stopped = false;
 
 	constructor(renderer: CliRenderer, host: Lab, identity: Person | undefined) {
 		this.renderer = renderer;
+		this.title = new TerminalTitle((text) => renderer.setTerminalTitle(text));
 		this.session = new Session(host, identity, () => this.render());
 		const config = whisperConfig();
 		this.whisper = new WhisperServer(config, {
@@ -281,6 +287,7 @@ class EngineTui {
 		this.keys.reconcile();
 		this.painter.render(this.keys.mode, this.keys.picking);
 		this.keys.refreshPalette();
+		this.title.show(titleOf(this.session, PRODUCT));
 	}
 
 	private async onSubmit(): Promise<void> {
@@ -361,7 +368,6 @@ export async function runEngine(options: RunOptions): Promise<void> {
 		}
 		const renderer = await openRenderer();
 		renderer.setBackgroundColor(palette.bg);
-		renderer.setTerminalTitle(`${brand.name} ${brand.product}`);
 		const app = new EngineTui(renderer, host, identity);
 		const stop = () => renderer.destroy();
 		process.once('SIGTERM', stop);

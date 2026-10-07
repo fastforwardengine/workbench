@@ -3,9 +3,9 @@ import type { ActivationSteps, ProcessView } from '../src/host/host.ts';
 import { lastPart } from '../src/host/processes.ts';
 import { COMMANDS } from '../src/terminal/state/commands.ts';
 import { ProcessBrowser, stateText } from '../src/terminal/state/process-browser.ts';
-import type { Session } from '../src/terminal/state/session.ts';
+import { Session } from '../src/terminal/state/session.ts';
 import { HELP } from '../src/terminal/state/session-text.ts';
-import { started, view } from './fake-host.ts';
+import { FakeHost, started, view } from './fake-host.ts';
 
 describe('Session start', () => {
 	it('opens the first running room as the chosen person', async () => {
@@ -1227,5 +1227,22 @@ describe('Session steering', () => {
 		host.notify('characterization');
 		await vi.waitFor(() => expect(session.steering).toEqual([]));
 		expect(changes()).toBeGreaterThan(before);
+	});
+});
+
+describe('Session, when the redraw throws at the start of a send', () => {
+	it('ends the send state and reports the error', async () => {
+		const host = new FakeHost();
+		let broken = false;
+		const session = new Session(host, host.people[0], () => {
+			if (!broken) return;
+			broken = false;
+			throw new Error('The redraw failed.');
+		});
+		await session.start();
+		broken = true;
+		await session.submit('Hello.');
+		expect(session.sending).toBe(false);
+		expect(session.error).toBe('The redraw failed.');
 	});
 });

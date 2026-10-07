@@ -38,8 +38,8 @@ function hasRead(read: ActivationSteps | undefined, seq: number): boolean {
  * waits until each one has read it. A line that has no `steer` step yet waits too,
  * because the executor decides it later. Nothing waits while no activation runs,
  * and an ended activation holds nothing. `reads` holds the steps by activation id.
- * Known edge: a line stays shown until the activation ends when a seat reads it
- * through a room tool, or when a host restart loses the pass step.
+ * A line stays shown until the activation ends in two cases: a seat reads it
+ * through a room tool, or a host restart loses the pass step.
  */
 export function waitingMessages(input: {
 	messages: readonly Message[];
