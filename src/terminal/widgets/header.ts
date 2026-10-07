@@ -8,7 +8,7 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import type { Person, RoomView } from '../../host/host.ts';
-import { breakoutLabel } from '../state/breakouts.ts';
+import { pathParts, pathText, standingOfView, standingText } from '../state/breakouts.ts';
 import { tui as palette } from './brand.ts';
 import { fitHeader } from './header-fit.ts';
 import { APART, GUTTER, INSET } from './space.ts';
@@ -68,14 +68,24 @@ export interface HeaderState {
 	view: RoomView | undefined;
 }
 
-/** The text at the right edge of the participants row: the parent of a breakout room, else the pattern. */
-const sideText = (view: RoomView | undefined): string =>
-	breakoutLabel(view) || (view?.pattern ?? '');
+/** The text at the right edge of the participants row: the state of a breakout room, else the pattern. */
+function sideText(view: RoomView | undefined): string {
+	const standing = standingOfView(view);
+	return standing ? standingText(standing) : (view?.pattern ?? '');
+}
+
+/** The room row at the left edge: the path of the room, with the parent of a breakout room dim. */
+function roomChunks(view: RoomView): Chunks {
+	const { head, leaf } = pathParts(view.name, view.breakout?.parent);
+	const name = bold(fg(palette.accent)(leaf));
+	return head ? [fg(palette.dim)(head), name] : [name];
+}
 
 /**
- * The panel above the conversation. The first row holds the room name and
+ * The panel above the conversation. The first row holds the room path and
  * goal, with the person's identity at the right edge. The second row holds the
- * participants, with the room's pattern at the right edge.
+ * participants. Its right edge holds the pattern of a root room, and the state
+ * of a breakout room.
  */
 export class Header {
 	readonly root: BoxRenderable;
@@ -106,7 +116,7 @@ export class Header {
 		const unavailable = view?.unavailable ?? [];
 		const fit = fitHeader({
 			width: width - CHROME,
-			name: view?.name ?? '',
+			name: view ? pathText(view.name, view.breakout?.parent) : '',
 			goal: view?.goal ?? '',
 			identity: who,
 			people: participants.map((participant) => label(participant, unavailable)).join('  ').length,
@@ -114,7 +124,7 @@ export class Header {
 		});
 		this.room.set(
 			view
-				? [bold(fg(palette.accent)(view.name)), fg(palette.dim)(`  ${fit.goal}`)]
+				? [...roomChunks(view), fg(palette.dim)(`  ${fit.goal}`)]
 				: [fg(palette.dim)('No room open')],
 			[fg(palette.muted)(who)],
 		);

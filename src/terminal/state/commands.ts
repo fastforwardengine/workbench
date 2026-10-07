@@ -1,5 +1,6 @@
 import type { ScheduledSay } from '@ambionframework/ambion';
 import { ellipsize } from '../../view/text.ts';
+import { markOf, shortName, standingOf } from './breakouts.ts';
 
 /** A slash command the composer understands. */
 interface Command {
@@ -22,7 +23,9 @@ export const COMMANDS = [
 		argument: 'room',
 		help: [
 			'  /room <name>      switch to another room. Ctrl+R lists the rooms.',
-			'                    Breakout rooms show under their parent room.',
+			'                    Breakout rooms show under their parent room, with their short name.',
+			'                    The list picks the parent of a breakout room, else the newest',
+			'                    running breakout room of the open room.',
 		],
 	},
 	{
@@ -176,27 +179,18 @@ export interface RoomChoice {
 	working: boolean;
 	/** Set for a breakout room only. */
 	breakout?: BreakoutChoice;
+	/** True for the room that the room list picks when it opens. */
+	picked?: boolean;
 }
 
 /** The characters of a goal that a breakout row shows. */
 const GOAL_CUT = 48;
 
-/**
- * How a breakout room stands: its result once archived, else `stopped`, `working`, or `running`.
- * A room runs only when the host holds its live handle, which `status` tells.
- */
-function breakoutState(room: RoomChoice, { state, result }: BreakoutChoice): string {
-	if (state === 'archived') return result ?? 'archived';
-	if (room.status !== 'running') return 'stopped';
-	return room.working ? 'working' : 'running';
-}
-
 /** The detail of a room row. A breakout room adds its goal after its state. */
 function roomDetail(room: RoomChoice): string {
-	const info = room.breakout;
-	if (!info) return room.working ? 'working' : room.status;
-	const state = breakoutState(room, info);
-	const goal = ellipsize(info.goal, GOAL_CUT);
+	const state = standingOf(room);
+	if (!state) return room.working ? 'working' : room.status;
+	const goal = ellipsize(room.breakout?.goal ?? '', GOAL_CUT);
 	return goal ? `${state} · ${goal}` : state;
 }
 
@@ -244,6 +238,10 @@ export interface Suggestion {
 	insert: string;
 	/** True when accepting the row runs the command, not only completes it. */
 	run: boolean;
+	/** Set for a breakout room: its place under its parent, and the mark of its state. */
+	tree?: { last: boolean; mark: string };
+	/** True for the row that the palette picks when it opens. */
+	picked?: boolean;
 }
 
 const bytes = (size: number): string =>
@@ -273,6 +271,36 @@ function seatSuggestions(prefix: string, choices: Choices): Suggestion[] {
 		}));
 }
 
+/** True when the text starts the full name of a room, or the short name of a breakout room. */
+function roomMatches(room: RoomChoice, text: string): boolean {
+	const parent = room.breakout?.parent;
+	const short = parent === undefined ? room.name : shortName(room.name, parent);
+	return [room.name, short].some((name) => name.toLowerCase().startsWith(text));
+}
+
+/**
+ * The rows of the room list, in tree order. A breakout row shows its short name and its mark. It
+ * inserts the full name. The row after the last shown child of a parent ends the branch. The
+ * picked row shows only for an empty filter, which is how the list opens.
+ */
+function roomSuggestions(rooms: readonly RoomChoice[], text: string): Suggestion[] {
+	const shown = rooms.filter((room) => roomMatches(room, text));
+	return shown.map((room, index) => {
+		const parent = room.breakout?.parent;
+		const standing = standingOf(room);
+		const last = shown[index + 1]?.breakout?.parent !== parent;
+		return {
+			kind: 'room' as const,
+			label: parent === undefined ? room.name : shortName(room.name, parent),
+			detail: roomDetail(room),
+			insert: `/room ${room.name}`,
+			run: true,
+			...(standing ? { tree: { last, mark: markOf(standing) } } : {}),
+			...(room.picked && text === '' ? { picked: true } : {}),
+		};
+	});
+}
+
 function argumentSuggestions(name: string, wanted: string, choices: Choices): Suggestion[] {
 	const text = wanted.trim().toLowerCase();
 	const kind: Kind = KINDS[name] ?? 'room';
@@ -283,10 +311,7 @@ function argumentSuggestions(name: string, wanted: string, choices: Choices): Su
 		insert: `/${name} ${label}`,
 		run: true,
 	});
-	if (name === 'room')
-		return choices.rooms
-			.filter((room) => room.name.toLowerCase().startsWith(text))
-			.map((room) => row(room.name, roomDetail(room)));
+	if (name === 'room') return roomSuggestions(choices.rooms, text);
 	if (name === 'user')
 		return choices.people
 			.filter((person) => person.name.toLowerCase().startsWith(text))

@@ -97,8 +97,9 @@ breakout room that is running. The host seats no other specialist there.
 
 ## In the terminal
 
-**The terminal shows two facts and adds no layer.** The person sees that
-background work runs, and sees how to open it.
+**The terminal shows the breakout rooms and adds no layer.** The person
+sees that background work runs, where the open room sits, and how to move
+between a room and its breakout rooms.
 
 - **The count:** while the open room has breakout rooms that run, the status
   row under the input shows a dim count at the right, such as
@@ -108,14 +109,24 @@ background work runs, and sees how to open it.
   exchange. On a narrow terminal, the row drops the count after the other
   counts and before the keys hint. The row shows no count when no breakout
   room runs.
-- **The label:** in a breakout room, the right edge of the participants row
-  reads `breakout of <parent>`. An archived room adds `done` or `failed`.
-- **The room palette:** Ctrl+R and `/room ` list each root room, then its
-  breakout rooms. The detail of a breakout row is `working`, `running`,
-  `stopped`, `done`, or `failed`, then the goal. A room that the host does
-  not run shows `stopped`. The list shows an archived breakout room only for
-  the open room, or for the parent of the open room. `/room <name>` opens
-  the breakout room.
+- **The path:** in a breakout room, the room row of the header reads
+  `<parent> › <short>`, such as `build › datasheets`. The parent is dim. The
+  short name is the name of the room without the `<parent>-` prefix. The
+  right edge of the participants row shows the state of the room with its
+  mark, such as `○ running` or `✓ done`. A root room shows its pattern
+  there. The terminal title uses the same path.
+- **The room palette:** Ctrl+R and `/room ` show the rooms as a tree. Each
+  root room has its breakout rooms under it, indented, with the short name.
+  A mark before the short name gives the state: `●` working, `○` running,
+  `–` stopped, `✓` done, `✗` failed, `·` archived with no result. The
+  detail of a breakout row is the state word, then the goal. A room that
+  the host does not run shows `stopped`. The list shows an archived breakout room only for the open
+  room, or for the parent of the open room. A filter matches the full name
+  or the short name. The row inserts the full name.
+- **The pick:** when the palette opens, it picks one row. In a breakout
+  room, it picks the parent, so Ctrl+R and then Enter go back. In a room
+  with breakout rooms that run, it picks the last of them in the list. Else
+  it picks the open room.
 - **The seats:** in a breakout room, `@` offers the agents that the room
   seats, which is the specialist that opened the room. The mention check uses the
   same agents. A root room offers every specialist.

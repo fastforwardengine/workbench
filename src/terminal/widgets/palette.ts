@@ -11,6 +11,8 @@ export class Palette {
 	private rows: Suggestion[] = [];
 	private pick = 0;
 	private dismissed = false;
+	/** The composer text of the last refresh that showed rows, or undefined when none showed. */
+	private seen: string | undefined;
 
 	constructor(composer: Composer) {
 		this.composer = composer;
@@ -29,11 +31,21 @@ export class Palette {
 	/**
 	 * Recompute the rows from the composer text and draw them. `active` is false
 	 * outside compose mode, so the palette closes. A dismissed palette stays
-	 * closed until the person revives it.
+	 * closed until the person revives it. When the palette opens or the text
+	 * changes, the row with the flag `picked` takes the pick. Without that row,
+	 * the first row takes it.
 	 */
 	refresh(active: boolean, suggest: (text: string) => Suggestion[]): void {
 		const show = active && !this.dismissed;
-		this.rows = show ? suggest(this.composer.text) : [];
+		const text = this.composer.text;
+		this.rows = show ? suggest(text) : [];
+		if (this.rows.length > 0 && text !== this.seen) {
+			this.pick = Math.max(
+				0,
+				this.rows.findIndex((row) => row.picked),
+			);
+		}
+		this.seen = this.rows.length > 0 ? text : undefined;
 		this.pick = Math.min(this.pick, Math.max(0, this.rows.length - 1));
 		this.composer.setPalette(this.rows, this.pick);
 	}

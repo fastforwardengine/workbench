@@ -13,6 +13,7 @@ const PRODUCT = 'Workbench Lab';
 const source = (patch: Partial<TitleSource> = {}): TitleSource => ({
 	identity: {},
 	room: 'build',
+	parent: undefined,
 	attention: [],
 	working: undefined,
 	sending: false,
@@ -49,6 +50,26 @@ describe('titleOf', () => {
 	it('puts a working seat before a send', () => {
 		const busy = source({ working: { seat: 'researcher' }, sending: true });
 		expect(titleOf(busy, PRODUCT)).toBe(`${WORKS_MARK} build · researcher — Workbench Lab`);
+	});
+
+	it('shows the path of a breakout room, with the short name', () => {
+		const child = { room: 'build-datasheets', parent: 'build' };
+		expect(titleOf(source(child), PRODUCT)).toBe('build › datasheets — Workbench Lab');
+		expect(titleOf(source({ ...child, working: { seat: 'engineer' } }), PRODUCT)).toBe(
+			`${WORKS_MARK} build › datasheets · engineer — Workbench Lab`,
+		);
+		expect(titleOf(source({ ...child, sending: true }), PRODUCT)).toBe(
+			`${WORKS_MARK} build › datasheets — Workbench Lab`,
+		);
+		const attention = ['The exchange from message 3 waits for your reply.'];
+		expect(titleOf(source({ ...child, attention }), PRODUCT)).toBe(
+			`${WAITS_MARK} build › datasheets — Workbench Lab`,
+		);
+	});
+
+	it('shows the whole name of a breakout room when the prefix of the parent does not match', () => {
+		const child = source({ room: 'tuners', parent: 'build' });
+		expect(titleOf(child, PRODUCT)).toBe('build › tuners — Workbench Lab');
 	});
 
 	it('shows the product name alone without a person', () => {

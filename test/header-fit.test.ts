@@ -49,4 +49,21 @@ describe('fitHeader', () => {
 		const fit = fitHeader({ ...base, goal: '', pattern: '', width: 100 });
 		expect(fit).toEqual({ goal: '', pattern: '' });
 	});
+
+	it('counts the path of a breakout room as the name', () => {
+		const width = 70;
+		const path = 'build › datasheets';
+		const fit = fitHeader({ ...base, name: path, width });
+		const row = path.length + APART + fit.goal.length + APART + base.identity.length;
+		expect(row).toBeLessThanOrEqual(width);
+		const longer = fitHeader({ ...base, name: `${path} › more`, width }).goal.length;
+		expect(longer).toBeLessThan(fit.goal.length);
+	});
+
+	it('drops the state of a breakout room when it does not fit beside the participants', () => {
+		const state = '✓ done';
+		const need = base.people + APART + state.length;
+		expect(fitHeader({ ...base, pattern: state, width: need }).pattern).toBe(state);
+		expect(fitHeader({ ...base, pattern: state, width: need - 1 }).pattern).toBe('');
+	});
 });

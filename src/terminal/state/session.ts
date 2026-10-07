@@ -553,6 +553,12 @@ export class Session {
 		if (dropped > 0) this.say(`Dropped ${dropped} staged attachment${dropped === 1 ? '' : 's'}.`);
 	}
 
+	/** The room that holds the open room, or undefined when the open room is a root room. */
+	get parent(): string | undefined {
+		const row = this.view ?? this.rooms.find((room) => room.name === this.room);
+		return row?.breakout?.parent;
+	}
+
 	/** True when the open room is an archived breakout room. It stays readable, and takes no visit. */
 	private get archived(): boolean {
 		const row = this.view ?? this.rooms.find((room) => room.name === this.room);

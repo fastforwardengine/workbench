@@ -1139,6 +1139,19 @@ describe('Session breakout rooms', () => {
 		expect(session.suggestions('/room tun')[0]?.detail).toBe('running · tuners goal');
 	});
 
+	it('picks the newest running breakout room, and from it the parent, when the list opens', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization-tuners', view('characterization-tuners', breakout('running')));
+		host.notifyRooms();
+		const pickedRow = () => session.suggestions('/room ').find((row) => row.picked)?.insert;
+		await vi.waitFor(() => expect(pickedRow()).toBe('/room characterization-tuners'));
+		expect(session.parent).toBeUndefined();
+		await session.switchRoom('characterization-tuners');
+		expect(session.parent).toBe('characterization');
+		expect(pickedRow()).toBe('/room characterization');
+		expect(session.suggestions('/room tun').map((row) => row.label)).toEqual(['tuners']);
+	});
+
 	it('reads the list once more, and no more, for changes that land during a read', async () => {
 		const { host, session } = await started();
 		let reads = 0;
