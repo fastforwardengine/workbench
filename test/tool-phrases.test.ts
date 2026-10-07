@@ -12,6 +12,14 @@ describe('callPhrase', () => {
 		['read', { path: '/notes/board.md', offset: 3 }, '→ read /notes/board.md'],
 		['write', { path: '/a.txt', content: 'b' }, '✎ write /a.txt'],
 		['edit', { path: '/a.txt', edits: [{ oldText: 'a', newText: 'b' }] }, '✎ edit /a.txt'],
+		[
+			'apply_patch',
+			{
+				input:
+					'*** Begin Patch\n*** Update File: /a.ts\n@@\n-a\n+b\n*** Add File: /b.ts\n+c\n*** End Patch',
+			},
+			'✎ patch /a.ts, /b.ts',
+		],
 		['sql', { sql: 'select * from readings\nwhere v > 1' }, '◇ sql select * from readings'],
 		['fetch', { process: 'bench', path: '/temperature' }, '⇄ fetch bench /temperature'],
 		['ps', {}, '⋯ ps'],
@@ -55,6 +63,41 @@ describe('callPhrase', () => {
 		expect(callPhrase('list', {})).toBe('list {}');
 		expect(callPhrase('echo', 'plain')).toBe('echo plain');
 		expect(callPhrase('noop', undefined)).toBe('noop');
+	});
+
+	it('names the files of a patch, a move, and a long patch', () => {
+		const patch = (...lines: string[]) => ({
+			input: ['*** Begin Patch', ...lines, '*** End Patch'].join('\n'),
+		});
+		expect(callPhrase('apply_patch', patch('*** Delete File: /old.ts'))).toBe('✎ patch /old.ts');
+		expect(
+			callPhrase(
+				'apply_patch',
+				patch('*** Update File: /a.ts', '*** Move to: /b.ts', '@@', '-a', '+b'),
+			),
+		).toBe('✎ patch /a.ts -> /b.ts');
+		expect(
+			callPhrase(
+				'apply_patch',
+				patch(
+					'*** Add File: /1',
+					'+x',
+					'*** Add File: /2',
+					'+x',
+					'*** Update File: /1',
+					'@@',
+					'-x',
+					'+y',
+					'*** Delete File: /3',
+					'*** Delete File: /4',
+				),
+			),
+		).toBe('✎ patch 4 files');
+	});
+
+	it('keeps the plain form for a patch that names no file', () => {
+		expect(callPhrase('apply_patch', { input: 'nothing' })).toBe('apply_patch nothing');
+		expect(callPhrase('apply_patch', {})).toBe('apply_patch {}');
 	});
 
 	it('keeps the plain form when the input lacks the field of the phrase', () => {
@@ -104,6 +147,22 @@ describe('resultPhrase', () => {
 		expect(resultPhrase('edit', text('Successfully replaced 2 block(s) in /a.'))).toBe('2 blocks');
 		expect(resultPhrase('edit', text('Successfully replaced 1 block(s) in /a.'))).toBe('1 block');
 		expect(resultPhrase('edit', text('Changed.'))).toBe('Changed.');
+	});
+
+	it('shows the operations of a patch from the details', () => {
+		const files = [
+			{ path: '/a', action: 'update' },
+			{ path: '/b', action: 'update' },
+			{ path: '/c', action: 'add' },
+			{ path: '/d', action: 'delete' },
+			{ path: '/e', action: 'move', to: '/f' },
+		];
+		const line = 'Applied patch: M /a, M /b, A /c, D /d, M /e -> /f';
+		expect(resultPhrase('apply_patch', text(line, { files }))).toBe(
+			'1 added, 2 updated, 1 deleted, 1 moved',
+		);
+		expect(resultPhrase('apply_patch', text(line))).toBe(line);
+		expect(resultPhrase('apply_patch', text(line, { files: [] }))).toBe(line);
 	});
 
 	it('shows the rows of a query from the details, else from the footer', () => {

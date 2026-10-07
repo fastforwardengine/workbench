@@ -151,6 +151,51 @@ function editResult({ text }: Output): string | undefined {
 	return found ? counted(Number(found[1]), 'block') : undefined;
 }
 
+const PATCH_HEADER = /^\*\*\* (Add File|Delete File|Update File|Move to):[ \t]*(\S.*?)[ \t]*$/;
+
+/**
+ * The files that a patch names, in order. A `Move to` line joins the file
+ * before it as `old -> new`. A file that the patch names twice shows once.
+ */
+function patchFiles(patch: string): string[] {
+	const names: string[] = [];
+	for (const line of patch.split(/\r?\n/)) {
+		const [, header, path] = PATCH_HEADER.exec(line) ?? [];
+		if (path === undefined) continue;
+		const last = names.length - 1;
+		if (header === 'Move to') names[last] = `${names[last] ?? ''} -> ${path}`;
+		else if (!names.includes(path)) names.push(path);
+	}
+	return names;
+}
+
+/** `patch a.ts, b.ts`, or `patch 4 files` when the patch names more than three. */
+function patchWords(input: Fields): string | undefined {
+	const names = patchFiles(stringOf(input.input) ?? '');
+	if (names.length === 0) return undefined;
+	return names.length > 3
+		? `patch ${counted(names.length, 'file')}`
+		: brief(`patch ${names.join(', ')}`);
+}
+
+const PATCH_ACTIONS = [
+	['add', 'added'],
+	['update', 'updated'],
+	['delete', 'deleted'],
+	['move', 'moved'],
+] as const;
+
+/** `2 updated, 1 added`: the operations of a patch, from the files in the details. */
+function patchResult({ details }: Output): string | undefined {
+	const { files } = details;
+	if (!Array.isArray(files)) return undefined;
+	const parts = PATCH_ACTIONS.flatMap(([action, word]) => {
+		const count = files.filter((file) => isRecord(file) && file.action === action).length;
+		return count > 0 ? [`${count} ${word}`] : [];
+	});
+	return parts.length > 0 ? parts.join(', ') : undefined;
+}
+
 /** The rows of a query: the count in the details, else the count that the text names. */
 function sqlResult({ text, details }: Output): string | undefined {
 	if (typeof details.count === 'number') return counted(details.count, 'row');
@@ -232,6 +277,7 @@ const TOOLS: ReadonlyMap<string, Phrase> = new Map<string, Phrase>([
 	['read', { icon: '→', words: verb('read', 'path'), result: readResult }],
 	['write', { icon: '✎', words: verb('write', 'path'), result: () => '' }],
 	['edit', { icon: '✎', words: verb('edit', 'path'), result: editResult }],
+	['apply_patch', { icon: '✎', words: patchWords, result: patchResult }],
 	['sql', { icon: '◇', words: verb('sql', 'sql'), result: sqlResult }],
 	[
 		'fetch',
