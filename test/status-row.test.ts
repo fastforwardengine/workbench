@@ -174,7 +174,7 @@ describe('ProcessCount', () => {
 		expect(host.processWatchers.size).toBe(0);
 	});
 
-	it('keeps the last count when a list fails, and drops a read that lands after dispose', async () => {
+	it('keeps the last count when a list fails', async () => {
 		const host = new FakeHost();
 		host.processTable = [process('a', 'running')];
 		const count = new ProcessCount(host, () => {});
@@ -184,11 +184,32 @@ describe('ProcessCount', () => {
 		for (const watcher of host.processWatchers) watcher();
 		await new Promise((resolve) => setTimeout(resolve, 5));
 		expect(count.running).toBe(1);
-		host.processFailure = undefined;
+	});
+
+	it('drops a read that is in flight when the count is disposed', async () => {
+		const host = new FakeHost();
+		host.processTable = [process('a', 'running')];
+		const changed = vi.fn();
+		const count = new ProcessCount(host, changed);
+		count.start();
+		await vi.waitFor(() => expect(count.running).toBe(1));
+		changed.mockClear();
+		const listed = host.processes.bind(host);
+		let release = () => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		host.processes = async () => {
+			await gate;
+			return listed();
+		};
 		host.processTable = [];
+		for (const watcher of host.processWatchers) watcher();
 		count.dispose();
+		release();
 		await new Promise((resolve) => setTimeout(resolve, 5));
 		expect(count.running).toBe(1);
+		expect(changed).not.toHaveBeenCalled();
 	});
 });
 

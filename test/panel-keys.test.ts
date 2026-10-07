@@ -5,6 +5,7 @@
 import { BoxRenderable, getTreeSitterClient, type KeyEvent } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { ActivationSteps } from '../src/host/host.ts';
 import { LOST, NO_CAMERA } from '../src/host/viewfinder.ts';
 import { Dock } from '../src/terminal/app/dock.ts';
 import { Painter } from '../src/terminal/app/draw.ts';
@@ -1268,6 +1269,65 @@ describe('the cue of the staged attachments', () => {
 		const sent = await built.frame();
 		expect(sent).not.toContain('attached:');
 		expect(sent).toContain('Message the room, or type / for commands');
+	});
+});
+
+describe('the cue of the steering messages', () => {
+	const said = (seq: number, text: string) => ({ kind: 'said', seq, from: 'priya', text, at: AT });
+	const running = { id: 'a1', seat: 'engineer', attempt: 1, purpose: 'respond' };
+	/** The room view of an open exchange, with one running activation. The room lists the open exchange too. */
+	const open = (...messages: unknown[]) => {
+		const exchange = {
+			status: 'open',
+			from: 2,
+			at: AT,
+			activations: [{ ...running, outcome: { kind: 'running' } }],
+		};
+		return view('characterization', { messages, exchange, exchanges: [exchange] });
+	};
+	/** The trace of the running activation: one pass, and the steer step of the message at 3. */
+	const trace = (...steps: Record<string, unknown>[]) =>
+		({
+			activation: 'a1',
+			passes: [
+				{
+					pass: 1,
+					input: 'view',
+					through: 2,
+					steps: [{ type: 'pass', pass: 1, input: 'view', through: 2 }, ...steps],
+				},
+			],
+		}) as unknown as ActivationSteps;
+
+	it('shows a message until the seat reads it, and drops the line when the step log changes', async () => {
+		const built = await build();
+		built.host.table.set(
+			'characterization',
+			open(said(2, 'Start'), said(3, 'check the 5 V rail first\nthen the ripple')),
+		);
+		built.host.traces.set('a1', trace({ type: 'steer', seq: 3, consumed: false }));
+		built.host.notify('characterization');
+		await vi.waitFor(() => expect(built.session.steering).toHaveLength(1));
+		built.render();
+		expect(await built.frame()).toContain('↳ steering: check the 5 V rail first');
+		built.host.traces.set('a1', trace({ type: 'steer', seq: 3, consumed: true }));
+		built.host.notify('characterization');
+		await vi.waitFor(() => expect(built.session.steering).toEqual([]));
+		built.render();
+		expect(await built.frame()).not.toContain('steering:');
+	});
+
+	it('keeps the staged files in the first line above the waiting message', async () => {
+		const built = await build();
+		await built.session.submit('/attach /tmp/one.png');
+		built.host.table.set('characterization', open(said(2, 'Start'), said(3, 'check the rail')));
+		built.host.notify('characterization');
+		await vi.waitFor(() => expect(built.session.steering).toHaveLength(1));
+		built.render();
+		const rows = (await built.frame()).split('\n');
+		const files = rows.findIndex((row) => row.includes('1 attached: one.png'));
+		expect(files).toBeGreaterThan(-1);
+		expect(rows[files + 1]).toContain('↳ steering: check the rail');
 	});
 });
 

@@ -1134,3 +1134,62 @@ describe('Session breakout rooms', () => {
 		expect(host.calls).toEqual(['leave:characterization:priya', 'join:budget:priya']);
 	});
 });
+
+describe('Session steering', () => {
+	const said = (seq: number, text: string) => ({
+		kind: 'said',
+		seq,
+		from: 'priya',
+		text,
+		at: 'now',
+	});
+	const trace = (consumed: boolean) =>
+		({
+			activation: 'a1',
+			passes: [
+				{
+					pass: 1,
+					input: 'view',
+					through: 2,
+					steps: [
+						{ type: 'pass', pass: 1, input: 'view', through: 2 },
+						{ type: 'steer', seq: 3, consumed },
+					],
+				},
+			],
+		}) as never;
+
+	it('tells the terminal to redraw when a step marks a waiting message as read', async () => {
+		const { host, session, changes } = await started();
+		const exchange = {
+			status: 'open',
+			from: 2,
+			at: 'now',
+			activations: [
+				{
+					id: 'a1',
+					seat: 'engineer',
+					attempt: 1,
+					purpose: 'respond',
+					outcome: { kind: 'running' },
+				},
+			],
+		};
+		host.table.set(
+			'characterization',
+			view('characterization', {
+				messages: [said(2, 'Start'), said(3, 'check the rail')],
+				exchange,
+				exchanges: [exchange],
+			}),
+		);
+		host.traces.set('a1', trace(false));
+		host.notify('characterization');
+		await vi.waitFor(() => expect(session.steering).toHaveLength(1));
+		const before = changes();
+		host.traces.set('a1', trace(true));
+		host.notify('characterization');
+		await vi.waitFor(() => expect(session.steering).toEqual([]));
+		expect(changes()).toBeGreaterThan(before);
+	});
+});
