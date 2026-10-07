@@ -1,7 +1,7 @@
 import type { Exchange, Message } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
 import type { LiveActivation } from '../src/view/live.ts';
-import { type Block, buildTimeline } from '../src/view/timeline.ts';
+import { type Block, buildTimeline, messageBlocks } from '../src/view/timeline.ts';
 
 const AT = '2026-01-01T00:00:00Z';
 const said = (seq: number, from: string, to?: string): Message =>
@@ -36,8 +36,10 @@ const build = (
 	});
 
 const shape = (blocks: Block[]) =>
-	blocks.map((block) =>
-		block.type === 'message' ? `${block.role}:${block.message.seq}` : block.type,
+	blocks.flatMap((block) =>
+		block.type === 'message' || block.type === 'system'
+			? messageBlocks(block).map((one) => `${one.role}:${one.message.seq}`)
+			: [block.type],
 	);
 
 // The cycling room's exchange: a person answers a specialist inside the exchange.
@@ -90,6 +92,61 @@ describe('buildTimeline', () => {
 			'system:70',
 			'said:72',
 		]);
+	});
+
+	it('marks a system message that the person opened, and no other message', () => {
+		const note = { seq: 70, kind: 'system', text: 'Done.', at: AT } as Message;
+		const other = { ...note, seq: 71 } as Message;
+		const messages = [said(59, 'noor'), note, other, said(72, 'engineer')];
+		const flags = (opened?: ReadonlySet<number>) =>
+			build(messages, [], { opened }).flatMap((block) =>
+				messageBlocks(block).map((one) => one.open),
+			);
+		expect(flags()).toEqual([undefined, undefined, undefined, undefined]);
+		expect(flags(new Set([71]))).toEqual([undefined, undefined, true, undefined]);
+		expect(flags(new Set([59, 72]))).toEqual([undefined, undefined, undefined, undefined]);
+	});
+
+	it('joins each run of consecutive system messages into one block', () => {
+		const note = (seq: number) => ({ seq, kind: 'system', text: 'Done.', at: AT }) as Message;
+		const messages = [note(1), note(2), said(3, 'engineer'), note(4), note(5), note(6)];
+		const blocks = build(messages, [], { opened: new Set([5]) });
+		expect(blocks.map((block) => block.type)).toEqual(['system', 'message', 'system']);
+		expect(blocks.map((block) => messageBlocks(block).map((one) => one.message.seq))).toEqual([
+			[1, 2],
+			[3],
+			[4, 5, 6],
+		]);
+		const last = blocks[2];
+		expect(last?.type === 'system' && last.items.map((one) => one.open)).toEqual([
+			undefined,
+			true,
+			undefined,
+		]);
+	});
+
+	it('ends a run of system messages at an activation line', () => {
+		const note = (seq: number) =>
+			({
+				seq,
+				kind: 'system',
+				text: 'Done.',
+				at: AT,
+				activation: seq === 3 ? 'a1' : undefined,
+			}) as Message;
+		const exchange = closedExchange(1, 3, {
+			activations: [
+				{
+					id: 'a1',
+					seat: 'engineer',
+					purpose: 'respond',
+					attempt: 1,
+					outcome: { kind: 'complete' },
+				},
+			],
+		});
+		const blocks = build([note(1), note(2), note(3)], [exchange]);
+		expect(blocks.map((block) => block.type)).toEqual(['system', 'stays', 'system']);
 	});
 
 	it('marks a scheduled say that a dismissal names', () => {
@@ -284,6 +341,8 @@ describe('the activations of a closed exchange', () => {
 	const order = (blocks: Block[]) =>
 		blocks.map((block) => {
 			if (block.type === 'message') return `m${block.message.seq}`;
+			if (block.type === 'system')
+				return `system:${block.items.map((one) => one.message.seq).join(',')}`;
 			return block.type === 'stays'
 				? `stays:${block.items.map((item) => item.id).join(',')}`
 				: block.type;
@@ -456,7 +515,7 @@ describe('the anchor of an exchange', () => {
 		const placed = new Map<string, number>();
 		let last = 0;
 		for (const block of blocks) {
-			if (block.type === 'message') last = block.message.seq;
+			last = messageBlocks(block).at(-1)?.message.seq ?? last;
 			if (block.type === 'note') placed.set(block.text, last);
 		}
 		const expected = new Map(

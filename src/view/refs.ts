@@ -1,7 +1,7 @@
 import type { Message, SaidMessage } from '@ambionframework/ambion';
 import { parseCommitUri, parseRoomUri, parseSnapshotUri } from '@ambionframework/ambion';
 import { ellipsize } from './text.ts';
-import type { Block } from './timeline.ts';
+import { type Block, type MessageBlock, messageBlocks } from './timeline.ts';
 
 /**
  * The refs of a message, as the terminal shows and opens them.
@@ -159,13 +159,26 @@ export function chipLine(item: ResolvedRef, width: number): string {
 
 /** The messages that the blocks show. */
 function shownMessages(blocks: readonly Block[]): Message[] {
-	return blocks.flatMap((block) => (block.type === 'message' ? [block.message] : []));
+	return blocks.flatMap((block) => messageBlocks(block).map((one) => one.message));
 }
 
-/** The refs of the shown messages, top to bottom and in the order each message lists them. */
+/** The messages that the blocks show in full. A folded system message shows one row and no refs. */
+function openMessages(blocks: readonly Block[]): Message[] {
+	return blocks.flatMap((block) =>
+		messageBlocks(block)
+			.filter((one) => one.role !== 'system' || one.open)
+			.map((one) => one.message),
+	);
+}
+
+/** The refs that a message lists. A say and a system message can cite. */
+const refsOf = (message: Message): readonly string[] =>
+	message.kind === 'said' || message.kind === 'system' ? (message.refs ?? []) : [];
+
+/** The refs of the messages that show in full, top to bottom and in the order each message lists them. */
 export function refItems(blocks: readonly Block[], known: Known): RefItem[] {
-	return shownMessages(blocks).flatMap((message) =>
-		(message.kind === 'said' ? (message.refs ?? []) : []).map((ref, index) => ({
+	return openMessages(blocks).flatMap((message) =>
+		refsOf(message).map((ref, index) => ({
 			id: `${message.seq}#${index}`,
 			seq: message.seq,
 			resolved: resolveRef(ref, known),
@@ -262,7 +275,7 @@ export function citedFiles(messages: readonly Message[], known: Known): CitedFil
 		.sort((a, b) => b.seq - a.seq);
 }
 
-/** True when the blocks show the message at `seq`. */
+/** True when the blocks show the message at `seq`, in full or as a folded row. */
 export function shows(blocks: readonly Block[], seq: number): boolean {
 	return shownMessages(blocks).some((message) => message.seq === seq);
 }
@@ -276,13 +289,38 @@ export const stayPick = (activation: string): string => `${STAY_PICK}${activatio
 export const stayOfPick = (pick: string): string | undefined =>
 	pick.startsWith(STAY_PICK) ? pick.slice(STAY_PICK.length) : undefined;
 
-/**
- * What the pick key can choose, top to bottom: each ref of a shown message, and
- * each folded activation line. A ref has the id of its `RefItem`.
- */
-export function pickIds(blocks: readonly Block[], known: Known): string[] {
-	return blocks.flatMap((block) => {
-		if (block.type === 'message') return refItems([block], known).map((item) => item.id);
-		return block.type === 'stays' ? block.items.map((item) => stayPick(item.id)) : [];
-	});
+const SYSTEM_PICK = 'system:';
+
+/** The id that the pick key gives to the row of a system message. */
+export const systemPick = (seq: number): string => `${SYSTEM_PICK}${seq}`;
+
+/** The seq of the system message that a pick names, or undefined when the pick names a ref or an activation line. */
+export function systemOfPick(pick: string): number | undefined {
+	if (!pick.startsWith(SYSTEM_PICK)) return undefined;
+	const seq = Number(pick.slice(SYSTEM_PICK.length));
+	return Number.isInteger(seq) ? seq : undefined;
 }
+
+/** True when the pick names a ref of a message. */
+export const isRefPick = (pick: string): boolean =>
+	stayOfPick(pick) === undefined && systemOfPick(pick) === undefined;
+
+/** The picks of one message: the row of a system message and then its refs when it is open, or the refs of a message. */
+function messagePicks(block: MessageBlock, known: Known): string[] {
+	const refs = refItems([block], known).map((item) => item.id);
+	return block.role === 'system' ? [systemPick(block.message.seq), ...refs] : refs;
+}
+
+/** The picks of one block. */
+function picksOf(block: Block, known: Known): string[] {
+	if (block.type === 'stays') return block.items.map((item) => stayPick(item.id));
+	return messageBlocks(block).flatMap((one) => messagePicks(one, known));
+}
+
+/**
+ * What the pick key can choose, top to bottom: the row of each system message,
+ * each ref of a message that shows in full, and each folded activation line. A
+ * ref has the id of its `RefItem`.
+ */
+export const pickIds = (blocks: readonly Block[], known: Known): string[] =>
+	blocks.flatMap((block) => picksOf(block, known));
