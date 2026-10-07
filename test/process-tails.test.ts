@@ -1,13 +1,7 @@
 /** The newest output line of the processes that the running seats own, for the live block. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProcessOutput, ProcessView } from '../src/host/host.ts';
-import {
-	clock,
-	MOST,
-	newestLine,
-	ProcessTails,
-	TAILS_MS,
-} from '../src/terminal/state/process-tails.ts';
+import { MOST, newestLine, ProcessTails, TAILS_MS } from '../src/terminal/state/process-tails.ts';
 import { FakeHost } from './fake-host.ts';
 
 const START = Date.parse('2026-01-01T12:00:00Z');
@@ -79,18 +73,6 @@ describe('newestLine', () => {
 		['a\u009b31mb\u0085c\n', 'a31mbc'],
 	])('takes the newest line of %j as %j', (text, line) => {
 		expect(newestLine(text)).toBe(line);
-	});
-});
-
-describe('clock', () => {
-	it.each([
-		[0, '0:00'],
-		[42_000, '0:42'],
-		[125_000, '2:05'],
-		[3_725_000, '1:02:05'],
-		[-5, '0:00'],
-	])('shows %i ms as %s', (ms, text) => {
-		expect(clock(ms)).toBe(text);
 	});
 });
 

@@ -521,6 +521,26 @@ describe('Session live block', () => {
 		);
 	});
 
+	it('reads an ended activation until a read holds its end step, for its title', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization', open([{ ...running, outcome: { kind: 'running' } }]));
+		host.traces.set('act-9', trace('act-9', false));
+		await session.refresh();
+		const reads = () => host.calls.filter((call) => call === 'activation:act-9').length;
+		host.table.set('characterization', open([{ ...running, outcome: { kind: 'released' } }]));
+		host.traces.set('act-9', trace('act-9', true));
+		await session.refresh();
+		expect(liveBlock(session)).toMatchObject({
+			activations: [{ state: 'done', title: 'engineer · respond · 1 call' }],
+		});
+		const before = reads();
+		await session.refresh();
+		expect(reads()).toBe(before);
+		expect(liveBlock(session)).toMatchObject({
+			activations: [{ title: 'engineer · respond · 1 call' }],
+		});
+	});
+
 	it('keeps the last steps when a read fails, and drops them when the room changes', async () => {
 		const { host, session } = await started();
 		host.table.set('characterization', open([{ ...running, outcome: { kind: 'running' } }]));

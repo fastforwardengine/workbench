@@ -61,7 +61,7 @@ export class Session {
 	steps: { id: string; read: ActivationSteps | undefined } | undefined;
 	/** The files that `/attach` copied in. They go, as refs, with the next message. */
 	pendingRefs: StagedAttachment[] = [];
-	/** The steps of each running activation of the open exchange, by activation id. */
+	/** The steps of each activation of the open exchange, by activation id. */
 	private live = new Map<string, ActivationSteps>();
 	/** The newest output line of the processes that the running seats of the open exchange own. */
 	private readonly tails: ProcessTails;
@@ -170,23 +170,28 @@ export class Session {
 	}
 
 	/**
-	 * Read the steps of each running activation of the open exchange. A failed
-	 * read keeps the last steps of that activation. An activation that no longer
-	 * runs drops out.
+	 * Read the steps of each activation of the open exchange. A running
+	 * activation reads again on each change. An ended activation reads again
+	 * until a read holds its end step, so its title can count its calls and its
+	 * time. A failed read keeps the last steps of that activation. An
+	 * activation that left the exchange drops out.
 	 */
 	private async readLive(room: string): Promise<void> {
-		const running = (this.view?.exchange?.activations ?? [])
-			.filter((activation) => activation.outcome.kind === 'running')
-			.map((activation) => activation.id);
+		const all = this.view?.exchange?.activations ?? [];
+		const wanted = all.filter((activation) => {
+			const kept = this.live.get(activation.id);
+			return activation.outcome.kind === 'running' || !kept || !ended(kept);
+		});
 		const reads = await Promise.all(
-			running.map((id) => this.host.activation(room, id).catch(() => undefined)),
+			wanted.map((activation) => this.host.activation(room, activation.id).catch(() => undefined)),
 		);
 		if (this.room !== room) return;
+		const fresh = new Map(wanted.map((activation, at) => [activation.id, reads[at]]));
 		const next = new Map<string, ActivationSteps>();
-		running.forEach((id, at) => {
-			const read = reads[at] ?? this.live.get(id);
+		for (const { id } of all) {
+			const read = fresh.get(id) ?? this.live.get(id);
 			if (read) next.set(id, read);
-		});
+		}
 		this.live = next;
 	}
 

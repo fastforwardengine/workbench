@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { brief, ellipsize, firstLine, render } from '../src/view/text.ts';
+import { brief, clock, ellipsize, firstLine, render } from '../src/view/text.ts';
 
 describe('ellipsize', () => {
 	it('returns text that already fits, with its spaces collapsed', () => {
@@ -57,5 +57,17 @@ describe('render', () => {
 		expect(render('a\nb')).toBe('a');
 		expect(render({ a: 1 })).toBe('{"a":1}');
 		expect(render(undefined)).toBe('');
+	});
+});
+
+describe('clock', () => {
+	it.each([
+		[0, '0:00'],
+		[42_000, '0:42'],
+		[125_000, '2:05'],
+		[3_725_000, '1:02:05'],
+		[-5, '0:00'],
+	])('shows %i ms as %s', (ms, text) => {
+		expect(clock(ms)).toBe(text);
 	});
 });

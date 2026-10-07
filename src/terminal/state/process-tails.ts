@@ -1,5 +1,6 @@
 import type { Lab, ProcessOutput, ProcessView } from '../../host/host.ts';
 import type { LiveProcess } from '../../view/live.ts';
+import { clock } from '../../view/text.ts';
 
 type TailHost = Pick<Lab, 'processes' | 'processOutput'>;
 
@@ -36,14 +37,6 @@ function plain(line: string): string {
 export function newestLine(text: string): string {
 	const lines = text.replace(SEQUENCE, '').split(/\r\n|\n|\r/);
 	return lines.map(plain).findLast((line) => line !== '') ?? '';
-}
-
-/** A span of time as `m:ss`, or as `h:mm:ss` from one hour. */
-export function clock(ms: number): string {
-	const seconds = Math.max(0, Math.floor(ms / 1000));
-	const [h, m, s] = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60];
-	const two = (value: number) => String(value).padStart(2, '0');
-	return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
 }
 
 /**

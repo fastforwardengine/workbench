@@ -1,5 +1,6 @@
 import type { ExchangeActivation, TraceStep } from '@ambionframework/ambion';
 import { type ActivationSteps, formatUsage, nested } from './steps.ts';
+import { brief, clock, firstLine } from './text.ts';
 import { callPhrase, failurePhrase, resultPhrase } from './tool-phrases.ts';
 
 /** One tool call of a running activation, as the live block draws it. */
@@ -26,6 +27,12 @@ export interface LiveActivation {
 	id: string;
 	state: 'running' | 'done' | 'failed';
 	title: string;
+	/**
+	 * What a running activation does now: the phrase of the call that has no result, else the
+	 * first line of its newest thinking or text. Absent when it has done nothing yet, and on an
+	 * ended activation.
+	 */
+	step?: string;
 	/** The latest calls of a running activation. An ended activation has none. */
 	calls: LiveCall[];
 	/** How many older calls of a running activation `calls` leaves out. */
@@ -50,30 +57,73 @@ function liveCall(call: ToolCall, result: ToolResult | undefined): LiveCall {
 	return { state: 'done', text, result: resultPhrase(call.name, result.output) };
 }
 
+/** The steps of an activation, in order. */
+const stepsOf = (read: ActivationSteps | undefined): TraceStep[] =>
+	read?.passes.flatMap((pass) => [...pass.steps]) ?? [];
+
 /** The calls of an activation, in order, each paired with its result by call id. */
-function callsOf(read: ActivationSteps | undefined): LiveCall[] {
+function callsOf(steps: readonly TraceStep[]): LiveCall[] {
 	const calls = new Map<string, ToolCall>();
 	const results = new Map<string, ToolResult>();
-	for (const pass of read?.passes ?? [])
-		for (const step of pass.steps) {
-			if (step.type === 'tool_call') calls.set(step.call, step);
-			else if (step.type === 'tool_result') results.set(step.call, step);
-		}
+	for (const step of steps)
+		if (step.type === 'tool_call') calls.set(step.call, step);
+		else if (step.type === 'tool_result') results.set(step.call, step);
 	return [...calls.values()].map((call) => liveCall(call, results.get(call.call)));
+}
+
+/** The words of a step of the model, or undefined for any other step. */
+const wordsOf = (step: TraceStep): string | undefined =>
+	step.type === 'thinking' || step.type === 'text' ? brief(firstLine(step.text)) : undefined;
+
+/**
+ * What an activation does now: the newest call that has no result, else the
+ * first line of the newest thinking or text. It is empty before the first step.
+ */
+function currentStep(steps: readonly TraceStep[]): string {
+	const answered = new Set(
+		steps.flatMap((step) => (step.type === 'tool_result' ? [step.call] : [])),
+	);
+	const pending = steps.findLast((step) => step.type === 'tool_call' && !answered.has(step.call));
+	if (pending?.type === 'tool_call') return callPhrase(pending.name, pending.input);
+	return steps.map(wordsOf).findLast((words) => words) ?? '';
 }
 
 const failedEnd = (activation: ExchangeActivation): boolean =>
 	activation.outcome.kind === 'failed' || activation.outcome.kind === 'abandoned';
 
-/** The title: seat, purpose, attempt, and the cost once the activation ended. */
-function titleOf(activation: ExchangeActivation, reason: string | undefined): string {
+/** `1 call`, or `6 calls`. It is empty when the activation made none. */
+function callCount(steps: readonly TraceStep[]): string {
+	const count = steps.filter((step) => step.type === 'tool_call').length;
+	return count === 0 ? '' : `${count} call${count === 1 ? '' : 's'}`;
+}
+
+/**
+ * How long an activation took: from its first step to its last, as `m:ss`. It
+ * is empty when the steps hold no time, or the span is under one second.
+ */
+function duration(steps: readonly TraceStep[]): string {
+	const times = steps.map((step) => Date.parse(step.at)).filter((time) => !Number.isNaN(time));
+	const span = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
+	return span >= 1000 ? clock(span) : '';
+}
+
+/**
+ * The title: seat, purpose, and the attempt after the first. An ended
+ * activation adds its calls, its duration, and its cost, and a failed one adds
+ * the reason. A part that is zero or unknown is left out.
+ */
+function titleOf(
+	activation: ExchangeActivation,
+	steps: readonly TraceStep[],
+	reason: string | undefined,
+): string {
 	const running = activation.outcome.kind === 'running';
-	const cost = running ? '' : formatUsage(activation.usage);
+	const spent = running ? [] : [callCount(steps), duration(steps), formatUsage(activation.usage)];
 	const parts = [
 		activation.seat,
 		activation.purpose,
 		...(activation.attempt > 1 ? [`attempt ${activation.attempt}`] : []),
-		...(cost ? [cost] : []),
+		...spent.filter((part) => part !== ''),
 	];
 	const title = parts.join(' · ');
 	return failedEnd(activation) && reason ? `${title}: ${reason}` : title;
@@ -85,15 +135,18 @@ function liveActivation(
 	reason: string | undefined,
 	processes: readonly LiveProcess[] = [],
 ): LiveActivation {
-	const title = titleOf(activation, reason);
+	const steps = stepsOf(read);
+	const title = titleOf(activation, steps, reason);
 	const { id } = activation;
 	if (activation.outcome.kind !== 'running')
 		return { id, state: failedEnd(activation) ? 'failed' : 'done', title, calls: [], earlier: 0 };
-	const calls = callsOf(read);
+	const calls = callsOf(steps);
+	const step = currentStep(steps);
 	return {
 		id,
 		state: 'running',
 		title,
+		...(step ? { step } : {}),
 		calls: calls.slice(-CALLS),
 		earlier: Math.max(0, calls.length - CALLS),
 		...(processes.length > 0 ? { processes: [...processes] } : {}),
@@ -104,7 +157,7 @@ function liveActivation(
  * The activations of the open exchange for the live block, in the order of the
  * exchange. Every running activation shows, with its latest calls. An ended
  * activation folds to its title, and only the latest few show. `reads` holds
- * the steps of the running activations by id, `failures` the reason of each
+ * the steps of the activations by id, `failures` the reason of each
  * failed activation, and `processes` the lines of the background processes of
  * each seat, which a running activation of that seat shows.
  */
