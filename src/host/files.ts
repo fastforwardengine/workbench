@@ -129,9 +129,9 @@ interface Listed {
 const byPath = (a: FileEntry, b: FileEntry): number => a.path.localeCompare(b.path);
 
 /**
- * The files below a root that a listing holds, and the folders to walk next. A
- * virtual shell device is infrastructure, not a project artifact, and a folder in
- * `skipped` stays out of the walk.
+ * The files below a root that a listing holds, and the folders to walk next. The
+ * walk leaves out `/dev`, where the shell keeps its virtual devices, and each
+ * folder in `skipped`.
  */
 function intake(entries: readonly Listed[], root: string, skipped: ReadonlySet<string>) {
 	return {
@@ -207,22 +207,23 @@ async function listHome(workspace: Workspace, seat: string): Promise<FileEntry[]
 
 /**
  * The files of the workspace: those under `roots`, as the host account reads
- * them, up to 500 entries, and then the home of each seat in `seats`,
- * read as that seat, up to 200 for each home. A local directory lists `/`, and
- * its walk leaves the homes to the seats. A workstation lists its shared
- * folders, because each home has mode 0700 and only its seat reads it.
+ * them, up to 500 entries. With `homes`, the home of each seat in `seats` follows,
+ * read as that seat, up to 200 files for each home, one seat after the other. A
+ * local directory lists `/`, and its walk always leaves the homes to the seats.
+ * A workstation lists its shared folders, because each home has mode 0700 and
+ * only its seat reads it.
  */
 export async function listFiles(
 	workspace: Workspace,
 	roots: readonly string[],
 	seats: readonly string[] = [],
+	homes = true,
 ): Promise<FileEntry[]> {
 	const skipped = new Set(seats.map(homeOf));
-	const shared = await workspace.use(workspace.mirrorAgent, (env) =>
-		listRoots(env, roots, skipped),
-	);
-	const homes = await Promise.all(seats.map((seat) => listHome(workspace, seat)));
-	return [...shared, ...homes.flat()];
+	const files = await workspace.use(workspace.mirrorAgent, (env) => listRoots(env, roots, skipped));
+	if (!homes) return files;
+	for (const seat of seats) files.push(...(await listHome(workspace, seat)));
+	return files;
 }
 
 /** What the panel previews a file as. */
@@ -249,6 +250,15 @@ function ownerOf(workspace: Workspace, path: string, seats: readonly string[]) {
 	return seat === undefined ? workspace.mirrorAgent : { name: seat };
 }
 
+/** The list leaves out the hidden files of a home, such as `.ssh`, and a read refuses them too. */
+function refuseHidden(path: string, seats: readonly string[]): void {
+	const seat = seats.find((name) => path.startsWith(`${homeOf(name)}/`));
+	if (seat === undefined) return;
+	const inside = path.slice(homeOf(seat).length + 1).split('/');
+	if (inside.some((part) => part.startsWith('.')))
+		fail('The file browser does not read hidden files in a home.');
+}
+
 /** Read one file. A file in the home of a seat of `seats` reads as that seat. */
 export async function readFile(
 	workspace: Workspace,
@@ -263,6 +273,7 @@ export async function readFile(
 		fail('Use an absolute workspace file path.');
 	}
 	const kind = kindOf(path);
+	refuseHidden(path, seats);
 	return workspace.use(ownerOf(workspace, path, seats), async (env) => {
 		await checkAncestors(env, parts, kind);
 		return readAs(env, path, kind);

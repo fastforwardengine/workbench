@@ -3,7 +3,7 @@
  * reads it. The backend here keeps the host account out of the homes, as the
  * workstation does, and records who connects.
  */
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { directoryBackend } from '@ambionframework/just-bash';
@@ -71,7 +71,7 @@ async function open() {
 	const workspace = openWorkspace({ name: WORKSPACE, backend: { bash } });
 	names.host = workspace.mirrorAgent.name;
 	cleanups.push(() => workspace.dispose());
-	return { workspace, used, host: names.host };
+	return { workspace, used, host: names.host, directory };
 }
 
 /** Write files as the seat that owns them. */
@@ -215,6 +215,31 @@ describe('the files of the homes', () => {
 		).rejects.toThrow(/absolute workspace file path/);
 		await expect(readFile(workspace, 'home/engineer/sweep.py', SEATS)).rejects.toThrow(
 			/absolute workspace file path/,
+		);
+	});
+});
+
+describe('the hidden files and the links of a home', () => {
+	it('refuses a hidden file or folder of a home, and still reads the same name outside a home', async () => {
+		const { workspace } = await open();
+		await write(workspace, 'engineer', {
+			'/home/engineer/.ssh/id_ed25519': 'secret',
+			'/home/engineer/work/.env': 'secret',
+		});
+		await write(workspace, 'researcher', { '/shared/.fetch/a.json': '{}' });
+		for (const path of ['/home/engineer/.ssh/id_ed25519', '/home/engineer/work/.env'])
+			await expect(readFile(workspace, path, SEATS)).rejects.toThrow(/hidden files in a home/);
+		expect((await readFile(workspace, '/shared/.fetch/a.json', SEATS)).text).toBe('{}');
+	});
+
+	it('skips a symbolic link in the walk, and refuses to read it', async () => {
+		const { workspace, directory } = await open();
+		await homes(workspace);
+		await symlink('/shared/kit.md', join(directory, 'workspace/home/engineer/link.md'));
+		const listed = await listFiles(workspace, ['/'], SEATS);
+		expect(listed.map((file) => file.path)).not.toContain('/home/engineer/link.md');
+		await expect(readFile(workspace, '/home/engineer/link.md', SEATS)).rejects.toThrow(
+			/symbolic links/,
 		);
 	});
 });

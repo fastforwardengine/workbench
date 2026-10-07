@@ -208,7 +208,11 @@ describe('citedFiles', () => {
 			author: 'engineer',
 			seq: 3,
 		});
-		expect(row?.opens).toEqual([SNAP_A, '/shared/my notes.md', SNAP_B]);
+		expect(row?.opens).toEqual([
+			{ open: SNAP_A, seq: 1 },
+			{ open: '/shared/my notes.md', seq: 2 },
+			{ open: SNAP_B, seq: 3 },
+		]);
 	});
 
 	it('groups the commits of one repository and keeps the label of the newest', () => {
@@ -222,7 +226,10 @@ describe('citedFiles', () => {
 			open: COMMIT_B,
 			label: 'researcher/plan led bbbbbbb',
 		});
-		expect(rows[0]?.opens).toEqual([COMMIT_A, COMMIT_B]);
+		expect(rows[0]?.opens).toEqual([
+			{ open: COMMIT_A, seq: 1 },
+			{ open: COMMIT_B, seq: 2 },
+		]);
 	});
 
 	it('leaves out a ref that opens no file: a message, a missing file, another workspace, a scheme', () => {

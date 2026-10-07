@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { FileContent, FileEntry } from '../src/host/host.ts';
 import { FileBrowser } from '../src/terminal/state/browser.ts';
 import { DockPanel } from '../src/terminal/widgets/dock.ts';
-import { timeOfDay } from '../src/terminal/widgets/file-list.ts';
+import { listLines, timeOfDay, visibleLines } from '../src/terminal/widgets/file-list.ts';
 import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { type CitedFile, citedFiles } from '../src/view/refs.ts';
 
@@ -151,7 +151,8 @@ describe('the rows of the files layer', () => {
 			path: SWEEP_A,
 			label: '/home/engineer/sweep.py',
 		});
-		expect(made.citedBy).toBe(3);
+		// Enter goes to the message that cited that version, not to the newest one.
+		expect(made.citedBy).toBe(2);
 		expect(made.file?.path).toBe(SWEEP_A);
 	});
 
@@ -194,6 +195,26 @@ async function mount(width: number, height = 30, overlay?: number) {
 /** The lines of a frame without the dock edge and the trailing spaces. */
 const lines = (frame: string): string[] =>
 	frame.split('\n').map((line) => line.replace(/^\s*│ ?/, '').trimEnd());
+
+describe('the window of the list', () => {
+	it('shows the first lines when no row is chosen', () => {
+		const lines = listLines(browser().matches, 60);
+		expect(visibleLines(lines, 99, 8)).toEqual([0, 8]);
+		expect(visibleLines(lines.slice(0, 3), 99, 8)).toEqual([0, 3]);
+	});
+
+	it('takes the words of the status line away with one redraw', () => {
+		let drawn = 0;
+		const made = new FileBrowser(load, () => {
+			drawn += 1;
+		});
+		made.untell();
+		expect(drawn).toBe(0);
+		made.tell('Nothing cites this file.');
+		made.untell();
+		expect([made.notice, drawn]).toEqual([undefined, 2]);
+	});
+});
 
 describe('the frame of the files layer', () => {
 	it('draws the section, the groups, the marks, the versions, the time, and the size at a wide width', async () => {

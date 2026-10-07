@@ -209,7 +209,9 @@ A bench script comes from a template.
 - **Seat homes:** the host lists and reads the home of each seat as the seat
   that owns it. The homes of a workstation keep the mode `0700`. A home lists
   up to 200 files and leaves out the files and folders whose names start
-  with a dot, such as `.git`. A home that fails to list shows no file, and
+  with a dot, such as `.git`, and a read refuses them too. The terminal lists
+  the homes at the start and each time the layer opens. The slow poll reads the
+  roots alone. A home that fails to list shows no file, and
   the other groups stay. A `file:///` ref to a file in a home opens in the
   layer.
 - **Camera viewfinder:** `/camera` shows a layer in the dock with the

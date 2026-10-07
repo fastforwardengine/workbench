@@ -138,7 +138,8 @@ export function visibleLines(
 	rows: number,
 ): [number, number] {
 	const at = lines.findIndex((line) => line.kind === 'row' && line.index === chosen);
-	let start = windowStart(Math.max(0, at), lines.length, rows);
+	if (at < 0) return [0, Math.min(lines.length, rows)];
+	let start = windowStart(at, lines.length, rows);
 	let head = at;
 	while (head > 0 && lines[head - 1]?.kind === 'row') head -= 1;
 	if (head > 0 && lines[head - 1]?.kind === 'heading') head -= 1;

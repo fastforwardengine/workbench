@@ -184,8 +184,11 @@ export interface CitedFile {
 	open: string;
 	/** The text that names the row: a path, or a repository with its branch and hash. */
 	label: string;
-	/** Every ref the messages cite under the key, one for each version: the file, each snapshot, each commit. */
-	opens: readonly string[];
+	/**
+	 * Every ref the messages cite under the key, one for each version: the file, each
+	 * snapshot, each commit. `seq` is the newest message that cites that ref.
+	 */
+	opens: readonly { open: string; seq: number }[];
 	/** The name of the author of the newest citing message, as the message gives it. */
 	author: string;
 	/** When that message landed. */
@@ -214,13 +217,16 @@ function citation(target: RefTarget | undefined): Citation | undefined {
 /** What `citedFiles` gathers: the newest citation of each key, and the things cited under it. */
 interface Gathered {
 	rows: Map<string, CitedFile>;
-	opens: Map<string, Set<string>>;
+	opens: Map<string, Map<string, number>>;
 }
 
 /** Add one citation by the message at hand. The newest message keeps the row. */
 function gather(gathered: Gathered, message: SaidMessage, cited: Citation): void {
 	const { rows, opens } = gathered;
-	opens.set(cited.key, (opens.get(cited.key) ?? new Set<string>()).add(cited.open));
+	opens.set(
+		cited.key,
+		(opens.get(cited.key) ?? new Map<string, number>()).set(cited.open, message.seq),
+	);
 	const before = rows.get(cited.key);
 	if (before && message.seq < before.seq) return;
 	rows.set(cited.key, {
@@ -249,7 +255,10 @@ export function citedFiles(messages: readonly Message[], known: Known): CitedFil
 		}
 	}
 	return [...gathered.rows.values()]
-		.map((row) => ({ ...row, opens: [...(gathered.opens.get(row.key) ?? [])] }))
+		.map((row) => ({
+			...row,
+			opens: [...(gathered.opens.get(row.key) ?? [])].map(([open, seq]) => ({ open, seq })),
+		}))
 		.sort((a, b) => b.seq - a.seq);
 }
 

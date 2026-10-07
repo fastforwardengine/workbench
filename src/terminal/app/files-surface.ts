@@ -62,7 +62,7 @@ export class FilesSurface implements Surface {
 	/** Any other printable key adds to the search. */
 	onKey(key: KeyEvent, exits: Exits): void {
 		key.preventDefault();
-		this.browser.notice = undefined;
+		this.browser.untell();
 		const act = actOf('files', key);
 		if (act) this.acts[act](exits);
 		else if (!key.ctrl && !key.meta && key.sequence.length === 1 && key.sequence >= ' ')

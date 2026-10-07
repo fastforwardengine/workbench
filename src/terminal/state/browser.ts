@@ -67,14 +67,16 @@ function matchRows(rows: readonly FileRow[], query: string): FileRow[] {
 /**
  * Where `show` starts: the row that opens the path, else the row that cites the path
  * as an older version, else the first row. An older version takes the row of its file
- * and opens in it.
+ * and opens in it, and its row names the newest message that cites that version.
+ * The call replaces that row in `rows`.
  */
 function startAt(rows: FileRow[], path: string | undefined): number {
 	const exact = rows.findIndex((row) => row.path === path);
 	if (exact >= 0 || path === undefined) return Math.max(0, exact);
-	const older = rows.findIndex((row) => row.cite?.opens.includes(path));
+	const older = rows.findIndex((row) => row.cite?.opens.some((version) => version.open === path));
 	const row = rows[older];
-	if (row) rows[older] = { ...row, path };
+	const version = row?.cite?.opens.find((one) => one.open === path);
+	if (row?.cite && version) rows[older] = { ...row, path, cite: { ...row.cite, seq: version.seq } };
 	return Math.max(0, older);
 }
 
@@ -138,6 +140,13 @@ export class FileBrowser {
 		this.index = startAt(this.rows, path);
 		this.open = true;
 		void this.preview();
+	}
+
+	/** Take the words of the status line away. A change redraws. */
+	untell(): void {
+		if (this.notice === undefined) return;
+		this.notice = undefined;
+		this.changed();
 	}
 
 	/** Say something in the status line until the next key. */
