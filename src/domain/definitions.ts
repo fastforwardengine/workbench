@@ -71,7 +71,7 @@ const SPECIALIST_RULES: Rules = {
 		'Open one breakout room for each independent task, so that the tasks run in parallel.',
 		'Keep in this room a task that drives a device of the bench, or that needs the person for an approval, hands-on work, or a photo. A worker has no access to the devices.',
 		'Keep in this room a task that you can finish in this activation.',
-		'In the `message`, give the task, its inputs by path or ref, each constraint of the person, and the form of the result. In the `goal`, state the result in one sentence.',
+		'In the `message`, give the task, its inputs, each constraint of the person, and the form of the result. The worker cannot read your home, so give a file of your home as a snapshot ref. In the `goal`, state the result in one sentence.',
 		'After you open a breakout room, say in one line what runs in the background, and continue the work of this room.',
 		'A report is the claim of a worker. Read its `refs` before you say its result.',
 	],

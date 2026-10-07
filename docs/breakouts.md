@@ -55,8 +55,7 @@ The shared `Background` rule names no example. The Researcher names the
 tasks of research: compare the datasheets of several parts, or draft a test
 plan. The Engineer names the tasks of code: write and test a script, or read
 the data files of a capture. The Engineer still asks the Researcher with `to`
-for a limit, a choice between parts, or a test plan that the room needs for
-its next step.
+for a limit, a choice between parts, or a test plan.
 
 ## Why the worker has no access to the devices
 
