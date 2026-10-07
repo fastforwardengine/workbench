@@ -151,20 +151,22 @@ function editResult({ text }: Output): string | undefined {
 	return found ? counted(Number(found[1]), 'block') : undefined;
 }
 
-const PATCH_HEADER = /^\*\*\* (Add File|Delete File|Update File|Move to):[ \t]*(\S.*?)[ \t]*$/;
+const PATCH_HEADER = /^\*\*\* (Add File|Delete File|Update File|Move to):[ \t]*(\S.*)$/;
 
 /**
  * The files that a patch names, in order. A `Move to` line joins the file
- * before it as `old -> new`. A file that the patch names twice shows once.
+ * of the header before it as `old -> new`. A file that the patch names twice shows once.
  */
 function patchFiles(patch: string): string[] {
 	const names: string[] = [];
+	let last = -1;
 	for (const line of patch.split(/\r?\n/)) {
-		const [, header, path] = PATCH_HEADER.exec(line) ?? [];
+		const [, header, path] = PATCH_HEADER.exec(line.trimEnd()) ?? [];
 		if (path === undefined) continue;
-		const last = names.length - 1;
-		if (header === 'Move to') names[last] = `${names[last] ?? ''} -> ${path}`;
-		else if (!names.includes(path)) names.push(path);
+		if (header !== 'Move to') {
+			if (!names.includes(path)) names.push(path);
+			last = names.indexOf(path);
+		} else if (last >= 0) names[last] = `${names[last]} -> ${path}`;
 	}
 	return names;
 }
