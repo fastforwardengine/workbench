@@ -222,13 +222,13 @@ interface Delivery {
 	text: string;
 	refs: string[];
 	to?: string;
-	/** Whether the room is a breakout room. Its seats are the twins that the opener chose. */
+	/** Whether the room is a breakout room. Its seats are the agents that the opener chose. */
 	breakout?: boolean;
 }
 
 /**
  * Check the seat that a message addresses, and seat it when the room has not. A breakout room
- * seats no other seat: its task goes to its twins alone.
+ * seats no other seat: its task goes to the seats that the opener chose.
  */
 async function addressSeat(
 	live: Room,

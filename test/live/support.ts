@@ -90,10 +90,9 @@ export async function openRoom(
 	});
 	const built = await team(workspace, ledProject, {
 		widgets: canvas.widgetTools(),
-		opener: canvas.tools(),
-		worker: canvas.tools(),
+		canvas: canvas.tools(),
 	});
-	await canvas.resume({ agents: [...built.specialists, ...built.twins] });
+	await canvas.resume({ agents: built.specialists });
 	const room = await canvas.open({
 		name: `eval-${crypto.randomUUID().slice(0, 8)}`,
 		goal: sweep.goal,

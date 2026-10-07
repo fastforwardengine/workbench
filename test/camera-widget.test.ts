@@ -50,10 +50,9 @@ async function setup(script: Script = byAgent({})) {
 	cleanups.push(() => canvas.close());
 	const built = await team(workspace, undefined, {
 		widgets: canvas.widgetTools(),
-		opener: canvas.tools(),
-		worker: canvas.tools(),
+		canvas: canvas.tools(),
 	});
-	await canvas.resume({ agents: [...built.specialists, ...built.twins] });
+	await canvas.resume({ agents: built.specialists });
 	return { canvas, built };
 }
 

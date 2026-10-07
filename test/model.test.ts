@@ -113,14 +113,14 @@ describe('Workbench model', () => {
 		});
 	});
 
-	it('gives every specialist and twin the Pi executor, on the model WORKBENCH_MODEL selects', async () => {
+	it('gives every specialist the Pi executor, on the model WORKBENCH_MODEL selects', async () => {
 		vi.stubEnv('WORKBENCH_PI_CREDENTIALS', none.WORKBENCH_PI_CREDENTIALS);
 		const workspace = { tools: () => ({ name: 'workspace', guidance: '', tools: [] }) } as never;
 		const built = await team(workspace);
 		const executors = Object.fromEntries(
-			[...built.specialists, ...built.twins].map((seat) => [seat.name, seat.executor]),
+			built.specialists.map((seat) => [seat.name, seat.executor]),
 		);
-		for (const name of ['researcher', 'engineer', 'researcher-bg', 'engineer-bg']) {
+		for (const name of ['researcher', 'engineer']) {
 			expect(executors[name], name).toMatchObject({
 				kind: 'pi',
 				model: piModel(),
@@ -145,12 +145,7 @@ describe('Workbench with no login', () => {
 		const directory = await mkdtemp(join(tmpdir(), 'workbench-nologin-'));
 		const lab = await openLab({ directory: join(directory, 'run'), env: none });
 		opened.push({ lab, directory });
-		expect((await lab.read('build', 0)).unavailable).toEqual([
-			'researcher',
-			'engineer',
-			'researcher-bg',
-			'engineer-bg',
-		]);
+		expect((await lab.read('build', 0)).unavailable).toEqual(['researcher', 'engineer']);
 		await lab.join('build', person);
 		await lab.send('build', person, 'nologin-1', 'Plan a test.');
 		await vi.waitFor(async () => {
