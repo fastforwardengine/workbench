@@ -47,19 +47,20 @@ opener. A task of this kind stays in the room of the person.
 
 **Each rule has one home.**
 
-| Rule                                                              | Home                                 | Holder          |
-| ----------------------------------------------------------------- | ------------------------------------ | --------------- |
-| When Ambion allows a breakout room, `tell`, `archive`, the report | Ambion guidance of the canvas bundle | Each specialist |
-| Where a question for a person goes                                | Ambion guidance of the canvas bundle | Each specialist |
-| When to open a breakout room, and what to put in the brief        | The group `Background`               | Each specialist |
-| Seat yourself: the own name in `agents`                           | The group `Background`               | Each specialist |
-| Examples of a breakout task                                       | The group `Background`               | Each specialist |
-| No person and no device in a breakout room                        | `Constraints` of the shared rules    | Every seat      |
-| How to send the result, and a missing input                       | `Speaking` of the specialist rules   | Each specialist |
-| No `show` in a breakout room                                      | `Constraints` of the Engineer        | Engineer        |
-| Approval and hands-on work                                        | `Constraints` of the Engineer        | Engineer        |
-| The project, the evidence, and the skills of a specialist         | The groups of the specialist         | Each specialist |
-| Project, evidence, and the limits of the person                   | The shared groups                    | Every seat      |
+| Rule                                                              | Home                                               | Holder          |
+| ----------------------------------------------------------------- | -------------------------------------------------- | --------------- |
+| When Ambion allows a breakout room, `tell`, `archive`, the report | Ambion guidance of the canvas bundle               | Each specialist |
+| Where a question for a person goes                                | Ambion guidance of the canvas bundle               | Each specialist |
+| When to open a breakout room, and what to put in the brief        | The group `Background`                             | Each specialist |
+| Seat yourself: the own name in `agents`                           | The group `Background`                             | Each specialist |
+| Examples of a breakout task                                       | The group `Background`                             | Each specialist |
+| No person and no device in a breakout room                        | `Constraints` of the shared rules                  | Every seat      |
+| How to send the result, and a missing input                       | `Speaking` of the specialist rules                 | Each specialist |
+| No `show` in a breakout room                                      | `Constraints` of the Engineer                      | Engineer        |
+| Approval and hands-on work                                        | `Constraints` of the Engineer                      | Engineer        |
+| The project, the evidence, and the skills of a specialist         | The groups of the specialist                       | Each specialist |
+| Project, evidence, and the limits of the person                   | The shared groups                                  | Every seat      |
+| When to speak, and how to hand work to a colleague                | `RESPOND_POLICY` in `src/domain/respond-policy.ts` | Each specialist |
 
 The group `Background` states Workbench's own policy: which task leaves the
 room and which task stays. Ambion's guidance states the mechanism, so the

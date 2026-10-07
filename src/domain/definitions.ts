@@ -3,6 +3,7 @@ import { defineAgent, definePerson, type ToolBundle } from '@ambionframework/amb
 import { pi } from '@ambionframework/pi';
 import type { Workspace } from '@ambionframework/workspace';
 import { piModel, THINKING } from './model.ts';
+import { RESPOND_POLICY } from './respond-policy.ts';
 import { specialistSkills } from './skills.ts';
 
 /** The name of the account running this process. The one person of Workbench uses it. */
@@ -192,6 +193,7 @@ export async function team(
 					),
 					model,
 					thinking: THINKING,
+					respondPolicy: RESPOND_POLICY,
 					bundles: [
 						workspace.tools({ skills: await specialistSkills(definition.name) }),
 						...[shows ? bundles.widgets : undefined, bundles.canvas].filter(
