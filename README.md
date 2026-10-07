@@ -179,9 +179,8 @@ A bench script comes from a template.
   closes the layer when it is on top. The composer stays active while the
   layer shows. Another layer on top covers the camera and stops its reads.
   The camera shows again when that layer closes. A terminal under 100
-  columns does not show it, and `/camera` closes an open camera layer there.
-  The layer needs a terminal with Kitty graphics,
-  such as Ghostty.
+  columns does not show it, and `/camera` closes an open camera layer
+  there. The layer needs a terminal with Kitty graphics, such as Ghostty.
 - **Look now:** the Engineer shows each camera with the action "Look now".
   The layer draws it as a button under the box of the camera. Ctrl+L takes
   the keys, Up and Down choose a button, Enter presses it, and Esc goes
@@ -191,8 +190,8 @@ A bench script comes from a template.
   and a press that the host could not confirm goes again as it was.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
   waits for its goal. In the dock it closes the top layer. Ctrl+D twice
-  in 2 seconds leaves the terminal from the composer, and `/quit` also
-  leaves. The rooms stop with the terminal.
+  in 2 seconds leaves the terminal from an empty composer, and `/quit`
+  also leaves. The rooms stop with the terminal.
 - **Voice mode:** `/voice` switches voice mode on and off. Hold Space on
   an empty composer to record, and let go to send what you said as a message.
   A press under 300 ms sends nothing. Ctrl+C drops a recording. A transcript

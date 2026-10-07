@@ -68,8 +68,8 @@ export const COMMANDS = [
 			'                    in the dock, and hide them when they show. The',
 			'                    Engineer shows a camera. Ctrl+L chooses the Look now button',
 			'                    under a camera, Enter presses it, and Esc goes back. It needs',
-			'                    a terminal with Kitty graphics, such as Ghostty, at least 100',
-			'                    columns wide. A narrower terminal closes an open camera layer.',
+			'                    a terminal with Kitty graphics, such as Ghostty. A terminal under',
+			'                    100 columns hides the layer, and /camera closes it there.',
 		],
 	},
 	{

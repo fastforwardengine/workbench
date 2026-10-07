@@ -140,22 +140,27 @@ export class Keys {
 	}
 
 	/**
-	 * Ctrl+C and Ctrl+D. True when the key is handled. Ctrl+D leaves only from
-	 * the composer, because a layer uses it to scroll. It leaves on the second press
-	 * inside a short window. Any other key ends the window.
+	 * Ctrl+C and Ctrl+D. True when the key is handled. Ctrl+D leaves only from an
+	 * empty composer, because a layer uses it to scroll and the textarea uses it to
+	 * delete. It leaves on the second press inside a short window. Any other key
+	 * ends the window. A key that the terminal repeats neither arms nor leaves.
 	 */
 	private controlKey(key: KeyEvent): boolean {
 		const act = actOf('everywhere', key);
-		const quitting = act === 'quit' && this.mode === 'compose';
-		if (!quitting) this.quitArmedAt = undefined;
-		if (!quitting && act !== 'interrupt') return false;
+		const leaves = act === 'quit' && this.mode === 'compose' && this.composer.text === '';
+		if (leaves && key.repeated) {
+			key.preventDefault();
+			return true;
+		}
+		if (!leaves) this.quitArmedAt = undefined;
+		if (!leaves && act !== 'interrupt') return false;
 		key.preventDefault();
-		if (quitting) this.pressQuit();
+		if (leaves) this.pressQuit();
 		else this.interrupt();
 		return true;
 	}
 
-	/** Ctrl+D in the composer. The first press says how to leave, and the second one leaves. */
+	/** Ctrl+D on an empty composer. The first press says how to leave, and the second one leaves. */
 	private pressQuit(): void {
 		const now = this.now();
 		const armed = this.quitArmedAt !== undefined && now - this.quitArmedAt <= QUIT_WINDOW_MS;
@@ -456,9 +461,9 @@ export class Keys {
 	}
 
 	/**
-	 * Esc peels back one level. It cancels a new room that waits for its goal, or it
-	 * closes the palette. When neither applies and the dock shows on the screen, it
-	 * closes the top layer of the dock. Otherwise the composer gets the key.
+	 * Esc cancels a new room that waits for its goal, or it closes the palette. When
+	 * neither applies and the dock shows on the screen, it closes the top layer of
+	 * the dock. Otherwise the composer gets the key.
 	 */
 	private escapeCompose(): boolean {
 		if (this.session.awaitingGoal) {

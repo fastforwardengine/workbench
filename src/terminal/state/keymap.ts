@@ -105,7 +105,7 @@ export const KEYMAP = {
 			},
 			quit: {
 				keys: [{ name: 'd', ctrl: true, shift: false }],
-				does: 'Leave the terminal: press twice, from the composer',
+				does: 'Leave the terminal: press twice, from an empty composer',
 			},
 		},
 	},

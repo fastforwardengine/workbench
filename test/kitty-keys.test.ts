@@ -42,6 +42,7 @@ const KEY = {
 	shiftEnter: '\x1b[13;2u',
 	ctrlC: '\x1b[99;5u',
 	ctrlD: '\x1b[100;5u',
+	ctrlDRepeat: '\x1b[100;5:2u',
 	up: '\x1b[A',
 	upRepeat: '\x1b[1;1:2A',
 	upRelease: '\x1b[1;1:3A',
@@ -256,6 +257,24 @@ describe('a key that the person presses and releases', () => {
 		expect(quit).not.toHaveBeenCalled();
 		send(KEY.ctrlD, release('d', 5));
 		expect(quit).toHaveBeenCalledTimes(1);
+	});
+
+	it('ignores a repeat of Ctrl+D, and a later press leaves', async () => {
+		const { quit, session, send } = await build();
+		send(KEY.ctrlD, KEY.ctrlDRepeat, KEY.ctrlDRepeat, release('d', 5));
+		expect(quit).not.toHaveBeenCalled();
+		expect(session.say).toHaveBeenCalledTimes(1);
+		send(KEY.ctrlD, release('d', 5));
+		expect(quit).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps the draft on Ctrl+D, and does not leave', async () => {
+		const { quit, composer, session, type, send } = await build();
+		type('abc');
+		send(KEY.ctrlD, release('d', 5), KEY.ctrlD, release('d', 5));
+		expect(quit).not.toHaveBeenCalled();
+		expect(session.say).not.toHaveBeenCalled();
+		expect(composer.text).toBe('abc');
 	});
 
 	it('does not run a key handler on a release', async () => {

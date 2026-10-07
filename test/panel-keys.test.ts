@@ -1292,7 +1292,9 @@ describe('Ctrl+C and Ctrl+D', () => {
 		expect(built.session.pendingRefs).toEqual([]);
 		expect(built.session.notice).toBe('Dropped 1 staged attachment.');
 		built.press('c', ctrl);
-		expect(built.session.notice).toBe('Press Ctrl+D twice or type /quit to leave.');
+		expect(built.session.notice).toBe(
+			'Press Ctrl+D twice on an empty composer, or type /quit to leave.',
+		);
 	});
 
 	it('Ctrl+C cancels a room that waits for its goal, and clears the goal text', async () => {
@@ -1413,18 +1415,23 @@ describe('Ctrl+C and Ctrl+D', () => {
 		expect(built.prevented.count).toBe(1);
 	});
 
-	it('two quick Ctrl+D leave, with a draft or without', async () => {
+	it('two quick Ctrl+D leave from an empty composer', async () => {
 		const built = await build();
-		built.composer.setText('draft');
 		built.press('d', ctrl);
 		built.clock.at += QUIT_WINDOW_MS;
 		built.press('d', ctrl);
 		expect(built.quit).toHaveBeenCalledTimes(1);
+	});
+
+	it('Ctrl+D with a draft goes to the textarea, says nothing, and never leaves', async () => {
+		const built = await build();
+		built.composer.setText('draft');
+		built.press('d', ctrl);
+		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
+		expect(built.session.notice).toBeUndefined();
+		expect(built.prevented.count).toBe(0);
 		expect(built.composer.text).toBe('draft');
-		built.composer.setText('');
-		built.press('d', ctrl);
-		built.press('d', ctrl);
-		expect(built.quit).toHaveBeenCalledTimes(2);
 	});
 
 	it('another key between two Ctrl+D ends the window', async () => {
@@ -1446,11 +1453,24 @@ describe('Ctrl+C and Ctrl+D', () => {
 		expect(built.session.notice).toBe('Press Ctrl+D again to leave.');
 	});
 
-	it('Ctrl+D does not arm outside the composer, and Ctrl+Shift+D never leaves', async () => {
+	it('Ctrl+D in the dock does not arm, and the first one in the composer then only says so', async () => {
 		const built = await build();
+		await openFiles(built);
 		built.press('d', ctrl);
-		built.press('d', { ctrl: true, shift: true, sequence: '' });
 		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
+		expect(built.session.notice ?? '').not.toContain('Ctrl+D');
+		built.press('escape');
+		built.press('d', ctrl);
+		expect(built.quit).not.toHaveBeenCalled();
+		expect(built.session.notice).toBe('Press Ctrl+D again to leave.');
+	});
+
+	it('Ctrl+Shift+D never leaves', async () => {
+		const built = await build();
+		const shifted = { ctrl: true, shift: true, sequence: '' };
+		built.press('d', shifted);
+		built.press('d', shifted);
 		expect(built.quit).not.toHaveBeenCalled();
 	});
 });
