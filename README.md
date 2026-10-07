@@ -152,6 +152,9 @@ A bench script comes from a template.
   that run, and the says that wait, each only when the count is not zero.
   The keys hint follows the counts. A narrow terminal drops the
   says first, then the processes, then the breakout rooms, then the hint.
+- **Terminal title:** the title of the window starts with the open room and
+  one mark: `◆` when the room waits for your reply, `●` and the seat name
+  while a specialist works or a message goes out. The product name ends it.
 - **Waiting messages:** a message that you send into an open exchange shows
   dim above the input as `↳ steering: <text>` until each running specialist
   reads it. Up to three messages show. With more, two show and `+N more`

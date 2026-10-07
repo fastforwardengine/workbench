@@ -188,7 +188,7 @@ export class Session {
 		return workingOf(this.view.exchange?.activations ?? [], this.live);
 	}
 
-	/** True while a message goes out to the host. A second send fails while it is true. */
+	/** True while a message goes out to the host. `send` refuses a second message while it is true. */
 	get sending(): boolean {
 		return this.inFlight;
 	}
@@ -620,12 +620,12 @@ export class Session {
 		if (this.view && this.view.status !== 'running')
 			return this.fail(new Error(`${this.view.name} is ${this.view.status}. Use /resume first.`));
 		this.inFlight = true;
-		this.changed();
 		// The array can be replaced while the send runs, by a switch to another room.
 		// Take the files off the array they came from, and no other.
 		const staged = this.pendingRefs;
 		const refs = staged.map((one) => one.ref);
 		try {
+			this.changed();
 			if (!this.entered) await this.join();
 			await this.host.send(this.room, this.identity.name, crypto.randomUUID(), body, refs, to);
 			staged.splice(0, refs.length);
