@@ -197,8 +197,10 @@ A bench script comes from a template.
   Set up once with `make voice`. It installs `whisper-cpp` with Homebrew
   and downloads the model of about 3 GB to
   `~/.cache/whisper/ggml-large-v3.bin`. `WORKBENCH_WHISPER_MODEL` names
-  another model file, such as `ggml-large-v3-turbo.bin` for speed. The first
-  press asks macOS for the microphone.
+  another model file, such as `ggml-large-v3-turbo.bin` for speed. Whisper
+  reads the speech as English. `WORKBENCH_WHISPER_LANGUAGE` names another
+  language, such as `ro`, and `auto` makes whisper detect it. The first press
+  asks macOS for the microphone.
 
 - **Staged pictures:** a row above the composer names the files that wait
   for your next message. Press Enter on an empty composer to send them

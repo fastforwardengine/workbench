@@ -20,23 +20,31 @@ export interface WhisperConfig {
 	model: string;
 	/** True when `WORKBENCH_WHISPER_MODEL` names the model. */
 	custom: boolean;
+	/** The language of the speech, such as `en`. `auto` makes whisper detect it. */
+	language: string;
 }
 
-/** Read the settings. `WORKBENCH_WHISPER_MODEL` names another model file, and a leading `~/` means the home folder. */
+/**
+ * Read the settings. `WORKBENCH_WHISPER_MODEL` names another model file, and a
+ * leading `~/` means the home folder. `WORKBENCH_WHISPER_LANGUAGE` names the
+ * language of the speech. The default is English, because detection can
+ * choose the wrong language for a speaker with an accent.
+ */
 export function whisperConfig(
 	env: NodeJS.ProcessEnv = process.env,
 	home: string = homedir(),
 ): WhisperConfig {
 	const named = env.WORKBENCH_WHISPER_MODEL?.trim();
 	const model = named ? named.replace(/^~(?=\/|$)/, home) : join(home, DEFAULT_MODEL);
-	return { command: WHISPER_COMMAND, model, custom: Boolean(named) };
+	const language = env.WORKBENCH_WHISPER_LANGUAGE?.trim() || 'en';
+	return { command: WHISPER_COMMAND, model, custom: Boolean(named), language };
 }
 
 /** The address that the server listens on. Only this computer reaches it. */
 export const SERVER_HOST = '127.0.0.1';
 
 /**
- * The arguments of whisper-server: the model, the address, no timestamps, any
+ * The arguments of whisper-server: the model, the address, no timestamps, the
  * language, and a beam search of width 5 for the best words.
  */
 export function serverArgs(config: WhisperConfig, port: number): string[] {
@@ -49,7 +57,7 @@ export function serverArgs(config: WhisperConfig, port: number): string[] {
 		String(port),
 		'-nt',
 		'-l',
-		'auto',
+		config.language,
 		'-bs',
 		'5',
 	];
