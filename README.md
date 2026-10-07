@@ -146,14 +146,16 @@ A bench script comes from a template.
   specialist first or the seat has no login. The rail at the left of the
   input takes one color for a command and another for a mention.
 - **Status row:** the row under the input says what the room does. While a
-  specialist works, it shows the seat, its step, and the time since its
-  first step. At the right, it counts the background processes, the
-  breakout rooms that run, and the says that wait, each only when the count
-  is not zero. The keys hint follows the counts. A narrow terminal drops the
+  message goes out to the host, it shows `Sending…`. While a specialist
+  works, it shows the seat, its step, and the time since its first step.
+  At the right, it counts the background processes, the breakout rooms
+  that run, and the says that wait, each only when the count is not zero.
+  The keys hint follows the counts. A narrow terminal drops the
   says first, then the processes, then the breakout rooms, then the hint.
 - **Waiting messages:** a message that you send into an open exchange shows
   dim above the input as `↳ steering: <text>` until each running specialist
-  reads it. Two messages show, and `+N more` counts the rest.
+  reads it. Up to three messages show. With more, two show and `+N more`
+  counts the rest.
 - **Pictures:** `/attach <path>` copies a local file of up to 8 MiB into
   `/attachments`, snapshots it, and cites the snapshot in your next
   message. Paste the path of a picture into an empty composer, and it fills

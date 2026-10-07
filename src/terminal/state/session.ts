@@ -91,7 +91,7 @@ export class Session {
 	/** Ends the watch on the room list. `start` sets it, and `leave` calls it. */
 	private unwatchRooms: (() => void) | undefined;
 	private readonly changed: () => void;
-	private sending = false;
+	private inFlight = false;
 	private wantBottom = false;
 
 	constructor(host: Lab, identity: Person | undefined, changed: () => void) {
@@ -186,6 +186,11 @@ export class Session {
 	get working(): Working | undefined {
 		if (this.view?.status !== 'running') return undefined;
 		return workingOf(this.view.exchange?.activations ?? [], this.live);
+	}
+
+	/** True while a message goes out to the host. A second send fails while it is true. */
+	get sending(): boolean {
+		return this.inFlight;
 	}
 
 	/** The messages of the person that a running seat of the open exchange has not read yet. */
@@ -409,7 +414,7 @@ export class Session {
 
 	private dropStaged(): void {
 		// A send in progress holds the staged attachments, so they go with the message.
-		if (this.sending) return;
+		if (this.inFlight) return;
 		const staged = this.pendingRefs.length;
 		this.pendingRefs = [];
 		this.say(
@@ -607,14 +612,15 @@ export class Session {
 	private async send(text: string, to?: string): Promise<void> {
 		const body = bodyOf(text, to, this.pendingRefs);
 		if (!body) return;
-		if (this.sending) return this.fail(new Error('The last message is still sending.'));
+		if (this.inFlight) return this.fail(new Error('The last message is still sending.'));
 		if (!this.identity) return this.say('Pick a person first: /user <name>.');
 		if (!this.room) return this.say('Open a room first: /room <name>.');
 		if (this.archived)
 			return this.fail(new Error(`${this.room} is archived. It takes no message.`));
 		if (this.view && this.view.status !== 'running')
 			return this.fail(new Error(`${this.view.name} is ${this.view.status}. Use /resume first.`));
-		this.sending = true;
+		this.inFlight = true;
+		this.changed();
 		// The array can be replaced while the send runs, by a switch to another room.
 		// Take the files off the array they came from, and no other.
 		const staged = this.pendingRefs;
@@ -628,7 +634,8 @@ export class Session {
 		} catch (error) {
 			this.fail(error);
 		} finally {
-			this.sending = false;
+			this.inFlight = false;
+			this.changed();
 		}
 	}
 

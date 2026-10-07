@@ -1842,6 +1842,44 @@ describe('the status row', () => {
 		expect(statusRow(await built.frame())).not.toContain('process');
 	});
 
+	describe('while a message goes out', () => {
+		/** Holds the next send of a build in flight. `release` lets it end. */
+		async function sending() {
+			const built = await build(120);
+			const { host, session } = built;
+			cleanups.unshift(() => void session.leave());
+			let release: () => void = () => {};
+			host.sendGate = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			const sent = session.submit('Check the diode.');
+			await vi.waitFor(() => expect(session.sending).toBe(true));
+			built.render();
+			return { ...built, sent, release: () => release() };
+		}
+
+		it('says Sending… and returns to the usual text when the send ends', async () => {
+			const built = await sending();
+			expect(statusRow(await built.frame())).toContain('● Sending…');
+			expect(statusRow(await built.frame())).not.toContain('Active');
+			built.release();
+			await built.sent;
+			built.render();
+			expect(statusRow(await built.frame())).toContain('Active');
+			expect(await built.frame()).not.toContain('Sending…');
+		});
+
+		it('gives way to an error', async () => {
+			const built = await sending();
+			built.session.error = 'The model refused.';
+			built.render();
+			expect(await built.frame()).toContain('Error: The model refused.');
+			expect(await built.frame()).not.toContain('Sending…');
+			built.release();
+			await built.sent;
+		});
+	});
+
 	describe('the working line', () => {
 		/** A room whose engineer runs a command for `seconds` seconds. */
 		async function working(seconds: number, width = 120) {

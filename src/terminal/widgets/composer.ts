@@ -250,7 +250,7 @@ export class Composer {
 		this.input.placeholder = text;
 	}
 
-	/** Show the lines of the cue above the input, one row each. No line hides the cue. */
+	/** Show the lines of the cue above the input, one row each. An empty list hides the cue. */
 	setCue(lines: readonly CueLine[]): void {
 		this.cueRow.visible = lines.length > 0;
 		this.cueRow.height = Math.max(1, lines.length);
