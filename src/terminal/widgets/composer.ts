@@ -16,6 +16,7 @@ import {
 import { pastedImagePath } from '../state/attachments.ts';
 import type { Audience } from '../state/audience.ts';
 import type { Suggestion } from '../state/commands.ts';
+import type { CueLine } from '../state/cue.ts';
 import { KEYMAP } from '../state/keymap.ts';
 import { fitSegments, MARK, SEPARATOR, type Segment, type Tone } from '../state/status-row.ts';
 import { tui as palette } from './brand.ts';
@@ -249,11 +250,16 @@ export class Composer {
 		this.input.placeholder = text;
 	}
 
-	/** Show the staged attachments in a row above the input, or hide the row when there is no text. */
-	setCue(text: string | undefined): void {
-		this.cueRow.visible = text !== undefined;
+	/** Show the lines of the cue above the input, one row each. No line hides the cue. */
+	setCue(lines: readonly CueLine[]): void {
+		this.cueRow.visible = lines.length > 0;
+		this.cueRow.height = Math.max(1, lines.length);
 		this.cue.content = new StyledText(
-			text === undefined ? [] : [fg(palette.coral)('▪ '), fg(palette.muted)(text)],
+			lines.flatMap((line, at) => [
+				...(at > 0 ? [fg(palette.muted)('\n')] : []),
+				fg(TONES[line.markTone])(`${line.mark} `),
+				fg(TONES[line.tone])(line.text),
+			]),
 		);
 	}
 

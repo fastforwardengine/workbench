@@ -1,7 +1,7 @@
 import type { RoomView } from '../../host/host.ts';
 import { type RefItem, stayOfPick } from '../../view/refs.ts';
-import { stagedCue } from '../state/attachments.ts';
 import { type Audience, audienceOf } from '../state/audience.ts';
+import { cueLines } from '../state/cue.ts';
 import { bindingLabel, KEYMAP } from '../state/keymap.ts';
 import type { Mode } from '../state/mode.ts';
 import type { PictureCache } from '../state/picture-cache.ts';
@@ -44,8 +44,6 @@ export interface DrawParts {
 	 * returns the old width.
 	 */
 	width: () => number;
-	/** The time in milliseconds, for the elapsed time of the working line. It defaults to the clock. */
-	now?: () => number;
 }
 
 /**
@@ -64,7 +62,6 @@ export class Painter {
 	private readonly graphics: () => boolean;
 	private readonly cellAspect: () => number;
 	private readonly width: () => number;
-	private readonly now: () => number;
 	private drawn = '';
 	private reveal: string | undefined;
 
@@ -79,7 +76,6 @@ export class Painter {
 		this.graphics = parts.graphics;
 		this.cellAspect = parts.cellAspect;
 		this.width = parts.width;
-		this.now = parts.now ?? (() => Date.now());
 	}
 
 	/** Reveal one message at the next draw, so a jump to it shows it. */
@@ -154,7 +150,9 @@ export class Painter {
 			this.audience(),
 		);
 		this.composer.setPlaceholder(this.placeholder());
-		this.composer.setCue(stagedCue(session.pendingRefs));
+		this.composer.setCue(
+			cueLines(session.pendingRefs, session.steering, this.width() - INSET - GUTTER),
+		);
 		this.composer.setRow(this.row(mode, picking), this.width());
 	}
 
@@ -238,7 +236,7 @@ export class Painter {
 	private workingStatus(): Segment | undefined {
 		const working = this.session.working;
 		if (!working) return undefined;
-		return workingSegment(working, this.now(), this.width() - INSET - GUTTER);
+		return workingSegment(working, Date.now(), this.width() - INSET - GUTTER);
 	}
 
 	private status(mode: Mode, picking: string | undefined): Segment {

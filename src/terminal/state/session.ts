@@ -9,6 +9,7 @@ import {
 	workingOf,
 } from '../../view/live.ts';
 import { type Known, pickIds, type RefItem, refItems, shows, stayOfPick } from '../../view/refs.ts';
+import { type WaitingMessage, waitingMessages } from '../../view/steering.ts';
 import {
 	type ActivationSteps,
 	activationLine,
@@ -185,6 +186,16 @@ export class Session {
 	get working(): Working | undefined {
 		if (this.view?.status !== 'running') return undefined;
 		return workingOf(this.view.exchange?.activations ?? [], this.live);
+	}
+
+	/** The messages of the person that a running seat of the open exchange has not read yet. */
+	get steering(): WaitingMessage[] {
+		return waitingMessages({
+			messages: this.reader.messages,
+			exchange: this.view?.status === 'running' ? this.view.exchange : undefined,
+			person: this.identity?.name,
+			reads: this.live,
+		});
 	}
 
 	/** Read the open room. The reader does it again when a change lands during a read. */
