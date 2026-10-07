@@ -12,6 +12,7 @@ import type { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import { ActionRows } from './action-rows.ts';
 import { tui as palette } from './brand.ts';
 import { SidePanel } from './side-panel.ts';
+import { GAP, GUTTER, SCROLLBAR, TRACK } from './space.ts';
 
 /** What the panel says in a terminal that cannot draw the frame. */
 const NEEDS_KITTY = 'The viewfinder needs a terminal with Kitty graphics, such as Ghostty.';
@@ -19,8 +20,8 @@ const NEEDS_KITTY = 'The viewfinder needs a terminal with Kitty graphics, such a
 /** The rows that a frame takes before the first layout gives the panel a width. */
 const IMAGE_ROWS = 12;
 
-/** The columns of the body padding, the scrollbar, and the padding of a camera box. */
-const FRAME_COLUMNS = 5;
+/** The columns of the body padding, the scrollbar track, and the padding of a camera box. */
+const FRAME_COLUMNS = SCROLLBAR + TRACK + 2 * GUTTER;
 
 /** The shape of a camera frame: 16 wide by 9 high. */
 const FRAME_SHAPE = 9 / 16;
@@ -44,7 +45,7 @@ class CameraBox {
 			flexDirection: 'column',
 			width: '100%',
 			flexShrink: 0,
-			marginBottom: 1,
+			marginBottom: GAP,
 			visible: false,
 		});
 		this.frame = new BoxRenderable(renderer, {
@@ -52,8 +53,8 @@ class CameraBox {
 			width: '100%',
 			flexShrink: 0,
 			backgroundColor: palette.raised,
-			paddingLeft: 1,
-			paddingRight: 1,
+			paddingLeft: GUTTER,
+			paddingRight: GUTTER,
 		});
 		this.actions = new ActionRows(renderer);
 		this.image = new ImageRenderable(renderer, {

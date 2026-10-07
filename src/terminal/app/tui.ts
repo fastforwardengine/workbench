@@ -21,6 +21,7 @@ import { Header } from '../widgets/header.ts';
 import { KeysPanel } from '../widgets/keys-panel.ts';
 import { Palette } from '../widgets/palette.ts';
 import { ProcessesPanel } from '../widgets/process-panel.ts';
+import { edgeRows, GAP, GUTTER } from '../widgets/space.ts';
 import { Transcript } from '../widgets/transcript.ts';
 import { ViewfinderPanel } from '../widgets/viewfinder-panel.ts';
 import { Dock } from './dock.ts';
@@ -37,9 +38,6 @@ import { WhisperServer } from './whisper-server.ts';
 
 /** How often the slow fallback reads the room list and a stopped room. */
 const SLOW_MS = 4_000;
-
-/** The cells between the terminal edge and the content, on each side. */
-const PADDING = 1;
 
 /** True when the terminal draws Kitty graphics. Thumbnails and the viewfinder need it. */
 const drawsKitty = (renderer: CliRenderer): boolean =>
@@ -60,6 +58,7 @@ function cellAspectOf(renderer: CliRenderer): number {
  */
 class EngineTui {
 	private readonly renderer: CliRenderer;
+	private readonly root: BoxRenderable;
 	private readonly session: Session;
 	private readonly composer: Composer;
 	private readonly painter: Painter;
@@ -113,7 +112,7 @@ class EngineTui {
 		const body = new BoxRenderable(renderer, {
 			flexDirection: 'row',
 			flexGrow: 1,
-			gap: 1,
+			gap: GAP,
 			minHeight: 0,
 		});
 		this.composer = new Composer(renderer, {
@@ -133,7 +132,7 @@ class EngineTui {
 			),
 			graphics: () => drawsKitty(renderer),
 			cellAspect: () => cellAspectOf(renderer),
-			width: () => renderer.width - 2 * PADDING,
+			width: () => renderer.width - 2 * GUTTER,
 		});
 		this.palette = new Palette(this.composer);
 		this.keys = new Keys({
@@ -149,21 +148,23 @@ class EngineTui {
 			render: () => this.render(),
 			quit: () => this.renderer.destroy(),
 		});
-		const root = new BoxRenderable(renderer, {
+		// The blank rows at the top and at the bottom follow the height of the terminal, in `render`.
+		this.root = new BoxRenderable(renderer, {
 			flexDirection: 'column',
 			width: '100%',
 			height: '100%',
-			padding: PADDING,
-			gap: 1,
+			paddingLeft: GUTTER,
+			paddingRight: GUTTER,
+			gap: GAP,
 			backgroundColor: palette.bg,
 		});
-		root.add(header.root);
+		this.root.add(header.root);
 		body.add(transcript.root);
 		for (const layer of Object.values(surfaces)) panel.add(layer.root);
 		body.add(panel.root);
-		root.add(body);
-		root.add(this.composer.root);
-		renderer.root.add(root);
+		this.root.add(body);
+		this.root.add(this.composer.root);
+		renderer.root.add(this.root);
 		renderer.keyInput.on('keypress', (key: KeyEvent) => {
 			this.keys.onKey(key);
 			this.followEdit();
@@ -254,6 +255,8 @@ class EngineTui {
 
 	private render(): void {
 		if (this.stopped) return;
+		this.root.paddingTop = edgeRows(this.renderer.height);
+		this.root.paddingBottom = edgeRows(this.renderer.height);
 		this.keys.reconcile();
 		this.painter.render(this.keys.mode, this.keys.picking);
 		this.keys.refreshPalette();

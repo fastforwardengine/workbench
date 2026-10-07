@@ -499,10 +499,10 @@ describe('the live block', () => {
 		expect(lines[at('Working on')]).toContain('/abort cancels it');
 		expect(lines[at('researcher')]).toContain('✓ researcher · respond · $0.0012');
 		expect(lines[at('engineer')]).toContain('● engineer · respond');
-		expect(lines[at('+2 earlier calls')]).toBe('    +2 earlier calls');
-		expect(lines[at('psu status')]).toBe('    ✓ bash psu status  0.00 V 0.000 A off');
-		expect(lines[at('psu set')]).toBe('    ✗ bash psu set 3.3 0.05  failed: port busy');
-		expect(lines[at('camera observe')]).toBe('    … camera observe bench');
+		expect(lines[at('+2 earlier calls')]).toBe('      +2 earlier calls');
+		expect(lines[at('psu status')]).toBe('      ✓ bash psu status  0.00 V 0.000 A off');
+		expect(lines[at('psu set')]).toBe('      ✗ bash psu set 3.3 0.05  failed: port busy');
+		expect(lines[at('camera observe')]).toBe('      … camera observe bench');
 	}, 20_000);
 
 	it('cuts a long call to one row', async () => {

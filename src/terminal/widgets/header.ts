@@ -9,12 +9,13 @@ import {
 } from '@opentui/core';
 import type { Person, RoomView } from '../../host/host.ts';
 import { tui as palette } from './brand.ts';
-import { fitHeader, GAP } from './header-fit.ts';
+import { fitHeader } from './header-fit.ts';
+import { APART, GUTTER, INSET } from './space.ts';
 
 type Chunks = ConstructorParameters<typeof StyledText>[0];
 
 /** The cells that the padding takes from the panel width. */
-const CHROME = 2;
+const CHROME = INSET + GUTTER;
 
 /** True when a seat is at work or a person is present. */
 function lit(participant: Participant): boolean {
@@ -47,7 +48,7 @@ class Row {
 	private readonly right: TextRenderable;
 
 	constructor(renderer: CliRenderer) {
-		this.root = new BoxRenderable(renderer, { flexDirection: 'row', gap: GAP });
+		this.root = new BoxRenderable(renderer, { flexDirection: 'row', gap: APART });
 		this.left = new TextRenderable(renderer, { content: '', flexGrow: 1, wrapMode: 'none' });
 		this.right = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'none' });
 		this.root.add(this.left);
@@ -81,8 +82,8 @@ export class Header {
 			flexDirection: 'column',
 			flexShrink: 0,
 			backgroundColor: palette.panel,
-			paddingLeft: 1,
-			paddingRight: 1,
+			paddingLeft: INSET,
+			paddingRight: GUTTER,
 		});
 		this.room = new Row(renderer);
 		this.people = new Row(renderer);

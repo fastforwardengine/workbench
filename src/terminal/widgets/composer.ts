@@ -16,6 +16,7 @@ import { pastedImagePath } from '../state/attachments.ts';
 import type { Suggestion } from '../state/commands.ts';
 import { KEYMAP } from '../state/keymap.ts';
 import { tui as palette } from './brand.ts';
+import { APART, GUTTER, INSET } from './space.ts';
 
 /**
  * A textarea that offers a pasted line to `onPastedLine` before it inserts the
@@ -86,14 +87,14 @@ export class Composer {
 		this.paletteBox = new BoxRenderable(renderer, {
 			flexDirection: 'column',
 			backgroundColor: palette.panel,
-			paddingLeft: 1,
+			paddingLeft: INSET,
 			visible: false,
 		});
 		this.paletteBox.add(this.paletteTitle);
 		this.paletteBox.add(this.paletteText);
 		this.cue = new TextRenderable(renderer, { content: '', wrapMode: 'none' });
 		this.cueRow = new BoxRenderable(renderer, {
-			paddingLeft: 1,
+			paddingLeft: INSET,
 			height: 1,
 			backgroundColor: palette.panel,
 			visible: false,
@@ -128,17 +129,22 @@ export class Composer {
 		});
 		this.frame = new BoxRenderable(renderer, {
 			flexDirection: 'row',
-			gap: 1,
+			gap: GUTTER,
 			border: ['left'],
 			borderColor: palette.line,
 			backgroundColor: palette.panel,
-			paddingLeft: 1,
+			paddingLeft: GUTTER,
 		});
 		this.frame.add(this.chip);
 		this.frame.add(this.input);
 		this.status = new TextRenderable(renderer, { content: '', flexGrow: 1 });
 		this.hints = new TextRenderable(renderer, { content: '', flexShrink: 0 });
-		const row = new BoxRenderable(renderer, { flexDirection: 'row', gap: 2, paddingLeft: 1 });
+		const row = new BoxRenderable(renderer, {
+			flexDirection: 'row',
+			gap: APART,
+			paddingLeft: INSET,
+			paddingRight: GUTTER,
+		});
 		row.add(this.status);
 		row.add(this.hints);
 		this.root.add(this.paletteBox);

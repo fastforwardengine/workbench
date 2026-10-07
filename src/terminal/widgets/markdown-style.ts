@@ -10,6 +10,7 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import { tui as palette } from './brand.ts';
+import { GAP, GUTTER } from './space.ts';
 
 let shared: SyntaxStyle | undefined;
 
@@ -81,7 +82,7 @@ function codeBlock(renderer: RenderContext, code: Renderable | null): Renderable
 	const box = new BoxRenderable(renderer, {
 		width: '100%',
 		flexShrink: 0,
-		paddingX: 1,
+		paddingX: GUTTER,
 		marginTop: 0,
 		backgroundColor: palette.raised,
 	});
@@ -143,7 +144,7 @@ function list(renderer: RenderContext, token: ListToken, fill: string | undefine
 			width: '100%',
 			flexDirection: 'row',
 			flexShrink: 0,
-			marginBottom: token.loose && index < token.items.length - 1 ? 1 : 0,
+			marginBottom: token.loose && index < token.items.length - 1 ? GAP : 0,
 		});
 		row.add(marker(renderer, token, item, index));
 		row.add(itemBody(renderer, item, fill));
@@ -172,7 +173,7 @@ function itemBlocks(item: ItemToken): ItemBlock[] {
 		const raw =
 			item.task && item.loose && child === first ? child.raw.replace(TASK_BOX, '') : child.raw;
 		if (child.type === 'space' || !raw.trim()) return;
-		const gap = blocks.length > 0 && shown[index - 1]?.type === 'space' ? 1 : 0;
+		const gap = blocks.length > 0 && shown[index - 1]?.type === 'space' ? GAP : 0;
 		blocks.push({ token: child, raw, gap });
 	});
 	return blocks;
