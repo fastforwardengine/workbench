@@ -30,14 +30,12 @@ function directoryFiles(directory: string, prefix: string): Record<string, SeedC
  * file, so `seed/shared/kit.md` becomes `/shared/kit.md`. The host writes
  * each file of `/library` at every start, because the package owns them. It
  * writes every other file only when the workspace does not hold it, so an
- * edit always remains. `overrides` replaces files of the seed by path, as an
- * eval of another project does.
+ * edit always remains.
  */
-export function seedFiles(overrides: Record<string, string> = {}): Record<string, SeedContent> {
+export function seedFiles(): Record<string, SeedContent> {
 	return {
 		...directoryFiles('library', '/library/'),
 		...directoryFiles('seed', '/'),
-		...overrides,
 	};
 }
 
@@ -61,12 +59,8 @@ async function writeSeed(env: Env, path: string, content: SeedContent): Promise<
  * workspace, so a local directory and a workstation get it the same way.
  * An existing file outside `/library` always remains.
  */
-export async function seedWorkspace(
-	workspace: Workspace,
-	overrides: Record<string, string> = {},
-): Promise<void> {
+export async function seedWorkspace(workspace: Workspace): Promise<void> {
 	await workspace.use(workspace.mirrorAgent, async (env) => {
-		for (const [path, content] of Object.entries(seedFiles(overrides)))
-			await writeSeed(env, path, content);
+		for (const [path, content] of Object.entries(seedFiles())) await writeSeed(env, path, content);
 	});
 }
