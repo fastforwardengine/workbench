@@ -29,7 +29,7 @@ function outputNote(output: ProcessOutput, process: ProcessView): string {
 	return output.truncated ? `The last part of ${size} of output.` : `${size} of output.`;
 }
 
-/** The processes panel: the background processes of the seats, and the output of the chosen one. */
+/** The processes layer: the background processes of the seats, and the output of the chosen one. */
 export class ProcessesPanel extends SidePanel {
 	private readonly heading: TextRenderable;
 	private readonly list: TextRenderable;
@@ -50,7 +50,6 @@ export class ProcessesPanel extends SidePanel {
 
 	/** Draw the browser's state. The output scrolls to its end when the chosen process changes. */
 	draw(browser: ProcessBrowser): void {
-		this.root.visible = browser.open;
 		if (!browser.open) return;
 		const now = Date.now();
 		const running = browser.processes.filter((process) => process.state === 'running').length;

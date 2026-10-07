@@ -2,11 +2,13 @@ import type { KeyEvent } from '@opentui/core';
 import { type Act, actOf } from '../state/keymap.ts';
 import type { ProcessBrowser } from '../state/process-browser.ts';
 import type { ProcessesPanel } from '../widgets/process-panel.ts';
-import type { Surface } from './surface.ts';
+import type { Exits, Surface } from './surface.ts';
 
-/** The processes panel and its keys. */
+/** The processes layer and its keys. */
 export class ProcessesSurface implements Surface {
-	readonly status = 'Watching the background processes. Esc closes the panel.';
+	readonly status = 'Watching the background processes. Esc returns to the composer.';
+	readonly narrow = true;
+	readonly takesKeys = true;
 	private readonly browser: ProcessBrowser;
 	private readonly panel: ProcessesPanel;
 	private readonly render: () => void;
@@ -22,17 +24,17 @@ export class ProcessesSurface implements Surface {
 		return this.panel.root;
 	}
 
-	/** Open the browser, so the first draw shows the panel, and read the processes. */
+	/** Open the browser on a new list, so the first draw shows the layer, and read the processes. */
 	open(): void {
 		void this.browser.show();
 	}
 
-	hide(): void {
-		this.browser.hide();
-		this.panel.draw(this.browser);
+	/** Watch the processes again, and read the list. The choice stays. */
+	show(): void {
+		void this.browser.resume();
 	}
 
-	release(): void {
+	hide(): void {
 		this.browser.hide();
 	}
 
@@ -40,25 +42,22 @@ export class ProcessesSurface implements Surface {
 		this.panel.draw(this.browser);
 	}
 
-	fill(whole: boolean): void {
-		this.panel.fill(whole);
-	}
-
 	/** What each key does. */
-	private readonly acts: Record<Act<'processes'>, (close: () => void) => void> = {
+	private readonly acts: Record<Act<'processes'>, (exits: Exits) => void> = {
 		up: () => this.browser.move(-1),
 		down: () => this.browser.move(1),
 		pageUp: () => this.panel.scrollBy(-this.panel.page),
 		pageDown: () => this.panel.scrollBy(this.panel.page),
 		cancel: () => void this.browser.cancel(),
 		copy: () => this.copyOutput(),
-		close: (close) => close(),
+		back: (exits) => exits.back(),
+		close: (exits) => exits.close(),
 	};
 
-	onKey(key: KeyEvent, close: () => void): void {
+	onKey(key: KeyEvent, exits: Exits): void {
 		key.preventDefault();
 		const act = actOf('processes', key);
-		if (act) this.acts[act](close);
+		if (act) this.acts[act](exits);
 	}
 
 	private copyOutput(): void {

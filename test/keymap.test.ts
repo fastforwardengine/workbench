@@ -44,7 +44,18 @@ describe('actOf', () => {
 	});
 
 	it('finds the keys of the sheet', () => {
-		for (const name of ['escape', '?', 'q']) expect(actOf('sheet', key(name))).toBe('close');
+		for (const name of ['?', 'q']) expect(actOf('sheet', key(name))).toBe('close');
+		expect(actOf('sheet', key('escape'))).toBe('back');
+	});
+
+	it('finds the keys of the dock', () => {
+		expect(actOf('composer', key('o', { ctrl: true }))).toBe('dock');
+		expect(actOf('dock', key('o', { ctrl: true }))).toBe('leave');
+		expect(actOf('dock', key('tab'))).toBe('cycle');
+		expect(actOf('dock', key('o'))).toBeUndefined();
+		expect(actOf('processes', key('escape'))).toBe('back');
+		expect(actOf('processes', key('q'))).toBe('close');
+		expect(actOf('files', key('q'))).toBeUndefined();
 	});
 });
 

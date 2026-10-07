@@ -11,7 +11,7 @@ import type { Row } from '../state/action-pad.ts';
 import type { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import { ActionRows } from './action-rows.ts';
 import { tui as palette } from './brand.ts';
-import { lineText, SidePanel } from './side-panel.ts';
+import { SidePanel } from './side-panel.ts';
 
 /** What the panel says in a terminal that cannot draw the frame. */
 const NEEDS_KITTY = 'The viewfinder needs a terminal with Kitty graphics, such as Ghostty.';
@@ -19,8 +19,8 @@ const NEEDS_KITTY = 'The viewfinder needs a terminal with Kitty graphics, such a
 /** The rows that a frame takes before the first layout gives the panel a width. */
 const IMAGE_ROWS = 12;
 
-/** The columns of the border, the padding, the body padding, the scrollbar, and the border of a box. */
-const FRAME_COLUMNS = 9;
+/** The columns of the body padding, the scrollbar, and the padding of a camera box. */
+const FRAME_COLUMNS = 5;
 
 /** The shape of a camera frame: 16 wide by 9 high. */
 const FRAME_SHAPE = 9 / 16;
@@ -28,7 +28,7 @@ const FRAME_SHAPE = 9 / 16;
 /** The label of a camera for people: the title of its widget, else its name. */
 const labelOf = (camera: Pick<CameraView, 'name' | 'title'>): string => camera.title ?? camera.name;
 
-/** One labelled box of the stack: a line for the age and the note of one camera, and its frame. */
+/** One camera of the stack, on a raised background: a line with its name, the age, and the note, and its frame. */
 class CameraBox {
 	/** The box of the camera, and the buttons under it. */
 	readonly root: BoxRenderable;
@@ -44,15 +44,16 @@ class CameraBox {
 			flexDirection: 'column',
 			width: '100%',
 			flexShrink: 0,
+			marginBottom: 1,
 			visible: false,
 		});
 		this.frame = new BoxRenderable(renderer, {
 			flexDirection: 'column',
 			width: '100%',
 			flexShrink: 0,
-			border: true,
-			borderColor: palette.line,
-			titleColor: palette.accent,
+			backgroundColor: palette.raised,
+			paddingLeft: 1,
+			paddingRight: 1,
 		});
 		this.actions = new ActionRows(renderer);
 		this.image = new ImageRenderable(renderer, {
@@ -63,7 +64,7 @@ class CameraBox {
 			visible: false,
 		});
 		this.line = new TextRenderable(renderer, { content: '', wrapMode: 'word', width: '100%' });
-		// The line comes first, so a tall frame never pushes the age and the note out of view.
+		// The line comes first, so a tall frame never pushes the name, the age, and the note out of view.
 		this.frame.add(this.line);
 		this.frame.add(this.image);
 		this.root.add(this.frame);
@@ -73,14 +74,13 @@ class CameraBox {
 	/** Draw one camera. `age` is the age of its frame, and `columns` is the width that the frame may take. */
 	draw(camera: CameraView, age: string | undefined, columns: number, rows: readonly Row[]): void {
 		this.root.visible = true;
-		this.frame.title = labelOf(camera);
 		this.actions.draw(rows);
 		this.fitImage(columns);
 		this.drawImage(camera.frame?.digest, camera.frame?.png);
-		this.line.visible = age !== undefined || camera.note !== undefined;
 		this.line.content = new StyledText([
-			fg(palette.dim)(age ?? ''),
-			fg(palette.note)(camera.note ? `${age ? '   ' : ''}${camera.note}` : ''),
+			fg(palette.accent)(labelOf(camera)),
+			fg(palette.dim)(age ? `   ${age}` : ''),
+			fg(palette.note)(camera.note ? `   ${camera.note}` : ''),
 		]);
 	}
 
@@ -103,20 +103,18 @@ class CameraBox {
 	}
 }
 
-/** The viewfinder panel: one labelled box for each bound camera, stacked, and a note for the whole panel. */
+/** The camera layer: one box for each bound camera, stacked, and a note for the whole layer. */
 export class ViewfinderPanel extends SidePanel {
-	private readonly heading: ReturnType<typeof lineText>;
 	private readonly stack: BoxRenderable;
 	private readonly body: TextRenderable;
 	private readonly boxes: CameraBox[] = [];
 
 	constructor(renderer: CliRenderer) {
-		super(renderer, false, '33%');
-		this.heading = lineText(renderer);
+		super(renderer);
 		this.stack = new BoxRenderable(renderer, { flexDirection: 'column', width: '100%' });
 		this.body = new TextRenderable(renderer, { content: '', wrapMode: 'word', width: '100%' });
 		this.addBody(this.stack, this.body);
-		for (const part of [this.heading, this.scroll]) this.root.add(part);
+		this.root.add(this.scroll);
 	}
 
 	/** The box of the camera at `index`. The panel makes a box when a camera needs one. */
@@ -132,11 +130,9 @@ export class ViewfinderPanel extends SidePanel {
 
 	/** Draw the state of the browser. `kitty` is true when the terminal draws Kitty graphics. */
 	draw(browser: ViewfinderBrowser, kitty: boolean): void {
-		this.root.visible = browser.open;
 		if (!browser.open) return;
 		const { cameras, note } = browser.state;
 		browser.syncActions();
-		this.heading.content = new StyledText([fg(palette.accent)('Camera')]);
 		const columns = this.root.width - FRAME_COLUMNS;
 		const drawn = kitty ? cameras : [];
 		drawn.forEach((camera, index) => {

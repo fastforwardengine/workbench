@@ -41,14 +41,19 @@ export class ProcessBrowser {
 
 	/** Open the panel on the newest process, and read the list again on each start and end. */
 	async show(): Promise<void> {
-		this.open = true;
-		this.generation += 1;
 		this.index = 0;
 		this.processes = [];
 		this.problem = undefined;
 		this.output = undefined;
 		this.confirming = undefined;
 		this.message = undefined;
+		await this.resume();
+	}
+
+	/** Open the panel again on the list and the choice that `hide` left, and read the list again. */
+	async resume(): Promise<void> {
+		this.open = true;
+		this.generation += 1;
 		this.unwatch?.();
 		this.unwatch = this.host.watchProcesses(() => void this.refresh());
 		await this.refresh();

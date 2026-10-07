@@ -71,7 +71,7 @@ async function build(voice = new Voice(quietParts())) {
 		composer,
 		palette: new Palette(composer),
 		painter: { invalidate: () => {} } as never,
-		surfaces: {} as never,
+		dock: {} as never,
 		viewfinder: {} as never,
 		transcript: {} as never,
 		voice,

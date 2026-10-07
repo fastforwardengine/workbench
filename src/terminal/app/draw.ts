@@ -2,7 +2,7 @@ import { fg, StyledText } from '@opentui/core';
 import type { RefItem } from '../../view/refs.ts';
 import { stagedCue } from '../state/attachments.ts';
 import { bindingLabel, KEYMAP } from '../state/keymap.ts';
-import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
+import type { Mode } from '../state/mode.ts';
 import type { PictureCache } from '../state/picture-cache.ts';
 import { pictureRefs, stripKey, stripsBySeq } from '../state/pictures.ts';
 import type { Session } from '../state/session.ts';
@@ -12,7 +12,7 @@ import { tui as palette } from '../widgets/brand.ts';
 import type { Composer } from '../widgets/composer.ts';
 import type { Header } from '../widgets/header.ts';
 import type { Marks, Transcript } from '../widgets/transcript.ts';
-import type { Surface } from './surface.ts';
+import type { Dock } from './dock.ts';
 
 /** The one hint of the footer. It names the key that opens the keys sheet. */
 const KEYS_HINT = `${bindingLabel(KEYMAP.composer.bindings.keys)} keys`;
@@ -22,8 +22,8 @@ export interface DrawParts {
 	session: Session;
 	transcript: Transcript;
 	composer: Composer;
-	/** The side panels, by mode. The painter draws the one that is open. */
-	surfaces: Readonly<Record<PanelMode, Surface>>;
+	/** The dock. The painter draws its tabs and its top layer. */
+	dock: Dock;
 	header: Header;
 	/** Voice mode. The status line shows its phase. */
 	voice: Voice;
@@ -34,8 +34,8 @@ export interface DrawParts {
 	/** The height of a cell over its width. */
 	cellAspect: () => number;
 	/**
-	 * The width the conversation has when the files panel is closed. A widget gets
-	 * its new width in the next layout pass, so a read right after the panel closes
+	 * The width the conversation has when the dock is closed. A widget gets
+	 * its new width in the next layout pass, so a read right after the dock closes
 	 * returns the old width.
 	 */
 	width: () => number;
@@ -50,7 +50,7 @@ export class Painter {
 	private readonly session: Session;
 	private readonly transcript: Transcript;
 	private readonly composer: Composer;
-	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
+	private readonly dock: Dock;
 	private readonly header: Header;
 	private readonly voice: Voice;
 	private readonly pictures: PictureCache;
@@ -64,7 +64,7 @@ export class Painter {
 		this.session = parts.session;
 		this.transcript = parts.transcript;
 		this.composer = parts.composer;
-		this.surfaces = parts.surfaces;
+		this.dock = parts.dock;
 		this.header = parts.header;
 		this.voice = parts.voice;
 		this.pictures = parts.pictures;
@@ -87,7 +87,7 @@ export class Painter {
 	render(mode: Mode, picking?: string): void {
 		this.drawTranscript(mode, picking);
 		this.drawChrome(mode, picking);
-		if (isPanel(mode)) this.surfaces[mode].draw();
+		this.dock.draw();
 	}
 
 	private marks(picking: string | undefined): Marks {
@@ -147,7 +147,7 @@ export class Painter {
 			return `This ref does not open: ${resolved.problem ?? 'it does not resolve'}.`;
 		return resolved.target.kind === 'message'
 			? 'Enter jumps to this message.'
-			: 'Enter opens this ref in the files panel.';
+			: 'Enter opens this ref in the files layer.';
 	}
 
 	private placeholder(): string {
@@ -165,7 +165,7 @@ export class Painter {
 
 	/** What the status line says in a mode that is not the composer, or undefined. */
 	private modeStatus(mode: Mode, picking: string | undefined): string | undefined {
-		if (isPanel(mode)) return this.surfaces[mode].status;
+		if (mode === 'dock') return this.dock.status;
 		if (mode === 'refs') return this.refStatus(picking);
 		if (mode === 'actions') return 'Choosing an action of a camera. Esc leaves.';
 		return undefined;

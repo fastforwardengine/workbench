@@ -1,17 +1,15 @@
 import type { CliRenderer, KeyEvent } from '@opentui/core';
 import { type Act, actOf, KEYMAP } from '../state/keymap.ts';
-import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
+import type { LayerId } from '../state/layers.ts';
+import type { Mode } from '../state/mode.ts';
 import type { Session } from '../state/session.ts';
 import type { Voice } from '../state/voice.ts';
 import type { Composer } from '../widgets/composer.ts';
 import type { Palette } from '../widgets/palette.ts';
 import type { Transcript } from '../widgets/transcript.ts';
+import { type Dock, NARROW } from './dock.ts';
 import type { Painter } from './draw.ts';
-import type { Surface } from './surface.ts';
 import type { ViewfinderSurface } from './viewfinder-surface.ts';
-
-/** Below this width, a side panel replaces the conversation, and the viewfinder does not show. */
-const NARROW = 100;
 
 /** What the keys reach into. `render` redraws after a change the keys make. */
 export interface KeyParts {
@@ -20,9 +18,9 @@ export interface KeyParts {
 	composer: Composer;
 	palette: Palette;
 	painter: Painter;
-	/** The side panels, by mode. */
-	surfaces: Readonly<Record<PanelMode, Surface>>;
-	/** The viewfinder. It shows beside the conversation and takes no keys. */
+	/** The dock, with the files, the processes, the keys sheet, and the camera as layers. */
+	dock: Dock;
+	/** The camera layer, for the actions of the cameras. */
 	viewfinder: ViewfinderSurface;
 	transcript: Transcript;
 	/** Voice mode. Space on an empty composer records. */
@@ -33,24 +31,20 @@ export interface KeyParts {
 }
 
 /**
- * The input. It routes each key to the composer, the refs, or a side panel, and
- * it holds the current mode and the chosen ref. It changes the
- * session and the widgets; it holds no drawing state of its own.
+ * The input. It routes each key to the composer, the refs, the actions of the
+ * cameras, or the top layer of the dock, and it holds the current mode and the
+ * chosen ref. It changes the session and the widgets; it holds no drawing state of its own.
  */
 export class Keys {
 	mode: Mode = 'compose';
 	/** The id of the chosen ref, in refs mode. */
 	picking: string | undefined;
-	/** True when the person asked for the viewfinder. A panel or a narrow terminal can still hide it. */
-	private finderWanted = false;
-	/** The mode a side panel returns to when it closes. */
-	private origin: Mode = 'compose';
 	private readonly renderer: CliRenderer;
 	private readonly session: Session;
 	private readonly composer: Composer;
 	private readonly palette: Palette;
 	private readonly painter: Painter;
-	private readonly surfaces: Readonly<Record<PanelMode, Surface>>;
+	private readonly dock: Dock;
 	private readonly viewfinder: ViewfinderSurface;
 	private readonly transcript: Transcript;
 	private readonly voice: Voice;
@@ -63,7 +57,7 @@ export class Keys {
 		this.composer = parts.composer;
 		this.palette = parts.palette;
 		this.painter = parts.painter;
-		this.surfaces = parts.surfaces;
+		this.dock = parts.dock;
 		this.viewfinder = parts.viewfinder;
 		this.transcript = parts.transcript;
 		this.voice = parts.voice;
@@ -76,25 +70,32 @@ export class Keys {
 		this.palette.refresh(this.mode === 'compose', (text) => this.session.suggestions(text));
 	}
 
-	/** Keep the chosen ref on a ref that still exists, and the viewfinder in its slot. */
+	/**
+	 * Keep the chosen ref on a ref that still exists, and the dock in its place. The
+	 * composer takes the keys back from a mode that has lost what it works on.
+	 */
 	reconcile(): void {
-		this.layoutViewfinder();
 		const ids = this.session.refItems.map((item) => item.id);
 		if (this.picking && !ids.includes(this.picking)) this.picking = ids.at(-1);
 		if (this.mode === 'refs' && !this.picking) {
 			this.mode = 'compose';
 			this.composer.focus();
 		}
-		// The pad leaves by itself when no camera has an action. The composer takes the keys back.
-		if (this.mode === 'actions' && !this.viewfinder.acting) this.leaveActions();
+		if (this.mode === 'dock' && !this.dock.shown) {
+			this.mode = 'compose';
+			this.composer.focus();
+		}
+		if (this.dock.layout(this.mode === 'dock')) this.painter.invalidate();
+		// The pad leaves by itself when no camera has an action, or when the camera is not on top.
+		if (this.mode === 'actions' && !this.viewfinder.acting()) this.leaveActions();
 	}
 
 	// Routing
 
 	onKey(key: KeyEvent): void {
 		if (this.controlKey(key) || this.voiceKey(key)) return;
-		if (isPanel(this.mode)) {
-			this.surfaces[this.mode].onKey(key, () => this.closePanel());
+		if (this.mode === 'dock') {
+			this.dockKey(key);
 			return;
 		}
 		const scroll = actOf('conversation', key);
@@ -110,7 +111,7 @@ export class Keys {
 
 	/**
 	 * Space in voice mode. True when voice mode takes the key. Voice mode owns
-	 * Space in the composer only, because a panel and the refs use Space themselves.
+	 * Space in the composer only, because the dock and the refs use Space themselves.
 	 */
 	private voiceKey(key: KeyEvent): boolean {
 		if (this.mode !== 'compose' || !this.voice.press(key, this.composer.text === '')) return false;
@@ -131,7 +132,7 @@ export class Keys {
 
 	/**
 	 * Ctrl+C and Ctrl+D. True when the key is handled. Ctrl+D leaves only from
-	 * the composer, because a panel uses it to scroll.
+	 * the composer, because a layer uses it to scroll.
 	 */
 	private controlKey(key: KeyEvent): boolean {
 		const act = actOf('everywhere', key);
@@ -145,7 +146,7 @@ export class Keys {
 
 	/**
 	 * Ctrl+C drops a recording or a transcription that runs. Otherwise it closes
-	 * a side panel and keeps the draft. In the other modes it
+	 * the top layer of the dock, when the dock has the keys, and keeps the draft. In the other modes it
 	 * clears the composer, and it cancels a new room that waits for its goal.
 	 * It does not quit.
 	 */
@@ -154,8 +155,8 @@ export class Keys {
 			this.render();
 			return;
 		}
-		if (isPanel(this.mode)) {
-			this.closePanel();
+		if (this.mode === 'dock') {
+			this.closeTop();
 			return;
 		}
 		if (this.mode === 'actions') {
@@ -170,94 +171,112 @@ export class Keys {
 		this.render();
 	}
 
-	// The side panels
+	// The dock
 
-	/** Open the files panel. A narrow terminal gives it the whole width. */
+	/** Open the files layer, and give it the keys. A narrow terminal gives it the whole width. */
 	openFiles(): void {
-		this.openPanel('files');
+		this.openLayer('files');
 	}
 
-	/** Open the processes panel, and read the processes. A narrow terminal gives it the whole width. */
+	/** Open the processes layer, and read the processes. It takes the keys. */
 	openProcesses(): void {
-		this.openPanel('processes');
+		this.openLayer('processes');
 	}
 
-	/** Open the keys sheet. A narrow terminal gives it the whole width. */
+	/** Open the keys sheet, or close it while it shows on the screen. The sheet takes the keys when it opens. */
 	openKeys(): void {
-		this.openPanel('keys');
+		if (this.dock.shown === 'keys' && this.dock.onScreen) this.closeTop();
+		else this.openLayer('keys');
 	}
 
 	/**
-	 * Open the viewfinder when it is closed, and close it when it is open. The
-	 * composer keeps the keys. A side panel covers the viewfinder while it is open.
+	 * Open the camera layer when it is closed or below another layer, and close it
+	 * when it shows. The composer keeps the keys. A narrow terminal does not show it.
 	 */
 	toggleCamera(): void {
-		this.finderWanted = !this.finderWanted;
-		if (this.finderWanted && this.renderer.width < NARROW)
-			this.session.say(
-				`The viewfinder shows when the terminal is at least ${NARROW} columns wide.`,
-			);
-		this.render();
+		const narrow = this.renderer.width < NARROW;
+		if (this.dock.shown === 'camera' || (narrow && this.dock.has('camera'))) {
+			this.dock.close('camera');
+			this.render();
+		} else if (narrow) {
+			this.session.say(`The camera shows when the terminal is at least ${NARROW} columns wide.`);
+			this.render();
+		} else this.openLayer('camera');
 	}
 
-	/** End the open side panel and the viewfinder without drawing, when the terminal ends. Their polls and timers stop. */
+	/** End the layers without drawing, when the terminal ends. Their polls and timers stop. */
 	release(): void {
-		if (isPanel(this.mode)) this.surfaces[this.mode].release();
-		this.finderWanted = false;
-		this.viewfinder.release();
+		this.dock.release();
 	}
 
 	/**
-	 * Show the viewfinder in the slot of the side panels. It shows when the person
-	 * asked for it, no side panel is open, and the terminal is wide. Otherwise it
-	 * hides, and its poll stops until it shows again.
+	 * Put a layer on top. A layer that needs the keys takes them from the composer, and a layer
+	 * that does not, such as the camera, leaves them where they are.
 	 */
-	private layoutViewfinder(): void {
-		const shown = this.finderWanted && !isPanel(this.mode) && this.renderer.width >= NARROW;
-		if (!shown) {
-			if (this.viewfinder.shown) this.viewfinder.hide();
+	private openLayer(id: LayerId): void {
+		if (this.mode === 'actions') this.leaveActions();
+		// The layer opens first, so the first draw shows it.
+		this.dock.open(id);
+		if (this.dock.takesKeys(id)) {
+			this.mode = 'dock';
+			this.composer.blur();
+		}
+		this.render();
+	}
+
+	/** Give the keys to the top layer. The composer keeps its draft. */
+	private enterDock(): void {
+		if (!this.dock.shown) {
+			this.session.say('No layer is open. Use /files, /ps, /camera, or ? to open one.');
 			return;
 		}
-		this.viewfinder.show();
-		this.viewfinder.fill(false);
-		this.viewfinder.draw();
-	}
-
-	private openPanel(mode: PanelMode): void {
 		if (this.mode === 'actions') this.leaveActions();
-		const surface = this.surfaces[mode];
-		// The surface opens first, so the first draw shows the panel.
-		surface.open();
-		if (!isPanel(this.mode)) this.origin = this.mode;
-		else if (this.mode !== mode) this.hidePanel();
-		this.mode = mode;
+		this.mode = 'dock';
 		this.composer.blur();
-		const roomy = this.renderer.width >= NARROW;
-		this.transcript.root.visible = roomy;
-		surface.fill(!roomy);
 		this.render();
 	}
 
-	/** Hide the open side panel. */
-	private hidePanel(): void {
-		if (isPanel(this.mode)) this.surfaces[this.mode].hide();
+	/** Give the keys back to the composer. Every layer stays open. */
+	private leaveDock(): void {
+		this.mode = 'compose';
+		this.composer.focus();
+		this.render();
 	}
 
-	private closePanel(): void {
-		this.hidePanel();
-		this.transcript.root.visible = true;
-		this.mode = this.origin;
-		if (this.mode === 'compose') this.composer.focus();
-		this.painter.invalidate();
+	/**
+	 * Close the top layer. The layer below shows, and the dock goes when none is left. The keys
+	 * go back to the composer when no layer is left that needs them.
+	 */
+	private closeTop(): void {
+		this.dock.close();
+		const next = this.dock.shown;
+		if (this.mode === 'dock' && !(next && this.dock.takesKeys(next))) {
+			this.mode = 'compose';
+			this.composer.focus();
+		}
 		this.render();
+	}
+
+	/** One key in the dock: the tab key and the leave key, else the top layer. */
+	private dockKey(key: KeyEvent): void {
+		const act = actOf('dock', key);
+		if (!act) {
+			this.dock.onKey(key, { back: () => this.leaveDock(), close: () => this.closeTop() });
+			return;
+		}
+		key.preventDefault();
+		if (act === 'cycle') {
+			this.dock.cycle();
+			this.render();
+		} else this.leaveDock();
 	}
 
 	// The actions of the cameras
 
-	/** Give the keys to the actions of the cameras. A closed viewfinder, or a camera with none, keeps the composer. */
+	/** Give the keys to the actions of the cameras. A camera layer that is not on top, or a camera with no action, keeps the composer. */
 	private enterActions(): void {
-		if (!this.viewfinder.shown) {
-			this.session.say('The viewfinder is closed. Use /camera to show the cameras.');
+		if (this.dock.shown !== 'camera') {
+			this.session.say('The camera layer is not on top. Use /camera to show the cameras.');
 			return;
 		}
 		if (!this.viewfinder.enterActions()) {
@@ -317,7 +336,7 @@ export class Keys {
 		this.render();
 	}
 
-	/** Open the chosen ref. A message ref jumps, and a file or a table opens the panel. */
+	/** Open the chosen ref. A message ref jumps, and a file or a table opens the files layer. */
 	private async openPicked(): Promise<void> {
 		const picked = this.session.refItems.find((item) => item.id === this.picking);
 		if (picked?.resolved.target?.kind === 'message')
@@ -355,6 +374,10 @@ export class Keys {
 		keys: () => {
 			if (this.composer.text !== '') return false;
 			this.openKeys();
+			return true;
+		},
+		dock: () => {
+			this.enterDock();
 			return true;
 		},
 		tab: () => {

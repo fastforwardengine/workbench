@@ -36,13 +36,13 @@ export const COMMANDS = [
 	{
 		name: 'files',
 		summary: 'Search the workspace files',
-		help: ['  /files            search the workspace files and read one in a side panel'],
+		help: ['  /files            search the workspace files and read one in the dock'],
 	},
 	{
 		name: 'open',
-		summary: 'Open a workspace file in the side panel',
+		summary: 'Open a workspace file in the dock',
 		argument: 'file',
-		help: ['  /open <path>      open the files panel on one file'],
+		help: ['  /open <path>      open the files layer of the dock on one file'],
 	},
 	{
 		name: 'attach',
@@ -62,10 +62,10 @@ export const COMMANDS = [
 	},
 	{
 		name: 'camera',
-		summary: 'Show or hide the cameras of the open room beside the conversation',
+		summary: 'Show or hide the cameras of the open room in the dock',
 		help: [
 			'  /camera           show the latest frame of each camera that the open room shows,',
-			'                    beside the conversation, and hide them when they show. The',
+			'                    in the dock, and hide them when they show. The',
 			'                    Engineer shows a camera. Ctrl+L chooses the Look now button',
 			'                    under a camera, Enter presses it, and Esc goes back. It needs',
 			'                    a terminal with Kitty graphics, such as Ghostty.',

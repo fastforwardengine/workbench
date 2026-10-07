@@ -60,7 +60,14 @@ export const KEYMAP = {
 				],
 				does: 'Add a line',
 			},
-			keys: { keys: [{ name: '?' }], does: 'Open this sheet, on an empty composer' },
+			keys: {
+				keys: [{ name: '?' }],
+				does: 'Open this sheet, or close it while it shows, on an empty composer',
+			},
+			dock: {
+				keys: [{ name: 'o', ctrl: true }],
+				does: 'Give the keys to the dock, while a layer is open',
+			},
 			talk: {
 				keys: [SPACE],
 				does: 'In voice mode, hold on an empty composer to talk, and let go to send',
@@ -91,7 +98,7 @@ export const KEYMAP = {
 		bindings: {
 			interrupt: {
 				keys: [{ name: 'c', ctrl: true, shift: false }],
-				does: 'Clear the composer, drop a recording, or close a panel',
+				does: 'Clear the composer, drop a recording, or close the top layer of the dock',
 			},
 			quit: {
 				keys: [{ name: 'd', ctrl: true, shift: false }],
@@ -117,8 +124,16 @@ export const KEYMAP = {
 			back: { keys: [ESC, Q], does: 'Go back to the composer' },
 		},
 	},
+	dock: {
+		title: 'Dock',
+		note: 'Files, processes, keys, and camera are layers of the dock. A new layer opens on top. Files, processes, and keys take the keys when they open. The camera leaves them with the composer.',
+		bindings: {
+			leave: { keys: [{ name: 'o', ctrl: true }], does: 'Give the keys back to the composer' },
+			cycle: { keys: [{ name: 'tab' }], does: 'Show the next layer' },
+		},
+	},
 	files: {
-		title: 'Files panel',
+		title: 'Files layer',
 		note: 'Type to search.',
 		bindings: {
 			up: { keys: [UP], does: 'Choose the file above' },
@@ -133,11 +148,11 @@ export const KEYMAP = {
 			erase: { keys: [{ name: 'backspace' }], does: 'Delete a character of the search' },
 			clearSearch: { keys: [{ name: 'u', ctrl: true }], does: 'Clear the search' },
 			copy: { keys: [{ name: 'y', ctrl: true }], does: 'Copy the file' },
-			close: { keys: [ESC], does: 'Clear the search, then close the panel' },
+			back: { keys: [ESC], does: 'Clear the search, then give the keys back to the composer' },
 		},
 	},
 	processes: {
-		title: 'Processes panel',
+		title: 'Processes layer',
 		bindings: {
 			up: { keys: [UP, K], does: 'Choose the process above' },
 			down: { keys: [DOWN, J], does: 'Choose the process below' },
@@ -145,17 +160,27 @@ export const KEYMAP = {
 			pageDown: { keys: [PAGE_DOWN], does: 'Scroll the output down' },
 			cancel: { keys: [{ name: 'x' }], does: 'Cancel the chosen process. Press it twice' },
 			copy: { keys: [{ name: 'y', ctrl: true }], does: 'Copy the output' },
-			close: { keys: [ESC, Q], does: 'Close the panel' },
+			back: { keys: [ESC], does: 'Give the keys back to the composer' },
+			close: { keys: [Q], does: 'Close the layer' },
+		},
+	},
+	camera: {
+		title: 'Camera layer',
+		note: 'The composer keeps the keys when the layer opens.',
+		bindings: {
+			back: { keys: [ESC], does: 'Give the keys back to the composer' },
+			close: { keys: [Q], does: 'Close the layer' },
 		},
 	},
 	sheet: {
-		title: 'Keys sheet',
+		title: 'Keys layer',
 		bindings: {
 			up: { keys: [UP, K], does: 'Scroll up' },
 			down: { keys: [DOWN, J], does: 'Scroll down' },
 			pageUp: { keys: [PAGE_UP], does: 'Scroll a page up' },
 			pageDown: { keys: [PAGE_DOWN], does: 'Scroll a page down' },
-			close: { keys: [ESC, { name: '?' }, Q], does: 'Close the sheet' },
+			back: { keys: [ESC], does: 'Give the keys back to the composer' },
+			close: { keys: [{ name: '?' }, Q], does: 'Close the layer' },
 		},
 	},
 } as const satisfies Record<string, Section>;
