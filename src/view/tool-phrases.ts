@@ -153,6 +153,14 @@ function editResult({ text }: Output): string | undefined {
 
 const PATCH_HEADER = /^\*\*\* (Add File|Delete File|Update File|Move to):[ \t]*(\S.*)$/;
 
+/** The header lines of a patch: the operation of each one, and its path. */
+function patchHeaders(patch: string): { header: string; path: string }[] {
+	const found = patch.split(/\r?\n/).map((line) => PATCH_HEADER.exec(line.trimEnd()));
+	return found.flatMap((parts) =>
+		parts === null ? [] : [{ header: parts[1] ?? '', path: parts[2] ?? '' }],
+	);
+}
+
 /**
  * The files that a patch names, in order. A `Move to` line joins the file
  * of the header before it as `old -> new`. A file that the patch names twice shows once.
@@ -160,13 +168,13 @@ const PATCH_HEADER = /^\*\*\* (Add File|Delete File|Update File|Move to):[ \t]*(
 function patchFiles(patch: string): string[] {
 	const names: string[] = [];
 	let last = -1;
-	for (const line of patch.split(/\r?\n/)) {
-		const [, header, path] = PATCH_HEADER.exec(line.trimEnd()) ?? [];
-		if (path === undefined) continue;
-		if (header !== 'Move to') {
+	for (const { header, path } of patchHeaders(patch)) {
+		if (header === 'Move to') {
+			if (last >= 0) names[last] = `${names[last]} -> ${path}`;
+		} else {
 			if (!names.includes(path)) names.push(path);
 			last = names.indexOf(path);
-		} else if (last >= 0) names[last] = `${names[last]} -> ${path}`;
+		}
 	}
 	return names;
 }

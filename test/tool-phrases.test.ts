@@ -79,12 +79,19 @@ describe('callPhrase', () => {
 		expect(
 			callPhrase(
 				'apply_patch',
-				patch('*** Add File: /1', '+x', '*** Add File: /2  ', '+x', '*** Update File: /1', '*** Move to: /3'),
+				patch(
+					'*** Add File: /1',
+					'+x',
+					'*** Add File: /2  ',
+					'+x',
+					'*** Update File: /1',
+					'*** Move to: /3',
+				),
 			),
 		).toBe('✎ patch /1 -> /3, /2');
-		expect(
-			callPhrase('apply_patch', patch('*** Move to: /b.ts', '*** Update File: /a.ts')),
-		).toBe('✎ patch /a.ts');
+		expect(callPhrase('apply_patch', patch('*** Move to: /b.ts', '*** Update File: /a.ts'))).toBe(
+			'✎ patch /a.ts',
+		);
 		expect(
 			callPhrase(
 				'apply_patch',
