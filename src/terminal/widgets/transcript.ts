@@ -10,7 +10,7 @@ import {
 	StyledText,
 	TextRenderable,
 } from '@opentui/core';
-import type { LiveActivation, LiveCall } from '../../view/live.ts';
+import type { LiveActivation, LiveCall, LiveProcess } from '../../view/live.ts';
 import { chipLine, type RefItem } from '../../view/refs.ts';
 import { ellipsize } from '../../view/text.ts';
 import type { Block, LiveBlock, MessageBlock, Role, StepsBlock } from '../../view/timeline.ts';
@@ -440,6 +440,24 @@ export class Transcript {
 				]),
 			);
 		for (const call of activation.calls) box.add(this.line(this.callChunks(call)));
+		for (const process of activation.processes ?? [])
+			box.add(this.line(this.processChunks(process)));
+	}
+
+	/**
+	 * The chunks of one process line: the mark, the name and the time it runs,
+	 * and the newest output line. The line fits one row.
+	 */
+	private processChunks(process: LiveProcess): Chunk[] {
+		const room = Math.max(CALL_MIN, this.root.width - CALL_MARGIN);
+		const head = ellipsize(`${process.name} · ${process.runs}`, room);
+		const left = room - head.length - 3;
+		const line = process.line && left > 1 ? ellipsize(process.line, left) : '';
+		return [
+			paint('    ▸ ', { color: palette.dim }),
+			paint(head, { color: palette.dim }),
+			...(line ? [paint(` · ${line}`, { color: palette.dim })] : []),
+		];
 	}
 
 	/** The chunks of one call line: the mark, the call, and its result. The line fits one row. */

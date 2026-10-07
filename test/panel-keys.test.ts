@@ -1675,3 +1675,39 @@ describe('the keys sheet', () => {
 		expect(await built.frame()).toContain('? keys');
 	});
 });
+
+describe('the live block with a running process', () => {
+	it('shows the newest output line of a process of the running seat, under its activation', async () => {
+		const built = await build(120);
+		const { host, session } = built;
+		// The terminal stops the reads when it ends. The test stops them before the renderer goes.
+		cleanups.unshift(() => void session.leave());
+		const [process] = host.processTable;
+		if (!process) throw new Error('No process.');
+		host.processTable = [{ ...process, room: session.room, name: 'scan' }];
+		const activations = [
+			{
+				id: 'act-9',
+				seat: 'engineer',
+				purpose: 'respond',
+				attempt: 1,
+				outcome: { kind: 'running' },
+			},
+		];
+		host.table.set(
+			session.room,
+			view(session.room, {
+				exchange: { from: 4, status: 'open', person: 'priya', at: AT, activations },
+				exchanges: [{ from: 4, status: 'open', person: 'priya', at: AT, activations }],
+			}),
+		);
+		await session.refresh();
+		await wait(20);
+		built.render();
+		const rows = (await built.frame()).split('\n').map((row) => row.trimEnd());
+		const title = rows.findIndex((row) => row.includes('engineer · respond'));
+		const line = rows.findIndex((row) => /▸ scan · \d+:\d\d · output of bash-aaa111/.test(row));
+		expect(title).toBeGreaterThan(-1);
+		expect(line).toBeGreaterThan(title);
+	});
+});

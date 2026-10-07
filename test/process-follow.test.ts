@@ -195,4 +195,26 @@ describe('the follow timer of the processes layer', () => {
 		await vi.advanceTimersByTimeAsync(0);
 		expect(panel.output?.handle).toBe('bash-2');
 	});
+
+	it('keeps a list problem through a good output read, and clears a read problem', async () => {
+		const { host } = hostOf(process('bash-1'));
+		const made = browser(host);
+		await made.show();
+		host.processFailure = 'The workspace is closed.';
+		await made.refresh();
+		expect(made.problem).toBe('The workspace is closed.');
+		await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+		expect(made.problem).toBe('The workspace is closed.');
+		host.processFailure = undefined;
+		await made.refresh();
+		const read = host.processOutput;
+		host.processOutput = async () => {
+			throw new Error('No output.');
+		};
+		await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+		expect(made.problem).toBe('No output.');
+		host.processOutput = read;
+		await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+		expect(made.problem).toBeUndefined();
+	});
 });

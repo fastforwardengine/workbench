@@ -32,8 +32,10 @@ export class ProcessBrowser {
 	private generation = 0;
 	private unwatch: (() => void) | undefined;
 	private follower: ReturnType<typeof setInterval> | undefined;
-	/** How many output reads are in flight. A timer tick waits while one runs. */
+	/** How many output reads are in flight. A timer tick skips while one runs. */
 	private reading = 0;
+	/** True when the problem comes from a failed output read. The next good read clears it. */
+	private readFailed = false;
 	private readonly host: ProcessHost;
 	private readonly changed: () => void;
 
@@ -106,6 +108,7 @@ export class ProcessBrowser {
 		}
 		if (generation !== this.generation) return;
 		this.problem = problem;
+		this.readFailed = false;
 		if (listed) this.choose(listed);
 		await this.load();
 	}
@@ -186,10 +189,13 @@ export class ProcessBrowser {
 			const output = await this.host.processOutput(process.handle, process.agent);
 			if (mine !== this.token) return;
 			this.output = output;
+			if (this.readFailed) this.problem = undefined;
+			this.readFailed = false;
 		} catch (error) {
 			if (mine !== this.token) return;
 			this.output = undefined;
 			this.problem = errorText(error);
+			this.readFailed = true;
 		} finally {
 			this.reading -= 1;
 		}

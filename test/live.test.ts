@@ -157,6 +157,29 @@ describe('liveActivations of a running activation', () => {
 	});
 });
 
+describe('liveActivations with processes', () => {
+	const lines = new Map([
+		['engineer', [{ name: 'scan', runs: '0:42', line: 'step 2' }]],
+		['researcher', [{ name: 'other', runs: '1:00', line: '' }]],
+	]);
+
+	it('gives a running activation the lines of the processes of its seat', () => {
+		const [live] = liveActivations([activation('a1')], new Map(), undefined, lines);
+		expect(live?.processes).toEqual([{ name: 'scan', runs: '0:42', line: 'step 2' }]);
+	});
+
+	it('gives an ended activation none, and omits the field when the seat has none', () => {
+		const [ended, quiet] = liveActivations(
+			[activation('a1', { kind: 'released' }), activation('a2', undefined, { seat: 'design' })],
+			new Map(),
+			undefined,
+			lines,
+		);
+		expect(ended).not.toHaveProperty('processes');
+		expect(quiet).not.toHaveProperty('processes');
+	});
+});
+
 describe('liveActivations of an ended activation', () => {
 	it('folds to a title with the cost', () => {
 		const ended = activation('a1', { kind: 'released' }, { usage: usage({ cost: 0.0012 }) });

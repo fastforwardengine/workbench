@@ -505,6 +505,39 @@ describe('the live block', () => {
 		expect(lines[at('camera observe')]).toBe('      … camera observe bench');
 	}, 20_000);
 
+	it('draws a line for each process of a running activation, under its calls', async () => {
+		const view = await mount();
+		const running: LiveActivation[] = [
+			{
+				id: 'a',
+				state: 'running',
+				title: 'engineer · respond',
+				earlier: 0,
+				calls: [{ state: 'done', text: 'bash python3 scan.py &', result: 'Process bash-1' }],
+				processes: [
+					{ name: 'scan', runs: '0:42', line: 'step 2 of 9' },
+					{ name: 'bash-2', runs: '1:05:07', line: '' },
+					{ name: 'x'.repeat(200), runs: '0:01', line: 'late' },
+				],
+			},
+		];
+		view.transcript.render([live('', running)], undefined, undefined, true);
+		await stable(view.setup, view.transcript.root);
+		const lines = view.setup
+			.captureCharFrame()
+			.split('\n')
+			.map((line) => line.trimEnd());
+		const at = (text: string) => lines.findIndex((line) => line.includes(text));
+		expect(lines[at('bash python3')]).toContain('✓ bash python3 scan.py &');
+		expect(lines[at('step 2 of 9')]).toBe('      ▸ scan · 0:42 · step 2 of 9');
+		expect(lines[at('bash-2 ·')]).toBe('      ▸ bash-2 · 1:05:07');
+		expect(at('step 2 of 9')).toBeGreaterThan(at('bash python3'));
+		const cut = lines.filter((line) => line.includes('xxxx'));
+		expect(cut).toHaveLength(1);
+		expect(cut[0]).toContain('…');
+		expect(cut[0]).not.toContain('late');
+	}, 20_000);
+
 	it('cuts a long call to one row', async () => {
 		const view = await mount();
 		const long = { state: 'done', text: `bash ${'x'.repeat(200)}`, result: 'ok' } as const;

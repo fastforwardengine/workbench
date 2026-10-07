@@ -534,6 +534,70 @@ describe('Session live block', () => {
 	});
 });
 
+describe('Session live block processes', () => {
+	const open = (outcome: string) => {
+		const activations = [
+			{ id: 'act-9', seat: 'engineer', purpose: 'respond', attempt: 1, outcome: { kind: outcome } },
+		];
+		return view('characterization', {
+			exchange: { from: 4, status: 'open', person: 'priya', at: AT, activations },
+			exchanges: [{ from: 4, status: 'open', person: 'priya', at: AT, activations }],
+		});
+	};
+	const bash = (handle: string, extra: Partial<ProcessView> = {}): ProcessView => ({
+		handle,
+		kind: 'bash',
+		agent: 'engineer',
+		room: 'characterization',
+		command: 'python3 scan.py',
+		state: 'running',
+		output: `/home/engineer/.processes/${handle}/out`,
+		timeout: 600,
+		grace: 10,
+		port: 20001,
+		startedAt: new Date().toISOString(),
+		...extra,
+	});
+	const liveBlock = (session: Session) =>
+		session.blocks.find((candidate) => candidate.type === 'live');
+
+	it('shows the newest output line of a process of the running seat, and stops with the activation', async () => {
+		const { host, session } = await started();
+		host.processTable = [
+			bash('bash-1', { name: 'scan' }),
+			bash('bash-2', { room: 'budget' }),
+			bash('bash-3', { agent: 'researcher' }),
+		];
+		host.table.set('characterization', open('running'));
+		await session.refresh();
+		await vi.waitFor(() =>
+			expect(liveBlock(session)).toMatchObject({
+				activations: [{ processes: [{ name: 'scan', line: 'output of bash-1' }] }],
+			}),
+		);
+		expect(host.reads).toEqual(['bash-1']);
+
+		host.table.set('characterization', open('released'));
+		await session.refresh();
+		expect(liveBlock(session)).toMatchObject({ activations: [{ state: 'done' }] });
+		const reads = host.reads.length;
+		await new Promise((resolve) => setTimeout(resolve, 1_100));
+		expect(host.reads).toHaveLength(reads);
+		await session.leave();
+	}, 10_000);
+
+	it('drops the lines when the person opens another room', async () => {
+		const { host, session } = await started();
+		host.processTable = [bash('bash-1')];
+		host.table.set('characterization', open('running'));
+		await session.refresh();
+		await vi.waitFor(() => expect(liveBlock(session)).toBeDefined());
+		await session.switchRoom('budget');
+		expect(liveBlock(session)).toBeUndefined();
+		await session.leave();
+	});
+});
+
 describe('Session scheduled says', () => {
 	it('notes each say that waits to return, with its seat and its time', async () => {
 		const { host, session } = await started();

@@ -10,6 +10,16 @@ export interface LiveCall {
 	result: string;
 }
 
+/** One running background process of the seat of an activation, as the live block draws it. */
+export interface LiveProcess {
+	/** The name of the process, or its handle when it has no name. */
+	name: string;
+	/** How long the process has run, such as `0:42`. */
+	runs: string;
+	/** The newest line of its output that holds a character. It is empty while the output has none. */
+	line: string;
+}
+
 /** One activation of the open exchange, as the live block draws it. */
 export interface LiveActivation {
 	id: string;
@@ -19,6 +29,8 @@ export interface LiveActivation {
 	calls: LiveCall[];
 	/** How many older calls of a running activation `calls` leaves out. */
 	earlier: number;
+	/** The processes of the seat that run in the open room, newest first. Absent when none. */
+	processes?: LiveProcess[];
 }
 
 type ToolCall = Extract<TraceStep, { type: 'tool_call' }>;
@@ -103,6 +115,7 @@ function liveActivation(
 	activation: ExchangeActivation,
 	read: ActivationSteps | undefined,
 	reason: string | undefined,
+	processes: readonly LiveProcess[] = [],
 ): LiveActivation {
 	const title = titleOf(activation, reason);
 	const { id } = activation;
@@ -115,6 +128,7 @@ function liveActivation(
 		title,
 		calls: calls.slice(-CALLS),
 		earlier: Math.max(0, calls.length - CALLS),
+		...(processes.length > 0 ? { processes: [...processes] } : {}),
 	};
 }
 
@@ -122,19 +136,26 @@ function liveActivation(
  * The activations of the open exchange for the live block, in the order of the
  * exchange. Every running activation shows, with its latest calls. An ended
  * activation folds to its title, and only the latest few show. `reads` holds
- * the steps of the running activations by id, and `failures` the reason of each
- * failed activation.
+ * the steps of the running activations by id, `failures` the reason of each
+ * failed activation, and `processes` the lines of the background processes of
+ * each seat, which a running activation of that seat shows.
  */
 export function liveActivations(
 	activations: readonly ExchangeActivation[],
 	reads: ReadonlyMap<string, ActivationSteps>,
 	failures?: ReadonlyMap<string, string>,
+	processes?: ReadonlyMap<string, readonly LiveProcess[]>,
 ): LiveActivation[] {
 	const ended = activations.filter((activation) => activation.outcome.kind !== 'running');
 	const kept = new Set(ended.slice(-ENDED).map((activation) => activation.id));
 	return activations
 		.filter((activation) => activation.outcome.kind === 'running' || kept.has(activation.id))
 		.map((activation) =>
-			liveActivation(activation, reads.get(activation.id), failures?.get(activation.id)),
+			liveActivation(
+				activation,
+				reads.get(activation.id),
+				failures?.get(activation.id),
+				processes?.get(activation.seat),
+			),
 		);
 }
