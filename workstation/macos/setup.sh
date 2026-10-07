@@ -561,7 +561,7 @@ self_check() {
 	if ! as_admin ssh "${ssh_args[@]}" "$SELF_ACCOUNT@127.0.0.1" \
 		"python3 -c 'import sys; sys.exit(2) if sys.version_info[:2] < tuple(map(int, sys.argv[1].split(\".\"))) else None; import serial, numpy, PIL' $PYTHON_FLOOR" \
 		>/dev/null 2>&1; then
-		warn "python3 $PYTHON_FLOOR or newer, with pyserial, numpy, and pillow, is not on the PATH of $SELF_ACCOUNT. The templates need it. The script installs no package. Run as $ADMIN: brew install python && python3 -m pip install pyserial numpy pillow"
+		warn "python3 $PYTHON_FLOOR or newer, with pyserial, numpy, and pillow, is not on the PATH of $SELF_ACCOUNT. The templates need it. The script installs no package. Run as $ADMIN: brew install python coreutils ffmpeg && python3 -m pip install --break-system-packages pyserial numpy pillow"
 	fi
 }
 
