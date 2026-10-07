@@ -40,7 +40,13 @@ describe('the settings', () => {
 			command: 'whisper-server',
 			model: '/home/priya/.cache/whisper/ggml-large-v3.bin',
 			custom: false,
+			language: 'en',
 		});
+	});
+
+	it('takes the language from WORKBENCH_WHISPER_LANGUAGE, and ignores a blank variable', () => {
+		expect(whisperConfig({ WORKBENCH_WHISPER_LANGUAGE: 'auto' }, '/h').language).toBe('auto');
+		expect(whisperConfig({ WORKBENCH_WHISPER_LANGUAGE: ' ' }, '/h').language).toBe('en');
 	});
 
 	it('takes the model from WORKBENCH_WHISPER_MODEL, with ~ for the home folder', () => {
@@ -59,8 +65,11 @@ describe('the settings', () => {
 		expect(whisperConfig({ WORKBENCH_WHISPER_MODEL: '  ' }, '/h').custom).toBe(false);
 	});
 
-	it('passes the model, a local address, the port, no timestamps, any language, and a beam of 5', () => {
-		const args = serverArgs({ command: 'whisper-server', model: '/m.bin', custom: false }, 8123);
+	it('passes the model, a local address, the port, no timestamps, the language, and a beam of 5', () => {
+		const args = serverArgs(
+			{ command: 'whisper-server', model: '/m.bin', custom: false, language: 'en' },
+			8123,
+		);
 		expect(SERVER_HOST).toBe('127.0.0.1');
 		expect(args).toEqual([
 			'-m',
@@ -71,7 +80,7 @@ describe('the settings', () => {
 			'8123',
 			'-nt',
 			'-l',
-			'auto',
+			'en',
 			'-bs',
 			'5',
 		]);
@@ -83,7 +92,12 @@ describe('the check before voice mode starts', () => {
 		const root = folder();
 		fakeServer(join(root, 'bin'), 'true');
 		writeFileSync(join(root, 'model.bin'), 'x');
-		const config = { command: 'whisper-server', model: join(root, 'model.bin'), custom: false };
+		const config = {
+			command: 'whisper-server',
+			model: join(root, 'model.bin'),
+			custom: false,
+			language: 'en',
+		};
 		expect(await whisperProblem(config, join(root, 'bin'))).toBeUndefined();
 	});
 
@@ -122,7 +136,12 @@ describe('the check before voice mode starts', () => {
 		mkdirSync(join(root, 'bin'));
 		writeFileSync(join(root, 'bin', 'whisper-server'), 'x', { mode: 0o644 });
 		writeFileSync(join(root, 'model.bin'), 'x');
-		const config = { command: 'whisper-server', model: join(root, 'model.bin'), custom: false };
+		const config = {
+			command: 'whisper-server',
+			model: join(root, 'model.bin'),
+			custom: false,
+			language: 'en',
+		};
 		expect(await whisperProblem(config, join(root, 'bin'))).toContain('brew install whisper-cpp');
 	});
 });

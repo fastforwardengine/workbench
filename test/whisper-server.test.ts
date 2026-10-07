@@ -89,7 +89,7 @@ function setup(behavior: Behavior = {}, times: Partial<ServerTimes> = {}) {
 	writeFileSync(wav, 'hello wav');
 	const events = { changed: 0, stopped: [] as string[] };
 	const server = new WhisperServer(
-		{ command, model: '/m.bin', custom: false },
+		{ command, model: '/m.bin', custom: false, language: 'en' },
 		{
 			changed: () => {
 				events.changed += 1;
@@ -142,7 +142,7 @@ describe('the start', () => {
 		expect(run?.args.slice(0, 4)).toEqual(['-m', '/m.bin', '--host', '127.0.0.1']);
 		expect(run?.args).toContain('--port');
 		expect(Number(run?.args[run.args.indexOf('--port') + 1])).toBeGreaterThan(0);
-		expect(run?.args.slice(-5)).toEqual(['-nt', '-l', 'auto', '-bs', '5']);
+		expect(run?.args.slice(-5)).toEqual(['-nt', '-l', 'en', '-bs', '5']);
 	});
 
 	it('is loading until the model answers, then ready', async () => {
@@ -247,7 +247,7 @@ describe('a server that ends on its own', () => {
 	it('reports a program that is missing', async () => {
 		const events = { stopped: [] as string[] };
 		const server = new WhisperServer(
-			{ command: '/nonexistent/whisper-server', model: '/m.bin', custom: false },
+			{ command: '/nonexistent/whisper-server', model: '/m.bin', custom: false, language: 'en' },
 			{ changed: () => {}, stopped: (line) => events.stopped.push(line) },
 			TIMES,
 		);
@@ -260,7 +260,7 @@ describe('a server that ends on its own', () => {
 	it('fails a run that cannot spawn, and starts again at the next call', async () => {
 		const events = { stopped: [] as string[] };
 		const server = new WhisperServer(
-			{ command: 'whisper-server\0', model: '/m.bin', custom: false },
+			{ command: 'whisper-server\0', model: '/m.bin', custom: false, language: 'en' },
 			{ changed: () => {}, stopped: (line) => events.stopped.push(line) },
 			TIMES,
 		);
