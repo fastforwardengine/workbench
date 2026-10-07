@@ -122,7 +122,11 @@ describe('the Markdown body of a message', () => {
 	}, 20_000);
 
 	it('shows one task box for each item of a loose task list, and keeps the empty line between two paragraphs of an item', async () => {
-		const { lines } = await draw('- [ ] a\n\n- [x] b\n\n- para one\n\n  para two');
+		const { lines } = await draw(
+			'- [ ] a\n\n- [x] b\n\n- para one\n\n  para two\n\n---\n\n- [ ] [x] kept',
+		);
 		expect(lines.slice(0, 7)).toEqual(['☐ a', '', '☑ b', '', '• para one', '', '  para two']);
+		// The text of a tight item keeps a leading `[x]`. The highlight conceals its brackets as a link.
+		expect(lines).toContain('☐ x kept');
 	}, 20_000);
 });

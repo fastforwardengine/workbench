@@ -103,6 +103,7 @@ interface ListToken {
 interface ItemToken {
 	task: boolean;
 	checked?: boolean;
+	loose: boolean;
 	tokens: { type: string; raw: string }[];
 }
 
@@ -168,7 +169,8 @@ function itemBlocks(item: ItemToken): ItemBlock[] {
 	const first = shown.find((child) => child.type !== 'space');
 	const blocks: ItemBlock[] = [];
 	shown.forEach((child, index) => {
-		const raw = item.task && child === first ? child.raw.replace(TASK_BOX, '') : child.raw;
+		const raw =
+			item.task && item.loose && child === first ? child.raw.replace(TASK_BOX, '') : child.raw;
 		if (child.type === 'space' || !raw.trim()) return;
 		const gap = blocks.length > 0 && shown[index - 1]?.type === 'space' ? 1 : 0;
 		blocks.push({ token: child, raw, gap });

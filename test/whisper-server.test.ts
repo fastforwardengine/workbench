@@ -324,8 +324,10 @@ describe('the end', () => {
 		const { server, wav } = setup({ loadMs: 2_000 });
 		const running = server.transcribe(wav, signal());
 		await new Promise((resolve) => setTimeout(resolve, 100));
+		// The take fails while `stop` waits for the process, so the test waits on it first.
+		const failed = expect(running).rejects.toThrow(/^whisper-server stopped$/);
 		await server.stop();
-		await expect(running).rejects.toThrow(/^whisper-server stopped$/);
+		await failed;
 	});
 
 	it('starts a new process after a stop, with none left from before', async () => {
