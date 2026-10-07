@@ -1,3 +1,5 @@
+import { pathText } from './breakouts.ts';
+
 /** The mark before the room when the room waits for the person. */
 export const WAITS_MARK = '◆';
 
@@ -8,6 +10,8 @@ export const WORKS_MARK = '●';
 export interface TitleSource {
 	identity: object | undefined;
 	room: string;
+	/** The room that holds the open room, when the open room is a breakout room. */
+	parent: string | undefined;
 	/** The replies that the room waits for from the person. */
 	attention: readonly string[];
 	working: { seat: string } | undefined;
@@ -16,14 +20,16 @@ export interface TitleSource {
 
 /**
  * The title of the terminal window. With a person and an open room, it starts
- * with the room and one mark for the state: a reply that waits for the person,
- * a seat that works, or a message that goes out. A reply that waits comes
- * before the other two. An idle room shows its name alone. Without a person or a room,
- * the title is the product name.
+ * with the path of the room and one mark for the state: a reply that waits for
+ * the person, a seat that works, or a message that goes out. A breakout room
+ * shows as `parent › short`. A reply that waits comes before the other two. An
+ * idle room shows its path alone. Without a person or a room, the title is the
+ * product name.
  */
 export function titleOf(source: TitleSource, product: string): string {
 	if (!source.identity || !source.room) return product;
-	const { room, working } = source;
+	const { working } = source;
+	const room = pathText(source.room, source.parent);
 	if (source.attention.length > 0) return `${WAITS_MARK} ${room} — ${product}`;
 	if (working) return `${WORKS_MARK} ${room} · ${working.seat} — ${product}`;
 	if (source.sending) return `${WORKS_MARK} ${room} — ${product}`;

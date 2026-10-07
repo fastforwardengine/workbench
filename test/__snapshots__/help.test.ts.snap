@@ -3,7 +3,9 @@
 exports[`the help text > lists every command and key, as the person reads them 1`] = `
 "Commands
   /room <name>      switch to another room. Ctrl+R lists the rooms.
-                    Breakout rooms show under their parent room.
+                    Breakout rooms show under their parent room, with their short name.
+                    The list picks the parent of a breakout room, else the newest
+                    running breakout room of the open room.
   /new <name> [goal]  create a room. Without a goal, the next line is the goal.
   /user <name>      switch to another person
   /files            search the workspace files and read one in the dock

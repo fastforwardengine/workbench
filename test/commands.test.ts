@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type Choices, parse, type RoomChoice, suggest } from '../src/terminal/state/commands.ts';
+import { rowLabel } from '../src/terminal/widgets/composer.ts';
 
 const rooms: RoomChoice[] = [
 	{ name: 'characterization', status: 'running', working: false },
@@ -199,6 +200,116 @@ describe('suggest', () => {
 			['budget', 'stopped'],
 		]);
 		expect(rows[2]).toMatchObject({ insert: '/room tuners', run: true });
+	});
+
+	describe('the tree of the room list', () => {
+		const breakout = (parent: string, state: 'running' | 'stopped' | 'archived', extra = {}) => ({
+			parent,
+			state,
+			goal: 'Compare three LDOs',
+			...extra,
+		});
+		const tree: Choices = {
+			...choices,
+			rooms: [
+				{ name: 'build', status: 'running', working: true },
+				{
+					name: 'build-datasheets',
+					status: 'running',
+					working: true,
+					breakout: breakout('build', 'running'),
+				},
+				{
+					name: 'build-sweep',
+					status: 'running',
+					working: false,
+					breakout: breakout('build', 'running'),
+				},
+				{
+					name: 'build-tuner-notes',
+					status: 'stopped',
+					working: false,
+					breakout: breakout('build', 'archived', { result: 'done' }),
+				},
+				{ name: 'bench', status: 'running', working: false },
+				{
+					name: 'stray',
+					status: 'running',
+					working: false,
+					breakout: breakout('bench', 'running'),
+				},
+			],
+		};
+
+		it('shows the short name, the mark, and the branch of each breakout row', () => {
+			const rows = suggest('/room ', tree);
+			expect(rows.map((row) => [row.label, row.tree])).toEqual([
+				['build', undefined],
+				['datasheets', { last: false, mark: '●' }],
+				['sweep', { last: false, mark: '○' }],
+				['tuner-notes', { last: true, mark: '✓' }],
+				['bench', undefined],
+				['stray', { last: true, mark: '○' }],
+			]);
+			expect(rows.map(rowLabel)).toEqual([
+				'build',
+				'  ├ ● datasheets',
+				'  ├ ○ sweep',
+				'  └ ✓ tuner-notes',
+				'bench',
+				'  └ ○ stray',
+			]);
+		});
+
+		it('inserts the full name, and keeps the state and the goal in the detail', () => {
+			const rows = suggest('/room ', tree);
+			expect(rows[1]).toMatchObject({
+				insert: '/room build-datasheets',
+				run: true,
+				detail: 'working · Compare three LDOs',
+			});
+			expect(rows[5]?.insert).toBe('/room stray');
+		});
+
+		it('matches the full name or the short name, and keeps the tree order', () => {
+			const labels = (text: string) => suggest(`/room ${text}`, tree).map((row) => row.label);
+			expect(labels('data')).toEqual(['datasheets']);
+			expect(labels('build-s')).toEqual(['sweep']);
+			expect(labels('S')).toEqual(['sweep', 'stray']);
+			expect(labels('b')).toEqual(['build', 'datasheets', 'sweep', 'tuner-notes', 'bench']);
+			expect(labels('nothing')).toEqual([]);
+		});
+
+		it('ends the branch at the last shown child of a filter', () => {
+			const last = (text: string) => suggest(`/room ${text}`, tree).map((row) => row.tree?.last);
+			expect(last('build-')).toEqual([false, false, true]);
+			expect(last('build-s')).toEqual([true]);
+			expect(last('s')).toEqual([true, true]);
+		});
+
+		it('flags the picked room for an empty filter only', () => {
+			const picked: Choices = {
+				...tree,
+				rooms: tree.rooms.map((room) =>
+					room.name === 'build-sweep' ? { ...room, picked: true } : room,
+				),
+			};
+			expect(suggest('/room ', picked).map((row) => row.picked)).toEqual([
+				undefined,
+				undefined,
+				true,
+				undefined,
+				undefined,
+				undefined,
+			]);
+			expect(suggest('/room sw', picked).map((row) => row.picked)).toEqual([undefined]);
+			expect(suggest('/room   ', picked).some((row) => row.picked)).toBe(true);
+		});
+
+		it('keeps the whole name when the prefix of the parent does not match', () => {
+			const rows = suggest('/room stray', tree);
+			expect(rows[0]?.label).toBe('stray');
+		});
 	});
 
 	it('cuts the goal of a breakout room to fit', () => {

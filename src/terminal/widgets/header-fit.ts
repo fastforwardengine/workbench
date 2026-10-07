@@ -4,12 +4,13 @@ import { APART } from './space.ts';
 export interface HeaderFitInput {
 	/** The cells one row has, inside the padding. */
 	width: number;
+	/** The path of the room as text, such as `build › datasheets`. */
 	name: string;
 	goal: string;
 	identity: string;
 	/** The cells the participants take on their row. */
 	people: number;
-	/** The text at the right edge of the row of the participants. */
+	/** The text at the right edge of the row of the participants: a pattern or a state. */
 	pattern: string;
 }
 
@@ -20,8 +21,8 @@ export interface HeaderFit {
 
 /**
  * Decide what the rows of the header show at one width. The goal takes the cells
- * that the room name and the identity leave, and it ends with an ellipsis when it
- * is longer. The pattern shows only when it fits after the participants. The
+ * that the room path and the identity leave, and it ends with an ellipsis when it
+ * is longer. The pattern or state shows only when it fits after the participants. The
  * participants never give way.
  */
 export function fitHeader(input: HeaderFitInput): HeaderFit {

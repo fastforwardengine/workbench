@@ -55,6 +55,14 @@ const TITLES = {
 	seat: 'Seats',
 } as const;
 
+/** The text of a palette label. A breakout row sits under its parent, with a branch and the mark of its state. */
+export function rowLabel(row: Suggestion): string {
+	if (!row.tree) return row.label;
+	const gap = ' '.repeat(GUTTER);
+	const branch = row.tree.last ? '└' : '├';
+	return `${' '.repeat(APART)}${branch}${gap}${row.tree.mark}${gap}${row.label}`;
+}
+
 /** The color of the left rail while the composer has the keys, by the mode of the text. */
 const RAIL: Record<Audience['mode'], string> = {
 	plain: palette.accent,
@@ -287,7 +295,7 @@ export class Composer {
 			Math.min(pick - (MAX_PALETTE_ROWS - 1), rows.length - MAX_PALETTE_ROWS),
 		);
 		const shown = rows.slice(first, first + MAX_PALETTE_ROWS);
-		const width = Math.max(...rows.map((row) => row.label.length)) + 2;
+		const width = Math.max(...rows.map((row) => rowLabel(row).length)) + 2;
 		this.paletteTitle.content = new StyledText([
 			fg(palette.muted)(TITLES[rows[0]?.kind ?? 'command']),
 		]);
@@ -295,7 +303,7 @@ export class Composer {
 		const chunks = shown.flatMap((row, index) => {
 			const chosen = first + index === pick;
 			const fill = chosen ? palette.selected : palette.panel;
-			const label = row.label.padEnd(width);
+			const label = rowLabel(row).padEnd(width);
 			const line = [
 				bg(fill)(fg(chosen ? palette.text : palette.accent)(label)),
 				bg(fill)(fg(palette.muted)(row.detail)),

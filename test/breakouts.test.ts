@@ -1,6 +1,16 @@
 /** What the terminal reads from the breakout rooms of the room list. */
 import { describe, expect, it } from 'vitest';
-import { backgroundOf, breakoutLabel, roomChoices } from '../src/terminal/state/breakouts.ts';
+import {
+	backgroundOf,
+	markOf,
+	pathParts,
+	pathText,
+	roomChoices,
+	shortName,
+	standingOf,
+	standingOfView,
+	standingText,
+} from '../src/terminal/state/breakouts.ts';
 import { suggest } from '../src/terminal/state/commands.ts';
 import { view } from './fake-host.ts';
 
@@ -72,21 +82,77 @@ describe('a breakout room without a live handle', () => {
 	});
 });
 
-describe('breakoutLabel', () => {
-	it('names the parent, and adds the result of an archived room', () => {
-		expect(breakoutLabel(child('a', 'build', 'running'))).toBe('breakout of build');
-		expect(breakoutLabel(child('a', 'build', 'stopped'))).toBe('breakout of build');
-		expect(breakoutLabel(child('a', 'build', 'archived'))).toBe('breakout of build · done');
+describe('standingOfView', () => {
+	it('tells how a breakout room stands, with the result of an archived room', () => {
+		expect(standingOfView(child('a', 'build', 'running'))).toBe('running');
+		expect(standingOfView(child('a', 'build', 'running', { exchange }))).toBe('working');
+		expect(standingOfView(child('a', 'build', 'stopped'))).toBe('stopped');
+		expect(standingOfView(child('a', 'build', 'archived'))).toBe('done');
+		const failed = {
+			parent: 'build',
+			opener: 'engineer',
+			state: 'archived',
+			close: { result: 'failed' },
+		};
+		expect(standingOfView(child('a', 'build', 'archived', { breakout: failed }))).toBe('failed');
+		const plain = { parent: 'build', opener: 'engineer', state: 'archived' };
+		expect(standingOfView(child('a', 'build', 'archived', { breakout: plain }))).toBe('archived');
 	});
 
-	it('is empty for a root room and for no room', () => {
-		expect(breakoutLabel(view('build'))).toBe('');
-		expect(breakoutLabel(undefined)).toBe('');
+	it('is undefined for a root room and for no room', () => {
+		expect(standingOfView(view('build'))).toBeUndefined();
+		expect(standingOfView(undefined)).toBeUndefined();
+	});
+
+	it('gives each standing its own mark, and the mark and the word as text', () => {
+		const standings = ['working', 'running', 'stopped', 'done', 'failed', 'archived'] as const;
+		expect(standings.map(markOf)).toEqual(['●', '○', '–', '✓', '✗', '·']);
+		expect(standingText('done')).toBe('✓ done');
+		expect(standingText('working')).toBe('● working');
+	});
+
+	it('reads a room that the host does not hold as stopped, whatever its row says', () => {
+		const dead = { name: 'a', status: 'stopped', working: true };
+		const row = { ...dead, breakout: { parent: 'build', state: 'running' as const, goal: '' } };
+		expect(standingOf(row)).toBe('stopped');
+		expect(standingOf(dead)).toBeUndefined();
+	});
+});
+
+describe('shortName and the path', () => {
+	it('drops the prefix of the parent', () => {
+		expect(shortName('build-datasheets', 'build')).toBe('datasheets');
+		expect(shortName('build-a-b', 'build')).toBe('a-b');
+	});
+
+	it('keeps the full name when the prefix does not match, or when nothing would remain', () => {
+		expect(shortName('tuners', 'build')).toBe('tuners');
+		expect(shortName('builder-x', 'build')).toBe('builder-x');
+		expect(shortName('build-', 'build')).toBe('build-');
+		expect(shortName('build', 'build')).toBe('build');
+	});
+
+	it('joins the parent and the short name for a breakout room', () => {
+		expect(pathParts('build-datasheets', 'build')).toEqual({
+			head: 'build › ',
+			leaf: 'datasheets',
+		});
+		expect(pathText('build-datasheets', 'build')).toBe('build › datasheets');
+		expect(pathText('tuners', 'build')).toBe('build › tuners');
+	});
+
+	it('shows a root room by its name', () => {
+		expect(pathParts('build')).toEqual({ head: '', leaf: 'build' });
+		expect(pathText('build')).toBe('build');
 	});
 });
 
 describe('roomChoices', () => {
 	const names = (open: string) => roomChoices(rooms, open).map((choice) => choice.name);
+	const picked = (open: string) =>
+		roomChoices(rooms, open)
+			.filter((choice) => choice.picked)
+			.map((choice) => choice.name);
 
 	it('lists each root room, then its breakout rooms, and the archived ones of the open room', () => {
 		expect(names('build')).toEqual([
@@ -132,5 +198,33 @@ describe('roomChoices', () => {
 			result: 'done',
 			goal: 'old-build goal',
 		});
+	});
+
+	it('picks the newest running breakout room of the open room', () => {
+		expect(picked('build')).toEqual(['plan']);
+		expect(picked('cycling')).toEqual(['live-cycling']);
+	});
+
+	it('picks the parent when a breakout room is open, whatever its state', () => {
+		expect(picked('tuners')).toEqual(['build']);
+		expect(picked('idle')).toEqual(['build']);
+		expect(picked('old-cycling')).toEqual(['cycling']);
+	});
+
+	it('picks the open room when it holds no running breakout room', () => {
+		const quiet = [view('build'), child('a', 'build', 'stopped'), child('b', 'build', 'archived')];
+		expect(roomChoices(quiet, 'build').filter((choice) => choice.picked)).toHaveLength(1);
+		expect(roomChoices(quiet, 'build').find((choice) => choice.picked)?.name).toBe('build');
+		expect(picked('bench')).toEqual([]);
+	});
+
+	it('does not count a running row without a live handle as running', () => {
+		const dead = child('dead', 'build', 'running', { status: 'stopped' });
+		const open = roomChoices([view('build'), dead], 'build');
+		expect(open.find((choice) => choice.picked)?.name).toBe('build');
+	});
+
+	it('picks no room when none is open', () => {
+		expect(picked('')).toEqual([]);
 	});
 });
