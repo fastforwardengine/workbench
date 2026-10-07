@@ -33,6 +33,13 @@ export interface KeyParts {
 	now?: () => number;
 }
 
+/**
+ * The pick that the Tab key starts on: the newest ref of a message, and the last
+ * activation line when no ref shows.
+ */
+const firstPick = (ids: readonly string[]): string | undefined =>
+	ids.findLast((id) => stayOfPick(id) === undefined) ?? ids.at(-1);
+
 /** The time in which a second Ctrl+D leaves the terminal. */
 export const QUIT_WINDOW_MS = 2000;
 
@@ -86,7 +93,7 @@ export class Keys {
 	 */
 	reconcile(): void {
 		const ids = this.session.pickIds;
-		if (this.picking && !ids.includes(this.picking)) this.picking = ids.at(-1);
+		if (this.picking && !ids.includes(this.picking)) this.picking = firstPick(ids);
 		if (this.mode === 'refs' && !this.picking) {
 			this.mode = 'compose';
 			this.composer.focus();
@@ -363,7 +370,7 @@ export class Keys {
 		}
 		this.mode = 'refs';
 		this.composer.blur();
-		this.picking = this.picking && ids.includes(this.picking) ? this.picking : ids.at(-1);
+		this.picking = this.picking && ids.includes(this.picking) ? this.picking : firstPick(ids);
 		this.painter.invalidate();
 		this.render();
 	}

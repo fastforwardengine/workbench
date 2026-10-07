@@ -907,15 +907,45 @@ describe('Session activation lines', () => {
 		);
 		host.traces.set('act-4', trace('act-4', true));
 		await session.refresh();
+		expect([...session.reads.keys()]).toEqual(['act-4']);
 		host.table.set('characterization', closedRoom([closedExchange(4)], messages.slice(0, 2)));
 		host.traces.delete('act-4');
 		await session.refresh();
+		expect(session.reads.size).toBe(0);
 		expect(lines(session)).toEqual([
 			{ id: 'act-4', state: 'done', title: 'design · respond · 1 call' },
 		]);
 		const reads = host.calls.filter((call) => call === 'activation:act-4').length;
 		await session.refresh();
 		expect(host.calls.filter((call) => call === 'activation:act-4')).toHaveLength(reads);
+	});
+
+	it('reads a closed activation once more when its last read held no end step, then drops the steps', async () => {
+		const { host, session } = await started();
+		const running = {
+			from: 4,
+			status: 'open',
+			person: 'priya',
+			at: AT,
+			activations: [{ ...closedExchange(4).activations[0], outcome: { kind: 'running' } }],
+		};
+		host.table.set(
+			'characterization',
+			view('characterization', {
+				messages: messages.slice(0, 1),
+				exchange: running,
+				exchanges: [running],
+			}),
+		);
+		host.traces.set('act-4', trace('act-4', false));
+		await session.refresh();
+		host.traces.set('act-4', trace('act-4', true));
+		host.table.set('characterization', closedRoom([closedExchange(4)], messages.slice(0, 2)));
+		await session.refresh();
+		await session.refresh();
+		expect(session.reads.size).toBe(0);
+		expect(lines(session)[0]?.title).toBe('design · respond · 1 call');
+		expect(host.calls.filter((call) => call === 'activation:act-4')).toHaveLength(2);
 	});
 
 	it('shows the title of an activation that it never read, without counts', async () => {

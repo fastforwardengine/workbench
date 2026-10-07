@@ -22,6 +22,7 @@ const closedExchange = (from: number, through: number, extra: object = {}): Exch
 	}) as Exchange;
 
 const humans = new Set(['noor', 'priya']);
+const usage = (cost: number) => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost });
 const build = (
 	messages: Message[],
 	exchanges: Exchange[],
@@ -306,7 +307,7 @@ describe('the activations of a closed exchange', () => {
 		]);
 	});
 
-	it('follows the order of the messages above a line, not the order of the activations', () => {
+	it('puts the lines above their messages in the order of the messages', () => {
 		const messages = [said(1, 'noor'), wrote(2, 'engineer', 'a2'), wrote(3, 'engineer', 'a1')];
 		const exchange = closedExchange(1, 3, { activations: [activation('a1'), activation('a2')] });
 		expect(order(build(messages, [exchange]))).toEqual(['m1', 'stays:a2', 'm2', 'stays:a1', 'm3']);
@@ -368,28 +369,8 @@ describe('the activations of a closed exchange', () => {
 				}),
 			],
 		});
-		const read = {
-			activation: 'a1',
-			passes: [
-				{
-					pass: 1,
-					input: 'view',
-					through: 3,
-					steps: [
-						{
-							type: 'tool_call',
-							call: 'c1',
-							name: 'read',
-							input: { path: '/a' },
-							at: '2026-01-01T00:00:00Z',
-						},
-						{ type: 'end', stop: 'stopped', at: '2026-01-01T00:00:42Z' },
-					],
-				},
-			],
-		};
 		const blocks = build([said(1, 'noor')], [exchange], {
-			reads: new Map([['a1', read as never]]),
+			totals: new Map([['a1', { calls: 1, span: 42_000 }]]),
 			failures: new Map([['a2', 'rate limit']]),
 		});
 		expect(blocks[1]).toEqual({
@@ -434,5 +415,77 @@ describe('the activations of a closed exchange', () => {
 			{},
 		]);
 		expect(items({ id: 'a2', read: undefined })[1]).toMatchObject({ open: { passes: [] } });
+	});
+});
+
+describe('the anchor of an exchange', () => {
+	const posted = (seq: number): Message => ({ seq, kind: 'posted', text: 'p', at: AT }) as Message;
+	/** The rule that the anchor search replaced: the last spoken message in the range, else the opening. */
+	const oldAnchor = (exchange: Exchange, messages: Message[]): number => {
+		const found = messages.filter(
+			(message) =>
+				(message.kind === 'said' || message.kind === 'posted') &&
+				message.seq >= exchange.from &&
+				message.seq <= (exchange as { through: number }).through,
+		);
+		return found.at(-1)?.seq ?? exchange.from;
+	};
+
+	it('puts the note of each exchange after the message that the old rule chose', () => {
+		const messages = [
+			said(1, 'noor'),
+			said(2, 'engineer', 'noor'),
+			arrived(3),
+			said(5, 'noor'),
+			arrived(6),
+			said(8, 'noor'),
+			said(9, 'engineer', 'noor'),
+			posted(10),
+			arrived(11),
+			said(13, 'noor'),
+		];
+		const awaiting = { outcome: { kind: 'awaiting', person: 'noor' } };
+		const exchanges = [
+			closedExchange(1, 3, { ...awaiting, usage: usage(1) }),
+			closedExchange(5, 7, { ...awaiting, usage: usage(2) }),
+			closedExchange(8, 12, { ...awaiting, usage: usage(3) }),
+			closedExchange(13, 13, { ...awaiting, usage: usage(4) }),
+			closedExchange(20, 22, { ...awaiting, usage: usage(5) }),
+		];
+		const blocks = build(messages, exchanges);
+		const placed = new Map<string, number>();
+		let last = 0;
+		for (const block of blocks) {
+			if (block.type === 'message') last = block.message.seq;
+			if (block.type === 'note') placed.set(block.text, last);
+		}
+		const expected = new Map(
+			exchanges.flatMap((exchange, at) =>
+				messages.some(
+					(message) => message.seq === oldAnchor(exchange, messages) && message.kind !== 'arrived',
+				)
+					? [[`Waiting on noor · $${at + 1}.0000`, oldAnchor(exchange, messages)] as const]
+					: [],
+			),
+		);
+		expect(expected.size).toBe(4);
+		expect(placed).toEqual(expected);
+		expect([...placed.values()]).toEqual([2, 5, 10, 13]);
+	});
+
+	it('puts the folded lines of an activation that wrote nothing after the same anchor', () => {
+		const messages = [said(1, 'noor'), arrived(2), said(3, 'engineer', 'noor'), arrived(4)];
+		const exchange = closedExchange(1, 4, {
+			activations: [
+				{
+					id: 'a1',
+					seat: 'engineer',
+					purpose: 'respond',
+					attempt: 1,
+					outcome: { kind: 'released' },
+				},
+			],
+		});
+		expect(shape(build(messages, [exchange]))).toEqual(['question:1', 'said:3', 'stays']);
 	});
 });

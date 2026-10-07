@@ -5,7 +5,7 @@ import type {
 	PostedMessage,
 	SaidMessage,
 } from '@ambionframework/ambion';
-import { endedLine, type LiveActivation } from './live.ts';
+import { endedLine, type LiveActivation, type StepTotals } from './live.ts';
 import { type ActivationSteps, formatUsage, type PassView, stepsView } from './steps.ts';
 
 type ClosedView = Extract<Exchange, { status: 'closed' }>;
@@ -82,8 +82,8 @@ export interface TimelineInput {
 	tail?: readonly Block[];
 	/** Why each failed activation failed, by activation id, as this process heard it. */
 	failures?: ReadonlyMap<string, string>;
-	/** The steps that this process read, by activation id. They give a stay its calls and its duration. */
-	reads?: ReadonlyMap<string, ActivationSteps>;
+	/** The totals of the steps that this process read, by activation id. They give a stay its calls and its duration. */
+	totals?: ReadonlyMap<string, StepTotals>;
 	/** The stay that the person expanded, and the steps that the host holds for it. */
 	expanded?: { id: string; read: ActivationSteps | undefined };
 }
@@ -128,26 +128,50 @@ function noteFor(exchange: ClosedView, failures?: ReadonlyMap<string, string>): 
 	return failed ? `Closed, ${failureText(failed, failures)}${suffix}` : undefined;
 }
 
-/**
- * The seq of the message that an exchange note follows: the last spoken
- * message in the range of the exchange, or its opening when none is spoken.
- */
-function anchorOf(exchange: ClosedView, messages: readonly Message[]): number {
-	const inRange = messages.filter(
-		(message) => spoken(message) && message.seq >= exchange.from && message.seq <= exchange.through,
-	);
-	return inRange.at(-1)?.seq ?? exchange.from;
+/** The last of the ascending `seqs` that is at most `limit`, by binary search. */
+function lastAtMost(seqs: readonly number[], limit: number): number | undefined {
+	let low = 0;
+	let high = seqs.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if ((seqs[middle] ?? 0) <= limit) low = middle + 1;
+		else high = middle;
+	}
+	return seqs[low - 1];
 }
 
+/**
+ * The seq of the message that an exchange note follows, by closed exchange:
+ * the last spoken message in the range of the exchange, or its opening when
+ * none is spoken. The record lists messages by seq, so one search for each
+ * exchange finds the last spoken seq that is at most `through`.
+ */
+function anchorsOf(input: TimelineInput): Map<ClosedView, number> {
+	const seqs = input.messages.filter(spoken).map((message) => message.seq);
+	const anchors = new Map<ClosedView, number>();
+	for (const exchange of input.exchanges) {
+		if (exchange.status !== 'closed') continue;
+		const last = lastAtMost(seqs, exchange.through);
+		anchors.set(exchange, last !== undefined && last >= exchange.from ? last : exchange.from);
+	}
+	return anchors;
+}
+
+const addTo = <T>(map: Map<number, T[]>, seq: number, item: T): void => {
+	map.set(seq, [...(map.get(seq) ?? []), item]);
+};
+
 /** The notes of the closed exchanges, by the seq of the message that each follows. */
-function notesBySeq(input: TimelineInput): Map<number, string[]> {
+function notesBySeq(
+	input: TimelineInput,
+	anchors: ReadonlyMap<ClosedView, number>,
+): Map<number, string[]> {
 	const notes = new Map<number, string[]>();
 	for (const exchange of input.exchanges) {
 		if (exchange.status !== 'closed') continue;
 		const text = noteFor(exchange, input.failures);
 		if (!text) continue;
-		const anchor = anchorOf(exchange, input.messages);
-		notes.set(anchor, [...(notes.get(anchor) ?? []), text]);
+		addTo(notes, anchors.get(exchange) ?? exchange.from, text);
 	}
 	return notes;
 }
@@ -164,7 +188,7 @@ function firstMessages(messages: readonly Message[]): Map<string, number> {
 function stayOf(activation: ExchangeActivation, input: TimelineInput): StayItem {
 	const line = endedLine(
 		activation,
-		input.reads?.get(activation.id),
+		input.totals?.get(activation.id),
 		input.failures?.get(activation.id),
 	);
 	const { expanded } = input;
@@ -175,10 +199,6 @@ function stayOf(activation: ExchangeActivation, input: TimelineInput): StayItem 
 	return { id: activation.id, ...line, ...open };
 }
 
-const addTo = <T>(map: Map<number, T[]>, seq: number, item: T): void => {
-	map.set(seq, [...(map.get(seq) ?? []), item]);
-};
-
 /** Where the folded activations of the closed exchanges go, by the seq of a message. */
 interface Stays {
 	/** The stays that go above a message: it is the first message that the activation wrote. */
@@ -187,12 +207,12 @@ interface Stays {
 	below: Map<number, StayItem[]>;
 }
 
-function staysBySeq(input: TimelineInput): Stays {
+function staysBySeq(input: TimelineInput, anchors: ReadonlyMap<ClosedView, number>): Stays {
 	const first = firstMessages(input.messages);
 	const stays: Stays = { above: new Map(), below: new Map() };
 	for (const exchange of input.exchanges) {
 		if (exchange.status !== 'closed') continue;
-		const anchor = anchorOf(exchange, input.messages);
+		const anchor = anchors.get(exchange) ?? exchange.from;
 		for (const activation of exchange.activations) {
 			const wrote = first.get(activation.id);
 			if (wrote === undefined) addTo(stays.below, anchor, stayOf(activation, input));
@@ -225,8 +245,9 @@ export function buildTimeline(input: TimelineInput): Block[] {
 	const dismissed = new Set(
 		input.messages.flatMap((message) => (message.kind === 'dismissed' ? [message.message] : [])),
 	);
-	const notes = notesBySeq(input);
-	const stays = staysBySeq(input);
+	const anchors = anchorsOf(input);
+	const notes = notesBySeq(input, anchors);
+	const stays = staysBySeq(input, anchors);
 	const blocks: Block[] = [];
 	for (const message of input.messages.filter(spoken)) {
 		blocks.push(

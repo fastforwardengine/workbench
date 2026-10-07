@@ -311,6 +311,55 @@ describe('the keys on an activation line', () => {
 		return made;
 	}
 
+	it('starts on the newest ref when one shows, and opens it with Enter, among mixed lines', async () => {
+		const { session, host } = await started();
+		host.fileList = [{ path: '/library/cell-18650.md', size: 797 }];
+		host.table.set(
+			'characterization',
+			view('characterization', {
+				participants: [{ name: 'priya', kind: 'person' }],
+				messages: [
+					said(1, 'priya'),
+					{ ...said(2, 'design', [FILE]), activation: 'act-2' },
+					said(3, 'priya'),
+					{
+						...said(4, 'design', ['ambion://room/characterization/message/1']),
+						activation: 'act-4',
+					},
+					said(5, 'priya'),
+				],
+				exchanges: [
+					{ ...exchange, from: 1, through: 2, activations: [activation('act-2')] },
+					{
+						...exchange,
+						from: 3,
+						through: 5,
+						activations: [activation('act-4'), activation('act-5')],
+					},
+				],
+			}),
+		);
+		await session.refreshRooms();
+		await session.refresh();
+		expect(session.pickIds).toEqual(['stay:act-2', '2#0', 'stay:act-4', '4#0', 'stay:act-5']);
+		const { keys, press } = keysOver(session);
+		press('tab');
+		expect(keys.picking).toBe('4#0');
+		press('up');
+		expect(keys.picking).toBe('stay:act-4');
+		press('up');
+		press('return');
+		await vi.waitFor(() => expect(keys.mode).toBe('dock'));
+		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/library/cell-18650.md'));
+	});
+
+	it('starts on the last line when no ref shows', async () => {
+		const { session } = await withLines();
+		const { keys, press } = keysOver(session);
+		press('tab');
+		expect(keys.picking).toBe('stay:act-3');
+	});
+
 	it('chooses a line with Tab, moves over the lines and the refs, and expands and folds with Enter', async () => {
 		const { session } = await withLines();
 		const { keys, press, log } = keysOver(session);

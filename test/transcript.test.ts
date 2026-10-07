@@ -155,7 +155,6 @@ const RUN: [string, State][] = [
 	['the live block changes', { exchanges: 4, tail: [live('engineer: using bash')] }],
 	['a steps block joins it', { exchanges: 4, tail: [live('x'), steps(true)] }],
 	['the steps block ends', { exchanges: 4, tail: [steps(false)] }],
-	['activation lines', { exchanges: 4, tail: [stays()] }],
 	[
 		'a line is chosen',
 		{ exchanges: 4, tail: [stays()], marks: { refs: new Map(), picked: 'stay:s2' } },

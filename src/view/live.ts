@@ -98,19 +98,31 @@ function currentStep(read: ActivationSteps | undefined): string {
 const failedEnd = (activation: ExchangeActivation): boolean =>
 	activation.outcome.kind === 'failed' || activation.outcome.kind === 'abandoned';
 
-/** `1 call`, or `6 calls`. It is empty when the activation made none. */
-function callCount(steps: readonly TraceStep[]): string {
-	const count = steps.filter((step) => step.type === 'tool_call').length;
-	return count === 0 ? '' : `${count} call${count === 1 ? '' : 's'}`;
+/** What the title of an ended activation counts from its steps: its calls and its span of time. */
+export interface StepTotals {
+	/** How many tool calls the activation made. */
+	calls: number;
+	/** Milliseconds from its first step to its last. It is zero when the steps hold no time. */
+	span: number;
 }
 
-/**
- * How long an activation took: from its first step to its last, as `m:ss`. It
- * is empty when the steps hold no time, or the span is under one second.
- */
-function duration(steps: readonly TraceStep[]): string {
+/** The totals of the steps of an activation. They stay small, and the steps themselves can go. */
+export function totalsOf(read: ActivationSteps | undefined): StepTotals {
+	const steps = stepsOf(read);
 	const times = steps.map((step) => Date.parse(step.at)).filter((time) => !Number.isNaN(time));
-	const span = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
+	return {
+		calls: steps.filter((step) => step.type === 'tool_call').length,
+		span: times.length > 1 ? Math.max(...times) - Math.min(...times) : 0,
+	};
+}
+
+/** `1 call`, or `6 calls`. It is empty when the activation made none. */
+function callCount({ calls }: StepTotals): string {
+	return calls === 0 ? '' : `${calls} call${calls === 1 ? '' : 's'}`;
+}
+
+/** How long an activation took, as `m:ss`. It is empty when the span is under one second. */
+function duration({ span }: StepTotals): string {
 	return span >= 1000 ? clock(span) : '';
 }
 
@@ -119,9 +131,9 @@ function duration(steps: readonly TraceStep[]): string {
  * ended activation adds its calls, its duration, and its cost. A part that is
  * zero or unknown is left out.
  */
-function titleParts(activation: ExchangeActivation, steps: readonly TraceStep[]): string[] {
+function titleParts(activation: ExchangeActivation, totals: StepTotals): string[] {
 	const running = activation.outcome.kind === 'running';
-	const spent = running ? [] : [callCount(steps), duration(steps), formatUsage(activation.usage)];
+	const spent = running ? [] : [callCount(totals), duration(totals), formatUsage(activation.usage)];
 	return [
 		activation.seat,
 		activation.purpose,
@@ -137,11 +149,11 @@ const reasonOf = (activation: ExchangeActivation, reason: string | undefined) =>
 /** The title: its parts, and the reason of a failed activation, joined with ` · `. */
 function titleOf(
 	activation: ExchangeActivation,
-	steps: readonly TraceStep[],
+	totals: StepTotals,
 	reason: string | undefined,
 ): string {
 	const why = reasonOf(activation, reason);
-	return [...titleParts(activation, steps), ...(why ? [why] : [])].join(' · ');
+	return [...titleParts(activation, totals), ...(why ? [why] : [])].join(' · ');
 }
 
 /** One ended activation as the line that stays in the conversation. */
@@ -155,18 +167,18 @@ export interface EndedLine {
 
 /**
  * The line of an activation of a closed exchange. It has the title that the
- * live block shows for an ended activation. Without a read of its steps, the
- * title has no calls and no duration.
+ * live block shows for an ended activation. Without the totals of its steps,
+ * the title has no calls and no duration.
  */
 export function endedLine(
 	activation: ExchangeActivation,
-	read: ActivationSteps | undefined,
+	totals: StepTotals | undefined,
 	reason: string | undefined,
 ): EndedLine {
 	const why = reasonOf(activation, reason);
 	return {
 		state: failedEnd(activation) ? 'failed' : 'done',
-		title: titleParts(activation, stepsOf(read)).join(' · '),
+		title: titleParts(activation, totals ?? { calls: 0, span: 0 }).join(' · '),
 		...(why ? { reason: why } : {}),
 	};
 }
@@ -178,7 +190,7 @@ function liveActivation(
 	processes: readonly LiveProcess[] = [],
 ): LiveActivation {
 	const steps = stepsOf(read);
-	const title = titleOf(activation, steps, reason);
+	const title = titleOf(activation, totalsOf(read), reason);
 	const { id } = activation;
 	if (activation.outcome.kind !== 'running')
 		return { id, state: failedEnd(activation) ? 'failed' : 'done', title, calls: [], earlier: 0 };

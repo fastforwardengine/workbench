@@ -1,7 +1,7 @@
 import type { Exchange } from '@ambionframework/ambion';
 import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
-import { liveActivations } from '../../view/live.ts';
+import { liveActivations, type StepTotals, totalsOf } from '../../view/live.ts';
 import { type Known, pickIds, type RefItem, refItems, shows, stayOfPick } from '../../view/refs.ts';
 import {
 	type ActivationSteps,
@@ -67,14 +67,10 @@ export class Session {
 	steps: { id: string; read: ActivationSteps | undefined } | undefined;
 	/** The files that `/attach` copied in. They go, as refs, with the next message. */
 	pendingRefs: StagedAttachment[] = [];
-	/**
-	 * The steps that this terminal read, by activation id: each activation of the open
-	 * exchange, and each one that it read before its exchange closed. A closed exchange
-	 * uses them for the title of its folded lines.
-	 */
+	/** The full steps of each activation of the open exchange, by activation id. */
 	private live = new Map<string, ActivationSteps>();
-	/** The ids of the closed activations that a read after the close already settled. */
-	private settled = new Set<string>();
+	/** The totals of each closed activation that this terminal read, by activation id. They are small. */
+	private totals = new Map<string, StepTotals>();
 	/** The folded line that the person expanded, and the steps that the host held for it. */
 	unfolded: { id: string; read: ActivationSteps | undefined } | undefined;
 	/** The newest output line of the processes that the running seats of the open exchange own. */
@@ -185,11 +181,15 @@ export class Session {
 
 	/**
 	 * Read the steps of each activation of the room. A running activation reads
-	 * again on each change. An ended activation reads again until a read holds its
-	 * end step, so its title can count its calls and its time. An activation that
-	 * the terminal did not see in the open exchange has no read, and a closed
-	 * exchange shows its title without calls. A failed read keeps the last steps of
-	 * that activation. An activation that left the room view drops out.
+	 * again on each change. An ended activation of the open exchange reads again
+	 * until a read holds its end step, so its title can count its calls and its
+	 * time. The terminal keeps the full steps of the open exchange only. When an
+	 * activation moves to a closed exchange, a last read gives its totals, and the
+	 * steps go: the step log of the host holds the trace, and a closed line reads it
+	 * again when the person expands the line. An activation that the terminal did
+	 * not see in the open exchange has no totals, and its line shows the title
+	 * without calls. A failed read keeps the last answer. An activation that left
+	 * the room view drops out.
 	 */
 	private async readLive(room: string): Promise<void> {
 		const all = (this.view?.exchanges ?? []).flatMap((exchange) => exchange.activations);
@@ -202,25 +202,50 @@ export class Session {
 		);
 		if (this.room !== room) return;
 		const fresh = new Map(wanted.map((activation, at) => [activation.id, reads[at]]));
+		this.keep(
+			all.map(({ id }) => id),
+			open,
+			fresh,
+		);
+	}
+
+	/**
+	 * Keep the steps of the open exchange, and the totals of every other activation.
+	 * The steps of an activation that moved to a closed exchange go.
+	 */
+	private keep(
+		ids: readonly string[],
+		open: ReadonlySet<string>,
+		fresh: ReadonlyMap<string, ActivationSteps | undefined>,
+	): void {
 		const next = new Map<string, ActivationSteps>();
-		for (const { id } of all) {
+		const totals = new Map<string, StepTotals>();
+		for (const id of ids) {
 			const read = fresh.get(id) ?? this.live.get(id);
-			if (read) next.set(id, read);
-			if (fresh.has(id) && !open.has(id)) this.settled.add(id);
+			const kept = read && !open.has(id) ? totalsOf(read) : this.totals.get(id);
+			if (open.has(id) && read) next.set(id, read);
+			else if (kept) totals.set(id, kept);
 		}
 		this.live = next;
+		this.totals = totals;
 	}
 
 	/**
 	 * True when an activation needs a read. A running one does. An ended one of the
-	 * open exchange reads until it holds its end step. A closed one that holds none
-	 * reads one more time, because the exchange can close before the last step lands.
+	 * open exchange reads until it holds its end step. A closed one reads one more
+	 * time when the terminal holds steps of it that have no end step, because the
+	 * exchange can close before the last step lands.
 	 */
 	private wantsRead(id: string, outcome: string, open: ReadonlySet<string>): boolean {
 		if (outcome === 'running') return true;
 		const kept = this.live.get(id);
 		if (open.has(id)) return !kept || !ended(kept);
-		return kept !== undefined && !ended(kept) && !this.settled.has(id);
+		return kept !== undefined && !ended(kept);
+	}
+
+	/** The activations whose full steps the terminal holds: the activations of the open exchange. */
+	get reads(): ReadonlyMap<string, ActivationSteps> {
+		return this.live;
 	}
 
 	/** What the person owes the room, one line each. It is empty when nothing waits. */
@@ -268,7 +293,7 @@ export class Session {
 			activity: activity && error ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
 			tail: this.tail(view),
 			failures: view.failures,
-			reads: this.live,
+			totals: this.totals,
 			expanded: this.unfolded,
 		});
 		this.changed();
@@ -427,7 +452,7 @@ export class Session {
 		this.focus = undefined;
 		this.steps = undefined;
 		this.live = new Map();
-		this.settled = new Set();
+		this.totals = new Map();
 		this.unfolded = undefined;
 		this.tails.stop();
 		this.notice = undefined;
