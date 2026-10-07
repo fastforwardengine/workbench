@@ -13,18 +13,24 @@
 #   make reset                  remove the workstation and its volumes, after a prompt
 #   make voice                  whisper.cpp and its model for /voice, once
 #
-# workstation/README.md describes the workstation.
+#   make mac-workstation        the workstation on this Mac, for one OS user per seat; asks for sudo
+#   make mac-workbench          Workbench on that workstation. DATA= names the data directory
+#   make mac-teardown           remove that workstation, after a prompt; asks for sudo
+#
+# workstation/README.md describes the workstation in a container.
+# workstation/macos/README.md describes the workstation on this Mac.
 
 COMPOSE := docker compose -f workstation/compose.yaml
 STATE := .workstation
 CONFIG := $(STATE)/workstation.json
+MAC_CONFIG := $(STATE)/macos.json
 DATA ?= .data
 ACCOUNT ?= researcher
 WHISPER_MODEL := $(HOME)/.cache/whisper/ggml-large-v3.bin
 WHISPER_URL := https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
 
 .DEFAULT_GOAL := workbench
-.PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset voice
+.PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset voice mac-workstation mac-workbench mac-teardown
 
 # The dependencies, again when the manifest or the lockfile changes.
 node_modules/.modules.yaml: package.json pnpm-lock.yaml
@@ -58,6 +64,23 @@ usb-detach:
 ## Workbench, with the bash and git backends on the workstation.
 workbench: workstation node_modules/.modules.yaml
 	WORKBENCH_WORKSTATION=$(CONFIG) pnpm start $(DATA)
+
+## The workstation on this Mac: one hidden OS user for each seat, reached over
+## the sshd of the Mac on 127.0.0.1. USB devices stay native on macOS. The
+## script runs with sudo, and it keeps what exists. It writes $(MAC_CONFIG).
+mac-workstation:
+	sudo bash workstation/macos/setup.sh $(STATE)
+
+## Workbench, with the bash and git backends on the workstation of this Mac.
+mac-workbench: node_modules/.modules.yaml
+	@test -f $(MAC_CONFIG) || { echo 'No $(MAC_CONFIG). Run make mac-workstation first.' >&2; exit 1; }
+	WORKBENCH_WORKSTATION=$(MAC_CONFIG) pnpm start $(DATA)
+
+## The workstation of this Mac goes, after a prompt: the users, the group, the
+## sshd drop-in, and the root links. A second prompt asks about the data
+## folder. Your own account and the keys in $(STATE) stay.
+mac-teardown:
+	sudo bash workstation/macos/teardown.sh $(STATE)
 
 ## What /voice needs: whisper-server from Homebrew, and the large-v3 model of
 ## about 3 GB. The download goes to a part file first, so a stopped download

@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+# A setsid for macOS, which has none. The workstation backend of Ambion runs
+# every command as `exec setsid --wait bash -s`. This file does what that
+# call needs: it starts the command in a new session, and with `--wait` it
+# waits for the command and returns its exit status.
+#
+# The child makes the new session, so it leads a new process group. The
+# group ID is the process ID of the child. The backend stops a command with
+# `kill -- -<pgid>`.
+use strict;
+use warnings;
+use POSIX qw(setsid WIFEXITED WEXITSTATUS);
+
+my $wait = 0;
+while (@ARGV && $ARGV[0] =~ /^-/) {
+	my $option = shift @ARGV;
+	last if $option eq '--';
+	if ($option eq '-w' || $option eq '--wait') { $wait = 1; next; }
+	next if $option eq '-f' || $option eq '--fork' || $option eq '-c' || $option eq '--ctty';
+	print STDERR "setsid: unsupported option $option\n";
+	exit 1;
+}
+if (!@ARGV) {
+	print STDERR "usage: setsid [--wait] program [argument ...]\n";
+	exit 1;
+}
+
+my $pid = fork();
+if (!defined $pid) {
+	print STDERR "setsid: fork failed: $!\n";
+	exit 1;
+}
+if ($pid == 0) {
+	setsid() or do { print STDERR "setsid: failed to create a new session: $!\n"; exit 1; };
+	{
+		no warnings 'exec';
+		exec { $ARGV[0] } @ARGV;
+	}
+	print STDERR "setsid: failed to execute $ARGV[0]: $!\n";
+	exit 127;
+}
+exit 0 unless $wait;
+
+waitpid($pid, 0);
+my $status = $?;
+exit WEXITSTATUS($status) if WIFEXITED($status);
+print STDERR "setsid: child $pid did not exit normally\n";
+exit 1;

@@ -9,6 +9,10 @@ templates and the forks. The journals of the rooms stay in the SQLite file
 of Workbench. A second container, an object store, keeps the bytes of the
 snapshots.
 
+**A Mac can host the workstation itself.** [`macos/`](macos/README.md) sets up
+the same backend on the sshd of the Mac, with one hidden OS user for each
+seat and the USB devices native. The container stays.
+
 ```mermaid
 flowchart LR
   subgraph host["Workbench, on this machine"]

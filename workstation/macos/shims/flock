@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+# A flock for macOS, which has none. The git backend of Ambion runs
+# `flock 9` in a script, after it opens file descriptor 9 on a lock file.
+# This file takes an exclusive lock on the descriptor that the number names,
+# and waits until it gets the lock. The lock belongs to the open file, so the
+# shell that opened the descriptor keeps the lock until it exits.
+#
+# It supports only this form: flock [-x | -s | -e] [-n] <descriptor number>.
+# With -n, it fails at once, with status 1, when another process holds the lock.
+use strict;
+use warnings;
+use Fcntl qw(:flock);
+
+my $mode = LOCK_EX;
+my $nonblock = 0;
+while (@ARGV && $ARGV[0] =~ /^-/) {
+	my $option = shift @ARGV;
+	if ($option eq '-s' || $option eq '--shared') { $mode = LOCK_SH; next; }
+	if ($option eq '-n' || $option eq '--nonblock') { $nonblock = 1; next; }
+	next if $option eq '-x' || $option eq '-e' || $option eq '--exclusive';
+	print STDERR "flock: unsupported option $option\n";
+	exit 64;
+}
+if (@ARGV != 1 || $ARGV[0] !~ /^\d+$/) {
+	print STDERR "usage: flock [-x | -s] [-n] <descriptor number>\n";
+	exit 64;
+}
+
+open(my $handle, '>&=', $ARGV[0] + 0) or do {
+	print STDERR "flock: descriptor $ARGV[0] is not open: $!\n";
+	exit 1;
+};
+flock($handle, $mode | ($nonblock ? LOCK_NB : 0)) or do {
+	print STDERR "flock: cannot lock descriptor $ARGV[0]: $!\n";
+	exit 1;
+};
+exit 0;

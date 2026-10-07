@@ -1,0 +1,175 @@
+# shellcheck shell=bash disable=SC2034
+# The words and the helpers that setup.sh and teardown.sh share. Source this
+# file. Do not run it. The scripts run on the bash 3.2 of macOS: no mapfile,
+# no associative array, and no empty array under `set -u`.
+#
+# WORKBENCH_DRY_RUN=1 prints each privileged command and each file it would
+# write, and skips the checks for Darwin and for root. The test in
+# test/workstation-macos.test.ts uses it on Linux. The WORKBENCH_* paths below
+# have a default for a Mac. The test sets them to paths in a temporary folder.
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+
+DRY="${WORKBENCH_DRY_RUN:-}"
+[ "$DRY" = 1 ] || DRY=""
+
+# The accounts. The file workstation/accounts lists the group accounts. The
+# git account is outside the group, as in the container.
+ACCOUNTS=()
+while read -r name; do ACCOUNTS+=("$name"); done < <(grep -v "^#" "$REPO/workstation/accounts")
+GIT_ACCOUNT=workbench-git
+GROUP=workbench
+# The comment of each record that setup.sh makes. teardown.sh deletes only
+# a record with this comment, so it never deletes an account that an admin made.
+MARK=workbench-macos
+# The fixed ids. The group accounts count up from UID_BASE in the order of
+# the accounts file, and the git account has GIT_UID. macOS gives its own
+# users 501 and up, and its service accounts less than 500.
+UID_BASE="${WORKBENCH_UID_BASE:-5000}"
+GIT_UID=$((UID_BASE + 900))
+GROUP_GID="${WORKBENCH_GID:-5000}"
+# The primary group of every account: staff, the group of a standard user.
+PRIMARY_GROUP=staff
+ACCOUNT_SHELL=/bin/zsh
+
+# The host account writes the room mirror, the snapshots, and the library.
+HOST_ACCOUNT=""
+for name in "${ACCOUNTS[@]}"; do
+	case "$name" in *-host) HOST_ACCOUNT="$name" ;; esac
+done
+
+# The paths. The root folders of the workspace are links in `/`.
+HOMES="${WORKBENCH_HOMES:-/Users}"
+SHARE="${WORKBENCH_SHARE:-/Users/Shared/workbench}"
+ROOT_DIR="${WORKBENCH_ROOT_DIR:-}"
+ROOT_NAMES=(library shared attachments)
+LIBEXEC="${WORKBENCH_LIBEXEC:-/usr/local/libexec/workbench}"
+SSHD_CONFIG="${WORKBENCH_SSHD_CONFIG:-/etc/ssh/sshd_config}"
+SSHD_DROPIN="${WORKBENCH_SSHD_DROPIN:-/etc/ssh/sshd_config.d/100-workbench.conf}"
+SYNTHETIC="${WORKBENCH_SYNTHETIC:-/etc/synthetic.conf}"
+HOST_KEY_PUB="${WORKBENCH_HOST_KEY_PUB:-/etc/ssh/ssh_host_ed25519_key.pub}"
+STATE_FILE="$LIBEXEC/state"
+APFS_UTIL=/System/Library/Filesystems/apfs.fs/Contents/Resources/apfs.util
+SSH_GROUP=com.apple.access_ssh
+
+say() { printf '%s\n' "$*"; }
+warn() { printf 'warning: %s\n' "$*" >&2; }
+die() {
+	printf 'error: %s\n' "$*" >&2
+	exit 1
+}
+
+# Run one privileged command. A dry run prints it.
+run() {
+	if [ -n "$DRY" ]; then
+		printf '+'
+		printf ' %q' "$@"
+		printf '\n'
+	else
+		"$@"
+	fi
+}
+
+# Run one command that may fail, with no output. A dry run prints it.
+try() {
+	if [ -n "$DRY" ]; then
+		run "$@"
+	else
+		"$@" >/dev/null 2>&1
+	fi
+}
+
+# Write a file from the standard input: put MODE OWNER:GROUP PATH. A dry run
+# prints the content, each line after "| ", between two "+" lines.
+put() {
+	local mode="$1" owner="$2" dest="$3" temp
+	temp="$(mktemp)"
+	cat >"$temp"
+	if [ -n "$DRY" ]; then
+		printf '+ write %s mode=%s owner=%s\n' "$dest" "$mode" "$owner"
+		sed 's/^/| /' "$temp"
+		printf '+ end %s\n' "$dest"
+	else
+		install -m "$mode" -o "${owner%%:*}" -g "${owner##*:}" "$temp" "$dest"
+	fi
+	rm -f "$temp"
+}
+
+# Run a command as the admin who ran sudo, so a file in the state folder
+# belongs to that admin. A dry run runs as the current user.
+as_admin() {
+	if [ -n "$DRY" ]; then
+		"$@"
+	else
+		sudo -n -u "$ADMIN" -H "$@"
+	fi
+}
+
+# Find the admin, and check the platform. A dry run skips the checks.
+check_platform() {
+	if [ -n "$DRY" ]; then
+		ADMIN="${SUDO_USER:-$(id -un)}"
+		return 0
+	fi
+	[ "$(uname -s)" = Darwin ] || die "this script runs on macOS only."
+	[ "$(id -u)" = 0 ] || die "run this script with sudo: sudo bash $0"
+	ADMIN="${SUDO_USER:-}"
+	{ [ -n "$ADMIN" ] && [ "$ADMIN" != root ]; } ||
+		die "run this script with sudo from an admin account. A root shell has no SUDO_USER."
+}
+
+# The id of a user, or nothing when the user does not exist.
+user_uid() {
+	dscl . -read "/Users/$1" UniqueID 2>/dev/null | awk '{ print $2 }' || true
+}
+
+# True when the user record carries our comment.
+user_marked() {
+	dscl . -read "/Users/$1" Comment 2>/dev/null | tr '\n' ' ' | grep -q "$MARK"
+}
+
+group_exists() {
+	dscl . -read "/Groups/$1" >/dev/null 2>&1
+}
+
+group_marked() {
+	dscl . -read "/Groups/$1" Comment 2>/dev/null | tr '\n' ' ' | grep -q "$MARK"
+}
+
+# True when the user is a member of the group.
+is_member() {
+	dseditgroup -o checkmember -m "$1" "$2" 2>/dev/null | grep -q '^yes'
+}
+
+# The names of the accounts, the group accounts first, then the git account.
+all_accounts() {
+	printf '%s\n' "${ACCOUNTS[@]}" "$GIT_ACCOUNT"
+}
+
+# The line of /etc/synthetic.conf for one root folder: a name, a tab, and the
+# target, which is relative to `/`.
+synthetic_line() {
+	printf '%s\t%s\n' "$1" "${SHARE#/}/$1"
+}
+
+# The state of Remote Login: on, off, or unknown.
+remote_login_state() {
+	local out
+	out="$(systemsetup -getremotelogin 2>/dev/null || true)"
+	case "$out" in
+	*": On"*) echo on; return 0 ;;
+	*": Off"*) echo off; return 0 ;;
+	esac
+	out="$(launchctl print-disabled system 2>/dev/null | grep 'com.openssh.sshd' || true)"
+	case "$out" in
+	*disabled* | *true*) echo off ;;
+	*enabled* | *false*) echo on ;;
+	*) echo unknown ;;
+	esac
+}
+
+# True when something listens on port 22 of the loopback address.
+sshd_listening() {
+	nc -z -G 2 127.0.0.1 22 >/dev/null 2>&1
+}

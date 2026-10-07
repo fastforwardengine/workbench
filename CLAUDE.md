@@ -25,7 +25,7 @@ floor).
 | `skills/`      | One folder of skills for each specialist, and `shared/` for all. `docs/skills.md` holds the pattern            |
 | `seed/`        | The files of a new workspace, by workspace path: `seed/shared/kit.md` is `/shared/kit.md`                      |
 | `notes/`       | The first files of the team notes, the shared git repository `shared/notes`. `docs/notes.md` holds the pattern |
-| `workstation/` | A workstation in a container: the bash and git backends over SSH                                               |
+| `workstation/` | A workstation in a container: the bash and git backends over SSH (`macos/`: the same on a Mac)                 |
 | `docs/`        | Design pages, such as `templates.md`, the git templates                                                        |
 | `planning/`    | `next.md` (the milestone and its activities) and `fm-radio.md` — read before a change                          |
 
