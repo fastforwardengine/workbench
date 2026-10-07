@@ -1009,3 +1009,72 @@ describe('Session activation lines', () => {
 		expect(lines(session)).toEqual([]);
 	});
 });
+
+describe('Session breakout rooms', () => {
+	const breakout = (state: 'running' | 'archived', extra: Record<string, unknown> = {}) => ({
+		breakout: { parent: 'characterization', opener: 'engineer', state },
+		...extra,
+	});
+
+	it('reads the room list again when the watch of the open room reports a change', async () => {
+		const { host, session } = await started();
+		expect(session.background).toEqual({ running: 0, working: false });
+		host.table.set('tuners', view('tuners', breakout('running')));
+		host.notify('characterization');
+		await vi.waitFor(() => expect(session.background).toEqual({ running: 1, working: false }));
+		host.table.set('tuners', view('tuners', breakout('running', { exchange: { id: 'x1' } })));
+		host.notify('characterization');
+		await vi.waitFor(() => expect(session.background).toEqual({ running: 1, working: true }));
+		host.table.set('tuners', view('tuners', breakout('archived')));
+		host.notify('characterization');
+		await vi.waitFor(() => expect(session.background).toEqual({ running: 0, working: false }));
+	});
+
+	it('lists a breakout room under its parent in the palette', async () => {
+		const { host, session } = await started();
+		host.table.set('tuners', view('tuners', breakout('running')));
+		host.notify('characterization');
+		await vi.waitFor(() =>
+			expect(session.suggestions('/room ').map((row) => row.label)).toEqual([
+				'characterization',
+				'tuners',
+				'budget',
+			]),
+		);
+		expect(session.suggestions('/room tun')[0]?.detail).toBe('running · tuners goal');
+	});
+
+	it('reads the list once more, and no more, for changes that land during a read', async () => {
+		const { host, session } = await started();
+		let reads = 0;
+		let release = () => {};
+		host.rooms = async () => {
+			reads += 1;
+			await new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			return [...host.table.values()];
+		};
+		for (let call = 0; call < 5; call += 1) host.notify('characterization');
+		await vi.waitFor(() => expect(reads).toBe(1));
+		release();
+		await vi.waitFor(() => expect(reads).toBe(2));
+		release();
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(reads).toBe(2);
+		expect(session.offline).toBeUndefined();
+	});
+
+	it('keeps the last room list after a failed list read', async () => {
+		const { host, session } = await started();
+		let calls = 0;
+		host.rooms = async () => {
+			calls += 1;
+			throw new Error('journal busy');
+		};
+		host.notify('characterization');
+		await vi.waitFor(() => expect(calls).toBe(1));
+		expect(session.rooms.map((room) => room.name)).toEqual(['characterization', 'budget']);
+		expect(session.room).toBe('characterization');
+	});
+});

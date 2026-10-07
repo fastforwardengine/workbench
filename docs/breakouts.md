@@ -9,17 +9,18 @@ holds the contract for the tools, the bridge, and the limits.
 
 ## Where each part lives
 
-| Part             | Where                        | What it holds                                          |
-| ---------------- | ---------------------------- | ------------------------------------------------------ |
-| The worker       | `src/domain/definitions.ts`  | `worker`, `WORKER_TEAM`, and the rules of the worker   |
-| The skills       | `src/domain/skills.ts`       | `workerSkills`: the shared skills and the Researcher's |
-| The wiring       | `src/host/rooms.ts`          | `breakout: { team }`, and the bundles of the canvas    |
-| The view         | `src/host/rooms.ts`          | `breakout` in the `RoomView` of a breakout room        |
-| The addressing   | `src/host/host.ts`           | `deliver` seats no specialist in a breakout room       |
-| The tool phrases | `src/view/tool-phrases.ts`   | `breakout`, `tell`, `archive`, and `report`            |
-| The account      | `workstation/accounts`       | The Unix account `worker`, in no device group          |
-| The checks       | `test/breakout.test.ts`      | The tools, the prompts, and the path of one task       |
-| The host checks  | `test/host-breakout.test.ts` | The view, the watchers, and the messages of a person   |
+| Part             | Where                             | What it holds                                          |
+| ---------------- | --------------------------------- | ------------------------------------------------------ |
+| The worker       | `src/domain/definitions.ts`       | `worker`, `WORKER_TEAM`, and the rules of the worker   |
+| The skills       | `src/domain/skills.ts`            | `workerSkills`: the shared skills and the Researcher's |
+| The wiring       | `src/host/rooms.ts`               | `breakout: { team }`, and the bundles of the canvas    |
+| The view         | `src/host/rooms.ts`               | `breakout` in the `RoomView` of a breakout room        |
+| The terminal     | `src/terminal/state/breakouts.ts` | The chip, the label, and the order of the room list    |
+| The addressing   | `src/host/host.ts`                | `deliver` seats no specialist in a breakout room       |
+| The tool phrases | `src/view/tool-phrases.ts`        | `breakout`, `tell`, `archive`, and `report`            |
+| The account      | `workstation/accounts`            | The Unix account `worker`, in no device group          |
+| The checks       | `test/breakout.test.ts`           | The tools, the prompts, and the path of one task       |
+| The host checks  | `test/host-breakout.test.ts`      | The view, the watchers, and the messages of a person   |
 
 ## The worker
 
@@ -75,3 +76,25 @@ opener answers with `tell`.
 room names its parent and its opener. An archived room does not start again.
 The host refuses `resume` on it. A person can send a message to a worker in a
 breakout room that is running. The host seats no specialist there.
+
+## In the terminal
+
+**The terminal shows two facts and adds no layer.** The person sees that
+background work runs, and sees how to open it.
+
+- **The chip:** while the open room has breakout rooms that run, its header
+  shows a dim chip after the participants, such as `⇉ 2 in background`. The
+  chip turns coral while one of them has an open exchange. The chip drops
+  before the participant names on a narrow terminal. It shows no text when
+  no breakout room runs.
+- **The label:** in a breakout room, the right edge of the participants row
+  reads `breakout of <parent>`. An archived room adds `done` or `failed`.
+- **The room palette:** Ctrl+R and `/room ` list each root room, then its
+  breakout rooms. The detail of a breakout row is `working`, `running`,
+  `stopped`, `done`, or `failed`, then the goal. The list shows an archived
+  breakout room only for the open room, or for the parent of the open room.
+  `/room <name>` opens the breakout room.
+- **The refresh:** a breakout room that opens, stops, or ends tells the
+  watchers of its parent room. The session then reads the room list again.
+  The slow poll of the room list covers the rest, such as the open exchange
+  of a breakout room.

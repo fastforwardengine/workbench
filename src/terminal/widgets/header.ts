@@ -8,6 +8,7 @@ import {
 	TextRenderable,
 } from '@opentui/core';
 import type { Person, RoomView } from '../../host/host.ts';
+import { type Background, backgroundChip, breakoutLabel } from '../state/breakouts.ts';
 import { tui as palette } from './brand.ts';
 import { fitHeader } from './header-fit.ts';
 import { APART, GUTTER, INSET } from './space.ts';
@@ -65,7 +66,13 @@ class Row {
 export interface HeaderState {
 	identity: Person | undefined;
 	view: RoomView | undefined;
+	/** The breakout rooms that run in the background of the open room. */
+	background: Background;
 }
+
+/** The text at the right edge of the participants row: the parent of a breakout room, else the pattern. */
+const sideText = (view: RoomView | undefined): string =>
+	breakoutLabel(view) || (view?.pattern ?? '');
 
 /**
  * The panel above the conversation. The first row holds the room name and
@@ -93,7 +100,7 @@ export class Header {
 
 	/** Draw the state. `width` is the panel width, padding included. */
 	draw(state: HeaderState, width: number): void {
-		const { identity, view } = state;
+		const { identity, view, background } = state;
 		const who = identity
 			? `as ${identity.name}, ${identity.role.toLowerCase()}`
 			: 'choose a person with /user';
@@ -105,7 +112,8 @@ export class Header {
 			goal: view?.goal ?? '',
 			identity: who,
 			people: participants.map((participant) => label(participant, unavailable)).join('  ').length,
-			pattern: view?.pattern ?? '',
+			background: backgroundChip(background),
+			pattern: sideText(view),
 		});
 		this.room.set(
 			view
@@ -113,10 +121,16 @@ export class Header {
 				: [fg(palette.dim)('No room open')],
 			[fg(palette.muted)(who)],
 		);
+		const chip = fit.background
+			? [fg(background.working ? palette.coral : palette.dim)(fit.background)]
+			: [];
 		this.people.set(
-			participants.map((participant) =>
-				fg(participantColor(participant))(`${label(participant, unavailable)}  `),
-			),
+			[
+				...participants.map((participant) =>
+					fg(participantColor(participant))(`${label(participant, unavailable)}  `),
+				),
+				...chip,
+			],
 			[fg(palette.dim)(fit.pattern)],
 		);
 	}

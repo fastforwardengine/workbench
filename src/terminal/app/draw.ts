@@ -174,7 +174,8 @@ export class Painter {
 	}
 
 	private drawHeader(): void {
-		this.header.draw({ identity: this.session.identity, view: this.session.view }, this.width());
+		const { identity, view, background } = this.session;
+		this.header.draw({ identity, view, background }, this.width());
 	}
 
 	/** What the status line says in a mode that is not the composer, or undefined. */

@@ -14,7 +14,9 @@ import { errorText } from '../../view/text.ts';
 import { type Block, buildTimeline } from '../../view/timeline.ts';
 import { attachCommand, bodyOf, type StagedAttachment } from './attachments.ts';
 import { attentionOf, newest, pick } from './attention.ts';
+import { type Background, backgroundOf, roomChoices } from './breakouts.ts';
 import { entryLoader, FileBrowser } from './browser.ts';
+import { coalesced } from './coalesce.ts';
 import {
 	type Choices,
 	type CommandName,
@@ -91,6 +93,8 @@ export class Session {
 				this.offline = errorText(error);
 				this.changed();
 			},
+			// A change of the open room may open, stop, or archive a breakout room.
+			() => void this.listRooms(),
 		);
 		this.browser = new FileBrowser(entryLoader(host), changed);
 		this.tails = new ProcessTails(host, () => this.rebuild());
@@ -138,6 +142,25 @@ export class Session {
 			this.offline = errorText(error);
 		}
 		this.changed();
+	}
+
+	/**
+	 * Read the room list again, without the files. The watch of the open room calls it:
+	 * a breakout room that opens, stops, or ends tells the watchers of its parent.
+	 * A call during a read asks for one more read after it.
+	 */
+	private readonly listRooms = coalesced(async () => {
+		try {
+			this.rooms = await this.host.rooms();
+		} catch (error) {
+			this.offline = errorText(error);
+		}
+		this.changed();
+	});
+
+	/** The breakout rooms that run in the background of the open room. */
+	get background(): Background {
+		return backgroundOf(this.rooms, this.room);
 	}
 
 	/** Read the open room. The reader does it again when a change lands during a read. */
@@ -301,11 +324,7 @@ export class Session {
 
 	choices(): Choices {
 		return {
-			rooms: this.rooms.map((room) => ({
-				name: room.name,
-				status: room.status,
-				working: Boolean(room.exchange),
-			})),
+			rooms: roomChoices(this.rooms, this.room),
 			people: this.host.people.map((person) => ({ name: person.name, role: person.role })),
 			files: this.files,
 			says: this.view?.scheduled ?? [],

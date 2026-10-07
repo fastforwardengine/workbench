@@ -108,8 +108,9 @@ with a directed say.
 | Engineer   | Watches the bench, runs the bench scripts, and guides a build          | Workspace |
 
 **Each specialist can open a breakout room.** A worker does a task of many
-steps in the background and reports the result. See
-[`docs/breakouts.md`](docs/breakouts.md).
+steps in the background and reports the result. The header counts the
+breakout rooms that run, and Ctrl+R lists them under their parent room.
+See [`docs/breakouts.md`](docs/breakouts.md).
 
 **The workspace tools do the work of the bench.** They read and write files,
 run shell commands as background processes, fork the git templates, and

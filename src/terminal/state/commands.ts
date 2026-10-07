@@ -1,4 +1,5 @@
 import type { ScheduledSay } from '@ambionframework/ambion';
+import { ellipsize } from '../../view/text.ts';
 
 /** A slash command the composer understands. */
 interface Command {
@@ -19,7 +20,10 @@ export const COMMANDS = [
 		name: 'room',
 		summary: 'Switch to another room',
 		argument: 'room',
-		help: ['  /room <name>      switch to another room. Ctrl+R lists the rooms.'],
+		help: [
+			'  /room <name>      switch to another room. Ctrl+R lists the rooms.',
+			'                    Breakout rooms show under their parent room.',
+		],
 	},
 	{
 		name: 'new',
@@ -156,11 +160,41 @@ export function parse(input: string): Parsed {
 	return { kind: 'command', name: command.name, argument: rest.join(' ').trim() };
 }
 
+/** What the palette knows of a breakout room, beside the facts of every room. */
+interface BreakoutChoice {
+	parent: string;
+	state: 'running' | 'stopped' | 'archived';
+	/** How the opener closed the room. Only an archived room has it. */
+	result?: 'done' | 'failed';
+	goal: string;
+}
+
 /** A room the person can switch to. */
 export interface RoomChoice {
 	name: string;
 	status: string;
 	working: boolean;
+	/** Set for a breakout room only. */
+	breakout?: BreakoutChoice;
+}
+
+/** The characters of a goal that a breakout row shows. */
+const GOAL_CUT = 48;
+
+/** How a breakout room stands: its result once archived, else `stopped`, `working`, or `running`. */
+function breakoutState(room: RoomChoice, { state, result }: BreakoutChoice): string {
+	if (state === 'archived') return result ?? 'archived';
+	if (state === 'stopped') return state;
+	return room.working ? 'working' : state;
+}
+
+/** The detail of a room row. A breakout room adds its goal after its state. */
+function roomDetail(room: RoomChoice): string {
+	const info = room.breakout;
+	if (!info) return room.working ? 'working' : room.status;
+	const state = breakoutState(room, info);
+	const goal = ellipsize(info.goal, GOAL_CUT);
+	return goal ? `${state} · ${goal}` : state;
 }
 
 /** A person the terminal can act as. */
@@ -249,7 +283,7 @@ function argumentSuggestions(name: string, wanted: string, choices: Choices): Su
 	if (name === 'room')
 		return choices.rooms
 			.filter((room) => room.name.toLowerCase().startsWith(text))
-			.map((room) => row(room.name, room.working ? 'working' : room.status));
+			.map((room) => row(room.name, roomDetail(room)));
 	if (name === 'user')
 		return choices.people
 			.filter((person) => person.name.toLowerCase().startsWith(text))
