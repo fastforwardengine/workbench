@@ -188,6 +188,30 @@ A bench script comes from a template.
   the keys back to the dock. Tab shows the next layer. Ctrl+C closes the top
   layer while the dock has the keys, and so does `q` in every layer but the
   files. The footer shows `Esc close` while the dock shows.
+- **Files layer:** `/files` opens a search box over the files of the
+  workspace. The head of the list is `Cited here`. It shows the files,
+  snapshots, and commits that the messages of the open room cite, one row
+  for each path, with the newest first. A row names the author and the time
+  of the newest citation. The snapshots of one path share a row, and the row
+  shows the count of versions. Below that, the files of the workspace sit
+  under one heading for each root, such as `/library` and `/shared`, and then
+  under one heading for each seat, such as `~engineer`. A `•` marks a file
+  that the open room cites. The search keeps the rows whose path holds every
+  word.
+- **Files layer keys:** Up and Down choose a row. Enter closes the layer and
+  focuses the newest message that cites the file. On a file that no message
+  cites, Enter says so in the status line. Tab or Enter on a ref in the
+  conversation opens the file in the layer, so the two keys make a round
+  trip. `/files` with no argument starts on the newest cited file.
+- **Files layer width:** a narrow dock drops the columns of a row in a fixed
+  order: the time of a citation, then the size of a file. The path takes
+  the ellipsis in its middle, so the file name stays.
+- **Seat homes:** the host lists and reads the home of each seat as the seat
+  that owns it. The homes of a workstation keep the mode `0700`. A home lists
+  up to 200 files and leaves out the files and folders whose names start
+  with a dot, such as `.git`. A home that fails to list shows no file, and
+  the other groups stay. A `file:///` ref to a file in a home opens in the
+  layer.
 - **Camera viewfinder:** `/camera` shows a layer in the dock with the
   cameras that the open room shows. The Engineer shows a camera with a
   `frame` widget after its camera server answers. The layer draws one box

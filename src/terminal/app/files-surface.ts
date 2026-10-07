@@ -6,15 +6,22 @@ import type { Exits, Surface } from './surface.ts';
 
 /** The files layer and its keys. */
 export class FilesSurface implements Surface {
-	readonly status = 'Browsing the workspace files. Esc returns to the composer.';
 	readonly narrow = true;
 	readonly takesKeys = true;
 	private readonly browser: FileBrowser;
 	private readonly panel: FilesPanel;
+	private readonly focus: (seq: number) => void;
 
-	constructor(browser: FileBrowser, panel: FilesPanel) {
+	/** `focus` moves the focus of the conversation to the message at `seq`. */
+	constructor(browser: FileBrowser, panel: FilesPanel, focus: (seq: number) => void) {
 		this.browser = browser;
 		this.panel = panel;
+		this.focus = focus;
+	}
+
+	/** What the status line says: the reason that the last key did nothing, else the keys. */
+	get status(): string {
+		return this.browser.notice ?? 'Browsing the workspace files. Esc returns to the composer.';
 	}
 
 	get root() {
@@ -40,6 +47,7 @@ export class FilesSurface implements Surface {
 	private readonly acts: Record<Act<'files'>, (exits: Exits) => void> = {
 		up: () => this.browser.move(-1),
 		down: () => this.browser.move(1),
+		open: (exits) => this.follow(exits),
 		previousTable: () => this.browser.moveTab(-1),
 		nextTable: () => this.browser.moveTab(1),
 		pageUp: () => this.panel.scrollBy(-this.panel.page),
@@ -54,10 +62,24 @@ export class FilesSurface implements Surface {
 	/** Any other printable key adds to the search. */
 	onKey(key: KeyEvent, exits: Exits): void {
 		key.preventDefault();
+		this.browser.notice = undefined;
 		const act = actOf('files', key);
 		if (act) this.acts[act](exits);
 		else if (!key.ctrl && !key.meta && key.sequence.length === 1 && key.sequence >= ' ')
 			this.browser.type(key.sequence);
+	}
+
+	/** Close the layer, and focus the newest message that cites the chosen file. */
+	private follow(exits: Exits): void {
+		const seq = this.browser.citedBy;
+		if (seq === undefined) {
+			this.browser.tell(
+				this.browser.selected ? 'No message of this room cites this file.' : 'No file is chosen.',
+			);
+			return;
+		}
+		exits.close();
+		this.focus(seq);
 	}
 
 	private copy(): void {

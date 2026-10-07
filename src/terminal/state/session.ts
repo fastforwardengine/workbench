@@ -8,7 +8,16 @@ import {
 	type Working,
 	workingOf,
 } from '../../view/live.ts';
-import { type Known, pickIds, type RefItem, refItems, shows, stayOfPick } from '../../view/refs.ts';
+import {
+	type CitedFile,
+	citedFiles,
+	type Known,
+	pickIds,
+	type RefItem,
+	refItems,
+	shows,
+	stayOfPick,
+} from '../../view/refs.ts';
 import { type WaitingMessage, waitingMessages } from '../../view/steering.ts';
 import {
 	type ActivationSteps,
@@ -655,14 +664,15 @@ export class Session {
 
 	// Files
 
-	private async openFiles(path?: string, extra?: FileEntry): Promise<Intent | undefined> {
+	/** Open the files layer, on the path when it names a row. The files that the open room cites come first. */
+	private async openFiles(path?: string): Promise<Intent | undefined> {
 		try {
 			this.files = await this.host.files();
 		} catch (error) {
 			this.fail(error);
 			return undefined;
 		}
-		this.browser.show(this.files, path, extra);
+		this.browser.show(this.files, path, this.cited);
 		return { type: 'files' };
 	}
 
@@ -675,6 +685,11 @@ export class Session {
 			files: this.files.map((file) => file.path),
 			seqs: new Set(this.reader.messages.map((message) => message.seq)),
 		};
+	}
+
+	/** The files that the messages of the open room cite, newest citation first. */
+	private get cited(): CitedFile[] {
+		return citedFiles(this.reader.messages, this.known);
 	}
 
 	/** The refs of the messages the conversation shows, top to bottom. */
@@ -724,14 +739,7 @@ export class Session {
 			this.jump(target.seq);
 			return undefined;
 		}
-		if (target.kind === 'snapshot' || target.kind === 'commit')
-			return this.openFiles(target.ref, {
-				path: target.ref,
-				size: 0,
-				kind: target.kind,
-				label: target.label,
-			});
-		return this.openFiles(target.path);
+		return this.openFiles(target.kind === 'file' ? target.path : target.ref);
 	}
 
 	/** Focus one message. */
@@ -752,7 +760,8 @@ export class Session {
 	}
 
 	private async openFile(argument: string): Promise<Intent | undefined> {
-		if (!argument) return this.openFiles();
+		// With no argument, the layer starts on the newest file that the room cites.
+		if (!argument) return this.openFiles(this.cited[0]?.open);
 		const wanted = argument.toLowerCase();
 		const matches = this.files.filter(
 			(file) => file.path.toLowerCase() === wanted || file.path.toLowerCase() === `/${wanted}`,

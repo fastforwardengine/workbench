@@ -129,6 +129,10 @@ resolves to no object.
 | `/srv/workbench/rooms`     | `workbench-host`       | Every account of the group |
 | `/srv/workbench/snapshots` | `workbench-host`       | Every account of the group |
 
+**The host reads a home as the seat that owns it.** The files layer of the
+terminal lists and reads the files of each home with the key of that seat.
+The host account has no access to a home, and the mode stays `0700`.
+
 **The entrypoint sets the layout at each start.** A named volume drops the
 ACLs of the image, so the script makes each folder and sets its default
 ACL again. It also installs the public key of each account from

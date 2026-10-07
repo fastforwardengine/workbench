@@ -94,6 +94,10 @@ export interface Lab {
 	 */
 	activation(room: string, id: string): Promise<ActivationSteps | undefined>;
 	create(name: string, goal: string): Promise<RoomView>;
+	/**
+	 * The files of the workspace, group by group: each root, then the home of each
+	 * seat, which the host reads as the seat that owns it.
+	 */
 	files(): Promise<FileEntry[]>;
 	file(path: string): Promise<FileContent>;
 	/** The bytes of a snapshot ref of the workspace, from its object store. */
@@ -305,8 +309,9 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 				fail(`Give a room goal of 1 to ${MAX_GOAL} characters.`);
 			return rooms.create(name, trimmed);
 		},
-		files: () => rooms.withWorkspace(() => listFiles(rooms.workspace, rooms.roots)),
-		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path)),
+		files: () =>
+			rooms.withWorkspace(() => listFiles(rooms.workspace, rooms.roots, rooms.seatNames)),
+		file: (path) => rooms.withWorkspace(() => readFile(rooms.workspace, path, rooms.seatNames)),
 		snapshot: (ref) => rooms.withWorkspace(() => readSnapshotFile(rooms.workspace, ref)),
 		commit: (ref) => rooms.withWorkspace(() => readCommitFile(rooms.workspace, ref)),
 		attach: (localPath) => rooms.withWorkspace(() => attachFile(rooms.workspace, localPath)),

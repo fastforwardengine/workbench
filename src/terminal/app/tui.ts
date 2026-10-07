@@ -108,7 +108,9 @@ class EngineTui {
 			() => drawsKitty(renderer),
 		);
 		const surfaces = {
-			files: new FilesSurface(this.session.browser, new FilesPanel(renderer)),
+			files: new FilesSurface(this.session.browser, new FilesPanel(renderer), (seq) =>
+				this.session.jump(seq),
+			),
 			processes: new ProcessesSurface(this.processes, new ProcessesPanel(renderer), () =>
 				this.render(),
 			),

@@ -129,8 +129,8 @@ describe('the files panel', () => {
 		const { frame } = await opened();
 		const text = await frame();
 		expect(text).toContain('Files › ▌   2 of 2');
-		expect(text).toContain('▸ /library/cell-18650.md  797 B');
-		expect(text).toContain('  /shared/notes.md        40 B');
+		expect(text).toMatch(/▸ \/library\/cell-18650\.md +797 B/);
+		expect(text).toMatch(/ {2}\/shared\/notes\.md +40 B/);
 		expect(text).toContain('/library/cell-18650.md   30 B, 1 line');
 		expect(text).not.toContain('Type to search');
 	});
