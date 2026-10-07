@@ -60,6 +60,7 @@ async function build(voice = new Voice(quietParts())) {
 	const session = {
 		awaitingGoal: undefined as string | undefined,
 		refItems: [],
+		pickIds: [] as string[],
 		say: vi.fn(),
 		interrupt: vi.fn(),
 		cancelWaiting: vi.fn(),

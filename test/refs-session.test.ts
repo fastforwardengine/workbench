@@ -76,6 +76,7 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 		palette: { refresh: () => {} },
 		painter: {
 			revealMessage: (seq: number) => log.push(`reveal:${seq}`),
+			revealStay: (id: string) => log.push(`stay:${id}`),
 			invalidate: () => {},
 		},
 		// The real dock and surface over a panel that draws nothing: the keys of the files layer are the code under test.
@@ -266,5 +267,66 @@ describe('the ref keys', () => {
 		press('return');
 		expect(keys.mode).toBe('refs');
 		expect(session.browser.open).toBe(false);
+	});
+});
+
+describe('the keys on an activation line', () => {
+	const activation = (id: string) => ({
+		id,
+		seat: 'design',
+		purpose: 'respond',
+		attempt: 1,
+		outcome: { kind: 'released' },
+	});
+	const trace = {
+		activation: 'act-2',
+		passes: [
+			{
+				pass: 1,
+				input: 'view',
+				through: 3,
+				steps: [{ type: 'text', text: 'Done.', activation: 'act-2', pass: 1, index: 0, at: AT }],
+			},
+		],
+	};
+
+	async function withLines() {
+		const made = await started();
+		made.host.table.set(
+			'characterization',
+			view('characterization', {
+				participants: [{ name: 'priya', kind: 'person' }],
+				messages: [
+					said(1, 'priya'),
+					{ ...said(2, 'design'), activation: 'act-2' },
+					said(3, 'priya'),
+				],
+				exchanges: [
+					{ ...exchange, through: 2, activations: [activation('act-2'), activation('act-3')] },
+				],
+			}),
+		);
+		made.host.traces.set('act-2', trace as never);
+		await made.session.refresh();
+		return made;
+	}
+
+	it('chooses a line with Tab, moves over the lines and the refs, and expands and folds with Enter', async () => {
+		const { session } = await withLines();
+		const { keys, press, log } = keysOver(session);
+		expect(session.pickIds).toEqual(['stay:act-2', 'stay:act-3']);
+		press('tab');
+		expect(keys.mode).toBe('refs');
+		expect(keys.picking).toBe('stay:act-3');
+		press('up');
+		expect(keys.picking).toBe('stay:act-2');
+		press('return');
+		await vi.waitFor(() => expect(session.unfolded?.id).toBe('act-2'));
+		expect(log).toContain('stay:act-2');
+		expect(keys.mode).toBe('refs');
+		press('return');
+		await vi.waitFor(() => expect(session.unfolded).toBeUndefined());
+		press('escape');
+		expect(keys.mode).toBe('compose');
 	});
 });

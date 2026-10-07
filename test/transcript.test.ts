@@ -18,7 +18,7 @@ import { type Marks, Transcript } from '../src/terminal/widgets/transcript.ts';
 import { type LiveActivation, liveActivations } from '../src/view/live.ts';
 import type { RefItem } from '../src/view/refs.ts';
 import { stepsView } from '../src/view/steps.ts';
-import { type Block, buildTimeline } from '../src/view/timeline.ts';
+import { type Block, buildTimeline, type StayItem } from '../src/view/timeline.ts';
 
 /** The private method that the tests count. */
 interface Builder {
@@ -120,6 +120,32 @@ const steps = (running: boolean): Block =>
 		passes: [{ pass: 1, input: 1, through: 4, lines: [{ kind: 'text', text: 'thinking' }] }],
 	}) as never;
 
+const OPEN = {
+	passes: [
+		{
+			pass: 1,
+			input: 'view',
+			through: 4,
+			lines: [
+				{ kind: 'tool', text: '→ read /a' },
+				{ kind: 'end', text: 'ended: stopped' },
+			],
+		},
+	],
+} as never;
+const stays = (open?: StayItem['open']): Block => ({
+	type: 'stays',
+	items: [
+		{
+			id: 's1',
+			state: 'done',
+			title: 'engineer · respond · 6 calls · 0:42 · $0.0123',
+			...(open ? { open } : {}),
+		},
+		{ id: 's2', state: 'failed', title: 'researcher · respond · attempt 2', reason: 'rate limit' },
+	],
+});
+
 /** The states of one run: growth, marks, a live block, a notice, and shrinking. */
 const RUN: [string, State][] = [
 	['three exchanges', { exchanges: 3 }],
@@ -129,6 +155,15 @@ const RUN: [string, State][] = [
 	['the live block changes', { exchanges: 4, tail: [live('engineer: using bash')] }],
 	['a steps block joins it', { exchanges: 4, tail: [live('x'), steps(true)] }],
 	['the steps block ends', { exchanges: 4, tail: [steps(false)] }],
+	['activation lines', { exchanges: 4, tail: [stays()] }],
+	[
+		'a line is chosen',
+		{ exchanges: 4, tail: [stays()], marks: { refs: new Map(), picked: 'stay:s2' } },
+	],
+	[
+		'a line expands',
+		{ exchanges: 4, tail: [stays(OPEN)], marks: { refs: new Map(), picked: 'stay:s1' } },
+	],
 	['a notice', { exchanges: 4, notice: 'Created probe.' }],
 	['the notice goes', { exchanges: 4 }],
 	['a ref on a message', { exchanges: 4, marks: { refs: new Map([[6, [ref(6)]]]) } }],
@@ -673,6 +708,81 @@ describe('the live block', () => {
 		const lines = view.setup.captureCharFrame().split('\n');
 		expect(lines.filter((line) => line.includes('bash xxx'))).toHaveLength(1);
 		expect(lines.some((line) => line.includes('…'))).toBe(true);
+	}, 20_000);
+});
+
+describe('the activation lines', () => {
+	const draw = async (blocks: Block[], marks?: Marks) => {
+		const view = await mount();
+		view.transcript.render(blocks, undefined, undefined, true, marks);
+		await stable(view.setup, view.transcript.root);
+		return view;
+	};
+	const rows = (view: Awaited<ReturnType<typeof mount>>) =>
+		view.setup
+			.captureCharFrame()
+			.split('\n')
+			.map((line) => line.trimEnd())
+			.filter((line) => line !== '');
+
+	it('draws each activation as one row, with the reason of a failed one', async () => {
+		const view = await draw([stays()]);
+		expect(rows(view)).toEqual([
+			'  ✓ engineer · respond · 6 calls · 0:42 · $0.0123',
+			'  ✗ researcher · respond · attempt 2 · rate limit',
+		]);
+	}, 20_000);
+
+	it('draws the mark in the colour of its state, the title dim, and the reason red', async () => {
+		const view = await draw([stays()]);
+		const spans = view.setup.captureSpans().lines.flatMap((line) => line.spans);
+		const colorOf = (text: string) => spans.find((span) => span.text.includes(text))?.fg.toString();
+		expect(colorOf('✓')).toBe(RGBA.fromHex(palette.green).toString());
+		expect(colorOf('engineer · respond')).toBe(RGBA.fromHex(palette.dim).toString());
+		expect(colorOf('✗')).toBe(RGBA.fromHex(palette.red).toString());
+		expect(colorOf('rate limit')).toBe(RGBA.fromHex(palette.red).toString());
+	}, 20_000);
+
+	it('draws the steps of an expanded line under it, and no more than its own rows', async () => {
+		const view = await draw([stays(OPEN)]);
+		expect(rows(view)).toEqual([
+			'  ✓ engineer · respond · 6 calls · 0:42 · $0.0123',
+			'  Pass 1  reads view to 4',
+			'    tool     → read /a',
+			'    end      ended: stopped',
+			'  ✗ researcher · respond · attempt 2 · rate limit',
+		]);
+	}, 20_000);
+
+	it('says that the trace holds no steps, in one dim row', async () => {
+		const view = await draw([stays({ passes: [] })]);
+		const frame = rows(view);
+		expect(frame[1]).toBe('    The trace of that activation holds no steps.');
+		const spans = view.setup.captureSpans().lines.flatMap((line) => line.spans);
+		const span = spans.find((one) => one.text.includes('holds no steps'));
+		expect(span?.fg.toString()).toBe(RGBA.fromHex(palette.dim).toString());
+	}, 20_000);
+
+	it('highlights the line that the person chose', async () => {
+		const view = await draw([stays()], { refs: new Map(), picked: 'stay:s2' });
+		const lines = view.setup.captureSpans().lines;
+		const fill = (text: string) =>
+			lines
+				.flatMap((line) => line.spans)
+				.find((span) => span.text.includes(text))
+				?.bg.toString();
+		expect(fill('researcher')).toBe(RGBA.fromHex(palette.selected).toString());
+		expect(fill('engineer')).not.toBe(RGBA.fromHex(palette.selected).toString());
+	}, 20_000);
+
+	it('cuts a long title to one row', async () => {
+		const long: Block = {
+			type: 'stays',
+			items: [{ id: 'x', state: 'done', title: `engineer · ${'x'.repeat(200)}` }],
+		};
+		const view = await draw([long]);
+		expect(rows(view)).toHaveLength(1);
+		expect(rows(view)[0]).toContain('…');
 	}, 20_000);
 });
 

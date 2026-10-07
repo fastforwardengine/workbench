@@ -155,7 +155,7 @@ describe('buildTimeline', () => {
 			],
 		])('%s', (_what, exchange, known, text) => {
 			const blocks = build([said(75, 'theo')], [exchange], { failures: known });
-			expect(blocks[1]).toMatchObject({ type: 'note', text });
+			expect(blocks.find((block) => block.type === 'note')).toMatchObject({ type: 'note', text });
 		});
 
 		it('puts the note after the last message of the exchange, and before the next one', () => {
@@ -163,6 +163,7 @@ describe('buildTimeline', () => {
 			const messages = [said(75, 'noor'), said(80, 'noor')];
 			expect(shape(build(messages, [{ ...exchange, through: 78 } as Exchange]))).toEqual([
 				'question:75',
+				'stays',
 				'note',
 				'question:80',
 			]);
@@ -264,5 +265,174 @@ describe('awaiting', () => {
 			tail: [{ type: 'note', text: 'Waiting.' }],
 		});
 		expect(shape(blocks).slice(-2)).toEqual(['note', 'live']);
+	});
+});
+
+describe('the activations of a closed exchange', () => {
+	const wrote = (seq: number, from: string, activation: string, extra: object = {}): Message =>
+		({ ...said(seq, from), activation, ...extra }) as Message;
+	const activation = (id: string, seat = 'engineer', extra: object = {}): object => ({
+		id,
+		seat,
+		purpose: 'respond',
+		attempt: 1,
+		outcome: { kind: 'released' },
+		...extra,
+	});
+	/** The blocks as one word each: a message by its seq, a group of lines by the ids it holds. */
+	const order = (blocks: Block[]) =>
+		blocks.map((block) => {
+			if (block.type === 'message') return `m${block.message.seq}`;
+			return block.type === 'stays'
+				? `stays:${block.items.map((item) => item.id).join(',')}`
+				: block.type;
+		});
+
+	it('puts the line of an activation above the first message that it wrote', () => {
+		const messages = [
+			said(1, 'noor'),
+			wrote(2, 'researcher', 'a1'),
+			wrote(3, 'engineer', 'a2'),
+			wrote(4, 'engineer', 'a2'),
+		];
+		const exchange = closedExchange(1, 4, { activations: [activation('a1'), activation('a2')] });
+		expect(order(build(messages, [exchange]))).toEqual([
+			'm1',
+			'stays:a1',
+			'm2',
+			'stays:a2',
+			'm3',
+			'm4',
+		]);
+	});
+
+	it('follows the order of the messages above a line, not the order of the activations', () => {
+		const messages = [said(1, 'noor'), wrote(2, 'engineer', 'a2'), wrote(3, 'engineer', 'a1')];
+		const exchange = closedExchange(1, 3, { activations: [activation('a1'), activation('a2')] });
+		expect(order(build(messages, [exchange]))).toEqual(['m1', 'stays:a2', 'm2', 'stays:a1', 'm3']);
+	});
+
+	it('groups the lines of the activations that wrote nothing after the last message, in their order', () => {
+		const messages = [said(1, 'noor'), said(2, 'priya'), wrote(3, 'engineer', 'a2')];
+		const exchange = closedExchange(1, 3, {
+			activations: [activation('a1'), activation('a3'), activation('a2')],
+		});
+		expect(order(build(messages, [exchange]))).toEqual([
+			'm1',
+			'm2',
+			'stays:a2',
+			'm3',
+			'stays:a1,a3',
+		]);
+	});
+
+	it('puts the line of an activation that wrote nothing after the last message of its exchange, before the note', () => {
+		const messages = [said(1, 'noor'), wrote(2, 'engineer', 'a1'), said(5, 'priya')];
+		const exchange = closedExchange(1, 3, {
+			outcome: { kind: 'awaiting', person: 'noor' },
+			activations: [
+				activation('a1'),
+				activation('a2'),
+				activation('a3', 'writer', { purpose: 'summarize' }),
+			],
+		});
+		expect(order(build(messages, [exchange]))).toEqual([
+			'm1',
+			'stays:a1',
+			'm2',
+			'stays:a2,a3',
+			'note',
+			'm5',
+		]);
+	});
+
+	it('shows no line for an open exchange, and none for an exchange without activations', () => {
+		const open: Exchange = {
+			from: 4,
+			status: 'open',
+			at: AT,
+			activations: [activation('a1')],
+		} as Exchange;
+		expect(order(build([said(4, 'priya')], [open], { open: {} }))).toEqual(['m4', 'live']);
+		expect(order(build([said(1, 'noor')], [closedExchange(1, 1)]))).toEqual(['m1']);
+	});
+
+	it('words each line as the live block words an ended activation', () => {
+		const spent = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0.0123 };
+		const exchange = closedExchange(1, 3, {
+			activations: [
+				activation('a1', 'engineer', { usage: spent }),
+				activation('a2', 'researcher', {
+					attempt: 2,
+					outcome: { kind: 'failed', cause: 'transient' },
+				}),
+			],
+		});
+		const read = {
+			activation: 'a1',
+			passes: [
+				{
+					pass: 1,
+					input: 'view',
+					through: 3,
+					steps: [
+						{
+							type: 'tool_call',
+							call: 'c1',
+							name: 'read',
+							input: { path: '/a' },
+							at: '2026-01-01T00:00:00Z',
+						},
+						{ type: 'end', stop: 'stopped', at: '2026-01-01T00:00:42Z' },
+					],
+				},
+			],
+		};
+		const blocks = build([said(1, 'noor')], [exchange], {
+			reads: new Map([['a1', read as never]]),
+			failures: new Map([['a2', 'rate limit']]),
+		});
+		expect(blocks[1]).toEqual({
+			type: 'stays',
+			items: [
+				{ id: 'a1', state: 'done', title: 'engineer · respond · 1 call · 0:42 · $0.0123' },
+				{
+					id: 'a2',
+					state: 'failed',
+					title: 'researcher · respond · attempt 2',
+					reason: 'rate limit',
+				},
+			],
+		});
+	});
+
+	it('adds the steps to the line that is expanded, and an empty list when the trace holds none', () => {
+		const exchange = closedExchange(1, 1, { activations: [activation('a1'), activation('a2')] });
+		const read = {
+			activation: 'a1',
+			passes: [
+				{
+					pass: 1,
+					input: 'view',
+					through: 3,
+					steps: [
+						{ type: 'pass', pass: 1, input: 'view', through: 3 },
+						{ type: 'text', text: 'Done.' },
+					],
+				},
+			],
+		};
+		const items = (expanded: object | undefined) =>
+			(
+				build([said(1, 'noor')], [exchange], { expanded: expanded as never })[1] as {
+					items: object[];
+				}
+			).items;
+		expect(items(undefined).map((item) => 'open' in item)).toEqual([false, false]);
+		expect(items({ id: 'a1', read })).toMatchObject([
+			{ open: { passes: [{ pass: 1, lines: [{ kind: 'text', text: 'Done.' }] }] } },
+			{},
+		]);
+		expect(items({ id: 'a2', read: undefined })[1]).toMatchObject({ open: { passes: [] } });
 	});
 });

@@ -826,7 +826,7 @@ describe('Session commands', () => {
 		expect(await session.submit('/files')).toEqual({ type: 'files' });
 	});
 
-	it('shows every message of a closed exchange in the open, and has no /expand', async () => {
+	it('shows every message of a closed exchange in the open, with its activation line, and has no /expand', async () => {
 		const { host, session } = await started();
 		const said = (seq: number, from: string) => ({
 			seq,
@@ -848,6 +848,7 @@ describe('Session commands', () => {
 			'message',
 			'message',
 			'message',
+			'stays',
 			'message',
 		]);
 		await session.submit('/expand');
@@ -858,5 +859,123 @@ describe('Session commands', () => {
 		const { session } = await started();
 		await session.submit('/help');
 		expect(session.notice).toBe(HELP);
+	});
+});
+
+describe('Session activation lines', () => {
+	const said = (seq: number, from: string, activation?: string) => ({
+		seq,
+		kind: 'said',
+		from,
+		text: `${from} ${seq}`,
+		at: AT,
+		...(activation ? { activation } : {}),
+	});
+	const closedRoom = (exchanges: unknown[], messages: unknown[]) =>
+		view('characterization', {
+			participants: [{ name: 'priya', kind: 'person' }],
+			messages,
+			exchanges,
+		});
+	const lines = (session: Session) =>
+		session.blocks.flatMap((block) => (block.type === 'stays' ? block.items : []));
+	const messages = [
+		said(4, 'priya'),
+		said(5, 'design', 'act-4'),
+		said(8, 'priya'),
+		said(9, 'design', 'act-8'),
+	];
+	const both = [closedExchange(4), closedExchange(8)];
+
+	it('keeps the title of an activation that it read before its exchange closed', async () => {
+		const { host, session } = await started();
+		const open = [
+			{
+				...closedExchange(4, { through: 5 }).activations[0],
+				outcome: { kind: 'released' },
+			},
+		];
+		const running = { from: 4, status: 'open', person: 'priya', at: AT, activations: open };
+		host.table.set(
+			'characterization',
+			view('characterization', {
+				participants: [{ name: 'priya', kind: 'person' }],
+				messages: messages.slice(0, 2),
+				exchange: running,
+				exchanges: [running],
+			}),
+		);
+		host.traces.set('act-4', trace('act-4', true));
+		await session.refresh();
+		host.table.set('characterization', closedRoom([closedExchange(4)], messages.slice(0, 2)));
+		host.traces.delete('act-4');
+		await session.refresh();
+		expect(lines(session)).toEqual([
+			{ id: 'act-4', state: 'done', title: 'design · respond · 1 call' },
+		]);
+		const reads = host.calls.filter((call) => call === 'activation:act-4').length;
+		await session.refresh();
+		expect(host.calls.filter((call) => call === 'activation:act-4')).toHaveLength(reads);
+	});
+
+	it('shows the title of an activation that it never read, without counts', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization', closedRoom(both, messages));
+		await session.refresh();
+		expect(host.calls.filter((call) => call.startsWith('activation:'))).toEqual([]);
+		expect(lines(session).map((line) => line.title)).toEqual([
+			'design · respond',
+			'design · respond',
+		]);
+		expect(session.pickIds).toEqual(['stay:act-4', 'stay:act-8']);
+	});
+
+	it('expands a line to the steps that the host holds, and folds it again', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization', closedRoom(both, messages));
+		host.traces.set('act-4', trace('act-4', true));
+		await session.refresh();
+		expect(await session.openPick('stay:act-4')).toBeUndefined();
+		expect(host.calls).toContain('activation:act-4');
+		expect(lines(session)[0]).toMatchObject({
+			id: 'act-4',
+			open: { passes: [{ lines: [{ kind: 'tool', text: '→ read /a' }, { kind: 'end' }] }] },
+		});
+		expect(lines(session)[1]).not.toHaveProperty('open');
+		await session.openPick('stay:act-4');
+		expect(lines(session)[0]).not.toHaveProperty('open');
+	});
+
+	it('keeps one line expanded: the next one that opens folds the first', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization', closedRoom(both, messages));
+		host.traces.set('act-4', trace('act-4', true));
+		host.traces.set('act-8', trace('act-8', true));
+		await session.refresh();
+		await session.openPick('stay:act-4');
+		await session.openPick('stay:act-8');
+		expect(lines(session).map((line) => 'open' in line)).toEqual([false, true]);
+	});
+
+	it('shows an empty step list when the step log holds nothing, and when the read fails', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization', closedRoom(both, messages));
+		await session.refresh();
+		await session.openPick('stay:act-4');
+		expect(lines(session)[0]).toMatchObject({ open: { passes: [] } });
+		await session.openPick('stay:act-4');
+		vi.spyOn(host, 'activation').mockRejectedValueOnce(new Error('gone'));
+		await session.openPick('stay:act-8');
+		expect(lines(session)[1]).toMatchObject({ open: { passes: [] } });
+	});
+
+	it('folds the open line when the person opens another room', async () => {
+		const { host, session } = await started();
+		host.table.set('characterization', closedRoom(both, messages));
+		await session.refresh();
+		await session.openPick('stay:act-4');
+		await session.switchRoom('budget');
+		expect(session.unfolded).toBeUndefined();
+		expect(lines(session)).toEqual([]);
 	});
 });

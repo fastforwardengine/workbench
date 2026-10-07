@@ -177,3 +177,23 @@ export function refItems(blocks: readonly Block[], known: Known): RefItem[] {
 export function shows(blocks: readonly Block[], seq: number): boolean {
 	return shownMessages(blocks).some((message) => message.seq === seq);
 }
+
+const STAY_PICK = 'stay:';
+
+/** The id that the pick key gives to the folded line of an activation. */
+export const stayPick = (activation: string): string => `${STAY_PICK}${activation}`;
+
+/** The activation of a folded line that a pick names, or undefined when the pick names a ref. */
+export const stayOfPick = (pick: string): string | undefined =>
+	pick.startsWith(STAY_PICK) ? pick.slice(STAY_PICK.length) : undefined;
+
+/**
+ * What the pick key can choose, top to bottom: each ref of a shown message, and
+ * each folded activation line. A ref has the id of its `RefItem`.
+ */
+export function pickIds(blocks: readonly Block[], known: Known): string[] {
+	return blocks.flatMap((block) => {
+		if (block.type === 'message') return refItems([block], known).map((item) => item.id);
+		return block.type === 'stays' ? block.items.map((item) => stayPick(item.id)) : [];
+	});
+}

@@ -2,8 +2,14 @@ import type { Exchange } from '@ambionframework/ambion';
 import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
 import { liveActivations } from '../../view/live.ts';
-import { type Known, type RefItem, refItems, shows } from '../../view/refs.ts';
-import { type ActivationSteps, activationLine, ended, stepsView } from '../../view/steps.ts';
+import { type Known, pickIds, type RefItem, refItems, shows, stayOfPick } from '../../view/refs.ts';
+import {
+	type ActivationSteps,
+	activationLine,
+	ended,
+	NO_STEPS,
+	stepsView,
+} from '../../view/steps.ts';
 import { errorText } from '../../view/text.ts';
 import { type Block, buildTimeline } from '../../view/timeline.ts';
 import { attachCommand, bodyOf, type StagedAttachment } from './attachments.ts';
@@ -61,8 +67,16 @@ export class Session {
 	steps: { id: string; read: ActivationSteps | undefined } | undefined;
 	/** The files that `/attach` copied in. They go, as refs, with the next message. */
 	pendingRefs: StagedAttachment[] = [];
-	/** The steps of each activation of the open exchange, by activation id. */
+	/**
+	 * The steps that this terminal read, by activation id: each activation of the open
+	 * exchange, and each one that it read before its exchange closed. A closed exchange
+	 * uses them for the title of its folded lines.
+	 */
 	private live = new Map<string, ActivationSteps>();
+	/** The ids of the closed activations that a read after the close already settled. */
+	private settled = new Set<string>();
+	/** The folded line that the person expanded, and the steps that the host held for it. */
+	unfolded: { id: string; read: ActivationSteps | undefined } | undefined;
 	/** The newest output line of the processes that the running seats of the open exchange own. */
 	private readonly tails: ProcessTails;
 	private readonly reader: RoomReader<RoomView>;
@@ -170,18 +184,19 @@ export class Session {
 	}
 
 	/**
-	 * Read the steps of each activation of the open exchange. A running
-	 * activation reads again on each change. An ended activation reads again
-	 * until a read holds its end step, so its title can count its calls and its
-	 * time. A failed read keeps the last steps of that activation. An
-	 * activation that left the exchange drops out.
+	 * Read the steps of each activation of the room. A running activation reads
+	 * again on each change. An ended activation reads again until a read holds its
+	 * end step, so its title can count its calls and its time. An activation that
+	 * the terminal did not see in the open exchange has no read, and a closed
+	 * exchange shows its title without calls. A failed read keeps the last steps of
+	 * that activation. An activation that left the room view drops out.
 	 */
 	private async readLive(room: string): Promise<void> {
-		const all = this.view?.exchange?.activations ?? [];
-		const wanted = all.filter((activation) => {
-			const kept = this.live.get(activation.id);
-			return activation.outcome.kind === 'running' || !kept || !ended(kept);
-		});
+		const all = (this.view?.exchanges ?? []).flatMap((exchange) => exchange.activations);
+		const open = new Set((this.view?.exchange?.activations ?? []).map(({ id }) => id));
+		const wanted = all.filter((activation) =>
+			this.wantsRead(activation.id, activation.outcome.kind, open),
+		);
 		const reads = await Promise.all(
 			wanted.map((activation) => this.host.activation(room, activation.id).catch(() => undefined)),
 		);
@@ -191,8 +206,21 @@ export class Session {
 		for (const { id } of all) {
 			const read = fresh.get(id) ?? this.live.get(id);
 			if (read) next.set(id, read);
+			if (fresh.has(id) && !open.has(id)) this.settled.add(id);
 		}
 		this.live = next;
+	}
+
+	/**
+	 * True when an activation needs a read. A running one does. An ended one of the
+	 * open exchange reads until it holds its end step. A closed one that holds none
+	 * reads one more time, because the exchange can close before the last step lands.
+	 */
+	private wantsRead(id: string, outcome: string, open: ReadonlySet<string>): boolean {
+		if (outcome === 'running') return true;
+		const kept = this.live.get(id);
+		if (open.has(id)) return !kept || !ended(kept);
+		return kept !== undefined && !ended(kept) && !this.settled.has(id);
 	}
 
 	/** What the person owes the room, one line each. It is empty when nothing waits. */
@@ -240,6 +268,8 @@ export class Session {
 			activity: activity && error ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
 			tail: this.tail(view),
 			failures: view.failures,
+			reads: this.live,
+			expanded: this.unfolded,
 		});
 		this.changed();
 	}
@@ -397,6 +427,8 @@ export class Session {
 		this.focus = undefined;
 		this.steps = undefined;
 		this.live = new Map();
+		this.settled = new Set();
+		this.unfolded = undefined;
 		this.tails.stop();
 		this.notice = undefined;
 		const dropped = this.pendingRefs.length;
@@ -556,6 +588,36 @@ export class Session {
 		return refItems(this.blocks, this.known);
 	}
 
+	/** What the pick key can choose, top to bottom: the refs and the folded activation lines. */
+	get pickIds(): string[] {
+		return pickIds(this.blocks, this.known);
+	}
+
+	/** Open what the pick key chose. A folded line expands or folds, and a ref opens as `openRef` says. */
+	async openPick(id: string): Promise<Intent | undefined> {
+		const activation = stayOfPick(id);
+		if (activation === undefined) return this.openRef(id);
+		await this.toggleStay(activation);
+		return undefined;
+	}
+
+	/**
+	 * Expand the folded line of a closed activation, or fold it when it is open.
+	 * It reads the steps through the host call that `/steps` uses. One line is open at a time.
+	 */
+	private async toggleStay(id: string): Promise<void> {
+		if (this.unfolded?.id === id) {
+			this.unfolded = undefined;
+			this.rebuild();
+			return;
+		}
+		const room = this.room;
+		const read = await this.host.activation(room, id).catch(() => undefined);
+		if (this.room !== room) return;
+		this.unfolded = { id, read };
+		this.rebuild();
+	}
+
 	/**
 	 * Open a ref. A file, a snapshot, and a commit open in the files layer, and
 	 * the terminal shows the layer when this returns the intent. A message ref moves the focus
@@ -627,8 +689,7 @@ export class Session {
 			this.steps = { id: activation.id, read };
 			this.wantBottom = true;
 			this.rebuild();
-			if (!read || read.passes.length === 0)
-				this.say('The trace of that activation holds no steps.');
+			if (!read || read.passes.length === 0) this.say(NO_STEPS);
 		} catch (error) {
 			this.fail(error);
 		}

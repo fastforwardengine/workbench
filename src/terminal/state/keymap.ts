@@ -74,7 +74,7 @@ export const KEYMAP = {
 			},
 			tab: {
 				keys: [{ name: 'tab' }],
-				does: 'Complete a command, or choose a ref of a shown message',
+				does: 'Complete a command, or choose a ref or an activation line of the conversation',
 			},
 			up: { keys: [UP], does: 'Choose the row above, in the palette' },
 			down: { keys: [DOWN], does: 'Choose the row below, in the palette' },
@@ -112,9 +112,12 @@ export const KEYMAP = {
 	refs: {
 		title: 'Refs',
 		bindings: {
-			up: { keys: [UP, K], does: 'Choose the ref above' },
-			down: { keys: [DOWN, J], does: 'Choose the ref below' },
-			open: { keys: [ENTER, SPACE], does: 'Open the ref' },
+			up: { keys: [UP, K], does: 'Choose the ref or the activation line above' },
+			down: { keys: [DOWN, J], does: 'Choose the ref or the activation line below' },
+			open: {
+				keys: [ENTER, SPACE],
+				does: 'Open the ref, or expand the activation line to its steps and fold it again',
+			},
 			back: { keys: [ESC, { name: 'r' }, { name: 'tab' }], does: 'Go back to the composer' },
 		},
 	},

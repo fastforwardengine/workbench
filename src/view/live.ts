@@ -115,25 +115,60 @@ function duration(steps: readonly TraceStep[]): string {
 }
 
 /**
- * The title: seat, purpose, and the attempt after the first. An ended
- * activation adds its calls, its duration, and its cost, and a failed one adds
- * the reason. The parts join with ` · `. A part that is zero or unknown is left out.
+ * The parts of the title: seat, purpose, and the attempt after the first. An
+ * ended activation adds its calls, its duration, and its cost. A part that is
+ * zero or unknown is left out.
  */
+function titleParts(activation: ExchangeActivation, steps: readonly TraceStep[]): string[] {
+	const running = activation.outcome.kind === 'running';
+	const spent = running ? [] : [callCount(steps), duration(steps), formatUsage(activation.usage)];
+	return [
+		activation.seat,
+		activation.purpose,
+		...(activation.attempt > 1 ? [`attempt ${activation.attempt}`] : []),
+		...spent.filter((part) => part !== ''),
+	];
+}
+
+/** The reason that a failed activation ended, when this process heard it. */
+const reasonOf = (activation: ExchangeActivation, reason: string | undefined) =>
+	failedEnd(activation) && reason ? reason : undefined;
+
+/** The title: its parts, and the reason of a failed activation, joined with ` · `. */
 function titleOf(
 	activation: ExchangeActivation,
 	steps: readonly TraceStep[],
 	reason: string | undefined,
 ): string {
-	const running = activation.outcome.kind === 'running';
-	const spent = running ? [] : [callCount(steps), duration(steps), formatUsage(activation.usage)];
-	const parts = [
-		activation.seat,
-		activation.purpose,
-		...(activation.attempt > 1 ? [`attempt ${activation.attempt}`] : []),
-		...spent.filter((part) => part !== ''),
-		...(failedEnd(activation) && reason ? [reason] : []),
-	];
-	return parts.join(' · ');
+	const why = reasonOf(activation, reason);
+	return [...titleParts(activation, steps), ...(why ? [why] : [])].join(' · ');
+}
+
+/** One ended activation as the line that stays in the conversation. */
+export interface EndedLine {
+	state: 'done' | 'failed';
+	/** The title of the live block, without the reason. */
+	title: string;
+	/** Why a failed activation failed, when this process heard it. */
+	reason?: string;
+}
+
+/**
+ * The line of an activation of a closed exchange. It has the title that the
+ * live block shows for an ended activation. Without a read of its steps, the
+ * title has no calls and no duration.
+ */
+export function endedLine(
+	activation: ExchangeActivation,
+	read: ActivationSteps | undefined,
+	reason: string | undefined,
+): EndedLine {
+	const why = reasonOf(activation, reason);
+	return {
+		state: failedEnd(activation) ? 'failed' : 'done',
+		title: titleParts(activation, stepsOf(read)).join(' · '),
+		...(why ? { reason: why } : {}),
+	};
 }
 
 function liveActivation(
