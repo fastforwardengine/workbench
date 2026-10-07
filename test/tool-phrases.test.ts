@@ -63,6 +63,11 @@ describe('resultPhrase', () => {
 		expect(resultPhrase('read', text('a\nb', { lines: 42 }))).toBe('42 lines');
 		expect(resultPhrase('read', text('a\nb\nc\n'))).toBe('3 lines');
 		expect(resultPhrase('read', text('a'))).toBe('1 line');
+		expect(resultPhrase('read', text('a', { from: 100, to: 110, lines: 500 }))).toBe(
+			'lines 100-110 of 500',
+		);
+		expect(resultPhrase('read', text('a', { from: 1, to: 500, lines: 500 }))).toBe('500 lines');
+		expect(resultPhrase('read', text('', { from: 5, to: 4, lines: 4 }))).toBe('4 lines');
 		expect(resultPhrase('read', text('', { image: { mimeType: 'image/png' } }))).toBe('image');
 		expect(resultPhrase('read', { value: 3 })).toBe('{"value":3}');
 	});
@@ -106,6 +111,56 @@ describe('resultPhrase', () => {
 		expect(resultPhrase('camera', { value: 3 })).toBe('{"value":3}');
 		expect(resultPhrase('camera', 'plain')).toBe('plain');
 		expect(resultPhrase('camera', [{ type: 'text', text: 'bare' }])).toBe('bare');
+	});
+});
+
+describe('the state of a process in a result', () => {
+	const facts = (handle: string, state: string, exitCode?: number) => ({
+		handle,
+		state,
+		...(exitCode === undefined ? {} : { exitCode }),
+	});
+	const line = (handle: string, end: string) => `[Process ${handle} ${end} Output: /p/out.]`;
+
+	it('reads the state from the details when they hold it', () => {
+		const shown = 'Process worker-1 is running\n\n[Process bash-2 exited with code 0. Output: /p.]';
+		expect(resultPhrase('bash', text(shown, { process: facts('bash-2', 'exited', 0) }))).toBe(
+			'exit 0',
+		);
+		expect(resultPhrase('bash', text(shown))).toBe('exit 0');
+		const running = text('x', { process: facts('bash-3', 'running') });
+		expect(resultPhrase('bash', running)).toBe('→ bash-3');
+		expect(resultPhrase('wait', text('x', { process: facts('bash-3', 'timed_out') }))).toBe(
+			'timed out',
+		);
+		expect(resultPhrase('cancel', text('x', { process: facts('bash-3', 'cancelled') }))).toBe(
+			'cancelled',
+		);
+	});
+
+	it('reads the last state line of a text with no details', () => {
+		const output = `Process worker-1 is running\n\n${line('bash-2', 'is running.')}`;
+		expect(resultPhrase('bash', text(output))).toBe('→ bash-2');
+	});
+
+	it('shows each process of a wait on several handles', () => {
+		const processes = [facts('a', 'exited', 0), facts('b', 'running')];
+		expect(resultPhrase('wait', text('x', { processes }))).toBe('a exit 0, b running');
+		const both = `${line('a', 'exited with code 0.')}\n\n${line('b', 'is running.')}`;
+		expect(resultPhrase('wait', text(both))).toBe('a exit 0, b running');
+	});
+
+	it('shows the first process that ended badly in an error', () => {
+		const error = `${line('a', 'exited with code 0.')}\n\n${line('b', 'exited with code 1.')}`;
+		expect(failurePhrase('wait', error)).toBe('failed: exit 1');
+		const last = `${line('a', 'exited with code 2.')}\n\n${line('b', 'timed out after 5 seconds.')}`;
+		expect(failurePhrase('wait', last)).toBe('failed: exit 2');
+		const timed = `${line('a', 'exited with code 0.')}\n\n${line('b', 'timed out after 5 seconds.')}`;
+		expect(failurePhrase('wait', timed)).toBe('failed: timed out');
+	});
+
+	it('shows a process in the state failed once', () => {
+		expect(failurePhrase('bash', line('a', 'failed: spawn error.'))).toBe('failed');
 	});
 });
 

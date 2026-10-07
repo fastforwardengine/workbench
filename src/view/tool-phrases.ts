@@ -46,7 +46,7 @@ function outputOf(output: unknown): Output {
 	return { text: item?.text, details };
 }
 
-/** The state that a process line of a result names. */
+/** The state of one process, as a result names it. */
 interface ProcessState {
 	handle: string;
 	/** `running`, `exit 0`, `timed out`, `cancelled`, or `failed`. */
@@ -54,34 +54,93 @@ interface ProcessState {
 }
 
 const PROCESS_LINE =
-	/Process (\S+)(?: \([^)]*\))? (is running|exited with code (-?\d+)|timed out|is cancelled|failed)/;
+	/Process (\S+)(?: \([^)]*\))? (is running|exited with code (-?\d+)|timed out|is cancelled|failed)/g;
 
-/** The state line of a process in a text, such as `Process bash-1 exited with code 0.`. */
-function processState(text: string | undefined): ProcessState | undefined {
-	const found = PROCESS_LINE.exec(text ?? '');
-	if (!found) return undefined;
-	const [, handle = '', what = '', code] = found;
-	if (code !== undefined) return { handle, state: `exit ${code}` };
-	if (what === 'is running') return { handle, state: 'running' };
-	return { handle, state: what === 'is cancelled' ? 'cancelled' : what };
+/** The state of a process in the words of its state line. */
+function stateOf(what: string, code: string | undefined): string {
+	if (code !== undefined) return `exit ${code}`;
+	if (what === 'is running') return 'running';
+	return what === 'is cancelled' ? 'cancelled' : what;
+}
+
+/** Every state line in a text, such as `Process bash-1 exited with code 0.`, in order. */
+function stateLines(text: string | undefined): ProcessState[] {
+	return [...(text ?? '').matchAll(PROCESS_LINE)].map(([, handle = '', what = '', code]) => ({
+		handle,
+		state: stateOf(what, code),
+	}));
+}
+
+/** The state of a process in the facts that a result holds in its details. */
+function factsState(facts: unknown): ProcessState | undefined {
+	if (!isRecord(facts) || typeof facts.handle !== 'string') return undefined;
+	switch (facts.state) {
+		case 'running':
+			return { handle: facts.handle, state: 'running' };
+		case 'exited':
+			return { handle: facts.handle, state: `exit ${facts.exitCode}` };
+		case 'timed_out':
+			return { handle: facts.handle, state: 'timed out' };
+		case 'cancelled':
+		case 'failed':
+			return { handle: facts.handle, state: facts.state };
+		default:
+			return undefined;
+	}
+}
+
+/**
+ * The processes that a result reports. The details hold them: one in
+ * `process`, and several in `processes`. A result without details has the
+ * state lines of its text. The state line of a process comes after its output,
+ * so the last lines are the ones that the tool wrote.
+ */
+function reported({ text, details }: Output): ProcessState[] {
+	const facts = Array.isArray(details.processes) ? details.processes : [details.process];
+	const known = facts.map(factsState).filter((state) => state !== undefined);
+	return known.length > 0 ? known : stateLines(text);
 }
 
 /** The result of `bash`: the handle while the process runs, else the end of the process. */
-function bashResult({ text }: Output): string | undefined {
-	const found = processState(text);
+function bashResult(output: Output): string | undefined {
+	const found = reported(output).at(-1);
 	if (!found) return undefined;
 	return found.state === 'running' ? `→ ${found.handle}` : found.state;
 }
 
-/** The result of `wait` and `cancel`: the state of the process. */
-const stateResult = ({ text }: Output): string | undefined => processState(text)?.state;
+/** The result of `wait` and `cancel`: the state of the process, or of each process of a wait on several. */
+function stateResult(output: Output): string | undefined {
+	const found = reported(output);
+	if (found.length < 2) return found[0]?.state;
+	return found.map(({ handle, state }) => `${handle} ${state}`).join(', ');
+}
 
-const processFailure = (error: string): string | undefined => processState(error)?.state;
+/** Whether a process ended badly: a code other than 0, a timeout, or a failure. */
+const endedBadly = ({ state }: ProcessState): boolean =>
+	state === 'timed out' || state === 'failed' || (state.startsWith('exit ') && state !== 'exit 0');
+
+/**
+ * The first process of an error text that ended badly. A wait on several
+ * handles lists the processes in the order of the handles, and the ones that
+ * ended well come first as often as last.
+ */
+const processFailure = (error: string): string | undefined =>
+	stateLines(error).find(endedBadly)?.state;
+
+/** Whether a view of lines `from` to `to` holds some lines of a file of `lines` lines, and not all. */
+const partOfFile = (from: unknown, to: unknown, lines: unknown): boolean =>
+	typeof from === 'number' &&
+	typeof to === 'number' &&
+	typeof lines === 'number' &&
+	to >= from &&
+	(from > 1 || to < lines);
 
 /** The lines of a file: the count in the details, else the lines of the text. */
 function readResult({ text, details }: Output): string | undefined {
 	if (isRecord(details.image)) return 'image';
-	if (typeof details.lines === 'number') return counted(details.lines, 'line');
+	const { from, to, lines } = details;
+	if (partOfFile(from, to, lines)) return `lines ${from}-${to} of ${lines}`;
+	if (typeof lines === 'number') return counted(lines, 'line');
 	if (text === undefined) return undefined;
 	return counted(text.replace(/\n$/, '').split('\n').length, 'line');
 }
@@ -220,5 +279,6 @@ export function resultPhrase(name: string, output: unknown): string {
 
 /** What a failed call reports, as one short line that starts with `failed:`. */
 export function failurePhrase(name: string, error: string): string {
-	return `failed: ${TOOLS.get(name)?.failure?.(error) ?? brief(error)}`;
+	const reason = TOOLS.get(name)?.failure?.(error) ?? brief(error);
+	return reason === 'failed' ? reason : `failed: ${reason}`;
 }
