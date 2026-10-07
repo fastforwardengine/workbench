@@ -1,5 +1,5 @@
 import type { CliRenderer, KeyEvent } from '@opentui/core';
-import { type Act, actOf, KEYMAP, matches } from '../state/keymap.ts';
+import { type Act, actOf, KEYMAP } from '../state/keymap.ts';
 import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
 import type { Session } from '../state/session.ts';
 import type { Voice } from '../state/voice.ts';
@@ -121,10 +121,11 @@ export class Keys {
 	/**
 	 * A key comes back up. Only the terminals that report key release send this.
 	 * Voice mode sends the recording when the person lets go of Space, in any
-	 * mode, because the hold can outlast a mode change.
+	 * mode, because the hold can outlast a mode change. The release ends the hold
+	 * with any modifier, because the person can press Ctrl or Alt before they let go.
 	 */
 	onRelease(key: KeyEvent): void {
-		if (KEYMAP.composer.bindings.talk.keys.some((chord) => matches(chord, key)))
+		if (KEYMAP.composer.bindings.talk.keys.some((chord) => chord.name === key.name))
 			void this.voice.release();
 	}
 
