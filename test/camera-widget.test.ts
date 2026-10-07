@@ -14,7 +14,7 @@ import { memoryJournals } from '@ambionframework/journal';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
-import { people, team, WORKER_TEAM } from '../src/domain/definitions.ts';
+import { BREAKOUT_TEAM, people, team } from '../src/domain/definitions.ts';
 import { seats } from '../src/domain/room.ts';
 import { frameActions } from '../src/host/actions.ts';
 import { labRepositories } from '../src/host/repositories.ts';
@@ -45,7 +45,7 @@ async function setup(script: Script = byAgent({})) {
 		runtime,
 		store: memoryCanvas(),
 		workspace,
-		breakout: { team: WORKER_TEAM },
+		breakout: { team: BREAKOUT_TEAM },
 		widgets: { kinds: [FRAME_KIND] },
 	});
 	cleanups.push(() => canvas.close());
@@ -54,7 +54,7 @@ async function setup(script: Script = byAgent({})) {
 		opener: canvas.tools(),
 		worker: canvas.workerTools(),
 	});
-	await canvas.resume({ agents: [...built.specialists, built.worker] });
+	await canvas.resume({ agents: [...built.specialists, ...built.twins] });
 	return { canvas, built };
 }
 

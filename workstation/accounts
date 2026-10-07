@@ -1,6 +1,7 @@
 # The accounts of the workstation that belong to the group `workbench`, one
 # on each line: each specialist, the host account `<workspace>-host`, and the
-# worker of the breakout rooms. The worker is outside the device groups.
+# twin of each specialist for the breakout rooms (`<specialist>-bg`). The
+# twins are outside the device groups.
 # The git account `workbench-git` is outside the group. The image, setup.sh,
 # and test/workstation-config.test.ts read this file.
 #
@@ -12,4 +13,5 @@
 researcher
 engineer
 workbench-host
-worker
+researcher-bg
+engineer-bg

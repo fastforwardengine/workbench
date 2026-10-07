@@ -107,7 +107,7 @@ with a directed say.
 | Researcher | States limits from `/library`, with the source, and writes a test plan | Workspace |
 | Engineer   | Watches the bench, runs the bench scripts, and guides a build          | Workspace |
 
-**Each specialist can open a breakout room.** A worker does a task of many
+**Each specialist can open a breakout room.** Its twin does a task of many
 steps in the background and reports the result. The header counts the
 breakout rooms that run, and Ctrl+R lists them under their parent room.
 See [`docs/breakouts.md`](docs/breakouts.md).

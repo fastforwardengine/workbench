@@ -22,7 +22,7 @@ import { type Sql, type SqlValue, sqliteJournals } from '@ambionframework/journa
 import { directoryBackend } from '@ambionframework/just-bash';
 import { fileCredentials, type PiExecutionOptions, piExecution } from '@ambionframework/pi';
 import { openWorkspace } from '@ambionframework/workspace';
-import { radioProject, team, WORKER_TEAM } from '../domain/definitions.ts';
+import { BREAKOUT_TEAM, radioProject, team } from '../domain/definitions.ts';
 import { type Environment, missingLogin, piCredentialsPath } from '../domain/model.ts';
 import { sharedRegistrations } from '../domain/notes.ts';
 import { buildRoom, seats } from '../domain/room.ts';
@@ -171,13 +171,13 @@ export async function openRooms(
 		return result;
 	}
 	// The canvas attaches the mirror of each room, so the host attaches none. The specialists
-	// open breakout rooms, and the worker team does their tasks.
+	// open breakout rooms, and their twins do the tasks.
 	const canvas = openCanvas({
 		name: 'workbench',
 		runtime,
 		store: sqliteCanvas(sql),
 		workspace,
-		breakout: { team: WORKER_TEAM },
+		breakout: { team: BREAKOUT_TEAM },
 		widgets: { kinds: [FRAME_KIND] },
 		onError: (failure) => reportFailure(stateOf(failure.room), failure),
 	});
@@ -191,7 +191,7 @@ export async function openRooms(
 			worker: canvas.workerTools(),
 		});
 		canvas.subscribe((event) => heardEvent(event, stateOf, (name) => canvas.room(name)));
-		await canvas.resume({ agents: [...roomTeam.specialists, roomTeam.worker] });
+		await canvas.resume({ agents: [...roomTeam.specialists, ...roomTeam.twins] });
 	} catch (error) {
 		closing = true;
 		await canvas.close().catch(() => {});
@@ -201,7 +201,9 @@ export async function openRooms(
 	}
 	// One model serves every seat, so a missing login makes every seat unavailable.
 	const missing =
-		reason === undefined ? [] : [...roomTeam.specialists, roomTeam.worker].map(({ name }) => name);
+		reason === undefined
+			? []
+			: [...roomTeam.specialists, ...roomTeam.twins].map(({ name }) => name);
 	/** The row of a room, or a refusal. */
 	function known(name: string): CanvasRoom {
 		return canvas.rooms().find((row) => row.name === name) ?? fail('Unknown room.');
@@ -272,7 +274,7 @@ export async function openRooms(
 		await workspace.dispose();
 	}
 	return {
-		/** The specialists that a room can seat. The worker of the breakout rooms is not among them. */
+		/** The specialists that a room can seat. The twins of the breakout rooms are not among them. */
 		team: roomTeam.specialists.map(({ name, identity }) => ({ name, identity })),
 		/** Whether a room is a breakout room. */
 		isBreakout: (name: string) => known(name).start.kind === 'breakout',

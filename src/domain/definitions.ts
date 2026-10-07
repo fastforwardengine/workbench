@@ -3,7 +3,7 @@ import { defineAgent, definePerson, type ToolBundle } from '@ambionframework/amb
 import { pi } from '@ambionframework/pi';
 import type { SkillSet, Workspace } from '@ambionframework/workspace';
 import { piModel, THINKING } from './model.ts';
-import { specialistSkills, workerSkills } from './skills.ts';
+import { specialistSkills } from './skills.ts';
 
 /** The name of the account running this process. The one person of Workbench uses it. */
 const owner = userInfo().username;
@@ -30,7 +30,7 @@ export type Person = (typeof people)[number];
 /** The project that the seats work on, as the shared prompt states it. The room goal lists the phases. */
 export const radioProject = 'Workbench is a lab workspace for one bench project: an FM radio kit.';
 
-/** The skills of research. The Researcher and the worker of a breakout room follow them. */
+/** The skills of research. The Researcher and its twin follow them. */
 const RESEARCH_SKILLS =
 	'Follow the cite-a-limit skill for a limit and for a choice between parts, and the write-a-test-plan skill for a test plan.';
 
@@ -43,7 +43,7 @@ type Group = (typeof GROUPS)[number];
 /** The rules of a seat for each group. Each rule is one line of the prompt. */
 type Rules = Partial<Record<Group, string[]>>;
 
-/** The rules every seat follows, the worker included. The kernel adds the collaboration rules. */
+/** The rules every seat follows, the twins included. The kernel adds the collaboration rules. */
 const SHARED_RULES: Rules = {
 	Project: [
 		'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act.',
@@ -63,17 +63,28 @@ const SHARED_RULES: Rules = {
 	],
 };
 
-/** The rules of the specialists only. The worker of a breakout room follows `WORKER_RULES`. */
+/** The suffix that makes the name of a twin from the name of a specialist. */
+const TWIN_SUFFIX = '-bg';
+
+/**
+ * The name of the twin of a specialist: the seat that does the tasks of the
+ * specialist in a breakout room. The canvas refuses a name of the breakout
+ * team in a root room, so the twin has a name of its own.
+ */
+export const twinOf = (specialist: string): string => `${specialist}${TWIN_SUFFIX}`;
+
+/** The rules of the specialists only. A twin follows `BREAKOUT_RULES`. */
 const SPECIALIST_RULES: Rules = {
 	Background: [
-		'A breakout room runs one task in the background while this room continues. A worker does the task, and it sees only your `goal` and `message`.',
+		'A breakout room runs one task in the background while this room continues. The twin of a specialist does the task, and it sees only your `goal` and `message`.',
+		`Seat the twin of the specialist whose work the task is: \`${twinOf('researcher')}\` for research, \`${twinOf('engineer')}\` for a script or for data.`,
 		'Open a breakout room for a self-contained task of many steps whose result this room does not need for its next step.',
 		'Open one breakout room for each independent task, so that the tasks run in parallel.',
-		'Keep in this room a task that drives a device of the bench, or that needs the person for an approval, hands-on work, or a photo. A worker has no access to the devices.',
+		'Keep in this room a task that drives a device of the bench, or that needs the person for an approval, hands-on work, or a photo. A twin has no access to the devices.',
 		'Keep in this room a task that you can finish in this activation.',
-		'In the `message`, give the task, its inputs, each constraint of the person, and the form of the result. The worker cannot read your home, so give a file of your home as a snapshot ref. In the `goal`, state the result in one sentence.',
+		'In the `message`, give the task, its inputs, each constraint of the person, and the form of the result. The twin cannot read your home, so give a file of your home as a snapshot ref. In the `goal`, state the result in one sentence.',
 		'After you open a breakout room, say in one line what runs in the background, and continue the work of this room.',
-		'A report is the claim of a worker. Read its `refs` before you say its result.',
+		'A report is the claim of a twin. Read its `refs` before you say its result.',
 	],
 	Speaking: [
 		'Say a result with no `to`.',
@@ -83,9 +94,8 @@ const SPECIALIST_RULES: Rules = {
 	],
 };
 
-/** The rules of the worker of a breakout room. */
-const WORKER_RULES: Rules = {
-	Project: [RESEARCH_SKILLS],
+/** The rules that a twin adds to the rules of its specialist. Both twins follow them. */
+const BREAKOUT_RULES: Rules = {
 	Constraints: [
 		'Your breakout room has no access to the devices of the bench. Report a step that needs a device or the person, and leave it to the specialist that opened the room.',
 	],
@@ -95,6 +105,18 @@ const WORKER_RULES: Rules = {
 		PREFERENCE,
 	],
 };
+
+/** What a twin adds to the identity of its specialist. */
+const TWIN_IDENTITY =
+	' In a breakout room, does one task that a specialist hands over, and reports the result.';
+
+/** The groups of the rules of a specialist that its twin follows. */
+const TWIN_GROUPS = ['Project', 'Evidence', 'Constraints'] as const;
+
+/** The rules of the twin of a specialist: its own `TWIN_GROUPS`, without the others. */
+function twinRules(rules: Rules): Rules {
+	return Object.fromEntries(TWIN_GROUPS.map((group) => [group, rules[group] ?? []]));
+}
 
 /** Write the groups of rules as sections. A section is a header, then one line for each rule. */
 function render(project: string, groups: Rules): string {
@@ -162,15 +184,8 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 	},
 ];
 
-/** The name of the worker of a breakout room. */
-export const WORKER = 'worker';
-
-/** The worker team of the canvas: the definitions that no root room seats. */
-export const WORKER_TEAM: readonly string[] = [WORKER];
-
-/** What the worker of a breakout room is. */
-const WORKER_IDENTITY =
-	'Worker of a breakout room. Does one task that a specialist hands over, in the background, and reports the result to that specialist.';
+/** The breakout team of the canvas: the twins, which no root room seats. */
+export const BREAKOUT_TEAM: readonly string[] = specialists.map(({ name }) => twinOf(name));
 
 /** The tool bundles that the canvas gives to the seats. A seat receives only the bundles that suit its job. */
 export interface CanvasBundles {
@@ -178,7 +193,7 @@ export interface CanvasBundles {
 	widgets?: ToolBundle;
 	/** `breakout`, `tell`, and `archive`. Each specialist holds them. */
 	opener?: ToolBundle;
-	/** `report`. The worker holds it. */
+	/** `report`. Each twin holds it. */
 	worker?: ToolBundle;
 }
 
@@ -189,7 +204,7 @@ export interface CanvasBundles {
  * default, and another one for an eval. `bundles` holds the tool bundles of the
  * canvas. A bundle that is absent adds no tool: a team without `widgets` shows
  * no widget, and a team without `opener` opens no breakout room. The result
- * holds the specialists and, apart from them, the worker of the breakout rooms.
+ * holds the specialists and, apart from them, their twins for the breakout rooms.
  */
 export async function team(
 	workspace: Workspace,
@@ -212,21 +227,28 @@ export async function team(
 				bundles: [workspace.tools({ skills }), ...extra.filter((bundle) => bundle !== undefined)],
 			}),
 		});
-	const definitions = await Promise.all(
-		specialists.map(async ({ rules, shows, ...definition }) =>
-			defined(
-				definition,
-				merge(SHARED_RULES, SPECIALIST_RULES, rules),
-				await specialistSkills(definition.name),
-				[shows ? bundles.widgets : undefined, bundles.opener],
-			),
-		),
+	const seated = await Promise.all(
+		specialists.map(async ({ rules, shows, ...definition }) => {
+			const skills = await specialistSkills(definition.name);
+			return {
+				specialist: await defined(
+					definition,
+					merge(SHARED_RULES, SPECIALIST_RULES, rules),
+					skills,
+					[shows ? bundles.widgets : undefined, bundles.opener],
+				),
+				twin: await defined(
+					{ name: twinOf(definition.name), identity: definition.identity + TWIN_IDENTITY },
+					merge(SHARED_RULES, twinRules(rules), BREAKOUT_RULES),
+					skills,
+					[bundles.worker],
+				),
+			};
+		}),
 	);
-	const worker = await defined(
-		{ name: WORKER, identity: WORKER_IDENTITY },
-		merge(SHARED_RULES, WORKER_RULES),
-		await workerSkills(),
-		[bundles.worker],
-	);
-	return { workspace, specialists: definitions, worker };
+	return {
+		workspace,
+		specialists: seated.map(({ specialist }) => specialist),
+		twins: seated.map(({ twin }) => twin),
+	};
 }

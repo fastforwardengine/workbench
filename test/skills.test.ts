@@ -7,14 +7,8 @@ import { memoryJournals } from '@ambionframework/journal';
 import { memoryBackend } from '@ambionframework/just-bash';
 import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
-import { people, team } from '../src/domain/definitions.ts';
-import {
-	SHARED_SKILLS,
-	skillsDirectory,
-	specialistSkills,
-	WORKER_SKILLS_FROM,
-	workerSkills,
-} from '../src/domain/skills.ts';
+import { people, team, twinOf } from '../src/domain/definitions.ts';
+import { SHARED_SKILLS, skillsDirectory, specialistSkills } from '../src/domain/skills.ts';
 import { labRepositories } from '../src/host/repositories.ts';
 
 const specialists = ['researcher', 'engineer'];
@@ -64,16 +58,24 @@ describe('the Workbench skills', () => {
 			expect(await skillNames(specialist), specialist).toEqual(expect.arrayContaining(shared));
 	});
 
-	it('gives the worker of the breakout rooms the shared skills and the skills of the Researcher', async () => {
-		expect(readdirSync(skillsDirectory)).not.toContain('worker');
-		expect(WORKER_SKILLS_FROM).toBe('researcher');
-		const names = (await workerSkills()).skills.map((skill) => skill.name).sort();
-		expect(names).toEqual(
-			[
-				...new Set([...(await skillNames(SHARED_SKILLS)), ...(await skillNames('researcher'))]),
-			].sort(),
-		);
-		expect(names).not.toContain('scan-the-bench');
+	it('gives the twin of each specialist the skills of that specialist', async () => {
+		const workspace = openWorkspace({
+			name: 'workbench',
+			backend: { bash: memoryBackend({ git: labRepositories(':memory:') }) },
+		});
+		try {
+			const built = await team(workspace);
+			expect(readdirSync(skillsDirectory)).not.toContain('researcher-bg');
+			for (const [index, twin] of built.twins.entries()) {
+				const specialist = built.specialists[index]?.name ?? '';
+				expect(twin.name).toBe(twinOf(specialist));
+				expect(twin.executor.guidance, twin.name).toBe(built.specialists[index]?.executor.guidance);
+				for (const name of await skillNames(specialist))
+					expect(twin.executor.guidance, twin.name).toContain(`~/.skills/${name}/SKILL.md`);
+			}
+		} finally {
+			await workspace.dispose();
+		}
 	});
 
 	it('lists the skills of a specialist in its guidance, and no skill of another', async () => {

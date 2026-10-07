@@ -15,8 +15,7 @@ holds the contract.
 | The skills | `skills/<specialist>/<skill>/` | `SKILL.md`, and any scripts, macros, references, and assets   |
 | The shared | `skills/shared/<skill>/`       | A skill that every specialist receives                        |
 | The loader | `src/domain/skills.ts`         | `specialistSkills`, which reads two folders with `loadSkills` |
-| The worker | `src/domain/skills.ts`         | `workerSkills`, which reads the folders of the Researcher     |
-| The wiring | `src/domain/definitions.ts`    | `workspace.tools({ skills })` in each specialist and worker   |
+| The wiring | `src/domain/definitions.ts`    | `workspace.tools({ skills })` in each specialist and twin     |
 | The check  | `test/skills.test.ts`          | The folders, the guidance, and the copy into the home         |
 | The macros | `test/skill-macros.test.ts`    | Each macro in a scripted room, and the guidance that lists it |
 
@@ -28,11 +27,11 @@ holds `keep-notes`. A specialist receives its own skills and the shared
 skills. A skill of the specialist replaces a shared skill of the same name.
 The folder `shared` names no specialist.
 
-**The worker of a breakout room has no folder.** `workerSkills` gives it
-the skills of `skills/shared/` and of `skills/researcher/`. No skill of
-these two folders drives a device, and the worker has no access to the
-devices. A skill that drives a device goes in the folder of the Engineer.
-[Breakout rooms](breakouts.md) describes the worker.
+**The twin of a specialist has no folder.** It receives the skills of its
+specialist, which `specialistSkills` reads for both seats. The twin of the
+Engineer receives the skills that drive a device, and its breakout room has
+no access to the devices. It cannot run those skills there.
+[Breakout rooms](breakouts.md) describes the twin.
 
 ## How a specialist reads a skill
 
