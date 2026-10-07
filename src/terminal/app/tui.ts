@@ -291,6 +291,8 @@ class EngineTui {
 		}
 		const text = row ? row.insert : this.composer.text;
 		const isMessage = !this.session.awaitingGoal && parse(text).kind === 'message';
+		// The status row says Sending…, so a second Enter leaves the text where it is.
+		if (isMessage && this.session.sending) return;
 		const typed = this.composer.text;
 		const intent = await this.session.submit(text);
 		// A message that failed to send stays in the box, so the person can send it again.

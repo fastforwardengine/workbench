@@ -131,6 +131,19 @@ describe('cueLines', () => {
 		]);
 	});
 
+	it('shows a third waiting message in place of a count of one', () => {
+		expect(cueLines([], waiting(3), 80).map((line) => line.text)).toEqual([
+			'steering: message 1',
+			'steering: message 2',
+			'steering: message 3',
+		]);
+		expect(cueLines([], waiting(4), 80).map((line) => line.text)).toEqual([
+			'steering: message 1',
+			'steering: message 2',
+			'+2 more',
+		]);
+	});
+
 	it('puts the staged files first', () => {
 		const lines = cueLines(staged, waiting(1), 80);
 		expect(lines.map((line) => line.text)).toEqual(['1 attached: one.png', 'steering: message 1']);

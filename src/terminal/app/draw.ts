@@ -225,6 +225,11 @@ export class Painter {
 		return undefined;
 	}
 
+	/** The status line while a message goes out to the host. It is undefined in any other state. */
+	private sendingStatus(): Segment | undefined {
+		return this.session.sending ? line('Sending…', 'muted', 'dim') : undefined;
+	}
+
 	/** The status line while a recording or a transcription runs. It is undefined in any other state. */
 	private voiceStatus(): Segment | undefined {
 		if (!this.voice.on || this.voice.phase === 'idle') return undefined;
@@ -255,7 +260,9 @@ export class Painter {
 		if (!view) return line('Opening…', 'muted');
 		if (view.status !== 'running')
 			return line(`${view.name} is ${view.status}. Use /resume.`, 'muted');
-		return this.voiceStatus() ?? this.workingStatus() ?? this.roomStatus(view);
+		return (
+			this.sendingStatus() ?? this.voiceStatus() ?? this.workingStatus() ?? this.roomStatus(view)
+		);
 	}
 
 	/** The status line of a running room where nobody records and no activation runs. */

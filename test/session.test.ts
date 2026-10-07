@@ -29,6 +29,42 @@ describe('Session start', () => {
 	});
 });
 
+describe('Session sending', () => {
+	/** A session whose next send waits until the test calls `release`. */
+	async function held() {
+		const built = await started();
+		let release: () => void = () => {};
+		built.host.sendGate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		return { ...built, release: () => release() };
+	}
+
+	it('tells the terminal to redraw when a send starts and when it ends', async () => {
+		const { session, changes, release } = await held();
+		expect(session.sending).toBe(false);
+		const before = changes();
+		const sent = session.submit('Check the diode.');
+		expect(session.sending).toBe(true);
+		expect(changes()).toBeGreaterThan(before);
+		const during = changes();
+		release();
+		await sent;
+		expect(session.sending).toBe(false);
+		expect(changes()).toBeGreaterThan(during);
+	});
+
+	it('ends the sending state when the send fails', async () => {
+		const { host, session } = await started();
+		host.send = async () => {
+			throw new Error('The link dropped.');
+		};
+		await session.submit('Check the diode.');
+		expect(session.sending).toBe(false);
+		expect(session.error).toBe('The link dropped.');
+	});
+});
+
 describe('Session mentions', () => {
 	it('sends a message with the seat it addresses, and keeps the mention in the text', async () => {
 		const { host, session } = await started();
