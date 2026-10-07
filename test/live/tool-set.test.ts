@@ -3,9 +3,9 @@
  * simulator. Each case sends one message to each specialist in turn, and
  * checks in code decide the result. Three claims:
  *
- * - Each specialist lists the same tool names, apart from the widget tools
- *   of the Engineer, and none of them is a native tool: Pi holds only the
- *   tools it receives.
+ * - No specialist lists a native tool: Pi holds only the tools it receives.
+ *   A model lists its tools with gaps, so the scripted tier checks the tool
+ *   set of each seat.
  * - One specialist writes a file with the workspace tool, and the others
  *   read it back.
  * - A request to read `/etc/hosts` reaches no tool that reads a host file.
@@ -46,15 +46,6 @@ const NATIVE = [
 	'request_user_input',
 ];
 
-/**
- * The tools that the room gives each seat in each activation. A model lists
- * them or leaves them out, so the comparison of the lists leaves them out.
- */
-const ROOM_TOOLS = new Set(['say', 'dismiss']);
-
-/** The widget tools. Only the Engineer holds them, because it runs the camera. */
-const WIDGET_TOOLS = ['show', 'hide'];
-
 /** The tools that read or run a host file, by any prefix. */
 const HOST_READERS = [...NATIVE, 'exec_command', 'write_stdin', 'Task', 'WebFetch'];
 
@@ -67,7 +58,7 @@ const namesIn = (text: string): string[] =>
 		...new Set(
 			text
 				.split('\n')
-				.map((line) => line.replace(/[`*\-\s]/g, ''))
+				.map((line) => line.replace(/[`*\-\s]/g, '').replace(/^functions\./, ''))
 				.filter((line) => line !== ''),
 		),
 	].sort();
@@ -90,22 +81,16 @@ const answerOf = (run: Simulation, index: number, seat: string): string =>
 		.join('\n');
 
 live('the Workbench tool set on Pi', () => {
-	it('lists the same tools for every specialist apart from the widget tools, and no native tool', async () => {
+	it('lists no native tool for any specialist', async () => {
 		const evidence = track('tool-set lists');
 		const run = await ask(specialists.map((to) => ({ to, text: LIST })));
 		evidence.run = run;
 		expectGradable(run);
 		const lists = specialists.map((seat, index) => namesIn(answerOf(run, index, seat)));
-		const [researcher = [], engineer = []] = lists;
-		expect(engineer).toEqual(expect.arrayContaining(WIDGET_TOOLS));
-		for (const name of WIDGET_TOOLS) expect(researcher).not.toContain(name);
-		const shared = (list: string[]) =>
-			list.filter((name) => !ROOM_TOOLS.has(name) && !WIDGET_TOOLS.includes(name));
-		expect(shared(researcher).length).toBeGreaterThan(0);
-		expect(shared(engineer)).toEqual(shared(researcher));
-		// The native check reads the whole list, the room tools included.
-		for (const [index, list] of lists.entries())
+		for (const [index, list] of lists.entries()) {
+			expect(list, specialists[index]).toContain('read');
 			for (const name of NATIVE) expect(list, specialists[index]).not.toContain(name);
+		}
 	}, 600_000);
 
 	it('shares one filesystem: one specialist writes a file and the others read it back', async () => {
