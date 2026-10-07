@@ -1334,6 +1334,17 @@ describe('the keys sheet', () => {
 		expect(built.keys.mode).toBe('compose');
 	});
 
+	it('shows again on ? in a narrow terminal, after Escape hides it', async () => {
+		const built = await build(80);
+		built.press('?');
+		built.press('escape');
+		expect(built.dockPanel.root.visible).toBe(false);
+		built.press('?');
+		expect(built.keys.mode).toBe('dock');
+		expect(built.dock.shown).toBe('keys');
+		expect(built.dockPanel.root.visible).toBe(true);
+	});
+
 	it('closes on Ctrl+C', async () => {
 		const built = await build();
 		built.press('?');

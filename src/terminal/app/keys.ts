@@ -183,9 +183,9 @@ export class Keys {
 		this.openLayer('processes');
 	}
 
-	/** Open the keys sheet, or close it while it shows. The sheet takes the keys when it opens. */
+	/** Open the keys sheet, or close it while it shows on the screen. The sheet takes the keys when it opens. */
 	openKeys(): void {
-		if (this.dock.shown === 'keys') this.closeTop();
+		if (this.dock.shown === 'keys' && this.dock.onScreen) this.closeTop();
 		else this.openLayer('keys');
 	}
 

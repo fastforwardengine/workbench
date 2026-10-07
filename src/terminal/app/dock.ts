@@ -46,6 +46,11 @@ export class Dock {
 	private readonly fits = (id: LayerId): boolean =>
 		this.width() >= NARROW || this.surfaces[id].narrow;
 
+	/** True while the dock shows on the screen. */
+	get onScreen(): boolean {
+		return this.visible;
+	}
+
 	/** The layer on top that fits the terminal, or undefined when the dock has none to show. */
 	get shown(): LayerId | undefined {
 		return this.stack.top(this.fits);
@@ -89,7 +94,7 @@ export class Dock {
 	/** Put the next tab on top. */
 	cycle(): void {
 		const next = this.stack.next(this.fits);
-		if (next !== undefined) this.stack.raise(next);
+		if (next !== undefined && next !== this.shown) this.stack.raise(next);
 	}
 
 	/** Give one key to the top layer. */

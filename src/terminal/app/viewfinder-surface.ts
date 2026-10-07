@@ -28,11 +28,6 @@ export class ViewfinderSurface implements Surface {
 		return this.panel.root;
 	}
 
-	/** True while the layer shows. */
-	get shown(): boolean {
-		return this.browser.open;
-	}
-
 	/** True while the person chooses an action of a camera. It reads the actions again first, so a lost action ends the choice. */
 	acting(): boolean {
 		this.browser.syncActions();

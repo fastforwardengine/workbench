@@ -37,7 +37,7 @@ export class Session {
 	files: FileEntry[] = [];
 	/** The seq of the message that a ref jumped to. The terminal highlights it. */
 	focus: number | undefined;
-	/** The files panel. It searches `files` and loads the chosen one. */
+	/** The files layer. It searches `files` and loads the chosen one. */
 	readonly browser: FileBrowser;
 	room = '';
 	view: RoomView | undefined;
@@ -534,8 +534,8 @@ export class Session {
 	}
 
 	/**
-	 * Open a ref. A file, a snapshot, and a commit open in the files panel, and
-	 * the terminal shows the panel when this returns the intent. A message ref moves the focus
+	 * Open a ref. A file, a snapshot, and a commit open in the files layer, and
+	 * the terminal shows the layer when this returns the intent. A message ref moves the focus
 	 * to that message. A ref that does not resolve opens nothing.
 	 */
 	async openRef(id: string): Promise<Intent | undefined> {
