@@ -34,6 +34,7 @@ const WORKSPACE_TOOLS = [
 	'read',
 	'write',
 	'edit',
+	'apply_patch',
 	'bash',
 	'ps',
 	'wait',

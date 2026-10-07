@@ -68,8 +68,8 @@ const TWIN_SUFFIX = '-bg';
 
 /**
  * The name of the twin of a specialist: the seat that does the tasks of the
- * specialist in a breakout room. The canvas refuses a name of the breakout
- * team in a root room, so the twin has a name of its own.
+ * specialist in a breakout room. The name differs from the name of the
+ * specialist, because one canvas holds both definitions.
  */
 export const twinOf = (specialist: string): string => `${specialist}${TWIN_SUFFIX}`;
 
@@ -201,16 +201,16 @@ const specialists: {
 	},
 ];
 
-/** The breakout team of the canvas: the twins, which no root room seats. */
+/** The names of the twins. A root room seats the agents that its `agents` list names, so it seats no twin. */
 export const BREAKOUT_TEAM: readonly string[] = specialists.map(({ name }) => twinOf(name));
 
 /** The tool bundles that the canvas gives to the seats. A seat receives only the bundles that suit its job. */
 export interface CanvasBundles {
 	/** `show` and `hide`. The Engineer holds them. */
 	widgets?: ToolBundle;
-	/** `breakout`, `tell`, and `archive`. Each specialist holds them. */
+	/** `breakout`, `tell`, `archive`, and `report`. Each specialist holds them. */
 	opener?: ToolBundle;
-	/** `report`. Each twin holds it. */
+	/** The same bundle. Each twin holds it. */
 	worker?: ToolBundle;
 }
 

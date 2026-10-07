@@ -76,7 +76,7 @@ describe('buildTimeline', () => {
 		const scheduled = { ...said(61, 'agent', 'agent'), delaySeconds: 600 } as Message;
 		const returned = {
 			seq: 70,
-			kind: 'posted',
+			kind: 'system',
 			to: 'agent',
 			returns: 61,
 			text: 'Check the build.',
@@ -87,7 +87,7 @@ describe('buildTimeline', () => {
 		expect(shape(build(messages, exchanges))).toEqual([
 			'question:59',
 			'said:61',
-			'posted:70',
+			'system:70',
 			'said:72',
 		]);
 	});
@@ -419,12 +419,12 @@ describe('the activations of a closed exchange', () => {
 });
 
 describe('the anchor of an exchange', () => {
-	const posted = (seq: number): Message => ({ seq, kind: 'posted', text: 'p', at: AT }) as Message;
+	const system = (seq: number): Message => ({ seq, kind: 'system', text: 'p', at: AT }) as Message;
 	/** The rule that the anchor search replaced: the last spoken message in the range, else the opening. */
 	const oldAnchor = (exchange: Exchange, messages: Message[]): number => {
 		const found = messages.filter(
 			(message) =>
-				(message.kind === 'said' || message.kind === 'posted') &&
+				(message.kind === 'said' || message.kind === 'system') &&
 				message.seq >= exchange.from &&
 				message.seq <= (exchange as { through: number }).through,
 		);
@@ -440,7 +440,7 @@ describe('the anchor of an exchange', () => {
 			arrived(6),
 			said(8, 'noor'),
 			said(9, 'engineer', 'noor'),
-			posted(10),
+			system(10),
 			arrived(11),
 			said(13, 'noor'),
 		];

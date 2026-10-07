@@ -2,8 +2,8 @@ import type {
 	Exchange,
 	ExchangeActivation,
 	Message,
-	PostedMessage,
 	SaidMessage,
+	SystemMessage,
 } from '@ambionframework/ambion';
 import { endedLine, type LiveActivation, type StepTotals } from './live.ts';
 import { type ActivationSteps, formatUsage, type PassView, stepsView } from './steps.ts';
@@ -11,10 +11,10 @@ import { type ActivationSteps, formatUsage, type PassView, stepsView } from './s
 type ClosedView = Extract<Exchange, { status: 'closed' }>;
 
 /**
- * How a message reads in the conversation. A post is a message of the system:
- * the host posted it, or the room gave the say of a seat back to it.
+ * How a message reads in the conversation. A system message is one that the
+ * host posted, or one that gives the say of a seat back to it.
  */
-export type Role = 'question' | 'said' | 'posted';
+export type Role = 'question' | 'said' | 'system';
 
 export interface MessageBlock {
 	type: 'message';
@@ -88,8 +88,8 @@ export interface TimelineInput {
 	expanded?: { id: string; read: ActivationSteps | undefined };
 }
 
-const spoken = (message: Message): message is SaidMessage | PostedMessage =>
-	message.kind === 'said' || message.kind === 'posted';
+const spoken = (message: Message): message is SaidMessage | SystemMessage =>
+	message.kind === 'said' || message.kind === 'system';
 
 function waitingOn(exchange: ClosedView): string | undefined {
 	return exchange.outcome.kind === 'awaiting' ? `Waiting on ${exchange.outcome.person}` : undefined;
@@ -226,7 +226,7 @@ const staysBlock = (items: StayItem[] | undefined): Block[] =>
 	items ? [{ type: 'stays', items }] : [];
 
 const roleOf = (message: Message, humans: ReadonlySet<string>): Role => {
-	if (message.kind === 'posted') return 'posted';
+	if (message.kind === 'system') return 'system';
 	return humans.has(message.from ?? '') ? 'question' : 'said';
 };
 
