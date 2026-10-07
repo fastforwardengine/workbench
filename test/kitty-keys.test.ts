@@ -250,8 +250,10 @@ describe('a key that the person presses and releases', () => {
 		expect(session.interrupt).toHaveBeenCalledTimes(1);
 	});
 
-	it('quits once on Ctrl+D with an empty composer', async () => {
+	it('quits once on two Ctrl+D', async () => {
 		const { quit, send } = await build();
+		send(KEY.ctrlD, release('d', 5));
+		expect(quit).not.toHaveBeenCalled();
 		send(KEY.ctrlD, release('d', 5));
 		expect(quit).toHaveBeenCalledTimes(1);
 	});

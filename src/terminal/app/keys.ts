@@ -28,7 +28,12 @@ export interface KeyParts {
 	render: () => void;
 	/** Leave the terminal. */
 	quit: () => void;
+	/** The clock for the window of the second Ctrl+D, in milliseconds. It defaults to `Date.now`. */
+	now?: () => number;
 }
+
+/** The time in which a second Ctrl+D leaves the terminal. */
+export const QUIT_WINDOW_MS = 2000;
 
 /**
  * The input. It routes each key to the composer, the refs, the actions of the
@@ -50,6 +55,9 @@ export class Keys {
 	private readonly voice: Voice;
 	private readonly render: () => void;
 	private readonly quit: () => void;
+	private readonly now: () => number;
+	/** The time of the first Ctrl+D, while a second one still leaves. */
+	private quitArmedAt: number | undefined;
 
 	constructor(parts: KeyParts) {
 		this.renderer = parts.renderer;
@@ -63,6 +71,7 @@ export class Keys {
 		this.voice = parts.voice;
 		this.render = parts.render;
 		this.quit = parts.quit;
+		this.now = parts.now ?? Date.now;
 	}
 
 	/** Recompute the palette rows. The palette closes outside compose mode. */
@@ -132,16 +141,31 @@ export class Keys {
 
 	/**
 	 * Ctrl+C and Ctrl+D. True when the key is handled. Ctrl+D leaves only from
-	 * the composer, because a layer uses it to scroll.
+	 * the composer, because a layer uses it to scroll. It leaves on the second press
+	 * inside a short window. Any other key ends the window.
 	 */
 	private controlKey(key: KeyEvent): boolean {
 		const act = actOf('everywhere', key);
-		const leaves = act === 'quit' && this.mode === 'compose' && this.composer.text === '';
-		if (act !== 'interrupt' && !leaves) return false;
+		const quitting = act === 'quit' && this.mode === 'compose';
+		if (!quitting) this.quitArmedAt = undefined;
+		if (!quitting && act !== 'interrupt') return false;
 		key.preventDefault();
-		if (leaves) this.quit();
+		if (quitting) this.pressQuit();
 		else this.interrupt();
 		return true;
+	}
+
+	/** Ctrl+D in the composer. The first press says how to leave, and the second one leaves. */
+	private pressQuit(): void {
+		const now = this.now();
+		const armed = this.quitArmedAt !== undefined && now - this.quitArmedAt <= QUIT_WINDOW_MS;
+		this.quitArmedAt = armed ? undefined : now;
+		if (armed) {
+			this.quit();
+			return;
+		}
+		this.session.say('Press Ctrl+D again to leave.');
+		this.render();
 	}
 
 	/**
@@ -192,14 +216,26 @@ export class Keys {
 	/**
 	 * Open the camera layer when it is closed or below another layer, and close it
 	 * when it shows. The composer keeps the keys. A narrow terminal does not show
-	 * the camera: it says so, and it changes no layer.
+	 * the camera: it closes a camera layer that is open, and it says so. It opens none.
 	 */
 	toggleCamera(): void {
-		if (this.renderer.width < NARROW) this.sayCameraWidth();
+		if (this.renderer.width < NARROW) this.closeHiddenCamera();
 		else if (this.dock.shown === 'camera') {
 			this.dock.close('camera');
 			this.render();
 		} else this.openLayer('camera');
+	}
+
+	private closeHiddenCamera(): void {
+		if (!this.dock.has('camera')) {
+			this.sayCameraWidth();
+			return;
+		}
+		this.dock.close('camera');
+		this.session.say(
+			`Closed the camera. It shows when the terminal is at least ${NARROW} columns wide.`,
+		);
+		this.render();
 	}
 
 	private sayCameraWidth(): void {
@@ -419,16 +455,24 @@ export class Keys {
 		return true;
 	}
 
-	/** Esc cancels a new room that waits for its goal. Otherwise it closes the palette. */
+	/**
+	 * Esc peels back one level. It cancels a new room that waits for its goal, or it
+	 * closes the palette. When neither applies and the dock shows on the screen, it
+	 * closes the top layer of the dock. Otherwise the composer gets the key.
+	 */
 	private escapeCompose(): boolean {
 		if (this.session.awaitingGoal) {
 			this.session.cancelWaiting();
 			this.composer.setText('');
 			return true;
 		}
-		if (!this.palette.open) return false;
-		this.palette.dismiss();
-		this.refreshPalette();
+		if (this.palette.open) {
+			this.palette.dismiss();
+			this.refreshPalette();
+			return true;
+		}
+		if (!this.dock.onScreen || !this.dock.shown) return false;
+		this.closeTop();
 		return true;
 	}
 }

@@ -78,7 +78,10 @@ export const KEYMAP = {
 			},
 			up: { keys: [UP], does: 'Choose the row above, in the palette' },
 			down: { keys: [DOWN], does: 'Choose the row below, in the palette' },
-			escape: { keys: [ESC], does: 'Close the palette, or cancel a new room' },
+			escape: {
+				keys: [ESC],
+				does: 'Close the palette, cancel a new room, or close the top layer of the dock',
+			},
 			rooms: { keys: [{ name: 'r', ctrl: true }], does: 'List the rooms' },
 			actions: {
 				keys: [{ name: 'l', ctrl: true }],
@@ -102,7 +105,7 @@ export const KEYMAP = {
 			},
 			quit: {
 				keys: [{ name: 'd', ctrl: true, shift: false }],
-				does: 'Leave the terminal, from an empty composer',
+				does: 'Leave the terminal: press twice, from the composer',
 			},
 		},
 	},
@@ -126,7 +129,7 @@ export const KEYMAP = {
 	},
 	dock: {
 		title: 'Dock',
-		note: 'Files, processes, keys, and camera are layers of the dock. A new layer opens on top. Files, processes, and keys take the keys when they open. The camera leaves them with the composer.',
+		note: 'Files, processes, keys, and camera are layers of the dock. A new layer opens on top. Files, processes, and keys take the keys when they open. The camera leaves them with the composer. Esc in the composer closes the top layer.',
 		bindings: {
 			leave: { keys: [{ name: 'o', ctrl: true }], does: 'Give the keys back to the composer' },
 			cycle: { keys: [{ name: 'tab' }], does: 'Show the next layer' },

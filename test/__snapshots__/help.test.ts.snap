@@ -14,7 +14,8 @@ exports[`the help text > lists every command and key, as the person reads them 1
                     in the dock, and hide them when they show. The
                     Engineer shows a camera. Ctrl+L chooses the Look now button
                     under a camera, Enter presses it, and Esc goes back. It needs
-                    a terminal with Kitty graphics, such as Ghostty.
+                    a terminal with Kitty graphics, such as Ghostty, at least 100
+                    columns wide. A narrower terminal closes an open camera layer.
   /voice            switch voice mode on or off. In voice mode, hold Space on an empty
                     composer to talk, and let go to send what whisper.cpp hears.
   /try              fill the composer with the room’s suggested question

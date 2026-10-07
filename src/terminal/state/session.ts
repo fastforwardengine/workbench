@@ -283,7 +283,7 @@ export class Session {
 		this.pendingRefs = [];
 		this.say(
 			staged === 0
-				? 'Press Ctrl+D or type /quit to leave.'
+				? 'Press Ctrl+D twice or type /quit to leave.'
 				: `Dropped ${staged} staged attachment${staged === 1 ? '' : 's'}.`,
 		);
 	}

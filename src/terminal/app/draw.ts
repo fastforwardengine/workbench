@@ -17,6 +17,9 @@ import type { Dock } from './dock.ts';
 /** The one hint of the footer. It names the key that opens the keys sheet. */
 const KEYS_HINT = `${bindingLabel(KEYMAP.composer.bindings.keys)} keys`;
 
+/** The hint while the dock shows on the screen. It adds the key that closes the top layer. */
+const CLOSE_HINT = `${bindingLabel(KEYMAP.composer.bindings.escape)} close · ${KEYS_HINT}`;
+
 /** The parts the painter draws into. */
 export interface DrawParts {
 	session: Session;
@@ -137,7 +140,7 @@ export class Painter {
 		this.composer.setStatus(new StyledText(this.statusChunks(mode, picking)));
 		this.composer.setCue(stagedCue(session.pendingRefs));
 		// The keys sheet opens from the composer only, so no other mode shows the hint.
-		this.composer.setHints(mode === 'compose' ? KEYS_HINT : '');
+		this.composer.setHints(mode === 'compose' ? (this.dock.onScreen ? CLOSE_HINT : KEYS_HINT) : '');
 	}
 
 	/** What the status line says about the chosen ref: why it does not open, or what Enter does. */
