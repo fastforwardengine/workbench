@@ -16,11 +16,11 @@ describe('the team instructions', () => {
 	});
 
 	it('give examples that the terminal resolves', () => {
-		const known = { room: 'build', files: ['/library/rda5807fp.md'], seqs: new Set<number>() };
+		const known = { room: 'build', files: ['/datasheets/rda5807fp.md'], seqs: new Set<number>() };
 		const examples = [...shared.matchAll(/file:\/\/\/[A-Za-z0-9_./-]+[A-Za-z0-9]/g)].map(
 			(match) => match[0],
 		);
-		expect(examples).toEqual(['file:///library/rda5807fp.md']);
+		expect(examples).toEqual(['file:///datasheets/rda5807fp.md']);
 		for (const example of examples) expect(resolveRef(example, known).target).toBeDefined();
 	});
 });
@@ -83,12 +83,12 @@ describe('the structure of a prompt', () => {
 
 	it('states one citation rule: a read-only file by URI, a changing file by snapshot, a note by path', () => {
 		const rule = shared.split('\n').find((line) => line.startsWith('- Cite what you rely on'));
-		expect(rule).toContain('Cite a file of /library, which is read-only');
+		expect(rule).toContain('Cite a file of /datasheets, which is read-only');
 		expect(rule).toContain('file:///<path>');
 		expect(rule).toContain(
 			'Cite a file that can change, such as /shared/kit.md, by its snapshot ref',
 		);
-		expect(rule).toContain('Inside a note, write the library/ path');
+		expect(rule).toContain('Inside a note, write the datasheets/ path');
 	});
 
 	it('does not name the project as a room, and drops the rules that the kernel or the screen holds', async () => {

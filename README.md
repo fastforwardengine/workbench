@@ -59,7 +59,7 @@ pnpm start ./bench                # another directory
   marks the seat `no login`, and the other seats keep running.
 - **The terminal opens as the person named for your OS account.** That
   person is the one person of Workbench.
-- **A new data directory gets the `build` room and the library.** An
+- **A new data directory gets the `build` room and the datasheets.** An
   existing one resumes its rooms and has no `build` room. Move an older
   data directory away, or add a room with `/new bench`.
 - **The rooms live on a canvas.** The canvas table `canvas_rooms` holds one
@@ -108,10 +108,10 @@ summary of an exchange. The person addresses the Researcher with
 `@researcher`. The Engineer asks the Researcher for a limit or a test plan
 with a directed say.
 
-| Seat       | Work                                                                   | Tools     |
-| ---------- | ---------------------------------------------------------------------- | --------- |
-| Researcher | States limits from `/library`, with the source, and writes a test plan | Workspace |
-| Engineer   | Watches the bench, runs the bench scripts, and guides a build          | Workspace |
+| Seat       | Work                                                                      | Tools     |
+| ---------- | ------------------------------------------------------------------------- | --------- |
+| Researcher | States limits from `/datasheets`, with the source, and writes a test plan | Workspace |
+| Engineer   | Watches the bench, runs the bench scripts, and guides a build             | Workspace |
 
 **The workspace tools are the only tools.** They read and write files,
 run shell commands as background processes, fork the git templates, and
@@ -135,7 +135,7 @@ A bench script comes from a template.
   decisions, and questions with their sources and confidence. Every specialist
   clones it, reads its README.md, and commits and pushes changes.
   [Notes](docs/notes.md) describes the layout and workflow.
-- **Workspace:** one directory for every room. It holds `/library`,
+- **Workspace:** one directory for every room. It holds `/datasheets`,
   `/shared`, `/attachments`, and a home for each specialist.
 - **Addressing:** start a message with `@name` to wake one specialist.
   A message with no mention wakes the Engineer. Type `@` to list the
@@ -218,7 +218,7 @@ A bench script comes from a template.
 - **Skills:** a folder of skills for each specialist, in `skills/`. See
   [`docs/skills.md`](docs/skills.md).
 
-The library holds the datasheets and the manual of the kit parts, and no
+The `/datasheets` folder holds the datasheets and the manual of the kit parts, and no
 real hardware is connected. Every measurement is a planned value.
 
 ## Develop

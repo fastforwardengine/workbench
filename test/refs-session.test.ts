@@ -27,8 +27,8 @@ const exchange = {
 	activations: [],
 };
 
-const FILE = 'file:///library/cell-18650.md';
-const MISSING = 'file:///library/missing.md';
+const FILE = 'file:///datasheets/cell-18650.md';
+const MISSING = 'file:///datasheets/missing.md';
 const HOST_FILE = 'file:///etc/passwd';
 const SNAPSHOT = snapshotUri('workbench', 'ab'.repeat(32), '/shared/readings.csv');
 const COMMIT = commitUri('workbench', 'researcher/plan', 'cd'.repeat(20), { branch: 'led' });
@@ -57,7 +57,7 @@ function room(host: FakeHost, cite = true): void {
 
 async function open() {
 	const made = await started();
-	made.host.fileList = [{ path: '/library/cell-18650.md', size: 797 }];
+	made.host.fileList = [{ path: '/datasheets/cell-18650.md', size: 797 }];
 	room(made.host);
 	await made.session.refreshRooms();
 	await made.session.refresh();
@@ -130,15 +130,15 @@ describe('the refs of a message', () => {
 		const { session, host } = await open();
 		const intent = await session.openRef('2#0');
 		expect(intent).toEqual({ type: 'files' });
-		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/library/cell-18650.md'));
+		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/datasheets/cell-18650.md'));
 		expect(session.browser.open).toBe(true);
-		expect(session.browser.selected?.path).toBe('/library/cell-18650.md');
-		expect(host.reads).toContain('/library/cell-18650.md');
+		expect(session.browser.selected?.path).toBe('/datasheets/cell-18650.md');
+		expect(host.reads).toContain('/datasheets/cell-18650.md');
 	});
 
 	it('opens a snapshot ref and a commit ref in the panel, through their own host calls', async () => {
 		const { session, host } = await started();
-		host.fileList = [{ path: '/library/cell-18650.md', size: 797 }];
+		host.fileList = [{ path: '/datasheets/cell-18650.md', size: 797 }];
 		host.table.set(
 			'characterization',
 			view('characterization', {
@@ -156,7 +156,7 @@ describe('the refs of a message', () => {
 		});
 		expect(session.browser.matches.map((entry) => entry.path)).toEqual([
 			SNAPSHOT,
-			'/library/cell-18650.md',
+			'/datasheets/cell-18650.md',
 		]);
 		await session.openRef('2#1');
 		await vi.waitFor(() => expect(session.browser.file?.path).toBe(COMMIT));
@@ -221,7 +221,7 @@ describe('the ref keys', () => {
 		while (keys.picking !== '2#0') press('up');
 		press('return');
 		await vi.waitFor(() => expect(keys.mode).toBe('files'));
-		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/library/cell-18650.md'));
+		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/datasheets/cell-18650.md'));
 		press('escape');
 		expect(keys.mode).toBe('refs');
 		expect(session.browser.open).toBe(false);

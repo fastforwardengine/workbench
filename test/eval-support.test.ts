@@ -28,7 +28,7 @@ const script = byAgent({
 	// One seat speaks, so no say of another seat makes its view stale.
 	researcher: once([
 		() => callTool('read', { path: '/shared/kit.md' }),
-		(results) => say(`/library holds no LED datasheet yet. ${results[0]?.text ?? ''}`),
+		(results) => say(`/datasheets holds no LED datasheet yet. ${results[0]?.text ?? ''}`),
 	]),
 });
 

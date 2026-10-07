@@ -251,9 +251,9 @@ describe('Session files and prompts', () => {
 	it('opens the files panel on the first file, and previews it', async () => {
 		const { session } = await started();
 		expect(await session.submit('/files')).toEqual({ type: 'files' });
-		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/library/cell-18650.md'));
+		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/datasheets/cell-18650.md'));
 		expect(session.browser.open).toBe(true);
-		expect(session.browser.file?.text).toBe('text of /library/cell-18650.md');
+		expect(session.browser.file?.text).toBe('text of /datasheets/cell-18650.md');
 	});
 
 	it('narrows the files as the person types, and follows the selection', async () => {
@@ -263,7 +263,7 @@ describe('Session files and prompts', () => {
 		expect(session.browser.matches.map((file) => file.path)).toEqual(['/shared/notes.md']);
 		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/shared/notes.md'));
 		session.browser.clear();
-		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/library/cell-18650.md'));
+		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/datasheets/cell-18650.md'));
 		session.browser.move(1);
 		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/shared/notes.md'));
 		session.browser.type('nothing');
@@ -274,9 +274,9 @@ describe('Session files and prompts', () => {
 	it('opens the panel on one file for /open, by path or by a part of it', async () => {
 		const { session } = await started();
 		await session.refreshRooms();
-		for (const argument of ['/library/cell-18650.md', 'library/cell-18650.md', 'cell-1']) {
+		for (const argument of ['/datasheets/cell-18650.md', 'datasheets/cell-18650.md', 'cell-1']) {
 			expect(await session.submit(`/open ${argument}`)).toEqual({ type: 'files' });
-			expect(session.browser.selected?.path).toBe('/library/cell-18650.md');
+			expect(session.browser.selected?.path).toBe('/datasheets/cell-18650.md');
 		}
 	});
 

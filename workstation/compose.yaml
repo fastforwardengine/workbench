@@ -8,7 +8,7 @@
 #
 # sshd listens on 127.0.0.1:2222 only. The S3 API of the object store listens
 # on 127.0.0.1:9000 only. The named volumes keep the homes, the repositories of
-# the git account, the library, /shared, the attachments, and the snapshots across a restart.
+# the git account, /datasheets, /shared, the attachments, and the snapshots across a restart.
 services:
   workstation:
     build: .
@@ -19,7 +19,7 @@ services:
       - ../.workstation:/etc/workbench:ro
       - home:/home
       - srv:/srv
-      - library:/library
+      - datasheets:/datasheets
       - shared:/shared
       - attachments:/attachments
       # The USB devices of the machine, for lsusb and libusb. With OrbStack on
@@ -90,7 +90,7 @@ services:
 volumes:
   home:
   srv:
-  library:
+  datasheets:
   shared:
   attachments:
   objects:

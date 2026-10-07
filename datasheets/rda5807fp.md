@@ -20,7 +20,7 @@ RDA5807FP-M.
 
 ![RDA5807FP top view and features](images/rda5807fp-p01.jpg)
 
-Figure file: `/library/images/rda5807fp-p01.jpg`.
+Figure file: `/datasheets/images/rda5807fp-p01.jpg`.
 
 ## Key facts
 
@@ -95,7 +95,7 @@ The top view and the schematic decide.
 
 ![I²C timing diagrams](images/rda5807fp-p08.jpg)
 
-Figure file: `/library/images/rda5807fp-p08.jpg`.
+Figure file: `/datasheets/images/rda5807fp-p08.jpg`.
 
 ## Registers (pages 9 to 14)
 
@@ -201,7 +201,7 @@ On the wire, one write of registers 0x02 and 0x03 is the address byte
 
 ![Application circuit](images/rda5807fp-p17.jpg)
 
-Figure file: `/library/images/rda5807fp-p17.jpg`. The datasheet circuit uses
+Figure file: `/datasheets/images/rda5807fp-p17.jpg`. The datasheet circuit uses
 a 32.768 kHz crystal on RCLK, a 100 nH inductor and a 24 pF capacitor as the
 FM input choke, two ferrite beads (1.5 kΩ at 100 MHz) on the audio path, two
 audio coupling capacitors, and a 22 nF bypass capacitor on VDD close to pin 10.
@@ -210,7 +210,7 @@ audio coupling capacitors, and a 22 nF bypass capacitor on VDD close to pin 10.
 
 ![Block diagram](images/rda5807fp-p04.jpg)
 
-Figure file: `/library/images/rda5807fp-p04.jpg`.
+Figure file: `/datasheets/images/rda5807fp-p04.jpg`.
 
 ## Open points for the kit
 

@@ -28,7 +28,7 @@ light at each step. The supply and the camera connect to a workstation.
 
 ## House rules
 
-- Read the datasheet in /library before you state a limit. Cite the path.
+- Read the datasheet in /datasheets before you state a limit. Cite the path.
 - A measurement counts only when a script read it from a device. Cite the
   file that the script wrote. Every other value is a planned value.
 - Record a decision in the notes, in \`decisions/\`, unless the person told you not to edit files.

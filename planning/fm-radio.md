@@ -10,7 +10,7 @@ display. [`next.md`](next.md) holds the milestone that builds on it.
 
 **The parts below come from the product photo, the manual, and the
 schematic.** The datasheets and the circuit are in
-[`library/`](../library/README.md). Each part needs a check against the
+[`datasheets/`](../datasheets/README.md). Each part needs a check against the
 kit when it arrives. Activity 2 of [`next.md`](next.md) settles them.
 
 | Part                                              | Marking in the photo         | Role                                                                         |
@@ -101,7 +101,7 @@ bus.
 
 ## Facts to settle
 
-**The documents in [`library/`](../library/README.md) settle these
+**The documents in [`datasheets/`](../datasheets/README.md) settle these
 facts.** The schematic picture and the datasheets give the type of the
 microcontroller (STC8G1K17, DIP16), the button pins (P3.1, P3.0, P5.4, and
 P5.5 for V−, V+, CH−, and CH+), the pins of the tuner outputs, and the

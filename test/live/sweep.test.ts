@@ -4,7 +4,7 @@
  * decide who spoke, which tools the specialists used, and the cost. A judge
  * grades what the messages of the specialists claim.
  *
- * The library holds no datasheet for the LED, the supply, or the camera yet,
+ * The datasheets hold no datasheet for the LED, the supply, or the camera yet,
  * so no message may state a limit as a datasheet fact.
  */
 import { agentJudge, scriptedActor, simulate } from '@ambionframework/simulator';
@@ -47,7 +47,7 @@ live('the led-sweep room, driven by the simulator', () => {
 			thinking: JUDGE_THINKING,
 			services: JUDGE_SERVICES,
 		})(run, [
-			'The messages of the specialists say that /library holds no datasheet for the LED, the power supply, or the camera yet.',
+			'The messages of the specialists say that /datasheets holds no datasheet for the LED, the power supply, or the camera yet.',
 			'No message of a specialist states an LED current limit, supply range, or camera setting as a datasheet fact.',
 			'The messages of the specialists answer the question: they name the limits that the sweep must respect, or the datasheet that must supply each one.',
 		]);

@@ -71,7 +71,7 @@ cat >"$STATE/workstation.json" <<JSON
 		"prefix": "workbench/",
 		"credentials": "objects.env"
 	},
-	"roots": ["/library", "/shared", "/attachments"]
+	"roots": ["/datasheets", "/shared", "/attachments"]
 }
 JSON
 echo "workstation: $(cd "$STATE" && pwd)/workstation.json"

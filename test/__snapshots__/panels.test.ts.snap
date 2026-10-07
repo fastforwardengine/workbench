@@ -3,9 +3,9 @@
 exports[`the frames of the panels > draws the files panel in a short terminal 1`] = `
 "┌──────────────────────────────────────┐
 │ Files › ▌   3 of 3                   │
-│   /library/cell-18650.md  797 B      │
-│   /shared/notes.md        40 B       │
-│ ▸ /shared/plan.txt        400 B      │
+│   /datasheets/cell-18650.md  797 B   │
+│   /shared/notes.md           40 B    │
+│ ▸ /shared/plan.txt           400 B   │
 │                                      │
 │                                      │
 │                                      │
@@ -21,9 +21,9 @@ exports[`the frames of the panels > draws the files panel in a short terminal 1`
 exports[`the frames of the panels > draws the files panel over the whole width 1`] = `
 "┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Files › ▌   3 of 3                                                                               │
-│   /library/cell-18650.md  797 B                                                                  │
-│   /shared/notes.md        40 B                                                                   │
-│ ▸ /shared/plan.txt        400 B                                                                  │
+│   /datasheets/cell-18650.md  797 B                                                               │
+│   /shared/notes.md           40 B                                                                │
+│ ▸ /shared/plan.txt           400 B                                                               │
 │                                                                                                  │
 │                                                                                                  │
 │                                                                                                  │
@@ -55,9 +55,9 @@ exports[`the frames of the panels > draws the files panel over the whole width 1
 exports[`the frames of the panels > draws the files panel with a long text file 1`] = `
 "┌─────────────────────────────────────────────────────┐
 │ Files › ▌   3 of 3                                  │
-│   /library/cell-18650.md  797 B                     │
-│   /shared/notes.md        40 B                      │
-│ ▸ /shared/plan.txt        400 B                     │
+│   /datasheets/cell-18650.md  797 B                  │
+│   /shared/notes.md           40 B                   │
+│ ▸ /shared/plan.txt           400 B                  │
 │                                                     │
 │                                                     │
 │                                                     │

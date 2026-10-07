@@ -1,7 +1,7 @@
 # Notes
 
 **The notes are one git repository that every specialist commits to.** They
-hold what the team concludes from the library and from its readings: the
+hold what the team concludes from the datasheets and from its readings: the
 facts of the bench, the decisions, and the questions that stay open. A
 disagreement between two seats lives on a branch until evidence or the
 person settles it.
@@ -10,24 +10,24 @@ person settles it.
 and workstation backends. The package supplies the first files. Registration
 keeps all later commits and branches when Workbench starts again.
 
-## The library and the notes
+## The datasheets and the notes
 
-**The library holds what comes in. The notes hold what the team decides.**
+**The datasheets hold what comes in. The notes hold what the team decides.**
 
-| Part      | Holds                                                        | Who writes                   |
-| --------- | ------------------------------------------------------------ | ---------------------------- |
-| `library` | Datasheets, the kit manual, the schematic, and their figures | The package, at each start   |
-| `notes`   | Facts, decisions, and questions, each with its source        | Every specialist, by commits |
-| Templates | The starting files of a task                                 | The package, at each start   |
-| Snapshots | The bytes of a file, such as a reading, a frame, or a clip   | Any seat, with `snapshot`    |
+| Part         | Holds                                                        | Who writes                   |
+| ------------ | ------------------------------------------------------------ | ---------------------------- |
+| `datasheets` | Datasheets, the kit manual, the schematic, and their figures | The package, at each start   |
+| `notes`      | Facts, decisions, and questions, each with its source        | Every specialist, by commits |
+| Templates    | The starting files of a task                                 | The package, at each start   |
+| Snapshots    | The bytes of a file, such as a reading, a frame, or a clip   | Any seat, with `snapshot`    |
 
-- **The library is read-only.** On a workstation, the mode of `/library`
+- **The datasheets are read-only.** On a workstation, the mode of `/datasheets`
   (2750, owned by the host account) keeps a seat from writing there. On the
   local directory backend nothing stops a write, and the host rewrites
-  `/library` at each start, so an edit does not last. A conclusion from a
-  datasheet goes into the notes, with the library file as its source.
-- **A note cites the library, and the library never cites a note.** A
-  library file states its own conflicts and open points. The notes settle
+  `/datasheets` at each start, so an edit does not last. A conclusion from a
+  datasheet goes into the notes, with the datasheet file as its source.
+- **A note cites the datasheets, and a datasheet never cites a note.** A
+  datasheet file states its own conflicts and open points. The notes settle
   them.
 - **The notes hold no raw data.** A reading, a frame, or a clip goes in as a
   snapshot ref. The note cites the ref.
@@ -88,16 +88,16 @@ account names the agent only in the reflog.
 # STC8G1K17
 
 - **The four buttons sit on P3.1, P3.0, P5.4, and P5.5** (V−, V+, CH−, CH+).
-  Source: library/fm-radio-kit-schematic.md. Confidence: medium.
+  Source: datasheets/fm-radio-kit-schematic.md. Confidence: medium.
 - **P5.4 is also the reset pin, when a download enables it.**
-  Source: library/stc8g1k17.md. Confidence: medium.
+  Source: datasheets/stc8g1k17.md. Confidence: medium.
 ```
 
-| Field      | Rule                                                                                                  |
-| ---------- | ----------------------------------------------------------------------------------------------------- |
-| Statement  | One fact, in plain language. A value carries its unit                                                 |
-| Source     | A library path, a snapshot ref, a commit ref, or a message ref (`ambion://room/<room>/message/<seq>`) |
-| Confidence | `high`: a reading or a cited photo. `medium`: a datasheet or a schematic. `low`: a guess              |
+| Field      | Rule                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| Statement  | One fact, in plain language. A value carries its unit                                                   |
+| Source     | A datasheet path, a snapshot ref, a commit ref, or a message ref (`ambion://room/<room>/message/<seq>`) |
+| Confidence | `high`: a reading or a cited photo. `medium`: a datasheet or a schematic. `low`: a guess                |
 
 **A measurement counts only when a script read it from a device.** The
 source is the snapshot ref of the file that the script wrote. Every other
@@ -173,11 +173,11 @@ The steward records the message ref in the merge commit.
 - **The record of the room.** The journal keeps it. A note keeps the
   conclusion, and cites the message.
 - **Secrets.** No key, token, or password.
-- **Source documents.** They belong to the library.
+- **Source documents.** They belong to the datasheets.
 
 ## The first content
 
-**The package supplies claims from the library and its open questions.**
+**The package supplies claims from the datasheets and its open questions.**
 The files in `notes/` use the subject folders above.
 
 **The repository starts from the packaged notes.** Registration does not

@@ -50,7 +50,7 @@ export class FakeHost implements Lab {
 		['budget', view('budget')],
 	]);
 	fileList: FileEntry[] = [
-		{ path: '/library/cell-18650.md', size: 797 },
+		{ path: '/datasheets/cell-18650.md', size: 797 },
 		{ path: '/shared/notes.md', size: 40 },
 	];
 	failNext: string | undefined;

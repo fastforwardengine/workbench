@@ -5,7 +5,7 @@ import type { Block } from '../src/view/timeline.ts';
 
 const known: Known = {
 	room: 'characterization',
-	files: ['/library/cell-18650.md', '/shared/my notes.md'],
+	files: ['/datasheets/cell-18650.md', '/shared/my notes.md'],
 	seqs: new Set([1, 2, 3]),
 };
 
@@ -14,9 +14,9 @@ const HASH = 'a1b2c3d4e5'.repeat(4);
 
 describe('resolveRef', () => {
 	it('resolves a file: URI to a workspace path in the file list', () => {
-		const resolved = resolveRef('file:///library/cell-18650.md', known);
+		const resolved = resolveRef('file:///datasheets/cell-18650.md', known);
 		expect(resolved.kind).toBe('file');
-		expect(resolved.target).toEqual({ kind: 'file', path: '/library/cell-18650.md' });
+		expect(resolved.target).toEqual({ kind: 'file', path: '/datasheets/cell-18650.md' });
 	});
 
 	it('decodes the path and drops a fragment or a query', () => {
@@ -24,11 +24,11 @@ describe('resolveRef', () => {
 			kind: 'file',
 			path: '/shared/my notes.md',
 		});
-		expect(resolveRef('file:///library/cell-18650.md?x=1', known).target?.kind).toBe('file');
+		expect(resolveRef('file:///datasheets/cell-18650.md?x=1', known).target?.kind).toBe('file');
 	});
 
 	it('marks a file that the workspace does not list', () => {
-		const resolved = resolveRef('file:///library/missing.md', known);
+		const resolved = resolveRef('file:///datasheets/missing.md', known);
 		expect(resolved.target).toBeUndefined();
 		expect(resolved.problem).toBe('not in the workspace');
 	});
@@ -36,13 +36,13 @@ describe('resolveRef', () => {
 	it('refuses a path that leaves the workspace, whatever its encoding', () => {
 		const escapes = [
 			'file:///../etc/passwd',
-			'file:///library/../../etc/passwd',
-			'file:///library/%2e%2e/%2e%2e/etc/passwd',
-			'file:///library%2F..%2F..%2Fetc%2Fpasswd',
-			'file:///library//cell-18650.md',
-			'file:///library\\cell-18650.md',
-			'file:///library/cell%00.md',
-			'file:///library/%zz',
+			'file:///datasheets/../../etc/passwd',
+			'file:///datasheets/%2e%2e/%2e%2e/etc/passwd',
+			'file:///datasheets%2F..%2F..%2Fetc%2Fpasswd',
+			'file:///datasheets//cell-18650.md',
+			'file:///datasheets\\cell-18650.md',
+			'file:///datasheets/cell%00.md',
+			'file:///datasheets/%zz',
 		];
 		for (const ref of escapes) expect(resolveRef(ref, known).target, ref).toBeUndefined();
 	});
@@ -110,11 +110,11 @@ describe('resolveRef', () => {
 });
 
 describe('chipLine', () => {
-	const file = resolveRef('file:///library/cell-18650.md', known);
-	const missing = resolveRef('file:///library/missing-datasheet-with-a-long-name.md', known);
+	const file = resolveRef('file:///datasheets/cell-18650.md', known);
+	const missing = resolveRef('file:///datasheets/missing-datasheet-with-a-long-name.md', known);
 
 	it('shows a marker, the kind, and the label', () => {
-		expect(chipLine(file, 80)).toBe('↗ file  /library/cell-18650.md');
+		expect(chipLine(file, 80)).toBe('↗ file  /datasheets/cell-18650.md');
 		expect(chipLine(resolveRef('ambion://room/characterization/message/2', known), 80)).toBe(
 			'↗ message  2',
 		);
@@ -147,7 +147,7 @@ describe('refItems', () => {
 			type: 'message',
 			message: said(1, [
 				'ambion://room/characterization/message/2',
-				'file:///library/cell-18650.md',
+				'file:///datasheets/cell-18650.md',
 			]),
 			role: 'said',
 		},

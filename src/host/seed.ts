@@ -4,7 +4,7 @@ import { packageDirectory, packageFiles } from '../domain/package-root.ts';
 /** The environment of one workspace operation. */
 type Env = Parameters<Parameters<Workspace['use']>[1]>[0];
 
-const LIBRARY = '/library/';
+const DATASHEETS = '/datasheets/';
 
 /** The content of a seed file: text for Markdown, bytes for a figure. */
 type SeedContent = string | Uint8Array;
@@ -25,29 +25,29 @@ function directoryFiles(directory: string, prefix: string): Record<string, SeedC
 }
 
 /**
- * The seed of a workspace: each file by its workspace path. `library/` of
- * the package gives `/library/...`. `seed/` of the package gives every other
+ * The seed of a workspace: each file by its workspace path. `datasheets/` of
+ * the package gives `/datasheets/...`. `seed/` of the package gives every other
  * file, so `seed/shared/kit.md` becomes `/shared/kit.md`. The host writes
- * each file of `/library` at every start, because the package owns them. It
+ * each file of `/datasheets` at every start, because the package owns them. It
  * writes every other file only when the workspace does not hold it, so an
  * edit always remains. `overrides` replaces files of the seed by path, as an
  * eval of another project does.
  */
 export function seedFiles(overrides: Record<string, string> = {}): Record<string, SeedContent> {
 	return {
-		...directoryFiles('library', '/library/'),
+		...directoryFiles('datasheets', '/datasheets/'),
 		...directoryFiles('seed', '/'),
 		...overrides,
 	};
 }
 
 /**
- * Write one file. A file of `/library` is written every time, because the
- * package owns the library and a newer package brings newer documents. Any
+ * Write one file. A file of `/datasheets` is written every time, because the
+ * package owns the datasheets and a newer package brings newer documents. Any
  * other file is written only when the workspace does not hold it yet.
  */
 async function writeSeed(env: Env, path: string, content: SeedContent): Promise<void> {
-	if (!path.startsWith(LIBRARY)) {
+	if (!path.startsWith(DATASHEETS)) {
 		const found = await env.exists(path);
 		if (!found.ok) throw found.error;
 		if (found.value) return;
@@ -59,7 +59,7 @@ async function writeSeed(env: Env, path: string, content: SeedContent): Promise<
 /**
  * Write the seed files as the host account. The seed goes through the
  * workspace, so a local directory and a workstation get it the same way.
- * An existing file outside `/library` always remains.
+ * An existing file outside `/datasheets` always remains.
  */
 export async function seedWorkspace(
 	workspace: Workspace,

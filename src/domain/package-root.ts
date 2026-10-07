@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
  * The root of the Workbench package: the nearest directory above this module
  * that holds a `package.json`. The source tree and the bundle in `dist/`
  * give the same root, so a directory that ships beside the code, such as
- * `library/` or `templates/`, resolves the same way in both.
+ * `datasheets/` or `templates/`, resolves the same way in both.
  */
 function findRoot(start: string): string {
 	let directory = start;
@@ -20,7 +20,7 @@ function findRoot(start: string): string {
 
 const root = findRoot(dirname(fileURLToPath(import.meta.url)));
 
-/** A directory that ships at the root of the package, such as `library`. */
+/** A directory that ships at the root of the package, such as `datasheets`. */
 export const packageDirectory = (name: string): string => join(root, name);
 
 /** The path segments that a tool writes beside the files of a package directory. */

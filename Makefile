@@ -113,7 +113,7 @@ ssh: workstation
 test-workstation: workstation node_modules/.modules.yaml
 	WORKBENCH_WORKSTATION=$(CONFIG) pnpm exec vitest run test/workstation.test.ts test/usb-camera-workstation.test.ts
 
-## The workstation and its volumes go: the homes, the repositories, /library,
+## The workstation and its volumes go: the homes, the repositories, /datasheets,
 ## /shared, and the snapshots. The keys and the credentials in .workstation stay.
 reset:
 	@printf 'Remove the workstation and its volumes? Type yes: '; \

@@ -101,7 +101,7 @@ describe('the preview of a commit ref', () => {
 	});
 
 	it('refuses a string that is not a commit ref', async () => {
-		await expect(readCommitFile(open(), 'file:///library/a.md')).rejects.toThrow(
+		await expect(readCommitFile(open(), 'file:///datasheets/a.md')).rejects.toThrow(
 			/not a commit ref/,
 		);
 	});

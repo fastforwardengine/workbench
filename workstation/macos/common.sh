@@ -17,7 +17,7 @@ DRY="${WORKBENCH_DRY_RUN:-}"
 # The accounts. The file workstation/accounts lists the group accounts. The
 # git account is outside the group, as in the container.
 ACCOUNTS=()
-while read -r name; do ACCOUNTS+=("$name"); done < <(grep -v "^#" "$REPO/workstation/accounts")
+while read -r name; do ACCOUNTS+=("$name"); done < <(grep -Ev '^[[:space:]]*(#|$)' "$REPO/workstation/accounts")
 GIT_ACCOUNT=workbench-git
 GROUP=workbench
 # The comment of each record that setup.sh makes. teardown.sh deletes only
@@ -33,7 +33,7 @@ GROUP_GID="${WORKBENCH_GID:-5000}"
 PRIMARY_GROUP=staff
 ACCOUNT_SHELL=/bin/zsh
 
-# The host account writes the room mirror, the snapshots, and the library.
+# The host account writes the room mirror, the snapshots, and the datasheets.
 HOST_ACCOUNT=""
 for name in "${ACCOUNTS[@]}"; do
 	case "$name" in *-host) HOST_ACCOUNT="$name" ;; esac
@@ -43,7 +43,7 @@ done
 HOMES="${WORKBENCH_HOMES:-/Users}"
 SHARE="${WORKBENCH_SHARE:-/Users/Shared/workbench}"
 ROOT_DIR="${WORKBENCH_ROOT_DIR:-}"
-ROOT_NAMES=(library shared attachments)
+ROOT_NAMES=(datasheets shared attachments)
 LIBEXEC="${WORKBENCH_LIBEXEC:-/usr/local/libexec/workbench}"
 SSHD_CONFIG="${WORKBENCH_SSHD_CONFIG:-/etc/ssh/sshd_config}"
 SSHD_DROPIN="${WORKBENCH_SSHD_DROPIN:-/etc/ssh/sshd_config.d/100-workbench.conf}"
@@ -52,6 +52,12 @@ HOST_KEY_PUB="${WORKBENCH_HOST_KEY_PUB:-/etc/ssh/ssh_host_ed25519_key.pub}"
 STATE_FILE="$LIBEXEC/state"
 APFS_UTIL=/System/Library/Filesystems/apfs.fs/Contents/Resources/apfs.util
 SSH_GROUP=com.apple.access_ssh
+# setup.sh writes this file when it creates the group SSH_GROUP itself.
+SSH_GROUP_MARKER="$LIBEXEC/ssh-group-created"
+# The owner of a folder that only root may own. A dry run runs as a normal
+# user, so it expects the current user. The test sets WORKBENCH_ROOT_UID.
+ROOT_UID=0
+[ -z "$DRY" ] || ROOT_UID="${WORKBENCH_ROOT_UID:-$(id -u)}"
 
 say() { printf '%s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
@@ -96,6 +102,30 @@ put() {
 	rm -f "$temp"
 }
 
+# Write a file as a seat: put_seat NAME MODE PATH. A seat
+# controls its own home, and root must not follow a link that the seat
+# planted. The file goes to a temporary name and replaces the target with
+# `mv`, which does not follow a link at the target. A dry run prints it like put.
+put_seat() {
+	local name="$1" mode="$2" dest="$3" temp
+	temp="$(mktemp)"
+	cat >"$temp"
+	if [ -n "$DRY" ]; then
+		printf '+ write %s mode=%s owner=%s:%s\n' "$dest" "$mode" "$name" "$PRIMARY_GROUP"
+		sed 's/^/| /' "$temp"
+		printf '+ end %s\n' "$dest"
+	else
+		# shellcheck disable=SC2024
+		(cd / && sudo -n -u "$name" -H sh -c \
+			'umask 077; cat >"$1.tmp.$$" && chmod "$2" "$1.tmp.$$" && mv -f "$1.tmp.$$" "$1"' \
+			sh "$dest" "$mode" <"$temp") || {
+			rm -f "$temp"
+			die "could not write $dest as $name."
+		}
+	fi
+	rm -f "$temp"
+}
+
 # Run a command as the admin who ran sudo, so a file in the state folder
 # belongs to that admin. A dry run runs as the current user.
 as_admin() {
@@ -119,9 +149,15 @@ check_platform() {
 		die "run this script with sudo from an admin account. A root shell has no SUDO_USER."
 }
 
-# The id of a user, or nothing when the user does not exist.
+# The id of a user, or nothing when the user has no id.
 user_uid() {
 	dscl . -read "/Users/$1" UniqueID 2>/dev/null | awk '{ print $2 }' || true
+}
+
+# True when a record of the user exists, also a record that setup.sh left
+# half made, with no id.
+user_exists() {
+	dscl . -read "/Users/$1" >/dev/null 2>&1
 }
 
 # True when the user record carries our comment.
@@ -153,7 +189,8 @@ synthetic_line() {
 	printf '%s\t%s\n' "$1" "${SHARE#/}/$1"
 }
 
-# The state of Remote Login: on, off, or unknown.
+# The state of Remote Login: on or off. When no tool gives the state, the
+# answer is whether sshd listens on the loopback address.
 remote_login_state() {
 	local out
 	out="$(systemsetup -getremotelogin 2>/dev/null || true)"
@@ -165,7 +202,9 @@ remote_login_state() {
 	case "$out" in
 	*disabled* | *true*) echo off ;;
 	*enabled* | *false*) echo on ;;
-	*) echo unknown ;;
+	*)
+		if sshd_listening; then echo on; else echo off; fi
+		;;
 	esac
 }
 

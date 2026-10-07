@@ -68,6 +68,25 @@ The steps, by hand:
    WORKBENCH_WORKSTATION=.workstation/macos.json pnpm start
    ```
 
+**The ids can change.** The seats get the uids 5000 and up, and the group gets
+the gid 5000. When another user holds one of them, the setup stops and prints
+the command for other ids. `sudo` drops the variables of your shell, so name
+them after `sudo`:
+
+```sh
+sudo WORKBENCH_UID_BASE=6000 WORKBENCH_GID=6000 bash workstation/macos/setup.sh
+```
+
+**The setup checks before it changes anything.** Each check below runs before
+the first privileged change. A script that stops on a check leaves nothing
+behind:
+
+- every account and the group are free, or carry the comment of the setup;
+- the home of a new account does not exist;
+- no name in `/` clashes with a root link, whatever the case of its letters;
+- `/Users/Shared/workbench` and its `srv` folder are plain folders of root;
+- each existing home and its `.ssh` folder are plain folders of their account.
+
 **The setup ends with a check.** It logs in as Engineer with the key of
 Engineer, as the admin, and runs the tools that the backend needs. It prints
 a warning for each tool that the seat lacks. A failed login stops the script
@@ -75,16 +94,16 @@ with an exit status of 1.
 
 ## What the setup makes
 
-| Item                    | Where                                       | Content                                                                       |
-| ----------------------- | ------------------------------------------- | ----------------------------------------------------------------------------- |
-| One user for each seat  | uid 5000 and up, in the order of `accounts` | Hidden, standard, home `/Users/<name>`, 0700                                  |
-| The git account         | `workbench-git`, uid 5900                   | Hidden, standard, outside the group                                           |
-| The group `workbench`   | gid 5000                                    | Every account of `accounts`                                                   |
-| The data folder         | `/Users/Shared/workbench`                   | `srv/audit`, `srv/rooms`, `srv/snapshots`, `shared`, `library`, `attachments` |
-| The root links          | `/etc/synthetic.conf`                       | `/library`, `/shared`, `/attachments`                                         |
-| The sshd drop-in        | `/etc/ssh/sshd_config.d/100-workbench.conf` | One `Match User` block                                                        |
-| The shims and the state | `/usr/local/libexec/workbench`              | `setsid`, `flock`, and the state of Remote Login                              |
-| The keys and the config | `.workstation/` in the repository           | `keys/`, `macos.json`, `macos.known_hosts`                                    |
+| Item                    | Where                                       | Content                                                                          |
+| ----------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| One user for each seat  | uid 5000 and up, in the order of `accounts` | Hidden, standard, home `/Users/<name>`, 0700                                     |
+| The git account         | `workbench-git`, uid 5900                   | Hidden, standard, outside the group                                              |
+| The group `workbench`   | gid 5000                                    | Every account of `accounts`                                                      |
+| The data folder         | `/Users/Shared/workbench`                   | `srv/audit`, `srv/rooms`, `srv/snapshots`, `shared`, `datasheets`, `attachments` |
+| The root links          | `/etc/synthetic.conf`                       | `/datasheets`, `/shared`, `/attachments`                                         |
+| The sshd drop-in        | `/etc/ssh/sshd_config.d/100-workbench.conf` | One `Match User` block                                                           |
+| The shims and the state | `/usr/local/libexec/workbench`              | `setsid`, `flock`, and the state of Remote Login                                 |
+| The keys and the config | `.workstation/` in the repository           | `keys/`, `macos.json`, `macos.known_hosts`                                       |
 
 **The setup reuses the key layout of the container.** The files
 `keys/<account>` and `keys/<account>.pub` stay if they exist, so the
@@ -94,7 +113,7 @@ workstation keeps the snapshots in `srv/snapshots`.
 
 **The folders follow `entrypoint.sh` of the container.** Every seat writes
 `srv/audit` and `shared`. Only `workbench-host` writes `srv/rooms`,
-`srv/snapshots`, `library`, and `attachments`. Every seat reads them. A
+`srv/snapshots`, `datasheets`, and `attachments`. Every seat reads them. A
 group ACL with inheritance keeps `srv/audit` and `shared` writable for the
 group whatever the umask of a tool is. macOS gives a new file the group of
 its folder, so no setgid bit is needed.
@@ -112,6 +131,13 @@ its folder, so no setgid bit is needed.
   another address. The git backend limits the keys of the agents the same way.
 - **The Mac keeps its own sshd settings.** The drop-in changes no port and no
   listen address. The admin can still use ssh from other machines.
+- **A seat controls its own home, and root does not follow a link in it.**
+  The setup stops when a home or its `.ssh` folder is a link or belongs to
+  another user. It makes `.ssh` and writes `authorized_keys` and `.zshenv`
+  as the seat. A link that a seat plants leads root nowhere. The setup also
+  stops when `/Users/Shared/workbench` or its `srv` folder is a link or does
+  not belong to root, because every user may create a folder in
+  `/Users/Shared`.
 - **Protect your own home.** Run `chmod 700 ~`. The home folder of macOS has
   mode 0755, and the seats are other users of the Mac, so they can list it.
 - **No limit on network egress.** A seat can open any connection that a
@@ -136,9 +162,12 @@ to delete a user.
 `root:wheel`. Every standard user opens them, so Engineer needs no group
 such as `dialout`.
 
-**The root folders are links.** The root of macOS is read-only. The setup adds
-one line for each folder to `/etc/synthetic.conf`, the supported way to add
-a name to `/`. The target is the folder under `/Users/Shared/workbench`.
+**The root folders are links.** The root of macOS is read-only, and it does
+not tell `/Library` from `/library`. The workspace path for the datasheets is
+`/datasheets`, so no folder of macOS has its name. The setup stops when a
+name in `/` differs from a root link by case only, such as `/Datasheets`.
+The setup adds one line for each folder to `/etc/synthetic.conf`, the
+supported way to add a name to `/`. The target is the folder under `/Users/Shared/workbench`.
 `apfs.util -t` applies the lines without a restart on a current macOS. The
 setup tells you when a restart is still needed. The layout paths in
 `macos.json` name the real folders.
@@ -173,11 +202,20 @@ another file of `sshd_config.d` sets a keyword before the drop-in does.
 
 **Remote Login keeps its state.** The setup turns Remote Login on when it is
 off, and it writes the earlier state to `/usr/local/libexec/workbench/state`.
+When no tool gives the state, the setup asks whether sshd listens.
 `systemsetup` needs Full Disk Access for the terminal. When it fails, the
 setup tries `launchctl enable` and `launchctl bootstrap`, and then it prints
-the manual step: System Settings, General, Sharing, Remote Login. When the
-group `com.apple.access_ssh` exists, the accounts join it. The setup adds
-nobody else and removes nobody. It warns when the admin is not a member.
+the manual step: System Settings, General, Sharing, Remote Login.
+
+**Remote Login that the setup turns on is limited to a few users.** Without
+the group `com.apple.access_ssh`, every user of the Mac may log in with ssh.
+When the setup turns Remote Login on and the group does not exist, the setup
+makes the group first. The members are the accounts of the workstation and
+the admin who ran `sudo`. The setup prints a line that says so, and it writes
+the file `ssh-group-created` in `/usr/local/libexec/workbench`. To give another user of the Mac an ssh login, add that user to the group. When
+Remote Login is on already, or the group exists, the accounts join the group
+that exists. The setup adds nobody else and removes nobody. It warns when the
+admin is not a member.
 
 ## Undo it
 
@@ -192,7 +230,8 @@ sudo bash workstation/macos/teardown.sh --yes
 The script does these steps, and a second run finds nothing to do:
 
 1. Remove the drop-in.
-2. Remove the accounts from `com.apple.access_ssh`.
+2. Remove the accounts from `com.apple.access_ssh`. When the setup made
+   that group, delete the group.
 3. Delete the users and their homes with `sysadminctl -deleteUser`. Only a
    record with the comment `workbench-macos` goes.
 4. Delete the group `workbench`, when it has the same comment.

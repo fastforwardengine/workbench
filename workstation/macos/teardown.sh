@@ -6,8 +6,9 @@
 # The script asks once, and then it removes the sshd drop-in, the accounts
 # with their homes, the group, the root links of /etc/synthetic.conf, and
 # the shims. It puts Remote Login back to the state that it had before
-# setup.sh. A second question asks about /Users/Shared/workbench, which holds
-# the notes and the snapshots. --yes answers both questions.
+# setup.sh. It deletes the group com.apple.access_ssh when setup.sh made it.
+# A second question asks about /Users/Shared/workbench, which holds the notes
+# and the snapshots. --yes answers both questions.
 #
 # The script leaves the account and the files of the admin alone. It leaves the
 # keys in the state folder, because the container uses them too. It deletes
@@ -26,7 +27,7 @@ for argument in "$@"; do
 	case "$argument" in
 	--yes | -y) ASSUME_YES=1 ;;
 	--help | -h)
-		sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+		sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 		exit 0
 		;;
 	-*) die "unknown option $argument. Use --yes or --help." ;;
@@ -39,6 +40,7 @@ STATE="${STATE:-$REPO/.workstation}"
 # space around each name. An account of the same name with another comment stays.
 USERS_FOUND=" "
 HAS_GROUP=""
+HAS_SSH_GROUP=""
 HAS_DROPIN=""
 HAS_LINKS=""
 HAS_LIBEXEC=""
@@ -68,7 +70,7 @@ links_present() {
 survey() {
 	local name
 	while read -r name; do
-		if [ -z "$(user_uid "$name")" ]; then
+		if ! user_exists "$name"; then
 			continue
 		elif user_marked "$name"; then
 			USERS_FOUND="$USERS_FOUND$name "
@@ -83,6 +85,13 @@ survey() {
 			warn "the group $GROUP exists, and setup.sh did not make it. The script leaves it."
 		fi
 	fi
+	if [ -f "$SSH_GROUP_MARKER" ] && group_exists "$SSH_GROUP"; then
+		if group_marked "$SSH_GROUP"; then
+			HAS_SSH_GROUP=1
+		else
+			warn "setup.sh made the group $SSH_GROUP, but its comment is gone. The script leaves the group."
+		fi
+	fi
 	[ ! -f "$SSHD_DROPIN" ] || HAS_DROPIN=1
 	if links_present; then HAS_LINKS=1; fi
 	[ ! -d "$LIBEXEC" ] || HAS_LIBEXEC=1
@@ -95,6 +104,7 @@ plan() {
 	[ -z "$HAS_DROPIN" ] || say "  the sshd drop-in $SSHD_DROPIN"
 	[ "$USERS_FOUND" = " " ] || say "  the users:${USERS_FOUND% }, with their homes"
 	[ -z "$HAS_GROUP" ] || say "  the group $GROUP"
+	[ -z "$HAS_SSH_GROUP" ] || say "  the group $SSH_GROUP, which setup.sh made for Remote Login"
 	[ -z "$HAS_LINKS" ] || say "  the root links of $SYNTHETIC (the lines that setup.sh added)"
 	[ -z "$HAS_LIBEXEC" ] || say "  the shims and the state in $LIBEXEC"
 	[ -z "$HAS_CONFIG" ] || say "  $STATE/macos.json and macos.known_hosts"
@@ -140,10 +150,10 @@ delete_user() {
 	if [ -n "$SSH_GROUP_EXISTS" ] && is_member "$name" "$SSH_GROUP"; then
 		run dseditgroup -o edit -d "$name" -t user "$SSH_GROUP"
 	fi
-	try pkill -KILL -u "$uid" || true
+	[ -z "$uid" ] || try pkill -KILL -u "$uid" || true
 	try sysadminctl -deleteUser "$name" || true
 	if [ -z "$DRY" ]; then
-		[ -z "$(user_uid "$name")" ] || run dscl . -delete "/Users/$name"
+		! user_exists "$name" || run dscl . -delete "/Users/$name"
 		[ ! -d "$home" ] || run rm -rf "$home"
 	fi
 }
@@ -161,6 +171,14 @@ remove_group() {
 	[ -n "$HAS_GROUP" ] || return 0
 	say "group $GROUP: delete"
 	run dseditgroup -o delete "$GROUP"
+}
+
+# The group that limits Remote Login goes only when setup.sh made it. Remote
+# Login goes back to its earlier state in remove_libexec.
+remove_ssh_group() {
+	[ -n "$HAS_SSH_GROUP" ] || return 0
+	say "group $SSH_GROUP: delete"
+	run dseditgroup -o delete "$SSH_GROUP"
 }
 
 # Remove the lines that setup.sh added. Every other line stays. A reboot
@@ -208,7 +226,7 @@ remove_share() {
 
 check_platform
 survey
-if [ -z "$HAS_DROPIN$HAS_GROUP$HAS_LINKS$HAS_LIBEXEC$HAS_SHARE$HAS_CONFIG" ] && [ "$USERS_FOUND" = " " ]; then
+if [ -z "$HAS_DROPIN$HAS_GROUP$HAS_SSH_GROUP$HAS_LINKS$HAS_LIBEXEC$HAS_SHARE$HAS_CONFIG" ] && [ "$USERS_FOUND" = " " ]; then
 	say "Nothing to do: this Mac holds no workstation of Workbench."
 	exit 0
 fi
@@ -220,6 +238,7 @@ fi
 remove_dropin
 remove_users
 remove_group
+remove_ssh_group
 remove_links
 remove_libexec
 remove_config

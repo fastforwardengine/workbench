@@ -172,11 +172,11 @@ time budget.
 
 - [ ] Record each part of the kit in the bench model: the name, the value,
       and the count.
-- [x] Put the datasheets in `library/`: the RDA5807FP, the STC8G1K17, the
+- [x] Put the datasheets in `datasheets/`: the RDA5807FP, the STC8G1K17, the
       amplifier module, and the regulator and charger. The charging chip and
-      the 662K datasheet stay open (`library/README.md`).
+      the 662K datasheet stay open (`datasheets/README.md`).
 - [x] Record the schematic of the board, from the kit's documentation or
-      from the photos of the board. `library/fm-radio-kit-schematic.md`
+      from the photos of the board. `datasheets/fm-radio-kit-schematic.md`
       lists the nets that a reading of the picture leaves open.
 - [ ] The person builds the first kit by hand.
 - [ ] Settle the facts that [`fm-radio.md`](fm-radio.md) lists as open.

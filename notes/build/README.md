@@ -33,7 +33,7 @@ current limit of the supply. Stop at once when the current reaches the limit.
 - **Give each part its place.** The place is the silkscreen label of the
   board.
 - **Give each polarized part its orientation and its mark.**
-- **Cite each value.** Give the datasheet in `library/` for each value and
+- **Cite each value.** Give the datasheet in `datasheets/` for each value and
   each orientation.
 - **Mark a missing value `TBD`.** Replace it when the datasheet or a photo
   supplies it.

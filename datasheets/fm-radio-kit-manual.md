@@ -55,7 +55,7 @@ covers the RDA5807FP, and the amplifier text names the 8002D.
 
 ![Dimension drawing](images/manual-p04.jpg)
 
-Figure file: `/library/images/manual-p04.jpg`. It shows the power switch,
+Figure file: `/datasheets/images/manual-p04.jpg`. It shows the power switch,
 the power saving mode select port, the micro-USB port, the battery holder
 for 3 AAA cells, the 3 W speaker, and the antenna.
 
@@ -95,17 +95,17 @@ for 3 AAA cells, the 3 W speaker, and the antenna.
 **The pages below show the risky steps.** Use them to compare a photo of the
 board with the manual before the person solders.
 
-| Steps           | Page image                                       | File                             |
-| --------------- | ------------------------------------------------ | -------------------------------- |
-| 1 and 2         | Resistors and micro-USB socket                   | `/library/images/manual-p06.jpg` |
-| 3 to 6          | IC socket, switch, audio jack, crystal           | `/library/images/manual-p07.jpg` |
-| 7 to 10         | Module soldering, display direction              | `/library/images/manual-p08.jpg` |
-| 11 to 14        | Capacitors, amplifier, buttons, microcontroller  | `/library/images/manual-p09.jpg` |
-| 15 to 18        | Antenna, battery springs, wires                  | `/library/images/manual-p10.jpg` |
-| 19 to 22        | Battery, foam, antenna nut, speaker terminals    | `/library/images/manual-p11.jpg` |
-| 23 to 26        | Speaker wires and case                           | `/library/images/manual-p12.jpg` |
-| 27, 28, charger | Case screws, back solder points, charging module | `/library/images/manual-p13.jpg` |
-| Charger         | Charging module install                          | `/library/images/manual-p14.jpg` |
+| Steps           | Page image                                       | File                                |
+| --------------- | ------------------------------------------------ | ----------------------------------- |
+| 1 and 2         | Resistors and micro-USB socket                   | `/datasheets/images/manual-p06.jpg` |
+| 3 to 6          | IC socket, switch, audio jack, crystal           | `/datasheets/images/manual-p07.jpg` |
+| 7 to 10         | Module soldering, display direction              | `/datasheets/images/manual-p08.jpg` |
+| 11 to 14        | Capacitors, amplifier, buttons, microcontroller  | `/datasheets/images/manual-p09.jpg` |
+| 15 to 18        | Antenna, battery springs, wires                  | `/datasheets/images/manual-p10.jpg` |
+| 19 to 22        | Battery, foam, antenna nut, speaker terminals    | `/datasheets/images/manual-p11.jpg` |
+| 23 to 26        | Speaker wires and case                           | `/datasheets/images/manual-p12.jpg` |
+| 27, 28, charger | Case screws, back solder points, charging module | `/datasheets/images/manual-p13.jpg` |
+| Charger         | Charging module install                          | `/datasheets/images/manual-p14.jpg` |
 
 ![Steps 11 to 14: capacitors, amplifier, buttons, microcontroller](images/manual-p09.jpg)
 

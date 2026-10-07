@@ -107,7 +107,7 @@ describe('the files panel', () => {
 		);
 		const panel = new FilesPanel(setup.renderer);
 		body.add(panel.root);
-		browser.show(host.fileList, '/library/cell-18650.md');
+		browser.show(host.fileList, '/datasheets/cell-18650.md');
 		await wait(30);
 		panel.draw(browser);
 		return { browser, panel, frame };
@@ -117,9 +117,9 @@ describe('the files panel', () => {
 		const { frame } = await opened();
 		const text = await frame();
 		expect(text).toContain('Files › ▌   2 of 2');
-		expect(text).toContain('▸ /library/cell-18650.md  797 B');
-		expect(text).toContain('  /shared/notes.md        40 B');
-		expect(text).toContain('/library/cell-18650.md   30 B, 1 line');
+		expect(text).toContain('▸ /datasheets/cell-18650.md  797 B');
+		expect(text).toContain('  /shared/notes.md           40 B');
+		expect(text).toContain('/datasheets/cell-18650.md   33 B, 1 line');
 		expect(text).toContain('Type to search   Up/Down choose');
 	});
 

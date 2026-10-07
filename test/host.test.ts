@@ -226,7 +226,7 @@ describe('Workbench host', () => {
 		expect(resumed.status).toBe('running');
 	}, 20_000);
 
-	it('lists the seeded library, hides shell devices, and refuses unsafe file paths', async () => {
+	it('lists the seeded datasheets, hides shell devices, and refuses unsafe file paths', async () => {
 		const directory = joinPath(await freshDirectory(), 'run');
 		const lab = await open(directory);
 		const root = joinPath(directory, 'workspace');
@@ -236,7 +236,7 @@ describe('Workbench host', () => {
 		await symlink('/etc/hosts', joinPath(root, 'escape.txt'));
 		const paths = (await lab.files()).map((file) => file.path);
 		expect(paths).toEqual(
-			expect.arrayContaining(['/plain.txt', '/library/README.md', '/shared/kit.md']),
+			expect.arrayContaining(['/plain.txt', '/datasheets/README.md', '/shared/kit.md']),
 		);
 		expect(paths).not.toContain('/dev/null');
 		expect((await lab.file('/shared/kit.md')).text).toContain('FM radio kit');

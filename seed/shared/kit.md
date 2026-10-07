@@ -11,7 +11,7 @@ of the room lists the phases in order.
 
 These come from the product photo, the manual, and the schematic. Check each
 one against the kit. The datasheets, the manual, and the schematic are in
-/library. Start with /library/README.md.
+/datasheets. Start with /datasheets/README.md.
 
 - The FM tuner module: RDA5807FP-M, controlled over I²C.
 - The microcontroller: STC8G1K17, 16 pins, in a DIP16 socket.

@@ -41,7 +41,7 @@ internal 4 kΩ pull-up.
 
 ![Pinout of the 16-pin package](images/stc8g1k17-p20.jpg)
 
-Figure file: `/library/images/stc8g1k17-p20.jpg`.
+Figure file: `/datasheets/images/stc8g1k17-p20.jpg`.
 
 | Pin | Port | Other functions                        | In the kit (see `fm-radio-kit-schematic.md`) |
 | --- | ---- | -------------------------------------- | -------------------------------------------- |
@@ -102,7 +102,7 @@ Vcc. In the 16-pin package it shares pin 6 with Vcc.
 
 ![ISP wiring and notes](images/stc8g1k17-p21.jpg)
 
-Figure file: `/library/images/stc8g1k17-p21.jpg`.
+Figure file: `/datasheets/images/stc8g1k17-p21.jpg`.
 
 ## Electrical limits (appendix O, page 831)
 

@@ -135,7 +135,7 @@ resolves to no object.
 
 | Path                       | Writer                 | Readers                    |
 | -------------------------- | ---------------------- | -------------------------- |
-| `/library`                 | `workbench-host`       | Every account of the group |
+| `/datasheets`              | `workbench-host`       | Every account of the group |
 | `/shared`                  | Every account of group | Every account of the group |
 | `/attachments`             | `workbench-host`       | Every account of the group |
 | `/srv/workbench/audit`     | Every account of group | Every account of the group |
@@ -279,7 +279,7 @@ native, and `make usb` does nothing.
 - **Keep the keys.** `setup.sh` keeps each key that exists, so a second
   run changes nothing for the running container.
 - **Start again from empty.** This command removes the container and its
-  volumes: the homes, the repositories, `/library`, `/shared`, `/attachments`,
+  volumes: the homes, the repositories, `/datasheets`, `/shared`, `/attachments`,
   and the snapshots.
 
   ```sh

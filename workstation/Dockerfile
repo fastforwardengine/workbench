@@ -62,7 +62,7 @@ RUN groupadd workbench \
 	&& usermod --append --groups dialout,video,plugdev,audio engineer
 
 # The entrypoint makes the layout of the workspace at each start: a named
-# volume on /srv, /library, or /shared drops the default ACLs of the image.
+# volume on /srv, /datasheets, or /shared drops the default ACLs of the image.
 RUN mkdir -p /run/sshd
 
 EXPOSE 2222

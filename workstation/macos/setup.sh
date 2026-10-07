@@ -9,6 +9,10 @@
 # this Mac. Workbench then reaches the workstation on 127.0.0.1, port 22,
 # the same as it reaches the container of workstation/setup.sh. The script
 # keeps what exists, so a second run changes nothing. teardown.sh undoes it.
+# Each check runs before the first change, so a script that stops on a check
+# leaves nothing behind.
+#
+# To use other ids, run: sudo WORKBENCH_UID_BASE=6000 bash workstation/macos/setup.sh
 #
 # The script writes <state-dir>/macos.json, which WORKBENCH_WORKSTATION
 # names, and <state-dir>/macos.known_hosts. It keeps the files that the
@@ -24,6 +28,7 @@ set -euo pipefail
 STATE="${1:-$REPO/.workstation}"
 GNUBIN=""
 SEAT_PATH=""
+UID_HINT="WORKBENCH_UID_BASE=6000"
 SELF_ACCOUNT=engineer
 PYTHON_FLOOR="$(sed -n 's/^target-version *= *"py\([0-9]\)\([0-9][0-9]*\)".*/\1.\2/p' "$REPO/pyproject.toml")"
 
@@ -96,17 +101,19 @@ check_ids() {
 	local listing name uid have owner
 	listing="$(dscl . -list /Users UniqueID 2>/dev/null || true)"
 	while read -r name uid; do
-		have="$(user_uid "$name")"
-		if [ -n "$have" ]; then
-			[ "$have" = "$uid" ] ||
-				die "the user $name exists with uid $have, and this script wants $uid. Delete the user, or set WORKBENCH_UID_BASE."
+		if user_exists "$name"; then
 			user_marked "$name" ||
 				die "the user $name exists, and this script did not make it. Rename or delete it first."
+			have="$(user_uid "$name")"
+			[ -z "$have" ] || [ "$have" = "$uid" ] ||
+				die "the user $name exists with uid $have, and this script wants $uid. Delete the user, or run: sudo $UID_HINT bash $0"
 			continue
 		fi
 		owner="$(printf '%s\n' "$listing" | awk -v id="$uid" '$2 == id { print $1; exit }')"
 		[ -z "$owner" ] ||
-			die "the uid $uid belongs to the user $owner. Set WORKBENCH_UID_BASE to a free range."
+			die "the uid $uid belongs to the user $owner. Use a free range of ids: sudo $UID_HINT bash $0"
+		[ ! -e "$HOMES/$name" ] && [ ! -L "$HOMES/$name" ] ||
+			die "the folder $HOMES/$name exists, and the user $name does not. Move the folder away, and run this script again."
 	done < <(account_ids)
 	if group_exists "$GROUP"; then
 		group_marked "$GROUP" ||
@@ -114,8 +121,81 @@ check_ids() {
 	else
 		owner="$(dscl . -list /Groups PrimaryGroupID 2>/dev/null | awk -v id="$GROUP_GID" '$2 == id { print $1; exit }' || true)"
 		[ -z "$owner" ] ||
-			die "the gid $GROUP_GID belongs to the group $owner. Set WORKBENCH_GID to a free id."
+			die "the gid $GROUP_GID belongs to the group $owner. Use a free id: sudo WORKBENCH_GID=6000 bash $0"
 	fi
+}
+
+# The numeric owner of a path, and its permission string. A link shows as
+# itself: ls does not follow it.
+path_uid() {
+	# shellcheck disable=SC2012
+	ls -ldn "$1" | awk '{ print $3 }'
+}
+
+path_mode() {
+	# shellcheck disable=SC2012
+	ls -ld "$1" | awk '{ print $1 }'
+}
+
+# Stop when a name in `/` clashes with a root link. macOS compares names
+# without regard to case, so /Datasheets blocks /datasheets. The only entry
+# that may carry the name is the link that this script made.
+check_root_names() {
+	local dir="${ROOT_DIR:-/}" name entry
+	[ -d "$dir" ] || return 0
+	for name in "${ROOT_NAMES[@]}"; do
+		while IFS= read -r entry; do
+			[ "$(printf '%s' "$entry" | tr '[:upper:]' '[:lower:]')" = "$name" ] || continue
+			if [ "$entry" = "$name" ] && [ -L "${dir%/}/$entry" ] &&
+				[ "$(readlink "${dir%/}/$entry")" = "${SHARE#/}/$name" ]; then
+				continue
+			fi
+			die "/$entry exists, and it clashes with the root link /$name. macOS compares names without regard to case. Move or rename /$entry, and run this script again. The script changed nothing."
+		done < <(ls -A "$dir" 2>/dev/null)
+	done
+}
+
+# Stop when the data folder, or the folder srv in it, is a link or has an
+# owner other than root. Root writes below these folders. Another user must
+# not control where they lead.
+check_layout() {
+	local folder
+	for folder in "$SHARE" "$SHARE/srv"; do
+		[ -e "$folder" ] || [ -L "$folder" ] || continue
+		if [ -L "$folder" ] || [ ! -d "$folder" ]; then
+			die "$folder exists and is not a plain folder. Move it away, and run this script again."
+		fi
+		[ "$(path_uid "$folder")" = "$ROOT_UID" ] ||
+			die "$folder belongs to another user than root. Move it away, and run this script again."
+		case "$(path_mode "$folder")" in
+		?????-??-*) ;;
+		*) die "$folder is writable for its group or for every user. Run 'sudo chmod 755 $folder', or move it away, and run this script again." ;;
+		esac
+	done
+}
+
+# Stop when the home of an account, or the folder .ssh in it, is a link or
+# belongs to another user. The seat controls its own home. Root must not follow
+# a link that the seat planted.
+check_home() {
+	local name="$1" uid="$2" path
+	# A dry run runs as a normal user. The test sets WORKBENCH_OWNER_UID.
+	[ -z "$DRY" ] || uid="${WORKBENCH_OWNER_UID:-$uid}"
+	for path in "$HOMES/$name" "$HOMES/$name/.ssh"; do
+		[ -e "$path" ] || [ -L "$path" ] || continue
+		if [ -L "$path" ] || [ ! -d "$path" ]; then
+			die "$path is not a plain folder. It may be a link that the user $name made. Move it away, and run this script again."
+		fi
+		[ "$(path_uid "$path")" = "$uid" ] ||
+			die "$path does not belong to the user $name. Move it away, and run this script again."
+	done
+}
+
+check_homes() {
+	local name uid
+	while read -r name uid; do
+		check_home "$name" "$uid"
+	done < <(account_ids)
 }
 
 # The state of Remote Login before the first run. teardown.sh puts it back.
@@ -167,6 +247,7 @@ create_account() {
 	fi
 	say "account $name: create, uid $uid"
 	run dscl . -create "/Users/$name"
+	run dscl . -create "/Users/$name" Comment "$MARK"
 	run dscl . -create "/Users/$name" UserShell "$ACCOUNT_SHELL"
 	run dscl . -create "/Users/$name" RealName "Workbench $name"
 	run dscl . -create "/Users/$name" UniqueID "$uid"
@@ -174,7 +255,6 @@ create_account() {
 	run dscl . -create "/Users/$name" NFSHomeDirectory "$HOMES/$name"
 	run dscl . -create "/Users/$name" GeneratedUID "$(new_uuid)"
 	run dscl . -create "/Users/$name" IsHidden 1
-	run dscl . -create "/Users/$name" Comment "$MARK"
 	run dscl . -create "/Users/$name" Password '*'
 }
 
@@ -186,12 +266,19 @@ add_to_group() {
 # The home, the public key, and the PATH of one account. The key line holds
 # the loopback addresses in `from=`: no other address logs in with it.
 install_account_files() {
-	local name="$1" home="$HOMES/$1"
-	run install -d -m 0700 -o "$name" -g "$PRIMARY_GROUP" "$home" "$home/.ssh"
-	put 0600 "$name:$PRIMARY_GROUP" "$home/.ssh/authorized_keys" <<EOF
+	local name="$1" home="$HOMES/$1" uid
+	uid="$(account_ids | awk -v n="$name" '$1 == n { print $2 }')"
+	check_home "$name" "$uid"
+	# Root makes only a home that does not exist. The seat makes .ssh and
+	# writes its own files, so a link in the home leads root nowhere.
+	if [ ! -e "$home" ]; then
+		run install -d -m 0700 -o "$name" -g "$PRIMARY_GROUP" "$home"
+	fi
+	run sudo -n -u "$name" -H install -d -m 0700 "$home/.ssh"
+	put_seat "$name" 0600 "$home/.ssh/authorized_keys" <<EOF
 from="127.0.0.1,::1" $(cat "$STATE/keys/$name.pub")
 EOF
-	put 0644 "$name:$PRIMARY_GROUP" "$home/.zshenv" <<EOF
+	put_seat "$name" 0644 "$home/.zshenv" <<EOF
 # Written by workstation/macos/setup.sh. A non-interactive ssh session starts
 # zsh, which reads this file. The PATH has the shims of setsid and flock, the
 # GNU tools, and Homebrew.
@@ -225,21 +312,22 @@ add_acl() {
 		return 0
 	fi
 	run chmod +a "group:$GROUP allow list,add_file,search,add_subdirectory,delete_child,readattr,writeattr,readextattr,writeextattr,directory_inherit" "$folder"
-	run chmod +a "group:$GROUP allow read,write,append,readattr,writeattr,readextattr,writeextattr,file_inherit" "$folder"
+	run chmod +a "group:$GROUP allow read,write,append,readattr,writeattr,readextattr,writeextattr,file_inherit,directory_inherit" "$folder"
 }
 
 # The layout of entrypoint.sh, under /Users/Shared/workbench. Every seat writes
 # the audit log and /shared. Only the host account writes the room mirror, the
-# snapshots, /library, and /attachments, and every seat reads them.
+# snapshots, /datasheets, and /attachments, and every seat reads them.
 make_layout() {
 	local folder
+	check_layout
 	run install -d -m 0755 -o root -g wheel "$SHARE" "$SHARE/srv"
 	run install -d -m 0770 -o root -g "$GROUP" "$SHARE/srv/audit" "$SHARE/shared"
 	for folder in "$SHARE/srv/audit" "$SHARE/shared"; do
 		add_acl "$folder"
 	done
 	run install -d -m 0750 -o "$HOST_ACCOUNT" -g "$GROUP" "$SHARE/srv/rooms" \
-		"$SHARE/srv/snapshots" "$SHARE/library" "$SHARE/attachments"
+		"$SHARE/srv/snapshots" "$SHARE/datasheets" "$SHARE/attachments"
 }
 
 # The three root folders are links in `/`, which is read-only on macOS.
@@ -347,11 +435,31 @@ authorizedkeysfile .ssh/authorized_keys"
 	verify_sshd "$GIT_ACCOUNT" "authorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys.ambion"
 }
 
+# Remote Login that setup.sh turns on lets every user of this Mac log in,
+# unless the group com.apple.access_ssh exists. In that case the script makes
+# the group first, with the accounts of the workstation and the admin. The
+# marker file tells teardown.sh that the script made the group.
+limit_ssh_users() {
+	local name
+	group_exists "$SSH_GROUP" && return 0
+	say "$SSH_GROUP: create it, with the accounts of the workstation and $ADMIN. Remote Login was off, so only these users can log in with ssh. teardown.sh removes the group."
+	run dseditgroup -o create -q "$SSH_GROUP"
+	run dscl . -create "/Groups/$SSH_GROUP" Comment "$MARK"
+	while read -r name; do
+		run dseditgroup -o edit -a "$name" -t user "$SSH_GROUP"
+	done < <(all_accounts)
+	run dseditgroup -o edit -a "$ADMIN" -t user "$SSH_GROUP"
+	put 0644 root:wheel "$SSH_GROUP_MARKER" <<EOF
+setup.sh made the group $SSH_GROUP.
+EOF
+}
+
 enable_remote_login() {
 	if [ "$(remote_login_state)" = on ] && { [ -n "$DRY" ] || sshd_listening; }; then
 		say "Remote Login: on"
 		return 0
 	fi
+	limit_ssh_users
 	say "Remote Login: turn on"
 	try systemsetup -f -setremotelogin on || true
 	if [ -z "$DRY" ] && ! sshd_listening; then
@@ -460,6 +568,9 @@ self_check() {
 check_platform
 preflight
 check_ids
+check_root_names
+check_layout
+check_homes
 record_state
 make_keys
 make_accounts

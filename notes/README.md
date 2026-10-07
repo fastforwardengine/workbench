@@ -1,9 +1,9 @@
 # Notes of the team
 
 **These notes hold what the team knows and decides about the FM radio
-bench.** Every specialist reads them and commits to them. The library
-(`/library`) holds the source documents and is read-only. A note cites the
-library file that it rests on. The `keep-notes` skill states the git steps.
+bench.** Every specialist reads them and commits to them. The datasheets
+(`/datasheets`) hold the source documents and are read-only. A note cites the
+datasheet file that it rests on. The `keep-notes` skill states the git steps.
 
 ## Layout
 
@@ -29,12 +29,12 @@ their folder. In every other file, one claim is one bullet:
 
 ```markdown
 - **The four buttons sit on P3.1, P3.0, P5.4, and P5.5.** Source:
-  library/fm-radio-kit-schematic.md. Confidence: medium.
+  datasheets/fm-radio-kit-schematic.md. Confidence: medium.
 ```
 
-- **Source:** a `library/` path, a snapshot ref, a commit ref, or a room
+- **Source:** a `datasheets/` path, a snapshot ref, a commit ref, or a room
   message ref (`ambion://room/<room>/message/<seq>`). Write the path of a
-  library file as `library/<file>`. Cite a file that can change by its
+  datasheet file as `datasheets/<file>`. Cite a file that can change by its
   snapshot ref.
 - **Confidence:** `high` for a reading or a cited photo, `medium` for a
   datasheet or a schematic, `low` for a guess.

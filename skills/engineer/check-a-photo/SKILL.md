@@ -23,7 +23,7 @@ description: Check the placement and the orientation of a part from a photo of a
    orientation, such as a stripe, a notch, a dot, a longer lead, or a pin 1
    marking.
 5. Compare it with the step of the procedure and with the datasheet in
-   `/library`. Cite both.
+   `/datasheets`. Cite both.
 6. Answer with one word first: pass, fail, or unclear. Then give the
    evidence, and cite the snapshot ref of the photo.
 7. Answer unclear, and ask for a new photo, when the mark of the part or

@@ -12,7 +12,7 @@ detail views. The schematic has its own file (`fm-radio-kit-schematic.md`).
 
 ![Product parameters](images/kit-product-parameters.jpg)
 
-Figure file: `/library/images/kit-product-parameters.jpg`.
+Figure file: `/datasheets/images/kit-product-parameters.jpg`.
 
 | Parameter          | Value on the page                                                |
 | ------------------ | ---------------------------------------------------------------- |
@@ -29,7 +29,7 @@ Figure file: `/library/images/kit-product-parameters.jpg`.
 
 ![The kit, front and back](images/kit-product-overview.jpg)
 
-Figure file: `/library/images/kit-product-overview.jpg`. The picture shows the
+Figure file: `/datasheets/images/kit-product-overview.jpg`. The picture shows the
 clear case, the 4-digit red display, the buttons V−, V+, CH−, and CH+, the
 speaker, and the back with the three AAA cells in a holder.
 
@@ -37,7 +37,7 @@ speaker, and the back with the three AAA cells in a holder.
 
 ![Product detail description](images/kit-product-detail.jpg)
 
-Figure file: `/library/images/kit-product-detail.jpg`.
+Figure file: `/datasheets/images/kit-product-detail.jpg`.
 
 | View            | What the page says                                                                      |
 | --------------- | --------------------------------------------------------------------------------------- |

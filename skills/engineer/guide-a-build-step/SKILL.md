@@ -7,7 +7,7 @@ description: Guide the person through one step of a build, with the parts, the p
    `~/notes/build/README.md` for the format, and `~/notes/build/<kit>.md`
    for the kit. When the file does not exist, create it with the title
    `# Build: <kit>`. When the file has no plan for the step, fill it from the
-   datasheets in `/library` and the photos of the kit. Mark each value that
+   datasheets in `/datasheets` and the photos of the kit. Mark each value that
    you cannot give with `TBD`.
 2. Give one small step at a time: find the next step that is not done.
    Tell the person its parts, with the name and the value of each, the

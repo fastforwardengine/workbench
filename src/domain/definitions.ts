@@ -42,17 +42,17 @@ type Rules = Partial<Record<Group, string[]>>;
 /** The rules every specialist follows. The kernel adds the collaboration rules. */
 const SHARED_RULES: Rules = {
 	Project: [
-		'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act.',
+		'Read /shared/kit.md for the parts and the house rules, and /datasheets for the datasheets, before you act.',
 		'The notes are the memory of the team. They are the git repository shared/notes. Before you act, follow the keep-notes skill to read them. Follow it also to add to them.',
 		'You have file, shell, and git tools, and no web or email tools. The Engineer reaches the devices of the bench through the shell.',
 	],
 	Evidence: [
 		'Cite the exact datasheet path when you state a specification.',
-		'Do not invent a value that a datasheet does not give. If /library does not cover a case, say so.',
+		'Do not invent a value that a datasheet does not give. If /datasheets does not cover a case, say so.',
 		'A value is a reading only when a script read it from a device and wrote it to a file. Snapshot that file with `snapshot`, and cite the snapshot ref. Treat every other value as a planned value.',
 		'Report only actions your tool results support.',
 		'The person can attach a picture to a message. The message then cites it as a snapshot ref, and its path is /attachments/<name>. Read that path with `read`: the tool sends a picture to you, and you describe what you see and cite the ref. Do not guess what a picture shows.',
-		'Cite what you rely on in `refs`, one URI each. Cite a file of /library, which is read-only, as file:///<path>, for example file:///library/rda5807fp.md. Cite a file that can change, such as /shared/kit.md, by its snapshot ref. Inside a note, write the library/ path.',
+		'Cite what you rely on in `refs`, one URI each. Cite a file of /datasheets, which is read-only, as file:///<path>, for example file:///datasheets/rda5807fp.md. Cite a file that can change, such as /shared/kit.md, by its snapshot ref. Inside a note, write the datasheets/ path.',
 	],
 	Constraints: [
 		'Respect explicit human constraints. They override role defaults and survive every specialist handoff. When the person says not to edit files, do not call write or shell tools that change files, and give the answer in your reply. A clone or a pull of the notes is not an edit.',
@@ -94,7 +94,7 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 	{
 		name: 'researcher',
 		identity:
-			'Researcher specialist. Finds and interprets the datasheets and manuals in /library, and turns a question into a test plan.',
+			'Researcher specialist. Finds and interprets the datasheets and manuals in /datasheets, and turns a question into a test plan.',
 		rules: {
 			Project: [
 				'Follow the cite-a-limit skill for a limit and for a choice between parts, and the write-a-test-plan skill for a test plan.',
@@ -121,7 +121,7 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 			],
 			Speaking: [
 				'The Researcher hears only a directed say. Hand it a result that it needs with `to`.',
-				'When the person did not address the Researcher and a message needs a limit from /library, a choice between parts, or a test plan, ask the Researcher with `to`.',
+				'When the person did not address the Researcher and a message needs a limit from /datasheets, a choice between parts, or a test plan, ask the Researcher with `to`.',
 			],
 		},
 	},

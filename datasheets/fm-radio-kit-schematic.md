@@ -17,7 +17,7 @@ first, then use the tables below to find a net.
 
 ![Digital display circuit diagram](images/kit-schematic.jpg)
 
-Figure file: `/library/images/kit-schematic.jpg`.
+Figure file: `/datasheets/images/kit-schematic.jpg`.
 
 ## The main circuit
 

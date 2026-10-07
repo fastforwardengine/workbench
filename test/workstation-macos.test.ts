@@ -8,11 +8,13 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
 	chmodSync,
+	copyFileSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
 	rmSync,
+	symlinkSync,
 	writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,7 +26,7 @@ import { loadWorkstation } from '../src/host/workstation.ts';
 const MACOS = fileURLToPath(new URL('../workstation/macos/', import.meta.url));
 const ACCOUNTS = readFileSync(new URL('../workstation/accounts', import.meta.url), 'utf8')
 	.split('\n')
-	.filter((line) => line !== '' && !line.startsWith('#'));
+	.filter((line) => line.trim() !== '' && !line.trim().startsWith('#'));
 const GIT = 'workbench-git';
 const EVERY = [...ACCOUNTS, GIT];
 const MARK = 'workbench-macos';
@@ -49,7 +51,7 @@ case "$2 $3" in
 	[ -n "$line" ] || exit 56
 	set -- $line
 	case "$attribute" in
-	UniqueID) echo "UniqueID: $2" ;;
+	UniqueID) [ "$2" = - ] || echo "UniqueID: $2" ;;
 	Comment) echo "Comment: \${3:-}" ;;
 	esac ;;
 esac
@@ -61,6 +63,8 @@ fi
 `,
 	systemsetup: '#!/usr/bin/env bash\necho "Remote Login: $(cat "$FAKE/remotelogin")"\n',
 	launchctl: '#!/usr/bin/env bash\nexit 0\n',
+	// sshd listens when the fake directory has the file `listening`.
+	nc: '#!/usr/bin/env bash\n[ -f "$FAKE/listening" ]\n',
 };
 
 interface Mac {
@@ -101,6 +105,7 @@ function makeMac(): Mac {
 			HOME: root,
 			FAKE: fake,
 			WORKBENCH_DRY_RUN: '1',
+			SUDO_USER: 'admin',
 			WORKBENCH_GNUBIN: gnubin,
 			WORKBENCH_HOST_KEY_PUB: join(root, 'host_key.pub'),
 			WORKBENCH_HOMES: join(root, 'Users'),
@@ -196,6 +201,7 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 			expect(made).toContain(`dscl . -create /Users/${name} PrimaryGroupID 20`);
 		}
 		expect(made).toContain(`dseditgroup -o create -r Workbench\\ seats -i 5000 workbench`);
+		expect(made).toContain(`dscl . -create /Groups/workbench Comment ${MARK}`);
 		for (const name of ACCOUNTS)
 			expect(made).toContain(`dseditgroup -o edit -a ${name} -t user workbench`);
 		expect(made).not.toContain(`dseditgroup -o edit -a ${GIT} -t user workbench`);
@@ -241,7 +247,7 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 				rooms: `${share}/srv/rooms`,
 				snapshots: `${share}/srv/snapshots`,
 			},
-			roots: ['/library', '/shared', '/attachments'],
+			roots: ['/datasheets', '/shared', '/attachments'],
 		});
 		expect(loaded.objects).toBeUndefined();
 		expect(readFileSync(join(mac.state, 'macos.known_hosts'), 'utf8')).toMatch(
@@ -265,7 +271,7 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 		const links = files.get(mac.env.WORKBENCH_SYNTHETIC ?? '') ?? '';
 		const share = (mac.env.WORKBENCH_SHARE ?? '').slice(1);
 		expect(links).toBe(
-			['library', 'shared', 'attachments'].map((name) => `${name}\t${share}/${name}\n`).join(''),
+			['datasheets', 'shared', 'attachments'].map((name) => `${name}\t${share}/${name}\n`).join(''),
 		);
 		const bin = join(mac.env.WORKBENCH_LIBEXEC ?? '', 'bin');
 		expect(files.get(join(bin, 'setsid'))).toContain('setsid --wait');
@@ -283,27 +289,91 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 
 	it('keeps the home of each account private, and lets the group write /shared and the audit log', () => {
 		const made = commands(setup().out);
+		const homes = mac.env.WORKBENCH_HOMES ?? '';
 		for (const name of EVERY) {
-			expect(made).toContain(
-				`install -d -m 0700 -o ${name} -g staff ${mac.env.WORKBENCH_HOMES}/${name} ${mac.env.WORKBENCH_HOMES}/${name}/.ssh`,
-			);
+			expect(made).toContain(`install -d -m 0700 -o ${name} -g staff ${homes}/${name}`);
 		}
 		const share = mac.env.WORKBENCH_SHARE ?? '';
 		expect(made).toContain(
 			`install -d -m 0770 -o root -g workbench ${share}/srv/audit ${share}/shared`,
 		);
-		expect(made.filter((line) => line.startsWith('chmod +a'))).toHaveLength(4);
+		const acls = made.filter((line) => line.startsWith('chmod +a'));
+		expect(acls).toHaveLength(4);
+		for (const acl of acls) expect(acl).toContain('directory_inherit');
 		expect(made).toContain(
-			`install -d -m 0750 -o workbench-host -g workbench ${share}/srv/rooms ${share}/srv/snapshots ${share}/library ${share}/attachments`,
+			`install -d -m 0750 -o workbench-host -g workbench ${share}/srv/rooms ${share}/srv/snapshots ${share}/datasheets ${share}/attachments`,
 		);
 	});
 
-	it('adds the accounts to com.apple.access_ssh only when the group exists', () => {
+	it('makes .ssh and writes the files of a seat as that seat', () => {
+		const run = setup();
+		const made = commands(run.out);
+		const files = writes(run.out);
+		const homes = mac.env.WORKBENCH_HOMES ?? '';
+		for (const name of EVERY) {
+			expect(made).toContain(`sudo -n -u ${name} -H install -d -m 0700 ${homes}/${name}/.ssh`);
+			expect(made.join('\n')).not.toMatch(new RegExp(`^install .*${homes}/${name}/\\.ssh`, 'm'));
+			expect(run.out).toContain(
+				`+ write ${homes}/${name}/.ssh/authorized_keys mode=0600 owner=${name}:staff`,
+			);
+			expect(files.has(`${homes}/${name}/.zshenv`)).toBe(true);
+		}
+	});
+
+	it('writes the comment of each user and the group before any other attribute', () => {
+		const made = commands(setup().out);
+		for (const name of EVERY) {
+			const comment = made.indexOf(`dscl . -create /Users/${name} Comment ${MARK}`);
+			expect(comment).toBe(made.indexOf(`dscl . -create /Users/${name}`) + 1);
+			expect(comment).toBeLessThan(
+				made.findIndex((line) => line.startsWith(`dscl . -create /Users/${name} UniqueID`)),
+			);
+		}
+		const group = made.indexOf('dseditgroup -o create -r Workbench\\ seats -i 5000 workbench');
+		expect(made[group + 1]).toBe(`dscl . -create /Groups/workbench Comment ${MARK}`);
+	});
+
+	it('adds the accounts to com.apple.access_ssh when the group exists', () => {
+		writeFileSync(join(mac.root, 'fake', 'remotelogin'), 'On');
 		expect(commands(setup().out).join('\n')).not.toContain('com.apple.access_ssh');
 		writeFileSync(join(mac.root, 'fake', 'groups'), 'com.apple.access_ssh 399 \n');
 		const made = commands(setup().out);
 		for (const name of EVERY)
 			expect(made).toContain(`dseditgroup -o edit -a ${name} -t user com.apple.access_ssh`);
+		expect(made.join('\n')).not.toContain('-o create -q');
+	});
+
+	it('limits ssh to the accounts and the admin when it turns Remote Login on', () => {
+		const run = setup();
+		const made = commands(run.out);
+		const create = made.indexOf('dseditgroup -o create -q com.apple.access_ssh');
+		expect(create).toBeGreaterThan(-1);
+		expect(made[create + 1]).toBe(`dscl . -create /Groups/com.apple.access_ssh Comment ${MARK}`);
+		for (const name of [...EVERY, 'admin']) {
+			const added = made.indexOf(`dseditgroup -o edit -a ${name} -t user com.apple.access_ssh`);
+			expect(added).toBeGreaterThan(create);
+			expect(added).toBeLessThan(made.indexOf('systemsetup -f -setremotelogin on'));
+		}
+		expect(run.out).toContain('com.apple.access_ssh: create it');
+		expect(run.out).toContain('only these users can log in with ssh');
+		const marker = join(mac.env.WORKBENCH_LIBEXEC ?? '', 'ssh-group-created');
+		expect(writes(run.out).has(marker)).toBe(true);
+	});
+
+	it('leaves ssh open to the users of the Mac when Remote Login is on already', () => {
+		writeFileSync(join(mac.root, 'fake', 'remotelogin'), 'On');
+		const run = setup();
+		expect(run.out).not.toContain('com.apple.access_ssh');
+		expect(run.out).not.toContain('ssh-group-created');
+	});
+
+	it('records Remote Login as off or on from sshd when no tool gives the state', () => {
+		const state = () =>
+			writes(setup().out).get(join(mac.env.WORKBENCH_LIBEXEC ?? '', 'state')) ?? '';
+		writeFileSync(join(mac.root, 'fake', 'remotelogin'), 'Unknown');
+		expect(state()).toBe('remotelogin=off\n');
+		writeFileSync(join(mac.root, 'fake', 'listening'), '');
+		expect(state()).toBe('remotelogin=on\n');
 	});
 
 	it('refuses a uid that another user holds', () => {
@@ -311,6 +381,144 @@ describe.skipIf(!tooling)('workstation/macos/setup.sh in a dry run', () => {
 		const run = setup();
 		expect(run.code).toBe(1);
 		expect(run.err).toContain('the uid 5001 belongs to the user someone');
+		expect(run.err).toContain('sudo WORKBENCH_UID_BASE=6000 bash');
+	});
+
+	it('stops before any change when the home of a new account exists', () => {
+		mkdirSync(join(mac.env.WORKBENCH_HOMES ?? '', 'engineer'), { recursive: true });
+		const run = setup();
+		expect(run.code).toBe(1);
+		expect(run.err).toContain('engineer exists, and the user engineer does not');
+		expect(commands(run.out)).toEqual([]);
+	});
+
+	describe('the root links', () => {
+		const rootdir = () => mac.env.WORKBENCH_ROOT_DIR ?? '';
+		const target = (name: string) => `${(mac.env.WORKBENCH_SHARE ?? '').slice(1)}/${name}`;
+
+		it.each(['Datasheets', 'SHARED', 'Attachments', 'shared'])(
+			'stops before any change when /%s clashes with a root link',
+			(name) => {
+				mkdirSync(join(rootdir(), name), { recursive: true });
+				const run = setup();
+				expect(run.code).toBe(1);
+				expect(run.err).toContain(`/${name} exists, and it clashes with the root link`);
+				expect(run.out).toBe('');
+			},
+		);
+
+		it('stops when a link of the same name leads elsewhere, or has another case', () => {
+			mkdirSync(rootdir(), { recursive: true });
+			symlinkSync('/tmp', join(rootdir(), 'datasheets'));
+			expect(setup().code).toBe(1);
+			rmSync(join(rootdir(), 'datasheets'));
+			symlinkSync(target('shared'), join(rootdir(), 'Shared'));
+			expect(setup().err).toContain('/Shared exists');
+		});
+
+		it('accepts the links that a first run made, and other names in /', () => {
+			mkdirSync(join(rootdir(), 'Library'), { recursive: true });
+			for (const name of ['datasheets', 'shared', 'attachments'])
+				symlinkSync(target(name), join(rootdir(), name));
+			const run = setup();
+			expect(run.err).toBe('');
+			expect(run.code).toBe(0);
+		});
+	});
+
+	describe('a folder that another user controls', () => {
+		const share = () => mac.env.WORKBENCH_SHARE ?? '';
+		const homes = () => mac.env.WORKBENCH_HOMES ?? '';
+		const planted = () => {
+			mkdirSync(join(mac.root, 'elsewhere'));
+			return join(mac.root, 'elsewhere');
+		};
+
+		function stopped(run: Run, message: string): void {
+			expect(run.code).toBe(1);
+			expect(run.err).toContain(message);
+			expect(commands(run.out)).toEqual([]);
+		}
+
+		it('stops when the data folder is a link', () => {
+			mkdirSync(join(share(), '..'), { recursive: true });
+			symlinkSync(planted(), share());
+			stopped(setup(), `${share()} exists and is not a plain folder`);
+		});
+
+		it('stops when srv is a link', () => {
+			mkdirSync(share(), { recursive: true });
+			symlinkSync(planted(), join(share(), 'srv'));
+			stopped(setup(), `${share()}/srv exists and is not a plain folder`);
+		});
+
+		it('stops when the data folder does not belong to root', () => {
+			mkdirSync(share(), { recursive: true });
+			mac.env.WORKBENCH_ROOT_UID = '4242';
+			stopped(setup(), `${share()} belongs to another user than root`);
+		});
+
+		it('stops when the data folder is writable for its group', () => {
+			mkdirSync(share(), { recursive: true });
+			chmodSync(share(), 0o775);
+			stopped(setup(), `${share()} is writable for its group or for every user`);
+		});
+
+		it('accepts a data folder that root owns, with mode 0755', () => {
+			mkdirSync(join(share(), 'srv'), { recursive: true });
+			chmodSync(share(), 0o755);
+			chmodSync(join(share(), 'srv'), 0o755);
+			expect(setup().code).toBe(0);
+		});
+
+		it('stops when a home is a link', () => {
+			settle(setup().out);
+			mkdirSync(homes(), { recursive: true });
+			symlinkSync(planted(), join(homes(), 'engineer'));
+			mac.env.WORKBENCH_OWNER_UID = String(process.getuid?.() ?? 0);
+			stopped(setup(), `${join(homes(), 'engineer')} is not a plain folder`);
+		});
+
+		it('stops when .ssh is a link, for example to a folder of the system', () => {
+			settle(setup().out);
+			mkdirSync(join(homes(), 'researcher'), { recursive: true });
+			symlinkSync(planted(), join(homes(), 'researcher', '.ssh'));
+			mac.env.WORKBENCH_OWNER_UID = String(process.getuid?.() ?? 0);
+			stopped(setup(), `${join(homes(), 'researcher', '.ssh')} is not a plain folder`);
+		});
+
+		it('stops when a home belongs to another user than its account', () => {
+			settle(setup().out);
+			mkdirSync(join(homes(), 'engineer'), { recursive: true });
+			mac.env.WORKBENCH_OWNER_UID = '4242';
+			stopped(setup(), `${join(homes(), 'engineer')} does not belong to the user engineer`);
+		});
+
+		it('keeps a home that its account owns, and makes only what is missing', () => {
+			settle(setup().out);
+			mkdirSync(join(homes(), 'engineer'), { recursive: true });
+			mac.env.WORKBENCH_OWNER_UID = String(process.getuid?.() ?? 0);
+			const run = setup();
+			expect(run.code).toBe(0);
+			const made = commands(run.out);
+			expect(made.join('\n')).not.toContain(`-o engineer -g staff ${join(homes(), 'engineer')}`);
+			expect(made).toContain(
+				`sudo -n -u engineer -H install -d -m 0700 ${join(homes(), 'engineer')}/.ssh`,
+			);
+		});
+	});
+
+	it('reads the accounts file without its blank lines and indented comments', () => {
+		const folder = join(mac.root, 'repo', 'workstation');
+		mkdirSync(join(folder, 'macos'), { recursive: true });
+		copyFileSync(join(MACOS, 'common.sh'), join(folder, 'macos', 'common.sh'));
+		writeFileSync(join(folder, 'accounts'), '# note\n\nresearcher\n  # indented\n\t\nengineer\n\n');
+		const result = spawnSync(
+			'bash',
+			['-c', '. "$1"; declare -p ACCOUNTS', 'sh', join(folder, 'macos', 'common.sh')],
+			{ env: mac.env, encoding: 'utf8' },
+		);
+		expect(result.stdout).toBe('declare -a ACCOUNTS=([0]="researcher" [1]="engineer")\n');
 	});
 
 	it('refuses an account that it did not make', () => {
@@ -408,6 +616,37 @@ describe.skipIf(!tooling)('workstation/macos/teardown.sh in a dry run', () => {
 		for (const name of EVERY)
 			expect(removed).toContain(`dseditgroup -o edit -d ${name} -t user com.apple.access_ssh`);
 		expect(removed.join('\n')).not.toContain('-d admin');
+	});
+
+	it('deletes com.apple.access_ssh when setup made it, and not when it did not', () => {
+		settled();
+		const groups = join(mac.root, 'fake', 'groups');
+		writeFileSync(groups, `workbench 5000 ${MARK}\ncom.apple.access_ssh 399 ${MARK}\n`);
+		const marker = join(mac.env.WORKBENCH_LIBEXEC ?? '', 'ssh-group-created');
+		expect(existsSync(marker)).toBe(true);
+		const run = teardown('--yes');
+		expect(commands(run.out)).toContain('dseditgroup -o delete com.apple.access_ssh');
+		expect(run.out).toContain('the group com.apple.access_ssh, which setup.sh made');
+		writeFileSync(groups, `workbench 5000 ${MARK}\ncom.apple.access_ssh 399 \n`);
+		const kept = teardown('--yes');
+		expect(commands(kept.out).join('\n')).not.toContain('delete com.apple.access_ssh');
+		expect(kept.err).toContain('its comment is gone');
+		rmSync(marker);
+		writeFileSync(groups, `workbench 5000 ${MARK}\ncom.apple.access_ssh 399 ${MARK}\n`);
+		expect(commands(teardown('--yes').out).join('\n')).not.toContain('delete com.apple.access_ssh');
+	});
+
+	it('removes a record that setup left half made, with a comment and no id', () => {
+		settled();
+		writeFileSync(
+			join(mac.root, 'fake', 'users'),
+			`engineer - ${MARK}\n${EVERY.filter((name) => name !== 'engineer')
+				.map((name) => `${name} 5002 ${MARK}`)
+				.join('\n')}\n`,
+		);
+		const removed = commands(teardown('--yes').out);
+		expect(removed).toContain('sysadminctl -deleteUser engineer');
+		expect(removed.join('\n')).not.toContain("pkill -KILL -u ''");
 	});
 
 	it('asks before it removes, and removes nothing on another answer than yes', () => {

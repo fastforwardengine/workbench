@@ -1,4 +1,4 @@
-# Library
+# Datasheets
 
 **This directory holds the datasheets and the manuals of the parts on the
 bench, in Markdown.** The specialists read these files before they claim a

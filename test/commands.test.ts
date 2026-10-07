@@ -18,7 +18,7 @@ const choices: Choices = {
 		{ name: 'noor', role: 'Electrochemistry lead' },
 	],
 	files: [
-		{ path: '/library/cell-18650.md', size: 797 },
+		{ path: '/datasheets/cell-18650.md', size: 797 },
 		{ path: '/shared/notes.md', size: 2048 },
 	],
 	says: [
@@ -52,16 +52,16 @@ describe('parse', () => {
 	});
 
 	it('reports an unknown command by name', () => {
-		expect(parse('/library/cell-18650.md')).toEqual({
+		expect(parse('/datasheets/cell-18650.md')).toEqual({
 			kind: 'unknown',
-			name: 'library/cell-18650.md',
+			name: 'datasheets/cell-18650.md',
 		});
 	});
 
 	it('lets a double slash send a message that starts with one slash', () => {
-		expect(parse('//library/cell-18650.md is the datasheet')).toEqual({
+		expect(parse('//datasheets/cell-18650.md is the datasheet')).toEqual({
 			kind: 'message',
-			text: '/library/cell-18650.md is the datasheet',
+			text: '/datasheets/cell-18650.md is the datasheet',
 		});
 	});
 
@@ -166,7 +166,7 @@ describe('suggest', () => {
 
 	it('lists the files after /open, matching anywhere in the path', () => {
 		expect(suggest('/open ', choices).map((row) => [row.label, row.detail])).toEqual([
-			['/library/cell-18650.md', '797 B'],
+			['/datasheets/cell-18650.md', '797 B'],
 			['/shared/notes.md', '2.0 KB'],
 		]);
 		expect(suggest('/open NOTES', choices).map((row) => row.insert)).toEqual([
