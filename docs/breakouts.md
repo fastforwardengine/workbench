@@ -41,6 +41,8 @@ canvas. No root room seats it. A breakout room seats it at `broadcast`.
 | ---------------------------------------------------------------- | ------------------------------------- | --------------- |
 | When Ambion allows a breakout room, `tell`, `archive`, the reply | Ambion guidance of the opener bundle  | Each specialist |
 | When to open a breakout room, and what to put in the brief       | The group `Background`                | Each specialist |
+| Examples of a breakout task                                      | The `Background` rules of the seat    | Each specialist |
+| What the worker does when the brief lacks an input               | The group `Speaking` of the worker    | The worker      |
 | How to send the result                                           | The group `Speaking` of the worker    | The worker      |
 | What the worker cannot do                                        | The group `Constraints` of the worker | The worker      |
 | Project, evidence, and the limits of the person                  | The shared groups                     | Every seat      |
@@ -48,6 +50,13 @@ canvas. No root room seats it. A breakout room seats it at `broadcast`.
 The group `Background` states Workbench's own policy: which task leaves the
 room and which task stays. Ambion's guidance states the mechanism, so the
 Workbench text does not repeat it.
+
+The shared `Background` rule names no example. The Researcher names the
+tasks of research: compare the datasheets of several parts, or draft a test
+plan. The Engineer names the tasks of code: write and test a script, or read
+the data files of a capture. The Engineer still asks the Researcher with `to`
+for a limit, a choice between parts, or a test plan that the room needs for
+its next step.
 
 ## Why the worker has no access to the devices
 
@@ -69,8 +78,8 @@ because a breakout room has no person.
    result to the room.
 
 **A report is the claim of a worker.** The opener checks its refs before it
-says the result. A worker that lacks an input reports what is missing. The
-opener answers with `tell`.
+says the result. A worker that lacks an input reports what is missing as
+its result.
 
 **A person sees the breakout rooms in the room list.** The view of a breakout
 room names its parent and its opener. An archived room does not start again.
@@ -83,18 +92,28 @@ breakout room that is running. The host seats no specialist there.
 background work runs, and sees how to open it.
 
 - **The chip:** while the open room has breakout rooms that run, its header
-  shows a dim chip after the participants, such as `⇉ 2 in background`. The
-  chip turns coral while one of them has an open exchange. The chip drops
-  before the participant names on a narrow terminal. It shows no text when
-  no breakout room runs.
+  shows a dim chip after the participants, such as `⇉ 2 in background`. A
+  breakout room runs when the host holds its live room. A stopped parent or
+  a failed start leaves none, so the chip does not count it. The chip turns
+  coral while one running room has an open exchange. The chip drops before
+  the participant names on a narrow terminal. It shows no text when no
+  breakout room runs.
 - **The label:** in a breakout room, the right edge of the participants row
   reads `breakout of <parent>`. An archived room adds `done` or `failed`.
 - **The room palette:** Ctrl+R and `/room ` list each root room, then its
   breakout rooms. The detail of a breakout row is `working`, `running`,
-  `stopped`, `done`, or `failed`, then the goal. The list shows an archived
-  breakout room only for the open room, or for the parent of the open room.
-  `/room <name>` opens the breakout room.
-- **The refresh:** a breakout room that opens, stops, or ends tells the
-  watchers of its parent room. The session then reads the room list again.
-  The slow poll of the room list covers the rest, such as the open exchange
-  of a breakout room.
+  `stopped`, `done`, or `failed`, then the goal. A room that the host does
+  not run shows `stopped`. The list shows an archived breakout room only for
+  the open room, or for the parent of the open room. `/room <name>` opens
+  the breakout room.
+- **The seats:** in a breakout room, `@` offers the agents that the room
+  seats, which is the worker. The mention check uses the same agents. A
+  root room offers every specialist.
+- **An archived room:** the terminal opens it to read, and does not enter
+  it. A message there fails with `<room> is archived. It takes no message.`
+- **The refresh:** the session calls `watchRooms` of the host once, when it
+  starts, and ends the watch when it leaves. The host calls back when a room
+  opens, starts, stops, or is archived. A widget or an answer calls nothing.
+  Each call reads the room list again, and calls during a read join into one
+  more read. The slow poll of the room list covers the rest, such as the
+  open exchange of a breakout room.

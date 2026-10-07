@@ -14,16 +14,13 @@ export interface ReaderSource<View extends FeedView> extends FeedSource<View> {
  *
  * A change that lands during a read asks for one more read after the current
  * one, so no change is lost. A room view goes to `apply` inside the same
- * request, and an error of the read or of `apply` goes to `failed`. The optional
- * `heard` runs on each change that the watch reports, before the read ends.
+ * request, and an error of the read or of `apply` goes to `failed`.
  */
 export class RoomReader<View extends FeedView> {
 	private readonly source: ReaderSource<View>;
 	private readonly feed: RoomFeed<View>;
 	private readonly apply: (view: View) => Promise<void>;
 	private readonly failed: (error: unknown) => void;
-	/** Called after each change of the open room, as the watch hears it. */
-	private readonly heard: (() => void) | undefined;
 	/** The read of the open room. A change during a read asks for one more read. */
 	private readonly readCoalesced = coalesced(() => this.readOnce());
 	/** Ends the watch on the open room. The reader watches one room at a time. */
@@ -33,13 +30,11 @@ export class RoomReader<View extends FeedView> {
 		source: ReaderSource<View>,
 		apply: (view: View) => Promise<void>,
 		failed: (error: unknown) => void,
-		heard?: () => void,
 	) {
 		this.source = source;
 		this.feed = new RoomFeed(source);
 		this.apply = apply;
 		this.failed = failed;
-		this.heard = heard;
 	}
 
 	/** The messages read from the open room, in order. */
@@ -53,7 +48,6 @@ export class RoomReader<View extends FeedView> {
 		this.unwatch?.();
 		this.unwatch = this.source.watch(room, () => {
 			void this.refresh();
-			this.heard?.();
 		});
 	}
 

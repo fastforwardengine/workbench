@@ -181,11 +181,14 @@ export interface RoomChoice {
 /** The characters of a goal that a breakout row shows. */
 const GOAL_CUT = 48;
 
-/** How a breakout room stands: its result once archived, else `stopped`, `working`, or `running`. */
+/**
+ * How a breakout room stands: its result once archived, else `stopped`, `working`, or `running`.
+ * A room runs only when the host holds its live handle, which `status` tells.
+ */
 function breakoutState(room: RoomChoice, { state, result }: BreakoutChoice): string {
 	if (state === 'archived') return result ?? 'archived';
-	if (state === 'stopped') return state;
-	return room.working ? 'working' : state;
+	if (room.status !== 'running') return 'stopped';
+	return room.working ? 'working' : 'running';
 }
 
 /** The detail of a room row. A breakout room adds its goal after its state. */

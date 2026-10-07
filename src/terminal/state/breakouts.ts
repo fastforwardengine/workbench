@@ -11,9 +11,13 @@ export interface Background {
 const childrenOf = (rooms: readonly RoomView[], parent: string): RoomView[] =>
 	rooms.filter((room) => room.breakout?.parent === parent);
 
-/** Count the breakout rooms of `open` that run, and tell whether one of them works. */
+/**
+ * Count the breakout rooms of `open` that run, and tell whether one of them works. A room runs
+ * when the host holds its live handle. A stopped parent or a failed start leaves a row with the
+ * state `running` and no handle, so the state alone does not count.
+ */
 export function backgroundOf(rooms: readonly RoomView[], open: string): Background {
-	const running = childrenOf(rooms, open).filter((room) => room.breakout?.state === 'running');
+	const running = childrenOf(rooms, open).filter((room) => room.status === 'running');
 	return { running: running.length, working: running.some((room) => Boolean(room.exchange)) };
 }
 

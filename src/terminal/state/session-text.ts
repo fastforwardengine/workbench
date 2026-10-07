@@ -64,26 +64,35 @@ function pendingLine(say: ScheduledSay): string {
 	return `${say.seat} comes back at ${time}: ${say.text} (/dismiss ${say.seq})`;
 }
 
-/** The seats that `@` completes to, each with its attention in the open room. */
+/** The agents that a view seats, with the attention of each. */
+const seatedAgents = (view: RoomView | undefined): { name: string; attention: string }[] =>
+	(view?.participants ?? []).flatMap((seat) =>
+		seat.kind === 'agent' ? [{ name: seat.name, attention: seat.attention }] : [],
+	);
+
+/**
+ * The seats that `@` completes to, each with its attention in the open room. A root room
+ * offers every specialist. A breakout room offers the agents it seats, which are its workers.
+ */
 export function seatChoices(
 	team: readonly { name: string }[],
 	view: RoomView | undefined,
 ): { name: string; state: string }[] {
-	return team.map(({ name }) => {
-		const seat = (view?.participants ?? []).find(
-			(participant) => participant.kind === 'agent' && participant.name === name,
-		);
-		return { name, state: seat?.kind === 'agent' ? seat.attention : 'not seated' };
-	});
+	const seated = seatedAgents(view);
+	if (view?.breakout) return seated.map(({ name, attention }) => ({ name, state: attention }));
+	return team.map(({ name }) => ({
+		name,
+		state: seated.find((seat) => seat.name === name)?.attention ?? 'not seated',
+	}));
 }
 
 /** The reason a mention cannot go out, or undefined when it can. */
 export function mentionRefusal(
 	message: { text: string; to?: string },
-	team: readonly { name: string }[],
+	seats: readonly { name: string }[],
 	staged = 0,
 ): string | undefined {
-	const known = team.map((seat) => seat.name);
+	const known = seats.map((seat) => seat.name);
 	if (!message.to || !known.includes(message.to))
 		return `No seat or specialist named @${message.to}. Type @ to list them, or @@ to send an at sign.`;
 	const rest = message.text.replace(/^@\S+/, '').trim();

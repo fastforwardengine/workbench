@@ -6,6 +6,7 @@ import {
 	breakoutLabel,
 	roomChoices,
 } from '../src/terminal/state/breakouts.ts';
+import { suggest } from '../src/terminal/state/commands.ts';
 import { view } from './fake-host.ts';
 
 const exchange = { id: 'x1' };
@@ -17,7 +18,12 @@ function child(
 	extra: Record<string, unknown> = {},
 ) {
 	const close = state === 'archived' ? { close: { result: 'done' } } : {};
-	return view(name, { breakout: { parent, opener: 'engineer', state, ...close }, ...extra });
+	const status = state === 'running' ? 'running' : 'stopped';
+	return view(name, {
+		status,
+		breakout: { parent, opener: 'engineer', state, ...close },
+		...extra,
+	});
 }
 
 const rooms = [
@@ -46,6 +52,28 @@ describe('backgroundOf', () => {
 	it('does not count a stopped or an archived breakout room', () => {
 		const quiet = [view('build'), child('a', 'build', 'stopped'), child('b', 'build', 'archived')];
 		expect(backgroundOf(quiet, 'build')).toEqual({ running: 0, working: false });
+	});
+});
+
+describe('a breakout room without a live handle', () => {
+	// A stopped parent or a failed start leaves the row at `running`, and the host holds no handle.
+	const dead = child('dead', 'build', 'running', { status: 'stopped', exchange });
+
+	it('adds nothing to the chip', () => {
+		expect(backgroundOf([view('build'), dead], 'build')).toEqual({ running: 0, working: false });
+	});
+
+	it('shows `stopped` in the palette', () => {
+		const choice = roomChoices([view('build'), dead], 'build').find((row) => row.name === 'dead');
+		expect(choice).toMatchObject({ status: 'stopped', working: true });
+		const listed = suggest('/room dead', {
+			rooms: roomChoices([view('build'), dead], 'build'),
+			people: [],
+			files: [],
+			says: [],
+			seats: [],
+		});
+		expect(listed[0]?.detail).toBe('stopped · dead goal');
 	});
 });
 

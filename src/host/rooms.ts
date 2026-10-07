@@ -190,14 +190,7 @@ export async function openRooms(
 			opener: canvas.tools(),
 			worker: canvas.workerTools(),
 		});
-		canvas.subscribe((event) =>
-			heardEvent(
-				event,
-				stateOf,
-				(name) => canvas.room(name),
-				() => canvas.rooms(),
-			),
-		);
+		canvas.subscribe((event) => heardEvent(event, stateOf, (name) => canvas.room(name)));
 		await canvas.resume({ agents: [...roomTeam.specialists, roomTeam.worker] });
 	} catch (error) {
 		closing = true;
@@ -286,6 +279,11 @@ export async function openRooms(
 		create,
 		inRoom,
 		watch,
+		/** Call `changed` when a room opens, starts, stops, or is archived. The return value ends the watch. */
+		watchRooms: (listener: () => void) =>
+			canvas.subscribe((event) => {
+				if (LIFECYCLE_EVENTS.has(event.type)) listener();
+			}),
 		withWorkspace,
 		workspace,
 		/** What the viewfinder reads of the canvas: the widgets of a room, and the events. */
@@ -373,38 +371,24 @@ function roomOf(event: CanvasEvent): string {
 	return event.type === 'opened' ? event.room.name : event.room;
 }
 
-/** The events that change how a room stands. */
-const STANDING_EVENTS: ReadonlySet<CanvasEvent['type']> = new Set([
+/** The events that change which rooms exist or how a room stands. A widget or an answer is not one. */
+const LIFECYCLE_EVENTS: ReadonlySet<CanvasEvent['type']> = new Set([
 	'opened',
 	'started',
 	'stopped',
 	'archived',
 ]);
 
-/** The room that holds the breakout room which a standing event is about, or undefined. */
-function parentOf(event: CanvasEvent, rows: () => readonly CanvasRoom[]): string | undefined {
-	if (!STANDING_EVENTS.has(event.type)) return undefined;
-	const name = roomOf(event);
-	const row = event.type === 'opened' ? event.room : rows().find((found) => found.name === name);
-	return row?.start.kind === 'breakout' ? row.start.parent : undefined;
-}
-
-/**
- * Hear the events of a room that the canvas starts, and tell its watchers of each change.
- * A change in the standing of a breakout room also tells the watchers of its parent, which lists it.
- */
+/** Hear the events of a room that the canvas starts, and tell its watchers of each change. */
 function heardEvent(
 	event: CanvasEvent,
 	stateOf: (name: string) => RoomState,
 	room: (name: string) => Room | undefined,
-	rows: () => readonly CanvasRoom[],
 ): void {
 	const name = roomOf(event);
 	const state = stateOf(name);
 	if (event.type === 'started') room(name)?.subscribe((heard) => notify(state, heard));
 	changed(state);
-	const parent = parentOf(event, rows);
-	if (parent !== undefined) changed(stateOf(parent));
 }
 
 /** A failure that the canvas survived goes to the activity list, where the person reads it. */

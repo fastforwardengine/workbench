@@ -132,6 +132,22 @@ describe('the prompts of the breakout rooms', () => {
 		expect(worker).not.toContain('A breakout room runs one task');
 	});
 
+	it('give each specialist its own examples of a breakout task, and the shared line none', async () => {
+		const { built } = await setup();
+		const researcher = instructionsOf(built.specialists.find((seat) => seat.name === 'researcher'));
+		const engineer = instructionsOf(built.specialists.find((seat) => seat.name === 'engineer'));
+		const research = 'compare the datasheets of several parts, or draft a test plan.';
+		const script = 'write and test a script, or read the data files of a capture.';
+		expect(researcher).toContain(`Examples of a breakout task: ${research}`);
+		expect(researcher).not.toContain(script);
+		expect(engineer).toContain(`Examples of a breakout task: ${script}`);
+		expect(engineer).not.toContain(research);
+		for (const prompt of [researcher, engineer])
+			expect(prompt).toContain(
+				'- Open a breakout room for a self-contained task of many steps whose result this room does not need for its next step.\n',
+			);
+	});
+
 	it('give the worker the shared rules, the research skills, and its own rules', async () => {
 		const { built } = await setup();
 		const worker = instructionsOf(built.worker);
@@ -147,35 +163,36 @@ describe('the prompts of the breakout rooms', () => {
 			'Follow the cite-a-limit skill for a limit',
 			'Your breakout room has no access to the devices of the bench.',
 			'Send your result with `report`, once, at the end of the task.',
-			'The specialist answers with `tell`.',
+			'When the brief lacks an input that the task needs, report what is missing as your result.',
 		])
 			expect(worker).toContain(rule);
 		expect(worker).not.toContain('Say a result with no `to`.');
+		expect(worker).not.toContain('`tell`');
 	});
 });
 
 describe('the path of a task', () => {
 	it('runs from the Engineer to the worker and back: breakout, report, archive', async () => {
-		const room = 'bench-room-datasheets';
+		const room = 'bench-room-sweep';
 		const script = byAgent({
 			engineer: (_step, _seat, call) => {
 				if (call === 1)
 					return callTool('breakout', {
-						name: 'datasheets',
-						goal: 'Compare the datasheets of two tuners in one table.',
-						message: 'Compare /library/rda5807fp.md with another tuner. Answer with a table.',
+						name: 'sweep',
+						goal: 'Write and test a script that sweeps the supply.',
+						message: 'Write /scripts/sweep.py, and test it on the dry run. Answer with its path.',
 						agents: [WORKER],
 					});
-				if (call === 2) return say('The comparison runs in the background.');
+				if (call === 2) return say('The script runs in the background.');
 				if (call === 3) return callTool('archive', { room, result: 'done', note: 'Reported.' });
-				if (call === 4) return say('The RDA5807FP wins.');
+				if (call === 4) return say('The script passes its test.');
 				return quiet();
 			},
 			worker: (_step, _seat, call) => {
 				if (call === 1)
 					return callTool('report', {
-						text: 'The RDA5807FP wins.',
-						refs: ['file:///library/rda5807fp.md'],
+						text: 'The script passes its test.',
+						refs: ['file:///scripts/sweep.py'],
 					});
 				return quiet();
 			},
@@ -183,12 +200,12 @@ describe('the path of a task', () => {
 		const { canvas } = await setup(script);
 		const parent = await canvas.open({
 			name: 'bench-room',
-			goal: 'Choose a tuner.',
+			goal: 'Sweep the supply.',
 			seats,
 			seating: false,
 		});
 		cleanups.push(() => parent.stop());
-		await (await parent.visit(person)).send({ text: 'Choose a tuner.', to: 'engineer' });
+		await (await parent.visit(person)).send({ text: 'Sweep the supply.', to: 'engineer' });
 		await settled(parent);
 		const child = canvas.room(room);
 		if (child) await settled(child);
@@ -198,9 +215,9 @@ describe('the path of a task', () => {
 			(message) => 'text' in message && message.text.startsWith(`breakout ${room}:`),
 		);
 		expect(reported).toMatchObject({
-			text: `breakout ${room}: The RDA5807FP wins.`,
+			text: `breakout ${room}: The script passes its test.`,
 			to: 'engineer',
-			refs: ['file:///library/rda5807fp.md'],
+			refs: ['file:///scripts/sweep.py'],
 		});
 		expect(canvas.rooms().find((row) => row.name === room)).toMatchObject({
 			state: 'archived',

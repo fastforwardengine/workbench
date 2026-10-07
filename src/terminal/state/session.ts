@@ -78,6 +78,8 @@ export class Session {
 	/** The newest output line of the processes that the running seats of the open exchange own. */
 	private readonly tails: ProcessTails;
 	private readonly reader: RoomReader<RoomView>;
+	/** Ends the watch on the room list. `start` sets it, and `leave` calls it. */
+	private unwatchRooms: (() => void) | undefined;
 	private readonly changed: () => void;
 	private sending = false;
 	private wantBottom = false;
@@ -93,8 +95,6 @@ export class Session {
 				this.offline = errorText(error);
 				this.changed();
 			},
-			// A change of the open room may open, stop, or archive a breakout room.
-			() => void this.listRooms(),
 		);
 		this.browser = new FileBrowser(entryLoader(host), changed);
 		this.tails = new ProcessTails(host, () => this.rebuild());
@@ -119,6 +119,8 @@ export class Session {
 	// Reading
 
 	async start(): Promise<void> {
+		// A room that opens, starts, stops, or is archived changes the list, and a breakout room is one.
+		this.unwatchRooms ??= this.host.watchRooms(() => void this.listRooms());
 		await this.refreshRooms();
 		if (!this.identity) {
 			const names = this.host.people.map((person) => person.name).join(', ');
@@ -145,9 +147,9 @@ export class Session {
 	}
 
 	/**
-	 * Read the room list again, without the files. The watch of the open room calls it:
-	 * a breakout room that opens, stops, or ends tells the watchers of its parent.
-	 * A call during a read asks for one more read after it.
+	 * Read the room list again, without the files. The watch on the room list calls it
+	 * when a room opens, starts, stops, or is archived. A call during a read asks for
+	 * one more read after it.
 	 */
 	private readonly listRooms = coalesced(async () => {
 		try {
@@ -394,7 +396,7 @@ export class Session {
 	private async execute(parsed: Parsed): Promise<Intent | undefined> {
 		if (parsed.kind === 'message') {
 			const refusal = parsed.to
-				? mentionRefusal(parsed, this.host.team, this.pendingRefs.length)
+				? mentionRefusal(parsed, seatChoices(this.host.team, this.view), this.pendingRefs.length)
 				: undefined;
 			if (refusal) this.fail(new Error(refusal));
 			else await this.send(parsed.text, parsed.to);
@@ -486,8 +488,14 @@ export class Session {
 		if (dropped > 0) this.say(`Dropped ${dropped} staged attachment${dropped === 1 ? '' : 's'}.`);
 	}
 
+	/** True when the open room is an archived breakout room. It stays readable, and takes no visit. */
+	private get archived(): boolean {
+		const row = this.view ?? this.rooms.find((room) => room.name === this.room);
+		return row?.breakout?.state === 'archived';
+	}
+
 	private async join(): Promise<void> {
-		if (!this.identity || !this.room) return;
+		if (!this.identity || !this.room || this.archived) return;
 		try {
 			await this.host.join(this.room, this.identity.name);
 			this.entered = true;
@@ -569,6 +577,8 @@ export class Session {
 		if (this.sending) return this.fail(new Error('The last message is still sending.'));
 		if (!this.identity) return this.say('Pick a person first: /user <name>.');
 		if (!this.room) return this.say('Open a room first: /room <name>.');
+		if (this.archived)
+			return this.fail(new Error(`${this.room} is archived. It takes no message.`));
 		if (this.view && this.view.status !== 'running')
 			return this.fail(new Error(`${this.view.name} is ${this.view.status}. Use /resume first.`));
 		this.sending = true;
@@ -742,6 +752,8 @@ export class Session {
 	/** End the person's visit, so the room shows them as gone after the terminal exits. */
 	async leave(): Promise<void> {
 		this.reader.stop();
+		this.unwatchRooms?.();
+		this.unwatchRooms = undefined;
 		this.tails.dispose();
 		if (this.room && this.entered && this.identity)
 			await this.host.leave(this.room, this.identity.name).catch(() => {});

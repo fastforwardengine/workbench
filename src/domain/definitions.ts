@@ -67,7 +67,7 @@ const SHARED_RULES: Rules = {
 const SPECIALIST_RULES: Rules = {
 	Background: [
 		'A breakout room runs one task in the background while this room continues. A worker does the task, and it sees only your `goal` and `message`.',
-		'Open a breakout room for a self-contained task of many steps whose result this room does not need for its next step. Examples: compare the datasheets of several parts, draft a test plan, write and test a script.',
+		'Open a breakout room for a self-contained task of many steps whose result this room does not need for its next step.',
 		'Open one breakout room for each independent task, so that the tasks run in parallel.',
 		'Keep in this room a task that drives a device of the bench, or that needs the person for an approval, hands-on work, or a photo. A worker has no access to the devices.',
 		'Keep in this room a task that you can finish in this activation.',
@@ -91,7 +91,7 @@ const WORKER_RULES: Rules = {
 	],
 	Speaking: [
 		'Send your result with `report`, once, at the end of the task. Cite in `refs` what the result relies on.',
-		'When the brief lacks an input that the task needs, report what is missing, and end your activation. The specialist answers with `tell`.',
+		'When the brief lacks an input that the task needs, report what is missing as your result.',
 		PREFERENCE,
 	],
 };
@@ -129,6 +129,9 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 		rules: {
 			Project: [RESEARCH_SKILLS],
 			Evidence: ['Never state a value without a datasheet path.'],
+			Background: [
+				'Examples of a breakout task: compare the datasheets of several parts, or draft a test plan.',
+			],
 		},
 	},
 	{
@@ -142,6 +145,9 @@ const specialists: { name: string; identity: string; rules: Rules; shows?: boole
 				'Follow the scan-the-bench skill to find the devices of the bench, before you drive a device.',
 				'Follow the drive-the-power-supply skill to run a power supply, and the observe-the-camera skill to look at the bench with the cameras.',
 				'Follow the guide-a-build-step skill for a build step, and the check-a-photo skill for a photo.',
+			],
+			Background: [
+				'Examples of a breakout task: write and test a script, or read the data files of a capture.',
 			],
 			Constraints: [
 				'Change no setting and no output of a device outside a script from a template.',

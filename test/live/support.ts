@@ -96,7 +96,7 @@ export async function openRoom(
 	});
 	await canvas.resume({ agents: [...built.specialists, built.worker] });
 	const room = await canvas.open({
-		name: `workbench-eval-${crypto.randomUUID()}`,
+		name: `eval-${crypto.randomUUID().slice(0, 8)}`,
 		goal: sweep.goal,
 		seats: sweep.seats,
 		seating: false,

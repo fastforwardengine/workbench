@@ -28,17 +28,19 @@ function fullPath(agent: string, count: number): AssistantMessage {
 	if (agent === 'engineer' && count === 1)
 		return call('breakout', {
 			name: 'datasheets',
-			goal: 'Compare two tuners.',
-			message: 'Compare the tuners.',
+			goal: 'Write and test a sweep script.',
+			message: 'Write a script that sweeps the supply, and test it.',
 			agents: ['worker'],
 		});
 	if (agent === 'engineer' && count === 2)
-		return call('say', { text: 'It runs in the background.' });
-	if (agent === 'worker' && count === 1) return call('report', { text: 'The RDA5807FP wins.' });
+		return call('say', { text: 'The script runs in the background.' });
+	if (agent === 'worker' && count === 1)
+		return call('report', { text: 'The script passes its test.' });
 	// A request that follows a `say` ends the activation: the script answers it with `quiet`.
 	if (agent === 'engineer' && count === 4)
 		return call('archive', { room: ROOM, result: 'done', note: 'Reported.' });
-	if (agent === 'engineer' && count === 5) return call('say', { text: 'The RDA5807FP wins.' });
+	if (agent === 'engineer' && count === 5)
+		return call('say', { text: 'The script passes its test.' });
 	return quiet();
 }
 
@@ -47,12 +49,12 @@ function openOnly(agent: string, count: number): AssistantMessage {
 	if (agent === 'engineer' && count === 1)
 		return call('breakout', {
 			name: 'datasheets',
-			goal: 'Compare two tuners.',
-			message: 'Compare the tuners.',
+			goal: 'Write and test a sweep script.',
+			message: 'Write a script that sweeps the supply, and test it.',
 			agents: ['worker'],
 		});
 	if (agent === 'engineer' && count === 2)
-		return call('say', { text: 'It runs in the background.' });
+		return call('say', { text: 'The script runs in the background.' });
 	return quiet();
 }
 
@@ -107,7 +109,7 @@ async function until(lab: Lab, check: (rooms: Awaited<ReturnType<Lab['rooms']>>)
 /** The person asks the Engineer in `build`. */
 async function ask(lab: Lab) {
 	await lab.join('build', person);
-	await lab.send('build', person, 'ask-1', 'Compare two tuners.', [], 'engineer');
+	await lab.send('build', person, 'ask-1', 'Write and test a sweep script.', [], 'engineer');
 }
 
 describe('a breakout room in the host', () => {
@@ -127,26 +129,30 @@ describe('a breakout room in the host', () => {
 			state: 'archived',
 			close: { result: 'done', note: 'Reported.' },
 		});
-		expect(child?.goal).toBe('Compare two tuners.');
+		expect(child?.goal).toBe('Write and test a sweep script.');
 		const reported = (await lab.read('build', 0)).messages.find(
 			(message) => 'text' in message && message.text.startsWith(`breakout ${ROOM}:`),
 		);
 		expect(reported).toMatchObject({
 			to: 'engineer',
-			text: `breakout ${ROOM}: The RDA5807FP wins.`,
+			text: `breakout ${ROOM}: The script passes its test.`,
 		});
 	});
 
-	it('tells the watchers of the parent when a breakout room opens and when it closes', async () => {
+	it('tells the watchers of the room list when a breakout room opens and when it ends', async () => {
 		const lab = await open(fullPath);
 		let heard = 0;
-		const stop = lab.watch('build', () => {
+		const stop = lab.watchRooms(() => {
 			heard += 1;
 		});
 		await ask(lab);
 		await until(lab, (all) => all.some((room) => room.breakout?.state === 'archived'));
 		stop();
-		expect(heard).toBeGreaterThan(0);
+		// The breakout room opens and archives, and its worker starts: three events at least.
+		expect(heard).toBeGreaterThanOrEqual(3);
+		const after = heard;
+		await lab.control('build', 'stop');
+		expect(heard).toBe(after);
 	});
 
 	it('refuses a message to a specialist that the breakout room does not seat, and takes one for the worker', async () => {

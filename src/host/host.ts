@@ -58,6 +58,12 @@ export interface Lab {
 	 * that room current. The return value ends the watch.
 	 */
 	watch(room: string, changed: () => void): () => void;
+	/**
+	 * Call `changed` when a room opens, starts, stops, or is archived. A breakout
+	 * room is a room, so its opening and its end count. A widget and an answer
+	 * do not. The return value ends the watch.
+	 */
+	watchRooms(changed: () => void): () => void;
 	/** Enter a room as a person. Entering twice records one arrival. */
 	join(room: string, person: string): Promise<void>;
 	/** Leave a room. A person who is not present has nothing to leave. */
@@ -264,6 +270,7 @@ function hosted(rooms: Rooms, database: DatabaseSync): Lab {
 		rooms: () => rooms.list(),
 		read: (room, since) => rooms.read(room, since),
 		watch: (room, changed) => rooms.watch(room, changed),
+		watchRooms: (changed) => rooms.watchRooms(changed),
 		async join(room, person) {
 			const who = personNamed(person);
 			await inRoom(room, async (live) => void (await live.visit(who)));
