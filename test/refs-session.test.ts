@@ -417,7 +417,7 @@ describe('the rows of system messages', () => {
 
 	const openBlocks = (session: Awaited<ReturnType<typeof withSystem>>['session']) =>
 		session.blocks.flatMap((block) =>
-			block.type === 'message' && block.role === 'system' ? [Boolean(block.open)] : [],
+			block.type === 'system' ? block.items.map((item) => Boolean(item.open)) : [],
 		);
 
 	it('gives a row to each folded message and a ref only to a message that shows in full', async () => {

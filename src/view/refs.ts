@@ -1,7 +1,7 @@
 import type { Message, SaidMessage } from '@ambionframework/ambion';
 import { parseCommitUri, parseRoomUri, parseSnapshotUri } from '@ambionframework/ambion';
 import { ellipsize } from './text.ts';
-import type { Block } from './timeline.ts';
+import { type Block, type MessageBlock, messageBlocks } from './timeline.ts';
 
 /**
  * The refs of a message, as the terminal shows and opens them.
@@ -159,13 +159,15 @@ export function chipLine(item: ResolvedRef, width: number): string {
 
 /** The messages that the blocks show. */
 function shownMessages(blocks: readonly Block[]): Message[] {
-	return blocks.flatMap((block) => (block.type === 'message' ? [block.message] : []));
+	return blocks.flatMap((block) => messageBlocks(block).map((one) => one.message));
 }
 
 /** The messages that the blocks show in full. A folded system message shows one row and no refs. */
 function openMessages(blocks: readonly Block[]): Message[] {
 	return blocks.flatMap((block) =>
-		block.type === 'message' && (block.role !== 'system' || block.open) ? [block.message] : [],
+		messageBlocks(block)
+			.filter((one) => one.role !== 'system' || one.open)
+			.map((one) => one.message),
 	);
 }
 
@@ -303,12 +305,16 @@ export function systemOfPick(pick: string): number | undefined {
 export const isRefPick = (pick: string): boolean =>
 	stayOfPick(pick) === undefined && systemOfPick(pick) === undefined;
 
-/** The picks of one block: the row of a system message and then its refs when it is open, or the refs of a message. */
-function picksOf(block: Block, known: Known): string[] {
-	if (block.type === 'stays') return block.items.map((item) => stayPick(item.id));
-	if (block.type !== 'message') return [];
+/** The picks of one message: the row of a system message and then its refs when it is open, or the refs of a message. */
+function messagePicks(block: MessageBlock, known: Known): string[] {
 	const refs = refItems([block], known).map((item) => item.id);
 	return block.role === 'system' ? [systemPick(block.message.seq), ...refs] : refs;
+}
+
+/** The picks of one block. */
+function picksOf(block: Block, known: Known): string[] {
+	if (block.type === 'stays') return block.items.map((item) => stayPick(item.id));
+	return messageBlocks(block).flatMap((one) => messagePicks(one, known));
 }
 
 /**

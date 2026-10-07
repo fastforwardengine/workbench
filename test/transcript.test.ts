@@ -904,6 +904,49 @@ describe('the system rows', () => {
 		expect(folded[2]).toBe(`  ▸ system  Dropped the key.  ${TIME}`);
 	}, 20_000);
 
+	it('draws three adjacent rows with no blank line between them', async () => {
+		const view = await draw(blocksOf());
+		const lines = view.setup.captureCharFrame().split('\n');
+		expect(lines.slice(0, 4).map((line) => line.trimEnd())).toEqual([
+			`  ▸ build-psu  The rail holds 5.02 V at 1 A.  ${TIME}`,
+			`  ↩ Engineer  check PSU temp  ${TIME}`,
+			`  ▸ system  Dropped the key.  ${TIME}`,
+			'',
+		]);
+	}, 20_000);
+
+	it('keeps a blank line between an open message and the rows around it', async () => {
+		const view = await draw(blocksOf([3]));
+		const lines = view.setup
+			.captureCharFrame()
+			.split('\n')
+			.slice(0, 7)
+			.map((line) => line.trimEnd());
+		expect(lines).toEqual([
+			`  ▸ build-psu  The rail holds 5.02 V at 1 A.  ${TIME}`,
+			'',
+			`│ returned → Engineer  ${TIME}`,
+			'│ check PSU temp',
+			'',
+			`  ▸ system  Dropped the key.  ${TIME}`,
+			'',
+		]);
+	}, 20_000);
+
+	it('puts a blank line between a run and the message after it', async () => {
+		const blocks = buildTimeline({
+			messages: [...MESSAGES, { seq: 5, kind: 'said', from: 'engineer', text: 'Hi', at: AT }],
+			exchanges: [],
+			open: undefined,
+			humans: new Set(['priya']),
+		} as never);
+		const view = await draw(blocks);
+		const lines = view.setup.captureCharFrame().split('\n');
+		expect(lines[2]?.trimEnd()).toBe(`  ▸ system  Dropped the key.  ${TIME}`);
+		expect(lines[3]?.trim()).toBe('');
+		expect(lines[4]).toContain('engineer');
+	}, 20_000);
+
 	it('draws the row dim, with the source muted', async () => {
 		const view = await draw(blocksOf());
 		const spans = view.setup.captureSpans().lines.flatMap((line) => line.spans);

@@ -276,10 +276,15 @@ describe('citedFiles', () => {
 describe('the system rows', () => {
 	const FILE = 'file:///library/cell-18650.md';
 	const system = (seq: number, open?: true): Block => ({
-		type: 'message',
-		role: 'system',
-		message: { seq, kind: 'system', text: 'breakout x: Done.', at: AT, refs: [FILE] } as never,
-		...(open ? { open } : {}),
+		type: 'system',
+		items: [
+			{
+				type: 'message',
+				role: 'system',
+				message: { seq, kind: 'system', text: 'breakout x: Done.', at: AT, refs: [FILE] } as never,
+				...(open ? { open } : {}),
+			},
+		],
 	});
 	const said = (seq: number, refs: string[]): Block => ({
 		type: 'message',

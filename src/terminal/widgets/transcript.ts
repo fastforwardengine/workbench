@@ -23,7 +23,9 @@ import type {
 	StayItem,
 	StaysBlock,
 	StepsBlock,
+	SystemBlock,
 } from '../../view/timeline.ts';
+import { messageBlocks } from '../../view/timeline.ts';
 import { type Strip, stripKey } from '../state/pictures.ts';
 import { tui as palette } from './brand.ts';
 import { markdownBody } from './markdown-style.ts';
@@ -156,20 +158,17 @@ interface Entry {
 	node: BoxRenderable | TextRenderable;
 }
 
-/** The pick ids of the rows that a block draws: the folded activation lines, or the row of a system message. */
+/** The pick ids of the rows that a block draws: the folded activation lines, or the rows of system messages. */
 function rowPicksOf(block: Block): string[] {
 	if (block.type === 'stays') return block.items.map((item) => stayPick(item.id));
-	return block.type === 'message' && block.role === 'system' ? [systemPick(block.message.seq)] : [];
+	return block.type === 'system' ? block.items.map((item) => systemPick(item.message.seq)) : [];
 }
 
-/** True when the block draws a row that fits its text to the width. */
-const fitsRow = (block: Block): boolean =>
-	block.type === 'stays' || (block.type === 'message' && block.role === 'system' && !block.open);
+/** True when the block draws rows that fit their text to the width. */
+const fitsRow = (block: Block): boolean => block.type === 'stays' || block.type === 'system';
 
 /** The seqs of the messages that a block draws, for the marks that fall on it. */
-function seqsOf(block: Block): number[] {
-	return block.type === 'message' ? [block.message.seq] : [];
-}
+const seqsOf = (block: Block): number[] => messageBlocks(block).map((one) => one.message.seq);
 
 /**
  * Everything a block's node is built from: the block, the refs that fall on its messages, which of them is chosen, which message
@@ -317,7 +316,8 @@ export class Transcript {
 	}
 
 	private blockNode(block: Block, marks: Marks): BoxRenderable | TextRenderable {
-		if (block.type === 'message') return this.messageOrRow(block, marks);
+		if (block.type === 'message') return this.messageNode(block, marks);
+		if (block.type === 'system') return this.systemNode(block, marks);
 		if (block.type === 'live') return this.liveNode(block);
 		if (block.type === 'steps') return this.stepsNode(block);
 		if (block.type === 'stays') return this.staysNode(block, marks);
@@ -332,12 +332,25 @@ export class Transcript {
 		});
 	}
 
-	/** A message in full, or a folded system message as one row. */
-	private messageOrRow(block: MessageBlock, marks: Marks): BoxRenderable {
-		const { message } = block;
-		return message.kind === 'system' && !block.open
-			? this.systemRowNode(message, marks)
-			: this.messageNode(block, marks);
+	/**
+	 * A run of system messages in one column with no gap. A folded message is one row. An
+	 * open message is a full node, with a blank row between it and the next row.
+	 */
+	private systemNode(block: SystemBlock, marks: Marks): BoxRenderable {
+		const box = new BoxRenderable(this.renderer, { flexDirection: 'column', width: '100%' });
+		block.items.forEach((item, at) => {
+			const { message } = item;
+			if (message.kind === 'system' && !item.open) {
+				box.add(this.systemRowNode(message, marks));
+				return;
+			}
+			const node = this.messageNode(item, marks);
+			const before = block.items[at - 1];
+			if (before && !before.open) node.marginTop = GAP;
+			if (at < block.items.length - 1) node.marginBottom = GAP;
+			box.add(node);
+		});
+		return box;
 	}
 
 	private messageNode(block: MessageBlock, marks: Marks): BoxRenderable {
