@@ -4,8 +4,6 @@ import { label, type ProcessBrowser, stateText } from '../state/process-browser.
 import { tui as palette } from './brand.ts';
 import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
 
-const HINT = 'Up/Down choose   PgUp/PgDn scroll   x x cancel   Ctrl+Y copy   Esc close';
-
 /** The widest a command gets in the list. The title shows it whole. */
 const COMMAND_WIDTH = 60;
 
@@ -46,7 +44,7 @@ export class ProcessesPanel extends SidePanel {
 		this.title = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'word' });
 		this.body = new TextRenderable(renderer, { content: '', wrapMode: 'char', width: '100%' });
 		this.addBody(this.body);
-		for (const part of [this.heading, this.list, this.title, this.scroll, this.hint])
+		for (const part of [this.heading, this.list, this.title, this.scroll, this.message])
 			this.root.add(part);
 	}
 
@@ -62,9 +60,7 @@ export class ProcessesPanel extends SidePanel {
 		]);
 		this.list.content = this.rows(browser, now);
 		this.drawChosen(browser, now);
-		this.hint.content = new StyledText(
-			browser.message ? [fg(palette.note)(browser.message)] : [fg(palette.dim)(HINT)],
-		);
+		this.showMessage(browser.message);
 	}
 
 	private rows(browser: ProcessBrowser, now: number): StyledText {

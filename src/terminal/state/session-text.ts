@@ -2,26 +2,23 @@ import type { Participant, ScheduledSay } from '@ambionframework/ambion';
 import type { RoomAction, RoomView } from '../../host/host.ts';
 import type { Block } from '../../view/timeline.ts';
 import { COMMANDS } from './commands.ts';
+import { bindingLabel, KEYMAP } from './keymap.ts';
 
-/** What `/help` says about the keys. The lines about the commands come from `COMMANDS`. */
-const KEY_HELP = [
-	'Keys',
-	'  Enter sends. Ctrl+J, Alt+Enter, and Shift+Enter add a line.',
-	'  Tab chooses a ref of a shown message. Up and Down choose. Enter opens a file or a',
-	'  table in the files panel, or jumps to a message. Esc goes back to the composer.',
-	'  PageUp and PageDown scroll. Start a message with // to send a leading slash.',
-	'  Ctrl+C clears the composer, cancels a new room that waits for its goal, and closes a',
-	'  panel. On an empty composer it drops the staged attachments.',
-	'  In voice mode, Space on an empty composer starts a recording. Let go to send it.',
-	'  Ctrl+C drops the recording.',
-	'  Ctrl+D on an empty composer leaves the terminal. /quit also leaves.',
+/** What `/help` says about messages and keys. The lines about the commands come from `COMMANDS`. */
+const MESSAGE_HELP = [
+	'Messages',
+	'  Start a message with // to send a leading slash.',
 	'  Start a message with @name to address one seat. The seat wakes, and the host',
 	'  seats it first when it is not seated. Start with @@ to send a leading at sign.',
+	'Keys',
+	`  Press ${bindingLabel(KEYMAP.composer.bindings.keys)} on an empty composer to open the keys sheet.`,
 ];
 
-export const HELP = ['Commands', ...COMMANDS.flatMap((command) => command.help), ...KEY_HELP].join(
-	'\n',
-);
+export const HELP = [
+	'Commands',
+	...COMMANDS.flatMap((command) => command.help),
+	...MESSAGE_HELP,
+].join('\n');
 
 export const DONE: Record<RoomAction, (room: string) => string> = {
 	abort: (room) => `Aborted the open exchange in ${room}.`,

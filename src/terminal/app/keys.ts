@@ -1,4 +1,5 @@
 import type { CliRenderer, KeyEvent } from '@opentui/core';
+import { type Act, actOf, KEYMAP, matches } from '../state/keymap.ts';
 import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
 import type { Session } from '../state/session.ts';
 import type { Voice } from '../state/voice.ts';
@@ -8,9 +9,6 @@ import type { Transcript } from '../widgets/transcript.ts';
 import type { Painter } from './draw.ts';
 import type { Surface } from './surface.ts';
 import type { ViewfinderSurface } from './viewfinder-surface.ts';
-
-/** How far each refs key moves the selection. */
-const REF_STEP: Record<string, number> = { up: -1, k: -1, down: 1, j: 1 };
 
 /** Below this width, a side panel replaces the conversation, and the viewfinder does not show. */
 const NARROW = 100;
@@ -99,9 +97,10 @@ export class Keys {
 			this.surfaces[this.mode].onKey(key, () => this.closePanel());
 			return;
 		}
-		if (key.name === 'pageup' || key.name === 'pagedown') {
+		const scroll = actOf('conversation', key);
+		if (scroll) {
 			const page = Math.max(4, this.transcript.root.height - 2);
-			this.transcript.scrollBy(key.name === 'pageup' ? -page : page);
+			this.transcript.scrollBy(scroll === 'pageUp' ? -page : page);
 			return;
 		}
 		if (this.mode === 'actions') this.actionsKey(key);
@@ -125,7 +124,8 @@ export class Keys {
 	 * mode, because the hold can outlast a mode change.
 	 */
 	onRelease(key: KeyEvent): void {
-		if (key.name === 'space') void this.voice.release();
+		if (KEYMAP.composer.bindings.talk.keys.some((chord) => matches(chord, key)))
+			void this.voice.release();
 	}
 
 	/**
@@ -133,9 +133,9 @@ export class Keys {
 	 * the composer, because a panel uses it to scroll.
 	 */
 	private controlKey(key: KeyEvent): boolean {
-		if (!key.ctrl || key.shift || key.meta) return false;
-		const leaves = key.name === 'd' && this.mode === 'compose' && this.composer.text === '';
-		if (key.name !== 'c' && !leaves) return false;
+		const act = actOf('everywhere', key);
+		const leaves = act === 'quit' && this.mode === 'compose' && this.composer.text === '';
+		if (act !== 'interrupt' && !leaves) return false;
 		key.preventDefault();
 		if (leaves) this.quit();
 		else this.interrupt();
@@ -179,6 +179,11 @@ export class Keys {
 	/** Open the processes panel, and read the processes. A narrow terminal gives it the whole width. */
 	openProcesses(): void {
 		this.openPanel('processes');
+	}
+
+	/** Open the keys sheet. A narrow terminal gives it the whole width. */
+	openKeys(): void {
+		this.openPanel('keys');
 	}
 
 	/**
@@ -320,49 +325,77 @@ export class Keys {
 		if (intent) this.openFiles();
 	}
 
+	/** What each key of the refs does. */
+	private readonly refActs: Record<Act<'refs'>, () => void> = {
+		up: () => this.moveRef(-1),
+		down: () => this.moveRef(1),
+		open: () => void this.openPicked(),
+		back: () => this.exitRefs(),
+	};
+
 	private refsKey(key: KeyEvent): void {
 		key.preventDefault();
-		const name = key.name;
-		const step = REF_STEP[name];
-		if (step) this.moveRef(step);
-		else if (name === 'return' || name === 'space') void this.openPicked();
-		else if (name === 'escape' || name === 'r' || name === 'tab') this.exitRefs();
+		const act = actOf('refs', key);
+		if (act) this.refActs[act]();
 	}
 
 	// The composer
 
-	/** Ctrl+R lists the rooms. Ctrl+L chooses an action of a camera. */
-	private ctrlKey(key: KeyEvent): void {
-		key.preventDefault();
-		if (key.name === 'l') {
-			this.enterActions();
-			return;
-		}
-		this.palette.revive();
-		this.composer.setText('/room ');
-	}
-
-	private composeKey(key: KeyEvent): void {
-		if (key.ctrl && (key.name === 'r' || key.name === 'l')) this.ctrlKey(key);
-		else if (key.name === 'tab') {
-			key.preventDefault();
+	/**
+	 * What each key of the composer does. A handler returns true when it takes the
+	 * key, and false when the textarea gets it. The textarea handles `send` and
+	 * `newline` through its own bindings. `talk` belongs to voice mode, which reads
+	 * Space before the keys route it.
+	 */
+	private readonly composeActs: Record<Act<'composer'>, () => boolean> = {
+		send: () => false,
+		newline: () => false,
+		talk: () => false,
+		keys: () => {
+			if (this.composer.text !== '') return false;
+			this.openKeys();
+			return true;
+		},
+		tab: () => {
 			if (this.palette.open) this.palette.complete();
 			else this.enterRefs();
-		} else if (key.name === 'escape' && this.session.awaitingGoal) {
-			key.preventDefault();
-			this.session.cancelWaiting();
-			this.composer.setText('');
-		} else if (this.palette.open) this.paletteKey(key);
+			return true;
+		},
+		up: () => this.movePalette(-1),
+		down: () => this.movePalette(1),
+		escape: () => this.escapeCompose(),
+		rooms: () => {
+			this.palette.revive();
+			this.composer.setText('/room ');
+			return true;
+		},
+		actions: () => {
+			this.enterActions();
+			return true;
+		},
+	};
+
+	private composeKey(key: KeyEvent): void {
+		const act = actOf('composer', key);
+		if (act && this.composeActs[act]()) key.preventDefault();
 	}
 
-	private paletteKey(key: KeyEvent): void {
-		if (key.name === 'up' || key.name === 'down') {
-			key.preventDefault();
-			this.palette.move(key.name === 'up' ? -1 : 1);
-		} else if (key.name === 'escape') {
-			key.preventDefault();
-			this.palette.dismiss();
-			this.refreshPalette();
+	private movePalette(step: number): boolean {
+		if (!this.palette.open) return false;
+		this.palette.move(step);
+		return true;
+	}
+
+	/** Esc cancels a new room that waits for its goal. Otherwise it closes the palette. */
+	private escapeCompose(): boolean {
+		if (this.session.awaitingGoal) {
+			this.session.cancelWaiting();
+			this.composer.setText('');
+			return true;
 		}
+		if (!this.palette.open) return false;
+		this.palette.dismiss();
+		this.refreshPalette();
+		return true;
 	}
 }

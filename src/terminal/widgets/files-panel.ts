@@ -13,8 +13,6 @@ import type { FileBrowser } from '../state/browser.ts';
 import { tui as palette } from './brand.ts';
 import { LIST_ROWS, lineText, listText, SidePanel, windowStart } from './side-panel.ts';
 
-const HINT = 'Type to search   Up/Down choose   PgUp/PgDn scroll   Ctrl+Y copy   Esc close';
-const TABLE_HINT = 'Left/Right table   ';
 const MAX_COLUMN = 40;
 
 /** The rows that a picture takes in the preview. */
@@ -38,11 +36,6 @@ function markdownStyle(): SyntaxStyle {
 		'markup.quote': { fg: palette.muted, italic: true },
 		conceal: { fg: palette.dim },
 	});
-}
-
-/** The hint for Left and Right, when the file has more than one table. */
-function stepHint(file: FileContent | undefined): string {
-	return (file?.tables?.length ?? 0) > 1 ? TABLE_HINT : '';
 }
 
 /** The size and shape of one file, for the title. */
@@ -98,7 +91,6 @@ export class FilesPanel extends SidePanel {
 	private readonly image: ImageRenderable;
 	private readonly tabs: TextRenderable;
 	private shown: string | undefined;
-	private steps = '';
 	private flashing: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(renderer: CliRenderer) {
@@ -125,7 +117,7 @@ export class FilesPanel extends SidePanel {
 		this.tabs = lineText(renderer);
 		this.tabs.visible = false;
 		this.addBody(this.body, this.markdown, this.image);
-		for (const part of [this.search, this.list, this.title, this.tabs, this.scroll, this.hint])
+		for (const part of [this.search, this.list, this.title, this.tabs, this.scroll, this.message])
 			this.root.add(part);
 	}
 
@@ -143,8 +135,6 @@ export class FilesPanel extends SidePanel {
 		]);
 		this.list.content = this.rows(browser);
 		this.drawPreview(browser);
-		this.steps = stepHint(browser.file);
-		if (!this.flashing) this.hint.content = new StyledText([fg(palette.dim)(this.hintText())]);
 	}
 
 	private rows(browser: FileBrowser): StyledText {
@@ -225,17 +215,13 @@ export class FilesPanel extends SidePanel {
 		this.image.visible = true;
 	}
 
-	private hintText(): string {
-		return `${this.steps}${HINT}`;
-	}
-
-	/** Replace the key hints with a short message, then bring the hints back. */
+	/** Show a short message under the body, then hide it. */
 	flash(message: string): void {
-		this.hint.content = new StyledText([fg(palette.note)(message)]);
+		this.showMessage(message);
 		clearTimeout(this.flashing);
 		this.flashing = setTimeout(() => {
 			this.flashing = undefined;
-			this.hint.content = new StyledText([fg(palette.dim)(this.hintText())]);
+			this.showMessage(undefined);
 		}, 1_800);
 	}
 }

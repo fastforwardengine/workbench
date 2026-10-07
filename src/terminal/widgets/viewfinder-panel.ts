@@ -13,8 +13,6 @@ import { ActionRows } from './action-rows.ts';
 import { tui as palette } from './brand.ts';
 import { lineText, SidePanel } from './side-panel.ts';
 
-const HINT = 'Workbench reads each camera every 3 s   /camera closes   Ctrl+L actions';
-
 /** What the panel says in a terminal that cannot draw the frame. */
 const NEEDS_KITTY = 'The viewfinder needs a terminal with Kitty graphics, such as Ghostty.';
 
@@ -118,8 +116,7 @@ export class ViewfinderPanel extends SidePanel {
 		this.stack = new BoxRenderable(renderer, { flexDirection: 'column', width: '100%' });
 		this.body = new TextRenderable(renderer, { content: '', wrapMode: 'word', width: '100%' });
 		this.addBody(this.stack, this.body);
-		for (const part of [this.heading, this.scroll, this.hint]) this.root.add(part);
-		this.hint.content = new StyledText([fg(palette.dim)(HINT)]);
+		for (const part of [this.heading, this.scroll]) this.root.add(part);
 	}
 
 	/** The box of the camera at `index`. The panel makes a box when a camera needs one. */

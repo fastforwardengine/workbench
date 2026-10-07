@@ -14,6 +14,7 @@ import {
 } from '@opentui/core';
 import { pastedImagePath } from '../state/attachments.ts';
 import type { Suggestion } from '../state/commands.ts';
+import { KEYMAP } from '../state/keymap.ts';
 import { tui as palette } from './brand.ts';
 
 /**
@@ -108,12 +109,15 @@ export class Composer {
 			focusedTextColor: palette.text,
 			backgroundColor: palette.panel,
 			focusedBackgroundColor: palette.panel,
-			// Enter sends. Ctrl+J, Alt+Enter, and Shift+Enter add a line.
 			keyBindings: [
-				{ name: 'return', action: 'submit' },
-				{ name: 'linefeed', action: 'newline' },
-				{ name: 'return', shift: true, action: 'newline' },
-				{ name: 'return', meta: true, action: 'newline' },
+				...KEYMAP.composer.bindings.send.keys.map((chord) => ({
+					...chord,
+					action: 'submit' as const,
+				})),
+				...KEYMAP.composer.bindings.newline.keys.map((chord) => ({
+					...chord,
+					action: 'newline' as const,
+				})),
 			],
 			onSubmit: () => events.submit(),
 			onContentChange: () => {

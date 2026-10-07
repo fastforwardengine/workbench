@@ -1,8 +1,10 @@
 import {
 	BoxRenderable,
 	type CliRenderer,
+	fg,
 	type Renderable,
 	ScrollBoxRenderable,
+	StyledText,
 	TextRenderable,
 } from '@opentui/core';
 import { tui as palette } from './brand.ts';
@@ -32,16 +34,17 @@ export function listText(renderer: CliRenderer): TextRenderable {
 
 /**
  * What the files panel and the processes panel share: a box beside the
- * conversation that stays hidden until it opens, a scrolling body, a hint line,
- * and the keys' access to scrolling and to the clipboard. A subclass makes its
- * own heading, list, and title, then adds them to `root` in order, with `scroll`
- * and `hint` last.
+ * conversation that stays hidden until it opens, a scrolling body, a message line
+ * that shows only while it has text, and the keys' access to scrolling and to the
+ * clipboard. A subclass makes its own heading, list, and title, then adds them to
+ * `root` in order, with `scroll` last. A panel that shows messages adds `message`
+ * after `scroll`.
  */
 export abstract class SidePanel {
 	readonly root: BoxRenderable;
 	protected readonly renderer: CliRenderer;
 	protected readonly scroll: ScrollBoxRenderable;
-	protected readonly hint: TextRenderable;
+	protected readonly message: TextRenderable;
 	/** The share of the width that the panel takes beside the conversation. */
 	private readonly share: `${number}%`;
 
@@ -73,7 +76,12 @@ export abstract class SidePanel {
 				trackOptions: { backgroundColor: palette.bg, foregroundColor: palette.line },
 			},
 		});
-		this.hint = new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'word' });
+		this.message = new TextRenderable(renderer, {
+			content: '',
+			flexShrink: 0,
+			wrapMode: 'word',
+			visible: false,
+		});
 	}
 
 	/** Put the body in the scroll area. The padding keeps the text clear of the scrollbar. */
@@ -81,6 +89,12 @@ export abstract class SidePanel {
 		const padded = new BoxRenderable(this.renderer, { paddingRight: 2, width: '100%' });
 		for (const part of parts) padded.add(part);
 		this.scroll.add(padded);
+	}
+
+	/** Show a short message under the body, such as the result of a copy. Without text, the line hides. */
+	protected showMessage(text: string | undefined): void {
+		this.message.visible = Boolean(text);
+		this.message.content = new StyledText(text ? [fg(palette.note)(text)] : []);
 	}
 
 	/** Give the panel the whole width, or a share of it beside the conversation. */

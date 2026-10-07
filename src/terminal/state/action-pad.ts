@@ -1,6 +1,7 @@
 import { AmbionError } from '@ambionframework/ambion';
 import { actionWidget } from '../../host/actions.ts';
 import type { ActionWidget, Answered, WidgetAct, WidgetActResult } from '../../host/host.ts';
+import { actOf, type KeyInput } from './keymap.ts';
 
 /** Sends one act through the host as a person, and gives the canvas result. */
 type SendAct = (person: string, act: WidgetAct) => Promise<WidgetActResult>;
@@ -23,17 +24,8 @@ export type Row =
 	| { type: 'note'; text: string; tone: Tone }
 	| { type: 'button'; label: string; focused: boolean; done: boolean; blocked?: string };
 
-/** The key as the pad reads it: a subset of the key event of the terminal. */
-export interface KeyInput {
-	name: string;
-	ctrl?: boolean;
-	meta?: boolean;
-}
-
 /** The text of a person or a widget with its control characters removed, so it draws as one line. */
 const plain = (text: string): string => text.replace(/\p{Cc}/gu, ' ');
-
-const MOVES: Record<string, number> = { up: -1, k: -1, down: 1, j: 1 };
 
 /** What the person focuses: one action of one widget. */
 interface Focus {
@@ -167,13 +159,12 @@ export class ActionPad {
 	/** Route one key. It returns `leave` when the person leaves the pad. */
 	key(key: KeyInput): 'leave' | undefined {
 		if (key.ctrl || key.meta) return undefined;
-		let result: 'leave' | undefined;
-		const step = MOVES[key.name];
-		if (step) this.move(step);
-		else if (key.name === 'return' || key.name === 'space') void this.press();
-		else if (key.name === 'escape' || key.name === 'q') result = 'leave';
+		const act = actOf('actions', key);
+		if (act === 'up') this.move(-1);
+		else if (act === 'down') this.move(1);
+		else if (act === 'press') void this.press();
 		this.options.changed();
-		return result;
+		return act === 'back' ? 'leave' : undefined;
 	}
 
 	private move(step: number): void {
