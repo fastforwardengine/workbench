@@ -81,7 +81,7 @@ function tabsText(tables: readonly TableView[], shown: number): StyledText {
 const bytes = (size: number): string =>
 	size < 1024 ? `${size} B` : `${(size / 1024).toFixed(1)} KB`;
 
-/** The files panel: a search box, the matching files, and the chosen file beside the conversation. */
+/** The files layer: a search box, the matching files, and the chosen file. */
 export class FilesPanel extends SidePanel {
 	private readonly search: TextRenderable;
 	private readonly list: TextRenderable;
@@ -123,7 +123,6 @@ export class FilesPanel extends SidePanel {
 
 	/** Draw the browser's state. The preview scrolls back to the top when the file changes. */
 	draw(browser: FileBrowser): void {
-		this.root.visible = browser.open;
 		if (!browser.open) return;
 		const matches = browser.matches;
 		const count = `${matches.length} of ${browser.total}`;

@@ -1,12 +1,14 @@
 /**
- * The side panels on OpenTUI's headless renderer. Each test draws a panel
- * from a browser that a fake host feeds, and reads the rendered frame.
+ * The layers of the dock on OpenTUI's headless renderer. Each test draws a layer
+ * from a browser that a fake host feeds, in a dock, and reads the rendered frame.
  */
 import { BoxRenderable } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FileBrowser } from '../src/terminal/state/browser.ts';
+import type { LayerId } from '../src/terminal/state/layers.ts';
 import { ProcessBrowser } from '../src/terminal/state/process-browser.ts';
+import { DockPanel } from '../src/terminal/widgets/dock.ts';
 import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { ProcessesPanel } from '../src/terminal/widgets/process-panel.ts';
 import { FakeHost } from './fake-host.ts';
@@ -33,12 +35,22 @@ async function mount(width = 100, height = 30) {
 		height: '100%',
 	});
 	setup.renderer.root.add(body);
+	/** Put a layer on top of a dock beside the body, as the terminal does. */
+	const place = (layer: { root: BoxRenderable }, id: LayerId) => {
+		const dock = new DockPanel(setup.renderer);
+		dock.add(layer.root);
+		layer.root.visible = true;
+		dock.layout({ visible: true, whole: false, keyed: true });
+		dock.draw([id], id);
+		body.add(dock.root);
+		return dock;
+	};
 	const frame = async () => {
 		await setup.renderOnce();
 		await setup.renderOnce();
 		return setup.captureCharFrame();
 	};
-	return { setup, body, frame };
+	return { setup, place, frame };
 }
 
 /** The clock of the process tests: a fixed time, so the ages in the frames never change. */
@@ -99,18 +111,18 @@ function processes(): FakeHost {
 
 describe('the files panel', () => {
 	async function opened() {
-		const { setup, body, frame } = await mount();
+		const { setup, place, frame } = await mount();
 		const host = new FakeHost();
 		const browser = new FileBrowser(
 			(path) => host.file(path),
 			() => {},
 		);
 		const panel = new FilesPanel(setup.renderer);
-		body.add(panel.root);
+		const dock = place(panel, 'files');
 		browser.show(host.fileList, '/library/cell-18650.md');
 		await wait(30);
 		panel.draw(browser);
-		return { browser, panel, frame };
+		return { browser, panel, dock, frame };
 	}
 
 	it('draws the search box, the list with the chosen row, and the title', async () => {
@@ -134,27 +146,25 @@ describe('the files panel', () => {
 		expect(text).toContain('Copied to the clipboard.');
 	});
 
-	it('takes the whole width when the terminal is narrow, and hides when the browser closes', async () => {
-		const { browser, panel, frame } = await opened();
-		const before = (await frame()).split('\n')[0]?.trimEnd().length ?? 0;
-		panel.fill(true);
-		panel.draw(browser);
-		const wide = (await frame()).split('\n')[0]?.trimEnd().length ?? 0;
-		expect(wide).toBeGreaterThan(before);
-		browser.hide();
-		panel.draw(browser);
-		expect(panel.root.visible).toBe(false);
+	it('takes the whole width when the dock replaces the conversation', async () => {
+		const { dock, frame } = await opened();
+		await frame();
+		const share = dock.root.width;
+		expect(share).toBe(50);
+		dock.layout({ visible: true, whole: true, keyed: true });
+		await frame();
+		expect(dock.root.width).toBe(100);
 	});
 });
 
 describe('the processes panel', () => {
 	async function opened() {
 		freezeClock();
-		const { setup, body, frame } = await mount();
+		const { setup, place, frame } = await mount();
 		const host = processes();
 		const browser = new ProcessBrowser(host, () => {});
 		const panel = new ProcessesPanel(setup.renderer);
-		body.add(panel.root);
+		place(panel, 'processes');
 		await browser.show();
 		await wait(30);
 		panel.draw(browser);
@@ -186,11 +196,11 @@ describe('the processes panel', () => {
 
 describe('both panels', () => {
 	it('give the keys the same page size, scrolling, and clipboard reach', async () => {
-		const { setup, body } = await mount();
+		const { setup, place } = await mount();
 		const files = new FilesPanel(setup.renderer);
 		const list = new ProcessesPanel(setup.renderer);
-		body.add(files.root);
-		body.add(list.root);
+		place(files, 'files');
+		place(list, 'processes');
 		for (const panel of [files, list]) {
 			expect(panel.page).toBeGreaterThanOrEqual(4);
 			expect(() => panel.scrollBy(1)).not.toThrow();
@@ -201,7 +211,7 @@ describe('both panels', () => {
 
 describe('the frames of the panels', () => {
 	async function files(width: number, height: number) {
-		const { setup, body, frame } = await mount(width, height);
+		const { setup, place, frame } = await mount(width, height);
 		const host = new FakeHost();
 		host.fileList = [...host.fileList, { path: '/shared/plan.txt', size: 400 }];
 		const browser = new FileBrowser(
@@ -209,16 +219,16 @@ describe('the frames of the panels', () => {
 			() => {},
 		);
 		const panel = new FilesPanel(setup.renderer);
-		body.add(panel.root);
+		const dock = place(panel, 'files');
 		browser.show(host.fileList, '/shared/plan.txt');
 		await wait(30);
 		panel.draw(browser);
-		return { browser, panel, frame };
+		return { browser, panel, dock, frame };
 	}
 
 	async function processList(width: number, height: number) {
 		freezeClock();
-		const { setup, body, frame } = await mount(width, height);
+		const { setup, place, frame } = await mount(width, height);
 		const host = processes();
 		host.processOutput = async (handle: string) => ({
 			handle,
@@ -228,7 +238,7 @@ describe('the frames of the panels', () => {
 		});
 		const browser = new ProcessBrowser(host, () => {});
 		const panel = new ProcessesPanel(setup.renderer);
-		body.add(panel.root);
+		place(panel, 'processes');
 		await browser.show();
 		await wait(30);
 		panel.draw(browser);
@@ -250,8 +260,8 @@ describe('the frames of the panels', () => {
 	});
 
 	it('draws the files panel over the whole width', async () => {
-		const { browser, panel, frame } = await files(100, 30);
-		panel.fill(true);
+		const { browser, panel, dock, frame } = await files(100, 30);
+		dock.layout({ visible: true, whole: true, keyed: true });
 		panel.draw(browser);
 		expect(trimmed(await frame())).toMatchSnapshot();
 	});

@@ -77,6 +77,12 @@ export class FileBrowser {
 		this.changed();
 	}
 
+	/** Open the panel again on the state that `hide` left, and read the chosen file again when it did not arrive. */
+	resume(): void {
+		this.open = true;
+		void this.preview();
+	}
+
 	type(text: string): void {
 		this.query += text;
 		this.refilter();

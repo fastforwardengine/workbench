@@ -1,11 +1,13 @@
 import type { KeyEvent } from '@opentui/core';
 import { type Act, actOf } from '../state/keymap.ts';
 import type { KeysPanel } from '../widgets/keys-panel.ts';
-import type { Surface } from './surface.ts';
+import type { Exits, Surface } from './surface.ts';
 
-/** The keys sheet and its keys. */
+/** The keys layer: the keys sheet and its keys. */
 export class KeysSurface implements Surface {
-	readonly status = 'Reading the keys. Esc closes the sheet.';
+	readonly status = 'Reading the keys. Esc returns to the composer.';
+	readonly narrow = true;
+	readonly takesKeys = true;
 	private readonly panel: KeysPanel;
 
 	constructor(panel: KeysPanel) {
@@ -16,36 +18,29 @@ export class KeysSurface implements Surface {
 		return this.panel.root;
 	}
 
-	/** The sheet holds no state that needs a read. */
+	/** The sheet holds no state that needs a read, and it runs no work. */
 	open(): void {}
 
-	hide(): void {
-		this.panel.draw(false);
-	}
+	show(): void {}
 
-	/** The sheet runs no work. */
-	release(): void {}
+	hide(): void {}
 
-	draw(): void {
-		this.panel.draw(true);
-	}
-
-	fill(whole: boolean): void {
-		this.panel.fill(whole);
-	}
+	/** The sheet is the same at each draw. */
+	draw(): void {}
 
 	/** What each key does. */
-	private readonly acts: Record<Act<'sheet'>, (close: () => void) => void> = {
+	private readonly acts: Record<Act<'sheet'>, (exits: Exits) => void> = {
 		up: () => this.panel.scrollBy(-1),
 		down: () => this.panel.scrollBy(1),
 		pageUp: () => this.panel.scrollBy(-this.panel.page),
 		pageDown: () => this.panel.scrollBy(this.panel.page),
-		close: (close) => close(),
+		back: (exits) => exits.back(),
+		close: (exits) => exits.close(),
 	};
 
-	onKey(key: KeyEvent, close: () => void): void {
+	onKey(key: KeyEvent, exits: Exits): void {
 		key.preventDefault();
 		const act = actOf('sheet', key);
-		if (act) this.acts[act](close);
+		if (act) this.acts[act](exits);
 	}
 }

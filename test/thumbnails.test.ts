@@ -131,7 +131,7 @@ describe('the painter and the thumbnails', () => {
 			session,
 			transcript: view2.transcript,
 			composer,
-			surfaces: {} as never,
+			dock: { draw: () => {} } as never,
 			header: new Header(renderer),
 			voice: quietVoice(),
 			pictures: new PictureCache((ref) => host.snapshot(ref), redraw),

@@ -15,6 +15,7 @@ import { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
 import { Voice } from '../state/voice.ts';
 import { brand, tui as palette } from '../widgets/brand.ts';
 import { Composer } from '../widgets/composer.ts';
+import { DockPanel } from '../widgets/dock.ts';
 import { FilesPanel } from '../widgets/files-panel.ts';
 import { Header } from '../widgets/header.ts';
 import { KeysPanel } from '../widgets/keys-panel.ts';
@@ -22,6 +23,7 @@ import { Palette } from '../widgets/palette.ts';
 import { ProcessesPanel } from '../widgets/process-panel.ts';
 import { Transcript } from '../widgets/transcript.ts';
 import { ViewfinderPanel } from '../widgets/viewfinder-panel.ts';
+import { Dock } from './dock.ts';
 import { Painter } from './draw.ts';
 import { FilesSurface } from './files-surface.ts';
 import { KEYBOARD, keyboardProblem } from './keyboard.ts';
@@ -81,13 +83,6 @@ class EngineTui {
 		const header = new Header(renderer);
 		const transcript = new Transcript(renderer);
 		this.processes = new ProcessBrowser(host, () => this.render());
-		const surfaces = {
-			files: new FilesSurface(this.session.browser, new FilesPanel(renderer)),
-			processes: new ProcessesSurface(this.processes, new ProcessesPanel(renderer), () =>
-				this.render(),
-			),
-			keys: new KeysSurface(new KeysPanel(renderer)),
-		};
 		const viewfinder = new ViewfinderSurface(
 			new ViewfinderBrowser(
 				host,
@@ -101,6 +96,21 @@ class EngineTui {
 			new ViewfinderPanel(renderer),
 			() => drawsKitty(renderer),
 		);
+		const surfaces = {
+			files: new FilesSurface(this.session.browser, new FilesPanel(renderer)),
+			processes: new ProcessesSurface(this.processes, new ProcessesPanel(renderer), () =>
+				this.render(),
+			),
+			keys: new KeysSurface(new KeysPanel(renderer)),
+			camera: viewfinder,
+		};
+		const panel = new DockPanel(renderer);
+		const dock = new Dock({
+			surfaces,
+			panel,
+			transcript,
+			width: () => renderer.width,
+		});
 		const body = new BoxRenderable(renderer, {
 			flexDirection: 'row',
 			flexGrow: 1,
@@ -115,7 +125,7 @@ class EngineTui {
 			session: this.session,
 			transcript,
 			composer: this.composer,
-			surfaces,
+			dock,
 			header,
 			voice: this.voice,
 			pictures: new PictureCache(
@@ -133,7 +143,7 @@ class EngineTui {
 			composer: this.composer,
 			palette: this.palette,
 			painter: this.painter,
-			surfaces,
+			dock,
 			viewfinder,
 			transcript,
 			voice: this.voice,
@@ -150,10 +160,8 @@ class EngineTui {
 		});
 		root.add(header.root);
 		body.add(transcript.root);
-		body.add(surfaces.files.root);
-		body.add(surfaces.processes.root);
-		body.add(surfaces.keys.root);
-		body.add(viewfinder.root);
+		for (const layer of Object.values(surfaces)) panel.add(layer.root);
+		body.add(panel.root);
 		root.add(body);
 		root.add(this.composer.root);
 		renderer.root.add(root);
@@ -172,7 +180,7 @@ class EngineTui {
 
 	/** Run until the renderer is destroyed. */
 	async run(): Promise<void> {
-		// The poll also reads the open processes panel: a running process writes
+		// The poll also reads the processes layer while it shows: a running process writes
 		// output that no event reports, and its time grows.
 		const slow = setInterval(() => {
 			void this.session.poll();

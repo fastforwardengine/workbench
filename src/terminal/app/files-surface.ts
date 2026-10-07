@@ -2,11 +2,13 @@ import type { KeyEvent } from '@opentui/core';
 import type { FileBrowser } from '../state/browser.ts';
 import { type Act, actOf } from '../state/keymap.ts';
 import type { FilesPanel } from '../widgets/files-panel.ts';
-import type { Surface } from './surface.ts';
+import type { Exits, Surface } from './surface.ts';
 
-/** The files panel and its keys. */
+/** The files layer and its keys. */
 export class FilesSurface implements Surface {
-	readonly status = 'Browsing the workspace files. Esc closes the panel.';
+	readonly status = 'Browsing the workspace files. Esc returns to the composer.';
+	readonly narrow = true;
+	readonly takesKeys = true;
 	private readonly browser: FileBrowser;
 	private readonly panel: FilesPanel;
 
@@ -19,15 +21,14 @@ export class FilesSurface implements Surface {
 		return this.panel.root;
 	}
 
-	/** The session shows the browser, with the file to choose, before the keys open the panel. */
+	/** The session shows the browser, with the file to choose, before the dock opens the layer. */
 	open(): void {}
 
-	hide(): void {
-		this.browser.hide();
-		this.panel.draw(this.browser);
+	show(): void {
+		this.browser.resume();
 	}
 
-	release(): void {
+	hide(): void {
 		this.browser.hide();
 	}
 
@@ -35,12 +36,8 @@ export class FilesSurface implements Surface {
 		this.panel.draw(this.browser);
 	}
 
-	fill(whole: boolean): void {
-		this.panel.fill(whole);
-	}
-
 	/** What each key does. */
-	private readonly acts: Record<Act<'files'>, (close: () => void) => void> = {
+	private readonly acts: Record<Act<'files'>, (exits: Exits) => void> = {
 		up: () => this.browser.move(-1),
 		down: () => this.browser.move(1),
 		previousTable: () => this.browser.moveTab(-1),
@@ -50,15 +47,15 @@ export class FilesSurface implements Surface {
 		erase: () => this.browser.backspace(),
 		clearSearch: () => this.browser.clear(),
 		copy: () => this.copy(),
-		// Esc clears the search first, then closes the panel.
-		close: (close) => (this.browser.query ? this.browser.clear() : close()),
+		// Esc clears the search first, then gives the keys back.
+		back: (exits) => (this.browser.query ? this.browser.clear() : exits.back()),
 	};
 
 	/** Any other printable key adds to the search. */
-	onKey(key: KeyEvent, close: () => void): void {
+	onKey(key: KeyEvent, exits: Exits): void {
 		key.preventDefault();
 		const act = actOf('files', key);
-		if (act) this.acts[act](close);
+		if (act) this.acts[act](exits);
 		else if (!key.ctrl && !key.meta && key.sequence.length === 1 && key.sequence >= ' ')
 			this.browser.type(key.sequence);
 	}

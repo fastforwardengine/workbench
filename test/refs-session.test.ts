@@ -1,6 +1,7 @@
 import { commitUri, snapshotUri } from '@ambionframework/ambion';
 import type { KeyEvent } from '@opentui/core';
 import { describe, expect, it, vi } from 'vitest';
+import { Dock } from '../src/terminal/app/dock.ts';
 import { FilesSurface } from '../src/terminal/app/files-surface.ts';
 import { type KeyParts, Keys } from '../src/terminal/app/keys.ts';
 import type { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
@@ -77,18 +78,23 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 			revealMessage: (seq: number) => log.push(`reveal:${seq}`),
 			invalidate: () => {},
 		},
-		// The real surface over a panel that draws nothing: the keys of the files panel are the code under test.
-		surfaces: {
-			files: new FilesSurface(session.browser, {
-				root: {},
-				fill: () => {},
-				draw: () => {},
-				scrollBy: () => {},
-				page: 4,
-			} as unknown as FilesPanel),
-			processes: {} as never,
-			keys: {} as never,
-		},
+		// The real dock and surface over a panel that draws nothing: the keys of the files layer are the code under test.
+		dock: new Dock({
+			surfaces: {
+				files: new FilesSurface(session.browser, {
+					root: {},
+					draw: () => {},
+					scrollBy: () => {},
+					page: 4,
+				} as unknown as FilesPanel),
+				processes: {} as never,
+				keys: {} as never,
+				camera: {} as never,
+			},
+			panel: {} as never,
+			transcript: { root } as never,
+			width: () => 120,
+		}),
 		transcript: { root, scrollBy: () => {} },
 		voice: quietVoice(),
 		render: () => {},
@@ -215,28 +221,29 @@ describe('the ref keys', () => {
 		expect(session.notice).toMatch(/No shown message has a ref/);
 	});
 
-	it('opens the file preview from a chosen ref, and Escape returns to the refs', async () => {
+	it('opens the file preview from a chosen ref, and Escape returns the keys to the composer', async () => {
 		const { session } = await open();
 		const { keys, press, root } = keysOver(session);
 		press('tab');
 		while (keys.picking !== '2#0') press('up');
 		press('return');
-		await vi.waitFor(() => expect(keys.mode).toBe('files'));
+		await vi.waitFor(() => expect(keys.mode).toBe('dock'));
 		await vi.waitFor(() => expect(session.browser.file?.path).toBe('/library/cell-18650.md'));
 		press('escape');
-		expect(keys.mode).toBe('refs');
-		expect(session.browser.open).toBe(false);
+		expect(keys.mode).toBe('compose');
+		expect(session.browser.open).toBe(true);
 		expect(root.visible).toBe(true);
 	});
 
-	it('returns to the composer when the panel opened from a command', async () => {
+	it('returns to the composer when the layer opened from a command, and leaves the layer open', async () => {
 		const { session } = await open();
 		const { keys, press } = keysOver(session);
 		await session.submit('/files');
 		keys.openFiles();
-		expect(keys.mode).toBe('files');
+		expect(keys.mode).toBe('dock');
 		press('escape');
 		expect(keys.mode).toBe('compose');
+		expect(session.browser.open).toBe(true);
 	});
 
 	it('jumps to the message a message ref cites', async () => {

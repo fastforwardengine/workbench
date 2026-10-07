@@ -83,6 +83,8 @@ describe('the files panel, with a picture', () => {
 		});
 		setup.renderer.root.add(body);
 		const panel = new FilesPanel(setup.renderer);
+		// The dock shows the layer that is on top. Here the layer shows alone.
+		panel.root.visible = true;
 		body.add(panel.root);
 		const browser = new FileBrowser(
 			async (path) => files[path] as never,

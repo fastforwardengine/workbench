@@ -9,7 +9,7 @@ import {
 } from '@opentui/core';
 import { tui as palette } from './brand.ts';
 
-/** How many rows of the list a side panel shows. */
+/** How many rows of the list a layer shows. */
 export const LIST_ROWS = 8;
 
 /** The rows to show: a window of the matches that keeps the chosen row in view. */
@@ -17,12 +17,12 @@ export function windowStart(index: number, count: number): number {
 	return Math.max(0, Math.min(index - Math.floor(LIST_ROWS / 2), count - LIST_ROWS));
 }
 
-/** A line of the panel that never shrinks and never wraps: a heading, a search box, or a tab line. */
+/** A line of a layer that never shrinks and never wraps: a heading, a search box, or a tab line. */
 export function lineText(renderer: CliRenderer): TextRenderable {
 	return new TextRenderable(renderer, { content: '', flexShrink: 0, wrapMode: 'none' });
 }
 
-/** The list of a side panel: `LIST_ROWS` rows, one line each. */
+/** The list of a layer: `LIST_ROWS` rows, one line each. */
 export function listText(renderer: CliRenderer): TextRenderable {
 	return new TextRenderable(renderer, {
 		content: '',
@@ -33,38 +33,27 @@ export function listText(renderer: CliRenderer): TextRenderable {
 }
 
 /**
- * What the files panel and the processes panel share: a box beside the
- * conversation that stays hidden until it opens, a scrolling body, a message line
- * that shows only while it has text, and the keys' access to scrolling and to the
- * clipboard. A subclass makes its own heading, list, and title, then adds them to
- * `root` in order, with `scroll` last. A panel that shows messages adds `message`
- * after `scroll`.
+ * What the layers of the dock share: a box that fills the dock, a scrolling body,
+ * a message line that shows only while it has text, and the keys' access to
+ * scrolling and to the clipboard. The dock draws the box while the layer is on
+ * top, and gives it the background, the padding, and the width. A subclass makes
+ * its own heading, list, and title, then adds them to `root` in order, with
+ * `scroll` last. A layer that shows messages adds `message` after `scroll`.
  */
 export abstract class SidePanel {
 	readonly root: BoxRenderable;
 	protected readonly renderer: CliRenderer;
 	protected readonly scroll: ScrollBoxRenderable;
 	protected readonly message: TextRenderable;
-	/** The share of the width that the panel takes beside the conversation. */
-	private readonly share: `${number}%`;
 
-	/**
-	 * `sticky` keeps the body at its end while it grows, as a log does. `share`
-	 * is the width beside the conversation.
-	 */
-	protected constructor(renderer: CliRenderer, sticky = false, share: `${number}%` = '55%') {
+	/** `sticky` keeps the body at its end while it grows, as a log does. */
+	protected constructor(renderer: CliRenderer, sticky = false) {
 		this.renderer = renderer;
-		this.share = share;
 		this.root = new BoxRenderable(renderer, {
 			flexDirection: 'column',
-			width: share,
-			flexShrink: 0,
-			minWidth: 40,
-			border: true,
-			borderColor: palette.line,
-			backgroundColor: palette.panel,
-			paddingLeft: 1,
-			paddingRight: 1,
+			flexGrow: 1,
+			width: '100%',
+			minHeight: 0,
 			visible: false,
 		});
 		this.scroll = new ScrollBoxRenderable(renderer, {
@@ -95,11 +84,6 @@ export abstract class SidePanel {
 	protected showMessage(text: string | undefined): void {
 		this.message.visible = Boolean(text);
 		this.message.content = new StyledText(text ? [fg(palette.note)(text)] : []);
-	}
-
-	/** Give the panel the whole width, or a share of it beside the conversation. */
-	fill(whole: boolean): void {
-		this.root.width = whole ? '100%' : this.share;
 	}
 
 	scrollBy(lines: number): void {

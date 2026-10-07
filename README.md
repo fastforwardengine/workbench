@@ -141,39 +141,52 @@ A bench script comes from a template.
   `/attachments`, snapshots it, and cites the snapshot in your next
   message. Paste the path of a picture into an empty composer, and it fills
   `/attach` for you. A specialist reads the copy with `read` and receives the
-  picture. The files panel shows a picture, also from a snapshot ref. A
+  picture. The files layer shows a picture, also from a snapshot ref. A
   terminal with Kitty graphics also shows up to four thumbnails under a
   message that cites a picture, such as a frame that `fetch` saved.
-- **Camera viewfinder:** `/camera` shows a pane beside the conversation
-  with the cameras that the open room shows. The Engineer shows a camera
-  with a `frame` widget after its camera server answers. The pane draws
-  one labelled box for each shown camera, four at most, stacked. A box
-  holds the title of the widget, or its name, the latest frame, its age,
-  and a note when a read fails. A `hide` of the widget removes its box.
-  When the Engineer shows no camera, the pane says so and asks you to
-  have the Engineer show the camera. When the process of a camera ends,
-  the box says so, and it draws a frame again after a new `show`.
-- **Camera reads:** the pane follows the room that the terminal opens. It
-  reads each camera every 3 seconds while it shows. Each read is a normal
-  `GET` of `/camera/observe` and of the frame, which the sensor server
-  logs. The workspace keeps no snapshot of it. The pane reads a process only
-  when the author of the widget runs it. A body over 1 MiB for an
-  observation, or over 16 MiB for a frame, is a failed read.
-- **Camera pane layout:** the pane takes one third of the terminal width,
-  and each frame keeps its 16:9 shape. A second `/camera` hides it. The
-  composer stays active while the pane shows. The pane uses the slot of the
-  side panels: the files and processes panels cover it and stop the reads,
-  and it shows again when they close. A terminal under 100 columns does not
-  show it. The pane needs a terminal with Kitty graphics, such as Ghostty.
+- **Dock:** the files, the processes, the keys sheet, and the camera are
+  layers of one dock at the right of the conversation. The dock takes half
+  of the terminal width, has the panel background, and has one line at its
+  left edge. A tabs line names the open layers, and the top one is bright.
+  A new layer opens on top. A layer that is open comes to the top when you
+  open it again, and the other layers keep their state below it. Only the
+  top layer draws and reads. A terminal under 100 columns shows the dock in
+  place of the conversation, only while the dock has the keys.
+- **Dock keys:** the composer keeps the keys. The files, the processes, and
+  the keys sheet take them when they open, and the camera leaves them with
+  the composer. Esc gives the keys back to the composer, and the layer stays
+  open. Ctrl+O gives them back to the dock. Tab shows the next layer. Ctrl+C
+  closes the top layer, and so does `q` in every layer but the files.
+- **Camera viewfinder:** `/camera` shows a layer in the dock with the
+  cameras that the open room shows. The Engineer shows a camera with a
+  `frame` widget after its camera server answers. The layer draws one box
+  for each shown camera, four at most, stacked. A box holds the title of
+  the widget, or its name, the latest frame, its age, and a note when a
+  read fails. A `hide` of the widget removes its box. When the Engineer
+  shows no camera, the layer says so and asks you to have the Engineer show
+  the camera. When the process of a camera ends, the box says so, and it
+  draws a frame again after a new `show`.
+- **Camera reads:** the layer follows the room that the terminal opens. It
+  reads each camera every 3 seconds while it is on top of the dock. Each
+  read is a normal `GET` of `/camera/observe` and of the frame, which the
+  sensor server logs. The workspace keeps no snapshot of it. The layer reads
+  a process only when the author of the widget runs it. A body over 1 MiB
+  for an observation, or over 16 MiB for a frame, is a failed read.
+- **Camera layout:** each frame keeps its 16:9 shape. A second `/camera`
+  closes the layer when it is on top. The composer stays active while the
+  layer shows. Another layer on top covers the camera and stops its reads.
+  The camera shows again when that layer closes. A terminal under 100
+  columns does not show it. The layer needs a terminal with Kitty graphics,
+  such as Ghostty.
 - **Look now:** the Engineer shows each camera with the action "Look now".
-  The pane draws it as a button under the box of the camera. Ctrl+L takes
+  The layer draws it as a button under the box of the camera. Ctrl+L takes
   the keys, Up and Down choose a button, Enter presses it, and Esc goes
   back. A press is a message of you to the Engineer, which observes that
   camera and answers. The button is inactive when the widget is `for`
   another person, or when the room is stopped. A refusal shows its reason,
   and a press that the host could not confirm goes again as it was.
 - **Keys:** Ctrl+C clears the composer, and it cancels a new room that
-  waits for its goal. In a side panel it closes the panel. Ctrl+D leaves
+  waits for its goal. In the dock it closes the top layer. Ctrl+D leaves
   the terminal when the composer is empty, and `/quit` also leaves. The
   rooms stop with the terminal.
 - **Voice mode:** `/voice` switches voice mode on and off. Hold Space on

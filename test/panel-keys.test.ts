@@ -1,11 +1,12 @@
 /**
- * How the keys open, drive, and close the side panels. The parts are real
+ * How the keys open, drive, and close the layers of the dock. The parts are real
  * widgets on OpenTUI's headless renderer, over a fake host.
  */
 import { BoxRenderable, type KeyEvent } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LOST, NO_CAMERA } from '../src/host/viewfinder.ts';
+import { Dock } from '../src/terminal/app/dock.ts';
 import { Painter } from '../src/terminal/app/draw.ts';
 import { FilesSurface } from '../src/terminal/app/files-surface.ts';
 import { Keys } from '../src/terminal/app/keys.ts';
@@ -17,6 +18,7 @@ import { ProcessBrowser } from '../src/terminal/state/process-browser.ts';
 import { TICK_MS, ViewfinderBrowser } from '../src/terminal/state/viewfinder-browser.ts';
 import { Voice } from '../src/terminal/state/voice.ts';
 import { Composer } from '../src/terminal/widgets/composer.ts';
+import { DockPanel } from '../src/terminal/widgets/dock.ts';
 import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { Header } from '../src/terminal/widgets/header.ts';
 import { KeysPanel } from '../src/terminal/widgets/keys-panel.ts';
@@ -89,17 +91,20 @@ async function build(width = 120, voice = quietVoice()) {
 	const composer = new Composer(renderer, { submit: () => {}, change: () => {} });
 	const palette = new Palette(composer);
 	const header = new Header(renderer);
+	const viewfinder = new ViewfinderSurface(camera, cameraPanel, () => kitty.on);
 	const surfaces = {
 		files: new FilesSurface(session.browser, panel),
 		processes: new ProcessesSurface(processes, processPanel, render),
 		keys: new KeysSurface(keysPanel),
+		camera: viewfinder,
 	};
-	const viewfinder = new ViewfinderSurface(camera, cameraPanel, () => kitty.on);
+	const dockPanel = new DockPanel(renderer);
+	const dock = new Dock({ surfaces, panel: dockPanel, transcript, width: () => renderer.width });
 	const painter = new Painter({
 		session,
 		transcript,
 		composer,
-		surfaces,
+		dock,
 		header,
 		voice,
 		pictures: new PictureCache(
@@ -115,14 +120,9 @@ async function build(width = 120, voice = quietVoice()) {
 		width: '100%',
 		height: BODY_ROWS,
 	});
-	for (const part of [
-		transcript.root,
-		panel.root,
-		processPanel.root,
-		keysPanel.root,
-		cameraPanel.root,
-	])
-		body.add(part);
+	for (const layer of Object.values(surfaces)) dockPanel.add(layer.root);
+	body.add(transcript.root);
+	body.add(dockPanel.root);
 	renderer.root.add(body);
 	renderer.root.add(composer.root);
 	keys = new Keys({
@@ -131,7 +131,7 @@ async function build(width = 120, voice = quietVoice()) {
 		composer,
 		palette,
 		painter,
-		surfaces,
+		dock,
 		viewfinder,
 		transcript,
 		voice,
@@ -173,6 +173,8 @@ async function build(width = 120, voice = quietVoice()) {
 		painter,
 		voice,
 		surfaces,
+		dock,
+		dockPanel,
 		viewfinder,
 		frame: async () => {
 			await setup.renderOnce();
@@ -187,20 +189,16 @@ type Built = Awaited<ReturnType<typeof build>>;
 /** The rows of the body box; the composer draws below them. */
 const BODY_ROWS = 20;
 
-/** The width of the box that the body draws, in cells. */
-async function boxWidth(built: Built): Promise<number> {
-	await built.setup.renderOnce();
-	await built.setup.renderOnce();
-	const line =
-		built.setup
-			.captureCharFrame()
-			.split('\n')
-			.slice(0, BODY_ROWS)
-			.find((text) => text.includes('┌')) ?? '';
-	return line.indexOf('┐') - line.indexOf('┌') + 1;
+/** The width of the dock after a draw, in cells. */
+async function dockWidth(built: Built): Promise<number> {
+	await built.frame();
+	return built.dockPanel.root.width;
 }
 
-/** Open the files panel the way the terminal does: the session shows the browser, then the keys open it. */
+/** Characters that draw the box of a panel. A dock draws only the line at its edge. */
+const BOX = /[┌┐└┘─┬┴├┤┼]/;
+
+/** Open the files layer the way the terminal does: the session shows the browser, then the keys open it. */
 async function openFiles(built: Built): Promise<void> {
 	await built.session.submit('/files');
 	built.keys.openFiles();
@@ -212,7 +210,7 @@ async function openProcesses(built: Built): Promise<void> {
 	await wait(20);
 }
 
-describe('the camera viewfinder', () => {
+describe('the camera layer', () => {
 	it('shows beside the conversation, says that it needs Kitty graphics, and polls nothing without them', async () => {
 		const built = await build(120);
 		built.keys.toggleCamera();
@@ -220,17 +218,16 @@ describe('the camera viewfinder', () => {
 		expect(built.keys.mode).toBe('compose');
 		expect(built.camera.open).toBe(true);
 		expect(built.host.finders).toHaveLength(0);
-		expect(await built.frame()).toContain('with Kitty graphics');
+		expect(await built.frame()).toContain('needs a terminal with Kitty');
 		expect(built.transcript.root.visible).toBe(true);
 		expect(built.composer.input.focused).toBe(true);
 	});
 
-	it('takes one third of the terminal width', async () => {
+	it('takes the share of the terminal width that the dock has', async () => {
 		const built = await build(180);
 		built.keys.toggleCamera();
 		await wait(20);
-		await built.frame();
-		expect(Math.abs(built.cameraPanel.root.width - 60)).toBeLessThanOrEqual(1);
+		expect(Math.abs((await dockWidth(built)) - 90)).toBeLessThanOrEqual(1);
 	});
 
 	it('leaves the keys to the composer while it shows', async () => {
@@ -258,11 +255,12 @@ describe('the camera viewfinder', () => {
 		await wait(20);
 		expect(built.host.finders).toHaveLength(1);
 		expect(built.host.finders[0]?.closed).toBe(false);
-		expect(await built.frame()).toContain('Camera');
+		expect(await built.frame()).toContain('camera');
 		built.keys.toggleCamera();
 		expect(built.camera.open).toBe(false);
 		expect(built.host.finders[0]?.closed).toBe(true);
 		expect(built.cameraPanel.root.visible).toBe(false);
+		expect(built.dockPanel.root.visible).toBe(false);
 		expect(built.keys.mode).toBe('compose');
 	});
 
@@ -393,7 +391,7 @@ describe('the camera viewfinder', () => {
 		const closed = await build(120);
 		closed.press('l', { ctrl: true });
 		expect(closed.keys.mode).toBe('compose');
-		expect(closed.session.notice).toContain('viewfinder is closed');
+		expect(closed.session.notice).toContain('camera layer is not on top');
 		const bare = await build(120);
 		bare.kitty.on = true;
 		bare.keys.toggleCamera();
@@ -403,15 +401,30 @@ describe('the camera viewfinder', () => {
 		expect(bare.session.notice).toContain('No shown camera has an action');
 	});
 
-	it('leaves the buttons when a side panel opens', async () => {
+	it('leaves the buttons when another layer opens on top of the camera', async () => {
 		const built = await withLook();
 		built.press('l', { ctrl: true });
 		await openFiles(built);
-		expect(built.keys.mode).toBe('files');
+		expect(built.keys.mode).toBe('dock');
+		expect(built.camera.open).toBe(false);
 		built.press('escape');
 		await wait(20);
 		expect(built.keys.mode).toBe('compose');
 		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('says so when the camera is under another layer, and asks the camera again once it is on top', async () => {
+		const built = await withLook();
+		await openFiles(built);
+		built.press('escape');
+		built.press('l', { ctrl: true });
+		expect(built.keys.mode).toBe('compose');
+		expect(built.session.notice).toContain('camera layer is not on top');
+		built.keys.toggleCamera();
+		await wait(20);
+		expect(built.dock.shown).toBe('camera');
+		built.press('l', { ctrl: true });
+		expect(built.session.notice).toContain('No shown camera has an action');
 	});
 
 	it('leaves the buttons by itself when the camera loses its action', async () => {
@@ -447,7 +460,7 @@ describe('the camera viewfinder', () => {
 		expect(built.camera.open).toBe(false);
 	});
 
-	it('hides while a side panel is open, and shows again with a new poll when it closes', async () => {
+	it('hides while another layer is on top, and shows again with a new poll when that layer closes', async () => {
 		const built = await build(120);
 		built.kitty.on = true;
 		built.keys.toggleCamera();
@@ -459,22 +472,32 @@ describe('the camera viewfinder', () => {
 		built.press('escape');
 		await wait(20);
 		expect(built.keys.mode).toBe('compose');
+		expect(built.camera.open).toBe(false);
+		built.press('o', { ctrl: true });
+		built.press('c', { ctrl: true });
+		await wait(20);
+		// The camera comes back on top, and it leaves the keys with the composer.
+		expect(built.keys.mode).toBe('compose');
 		expect(built.camera.open).toBe(true);
 		expect(built.host.finders).toHaveLength(2);
 		expect(built.host.finders[1]?.closed).toBe(false);
 		expect(built.composer.input.focused).toBe(true);
 	});
 
-	it('stays hidden after a panel closes when the person closed it meanwhile', async () => {
+	it('comes back on top with the camera command, and closes with the next one', async () => {
 		const built = await build(120);
 		built.keys.toggleCamera();
 		await openProcesses(built);
-		built.keys.toggleCamera();
 		built.press('escape');
+		built.keys.toggleCamera();
+		expect(built.camera.open).toBe(true);
+		expect(built.processes.open).toBe(false);
+		built.keys.toggleCamera();
 		expect(built.camera.open).toBe(false);
+		expect(built.processes.open).toBe(true);
 	});
 
-	it('never replaces the conversation: a narrow terminal hides it, and a wide one shows it', async () => {
+	it('does not show in a narrow terminal, and says so', async () => {
 		const built = await build(80);
 		built.kitty.on = true;
 		built.keys.toggleCamera();
@@ -484,11 +507,28 @@ describe('the camera viewfinder', () => {
 		expect(built.transcript.root.visible).toBe(true);
 		expect(built.session.notice ?? '').toContain('100 columns');
 		built.setup.resize(120, 30);
-		built.render();
+		built.keys.toggleCamera();
 		await wait(20);
 		expect(built.camera.open).toBe(true);
 		expect(built.host.finders).toHaveLength(1);
 		expect(built.transcript.root.visible).toBe(true);
+	});
+
+	it('hides when the terminal becomes narrow, and shows again with a new poll when it widens', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
+		await wait(20);
+		built.setup.resize(80, 30);
+		built.render();
+		expect(built.camera.open).toBe(false);
+		expect(built.host.finders[0]?.closed).toBe(true);
+		expect(built.transcript.root.visible).toBe(true);
+		built.setup.resize(120, 30);
+		built.render();
+		await wait(20);
+		expect(built.camera.open).toBe(true);
+		expect(built.host.finders).toHaveLength(2);
 	});
 
 	it('leaves no tick or poll running after the terminal ends', async () => {
@@ -510,37 +550,37 @@ describe('the camera viewfinder', () => {
 	});
 });
 
-describe('opening a panel', () => {
-	it('shows the files panel beside the conversation on a wide terminal, and gives up the composer', async () => {
+describe('opening a layer', () => {
+	it('shows the files layer beside the conversation on a wide terminal, and gives up the composer', async () => {
 		const built = await build(120);
 		await openFiles(built);
-		expect(built.keys.mode).toBe('files');
+		expect(built.keys.mode).toBe('dock');
 		expect(built.session.browser.open).toBe(true);
 		expect(built.transcript.root.visible).toBe(true);
-		expect(await boxWidth(built)).toBeGreaterThan(40);
-		expect(await boxWidth(built)).toBeLessThan(120 * 0.6);
+		expect(await dockWidth(built)).toBeGreaterThan(40);
+		expect(await dockWidth(built)).toBeLessThan(120 * 0.6);
 		expect(built.composer.input.focused).toBe(false);
 	});
 
-	it('gives the panel the whole width on a narrow terminal', async () => {
+	it('gives the dock the whole width on a narrow terminal, while it has the keys', async () => {
 		const built = await build(80);
 		await openFiles(built);
 		expect(built.transcript.root.visible).toBe(false);
-		expect(await boxWidth(built)).toBeGreaterThanOrEqual(78);
+		expect(await dockWidth(built)).toBeGreaterThanOrEqual(78);
 	});
 
-	it('opens the processes panel and reads the list', async () => {
+	it('opens the processes layer and reads the list', async () => {
 		const built = await build(120);
 		await openProcesses(built);
-		expect(built.keys.mode).toBe('processes');
+		expect(built.keys.mode).toBe('dock');
 		expect(built.processes.open).toBe(true);
 		expect(built.processes.processes.map((process) => process.handle)).toEqual(['bash-aaa111']);
-		expect(await boxWidth(built)).toBeGreaterThan(40);
-		expect(await boxWidth(built)).toBeLessThan(120 * 0.6);
+		expect(await dockWidth(built)).toBeGreaterThan(40);
+		expect(await dockWidth(built)).toBeLessThan(120 * 0.6);
 	});
 });
 
-describe('the files panel keys', () => {
+describe('the files layer keys', () => {
 	it('types into the search, deletes, and clears with Ctrl+U', async () => {
 		const built = await build();
 		await openFiles(built);
@@ -565,19 +605,30 @@ describe('the files panel keys', () => {
 		expect(() => built.press('pagedown')).not.toThrow();
 	});
 
-	it('clears the search on the first Escape and closes on the second', async () => {
+	it('clears the search on the first Escape and gives the keys back on the second', async () => {
 		const built = await build();
 		await openFiles(built);
 		built.press('c');
 		built.press('escape');
-		expect(built.keys.mode).toBe('files');
+		expect(built.keys.mode).toBe('dock');
 		expect(built.session.browser.query).toBe('');
 		built.press('escape');
 		expect(built.keys.mode).toBe('compose');
-		expect(built.session.browser.open).toBe(false);
-		expect(built.panel.root.visible).toBe(false);
+		expect(built.session.browser.open).toBe(true);
+		expect(built.panel.root.visible).toBe(true);
 		expect(built.transcript.root.visible).toBe(true);
 		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('closes with Ctrl+C, and a q goes into the search', async () => {
+		const built = await build();
+		await openFiles(built);
+		built.press('q');
+		expect(built.session.browser.query).toBe('q');
+		built.press('c', { ctrl: true });
+		expect(built.keys.mode).toBe('compose');
+		expect(built.session.browser.open).toBe(false);
+		expect(built.dockPanel.root.visible).toBe(false);
 	});
 
 	it('ignores a Ctrl key that it does not know, and never types it', async () => {
@@ -596,7 +647,7 @@ describe('the files panel keys', () => {
 	});
 });
 
-describe('the processes panel keys', () => {
+describe('the processes layer keys', () => {
 	it('moves the choice with j, k, and the arrows', async () => {
 		const built = await build();
 		built.host.processTable = [
@@ -625,16 +676,21 @@ describe('the processes panel keys', () => {
 		expect(built.host.calls).toContain('cancel:bash-aaa111');
 	});
 
-	it('closes on Escape and on q', async () => {
-		for (const name of ['escape', 'q']) {
-			const built = await build();
-			await openProcesses(built);
-			built.press(name);
-			expect(built.keys.mode, name).toBe('compose');
-			expect(built.processes.open, name).toBe(false);
-			expect(built.processPanel.root.visible, name).toBe(false);
-			expect(built.composer.input.focused, name).toBe(true);
-		}
+	it('gives the keys back on Escape, and closes on q', async () => {
+		const back = await build();
+		await openProcesses(back);
+		back.press('escape');
+		expect(back.keys.mode).toBe('compose');
+		expect(back.processes.open).toBe(true);
+		expect(back.processPanel.root.visible).toBe(true);
+		expect(back.composer.input.focused).toBe(true);
+		const closed = await build();
+		await openProcesses(closed);
+		closed.press('q');
+		expect(closed.keys.mode).toBe('compose');
+		expect(closed.processes.open).toBe(false);
+		expect(closed.processPanel.root.visible).toBe(false);
+		expect(closed.composer.input.focused).toBe(true);
 	});
 
 	it('ignores a key with Ctrl or Meta, except Ctrl+Y', async () => {
@@ -642,15 +698,16 @@ describe('the processes panel keys', () => {
 		await openProcesses(built);
 		built.press('q', { ctrl: true });
 		built.press('q', { meta: true });
-		expect(built.keys.mode).toBe('processes');
+		expect(built.keys.mode).toBe('dock');
+		expect(built.processes.open).toBe(true);
 		built.press('y', { ctrl: true });
 		await wait(20);
 		expect(built.processes.message).toMatch(/Copied the output|does not accept a clipboard/);
 	});
 });
 
-describe('moving between panels and modes', () => {
-	it('returns to refs mode when the panel opened from refs mode', async () => {
+describe('moving between layers and modes', () => {
+	it('gives the keys to the composer, not to the refs, when a layer opens from the refs', async () => {
 		const built = await build();
 		built.host.table.set(
 			'characterization',
@@ -687,51 +744,188 @@ describe('moving between panels and modes', () => {
 		built.press('tab');
 		expect(built.keys.mode).toBe('refs');
 		await openFiles(built);
-		expect(built.keys.mode).toBe('files');
-		built.press('escape');
-		expect(built.keys.mode).toBe('refs');
-	});
-
-	it('closes the files panel when the processes panel opens, and returns to the first mode', async () => {
-		const built = await build();
-		await openFiles(built);
-		await openProcesses(built);
-		expect(built.keys.mode).toBe('processes');
-		expect(built.session.browser.open).toBe(false);
-		expect(built.panel.root.visible).toBe(false);
+		expect(built.keys.mode).toBe('dock');
 		built.press('escape');
 		expect(built.keys.mode).toBe('compose');
-		expect(built.processes.open).toBe(false);
 	});
 
-	it('closes the processes panel when the files panel opens', async () => {
+	it('keeps the files layer open under the processes layer, and shows only the top one', async () => {
+		const built = await build();
+		await openFiles(built);
+		await openProcesses(built);
+		expect(built.keys.mode).toBe('dock');
+		expect(built.dock.shown).toBe('processes');
+		expect(built.session.browser.open).toBe(false);
+		expect(built.panel.root.visible).toBe(false);
+		expect(built.processPanel.root.visible).toBe(true);
+		expect(await built.frame()).toContain('files · processes');
+	});
+
+	it('closes the top layer and shows the next one, then hides the dock after the last', async () => {
+		const built = await build();
+		await openFiles(built);
+		await openProcesses(built);
+		built.press('q');
+		expect(built.dock.shown).toBe('files');
+		expect(built.processes.open).toBe(false);
+		expect(built.session.browser.open).toBe(true);
+		expect(built.panel.root.visible).toBe(true);
+		expect(built.keys.mode).toBe('dock');
+		const frame = await built.frame();
+		expect(frame).toContain('files');
+		expect(frame).not.toContain('files ·');
+		built.press('c', { ctrl: true });
+		expect(built.dock.shown).toBeUndefined();
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+		expect(built.dockPanel.root.visible).toBe(false);
+	});
+
+	it('keeps the reading position of a layer that sits below another one', async () => {
+		const built = await build();
+		built.host.processTable = [
+			...built.host.processTable,
+			{ ...built.host.processTable[0], handle: 'bash-bbb222', name: 'two' } as never,
+		];
+		await openProcesses(built);
+		built.press('j');
+		expect(built.processes.index).toBe(1);
+		await openFiles(built);
+		expect(built.processes.open).toBe(false);
+		built.press('c', { ctrl: true });
+		await wait(20);
+		expect(built.processes.open).toBe(true);
+		expect(built.processes.index).toBe(1);
+	});
+
+	it('does not poll the processes while another layer is on top', async () => {
 		const built = await build();
 		await openProcesses(built);
 		await openFiles(built);
-		expect(built.keys.mode).toBe('files');
-		expect(built.processes.open).toBe(false);
+		const reads = built.host.calls.filter((call) => call === 'processes').length;
+		await built.processes.refresh();
+		expect(built.host.calls.filter((call) => call === 'processes')).toHaveLength(reads);
+	});
+});
+
+describe('the keys of the dock', () => {
+	const ctrlO = { ctrl: true, sequence: '' };
+
+	it('leaves the keys with the composer when a layer opens from the camera command', async () => {
+		const built = await build();
+		built.keys.toggleCamera();
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('gives the keys to the top layer with Ctrl+O, and back with Ctrl+O or Escape', async () => {
+		const built = await build();
+		await openProcesses(built);
+		built.press('escape');
+		expect(built.keys.mode).toBe('compose');
+		built.composer.setText('draft');
+		built.press('o', ctrlO);
+		expect(built.keys.mode).toBe('dock');
+		expect(built.composer.input.focused).toBe(false);
+		expect(built.composer.text).toBe('draft');
+		built.press('o', ctrlO);
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+		built.press('o', ctrlO);
+		built.press('escape');
+		expect(built.keys.mode).toBe('compose');
+		expect(built.dock.shown).toBe('processes');
+	});
+
+	it('says so when Ctrl+O finds no layer', async () => {
+		const built = await build();
+		built.press('o', ctrlO);
+		expect(built.keys.mode).toBe('compose');
+		expect(built.session.notice).toContain('No layer is open');
+	});
+
+	it('cycles through the layers with Tab, and the tabs line marks the top one', async () => {
+		const built = await build();
+		await openFiles(built);
+		await openProcesses(built);
+		built.press('escape');
+		built.keys.toggleCamera();
+		expect(built.dock.shown).toBe('camera');
+		built.press('o', ctrlO);
+		built.press('tab');
+		expect(built.dock.shown).toBe('files');
+		expect(await built.frame()).toContain('files · processes · camera');
+		built.press('tab');
+		expect(built.dock.shown).toBe('processes');
+		built.press('tab');
+		expect(built.dock.shown).toBe('camera');
+		expect(built.keys.mode).toBe('dock');
+	});
+
+	it('keeps Tab for the refs and the palette in the composer', async () => {
+		const built = await build();
+		await openProcesses(built);
+		built.press('escape');
+		built.press('tab');
+		expect(built.dock.shown).toBe('processes');
+	});
+
+	it('keeps Space for the composer while a layer is open, so voice mode records there', async () => {
+		const voice = quietVoice();
+		const press = vi.spyOn(voice, 'press');
+		const built = await build(120, voice);
+		await openProcesses(built);
+		built.press('escape');
+		press.mockClear();
+		built.press('space');
+		expect(press).toHaveBeenCalledTimes(1);
+		built.press('o', ctrlO);
+		press.mockClear();
+		built.press('space');
+		expect(press).not.toHaveBeenCalled();
+	});
+
+	it('keeps the scroll keys of the conversation while the composer has the keys', async () => {
+		const built = await build();
+		await openProcesses(built);
+		built.press('escape');
+		const scroll = vi.spyOn(built.transcript, 'scrollBy');
+		built.press('pageup');
+		expect(scroll).toHaveBeenCalledTimes(1);
+	});
+
+	it('shows the tabs line, the panel tone, and one line at the left edge, with no box', async () => {
+		const built = await build(120);
+		await openFiles(built);
+		await openProcesses(built);
+		built.press('escape');
+		const frame = await built.frame();
+		const dockRows = frame.split('\n').slice(0, BODY_ROWS);
+		expect(dockRows.join('\n')).not.toMatch(BOX);
+		const edge = dockRows.find((row) => row.includes('files · processes')) ?? '';
+		expect(edge).toMatch(/│ files · processes\s*$/);
+		expect(dockRows.filter((row) => row.includes('│')).length).toBeGreaterThanOrEqual(
+			BODY_ROWS - 1,
+		);
 	});
 });
 
 const rows = (count: number, word: string) =>
 	Array.from({ length: count }, (_, at) => `${word} ${at + 1}`).join('\n');
 
-describe('what opening and closing a panel do, in order', () => {
-	it('opens the surface before the first render, and fills the width before it', async () => {
+describe('what opening and closing a layer do, in order', () => {
+	it('opens the surface before the first render', async () => {
 		const built = await build();
 		const open = vi.spyOn(built.surfaces.files, 'open');
-		const fill = vi.spyOn(built.surfaces.files, 'fill');
 		await built.session.submit('/files');
 		built.render.mockClear();
 		built.keys.openFiles();
 		const [opened] = open.mock.invocationCallOrder;
-		const [filled] = fill.mock.invocationCallOrder;
 		const [rendered] = built.render.mock.invocationCallOrder;
-		expect(opened).toBeLessThan(filled ?? 0);
-		expect(filled).toBeLessThan(rendered ?? 0);
+		expect(opened).toBeLessThan(rendered ?? 0);
 	});
 
-	it('hides the panel it leaves, then draws the panel it enters', async () => {
+	it('stops the layer it covers, then draws the layer it enters', async () => {
 		const built = await build();
 		await openFiles(built);
 		const hide = vi.spyOn(built.surfaces.files, 'hide');
@@ -739,12 +933,24 @@ describe('what opening and closing a panel do, in order', () => {
 		built.keys.openProcesses();
 		expect(hide).toHaveBeenCalledTimes(1);
 		expect(open).toHaveBeenCalledTimes(1);
-		expect(built.panel.root.visible).toBe(false);
 		await wait(20);
+		expect(built.panel.root.visible).toBe(false);
 		expect(built.processPanel.root.visible).toBe(true);
 	});
 
-	it('gives the conversation back, redraws it, and renders once when a panel closes', async () => {
+	it('opens a layer that is open again without a fresh open', async () => {
+		const built = await build();
+		await openProcesses(built);
+		await openFiles(built);
+		const open = vi.spyOn(built.surfaces.processes, 'open');
+		const show = vi.spyOn(built.surfaces.processes, 'show');
+		built.keys.openProcesses();
+		expect(open).not.toHaveBeenCalled();
+		expect(show).toHaveBeenCalledTimes(1);
+		expect(built.dock.shown).toBe('processes');
+	});
+
+	it('gives the conversation back on a narrow terminal when the keys go back, and keeps the layer', async () => {
 		const built = await build(80);
 		await openFiles(built);
 		expect(built.transcript.root.visible).toBe(false);
@@ -752,11 +958,16 @@ describe('what opening and closing a panel do, in order', () => {
 		built.render.mockClear();
 		built.press('escape');
 		expect(built.transcript.root.visible).toBe(true);
+		expect(built.dockPanel.root.visible).toBe(false);
+		expect(built.session.browser.open).toBe(false);
 		expect(invalidate).toHaveBeenCalledTimes(1);
 		expect(built.render).toHaveBeenCalledTimes(1);
+		built.press('o', { ctrl: true, sequence: '' });
+		expect(built.transcript.root.visible).toBe(false);
+		expect(built.session.browser.open).toBe(true);
 	});
 
-	it('hides the processes panel when it closes', async () => {
+	it('hides the processes layer when it closes', async () => {
 		const built = await build();
 		await openProcesses(built);
 		expect(built.processPanel.root.visible).toBe(true);
@@ -765,11 +976,13 @@ describe('what opening and closing a panel do, in order', () => {
 	});
 });
 
-describe('the status line while a panel is open', () => {
+describe('the status line while a layer has the keys', () => {
 	it('names the panel, and yields to an error', async () => {
 		const built = await build();
 		await openFiles(built);
-		expect(await built.frame()).toContain('Browsing the workspace files. Esc closes the panel.');
+		expect(await built.frame()).toContain(
+			'Browsing the workspace files. Esc returns to the composer.',
+		);
 		built.session.error = 'boom';
 		built.render();
 		const text = await built.frame();
@@ -918,22 +1131,33 @@ describe('Ctrl+C and Ctrl+D', () => {
 		expect(built.composer.text).toBe('');
 	});
 
-	it('Ctrl+C closes an open panel and keeps the draft', async () => {
+	it('Ctrl+C closes the top layer when the dock has the keys, and keeps the draft', async () => {
 		const built = await build();
 		built.composer.setText('draft');
 		built.keys.openFiles();
 		built.press('c', ctrl);
 		expect(built.keys.mode).toBe('compose');
+		expect(built.dock.shown).toBeUndefined();
 		expect(built.composer.text).toBe('draft');
 		expect(built.quit).not.toHaveBeenCalled();
 	});
 
-	it('Ctrl+D does not leave from a panel', async () => {
+	it('Ctrl+C clears the composer, and leaves the layers open, when the composer has the keys', async () => {
+		const built = await build();
+		built.keys.openFiles();
+		built.press('escape');
+		built.composer.setText('draft');
+		built.press('c', ctrl);
+		expect(built.composer.text).toBe('');
+		expect(built.dock.shown).toBe('files');
+	});
+
+	it('Ctrl+D does not leave from the dock', async () => {
 		const built = await build();
 		built.keys.openFiles();
 		built.press('d', ctrl);
 		expect(built.quit).not.toHaveBeenCalled();
-		expect(built.keys.mode).toBe('files');
+		expect(built.keys.mode).toBe('dock');
 	});
 
 	it('ignores Ctrl+Shift and Ctrl+Meta combinations', async () => {
@@ -1061,22 +1285,22 @@ describe('the keys sheet', () => {
 		const built = await build();
 		built.press('?', { shift: true });
 		await wait(20);
-		expect(built.keys.mode).toBe('keys');
+		expect(built.keys.mode).toBe('dock');
+		expect(built.dock.shown).toBe('keys');
 		expect(built.composer.input.focused).toBe(false);
 		expect(built.prevented.count).toBe(1);
 		const frame = await built.frame();
-		expect(frame).toContain('Keys');
+		expect(frame).toContain('keys');
 		expect(frame).toContain('Ctrl+J Shift+Enter Alt+Enter');
-		expect(frame).toContain('Reading the keys. Esc closes the sheet.');
-		expect(frame).toContain('Ctrl+R');
-		expect(frame).toContain('Look now');
-		expect(frame).not.toContain('Processes panel');
-		let lower = frame;
-		for (let page = 0; page < 6 && !lower.includes('Processes panel'); page++) {
+		expect(frame).toContain('Reading the keys. Esc returns to the composer.');
+		expect(frame).not.toContain('Processes layer');
+		let seen = frame;
+		for (let page = 0; page < 10; page++) {
 			built.press('pagedown');
-			lower = await built.frame();
+			seen += await built.frame();
 		}
-		expect(lower).toContain('Processes panel');
+		for (const text of ['Ctrl+R', 'Ctrl+O', 'Look now', 'Dock', 'Camera layer', 'Processes layer'])
+			expect(seen).toContain(text);
 	});
 
 	it('types ? into a composer that holds text', async () => {
@@ -1087,18 +1311,28 @@ describe('the keys sheet', () => {
 		expect(built.prevented.count).toBe(0);
 	});
 
-	it.each(['escape', '?', 'q'])(
-		'closes on %s and gives the keys back to the composer',
-		async (name) => {
-			const built = await build();
-			built.press('?');
-			built.press(name);
-			expect(built.keys.mode).toBe('compose');
-			expect(built.composer.input.focused).toBe(true);
-			expect(built.transcript.root.visible).toBe(true);
-			expect(built.surfaces.keys.root.visible).toBe(false);
-		},
-	);
+	it.each(['?', 'q'])('closes on %s and gives the keys back to the composer', async (name) => {
+		const built = await build();
+		built.press('?');
+		built.press(name);
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+		expect(built.transcript.root.visible).toBe(true);
+		expect(built.surfaces.keys.root.visible).toBe(false);
+		expect(built.dock.shown).toBeUndefined();
+	});
+
+	it('stays open on Escape, which gives the keys back, and closes on ? from the composer', async () => {
+		const built = await build();
+		built.press('?');
+		built.press('escape');
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+		expect(built.dock.shown).toBe('keys');
+		built.press('?');
+		expect(built.dock.shown).toBeUndefined();
+		expect(built.keys.mode).toBe('compose');
+	});
 
 	it('closes on Ctrl+C', async () => {
 		const built = await build();
@@ -1106,6 +1340,7 @@ describe('the keys sheet', () => {
 		built.press('c', { ctrl: true });
 		expect(built.keys.mode).toBe('compose');
 		expect(built.composer.input.focused).toBe(true);
+		expect(built.dock.shown).toBeUndefined();
 	});
 
 	it('scrolls with the page keys', async () => {
@@ -1128,5 +1363,12 @@ describe('the keys sheet', () => {
 		expect(await built.frame()).toContain('? keys');
 		built.keys.openFiles();
 		expect(await built.frame()).not.toContain('? keys');
+	});
+
+	it('shows the hint while a layer is open and the composer has the keys', async () => {
+		const built = await build();
+		built.keys.openFiles();
+		built.press('escape');
+		expect(await built.frame()).toContain('? keys');
 	});
 });

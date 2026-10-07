@@ -1,7 +1,7 @@
 import { BoxRenderable, type CliRenderer, fg, StyledText, TextRenderable } from '@opentui/core';
 import { type Binding, bindingLabel, KEYMAP } from '../state/keymap.ts';
 import { tui as palette } from './brand.ts';
-import { lineText, SidePanel } from './side-panel.ts';
+import { SidePanel } from './side-panel.ts';
 
 /** One line of the sheet: a title, or a note. */
 function textLine(renderer: CliRenderer, text: string, color: string): TextRenderable {
@@ -45,14 +45,10 @@ function bindingRow(renderer: CliRenderer, label: string, does: string): BoxRend
 	return row;
 }
 
-/** The keys sheet: every section of the key table, in a scrolling side panel. */
+/** The keys sheet: every section of the key table, in a scrolling layer. */
 export class KeysPanel extends SidePanel {
-	private readonly heading: TextRenderable;
-
 	constructor(renderer: CliRenderer) {
 		super(renderer);
-		this.heading = lineText(renderer);
-		this.heading.content = new StyledText([fg(palette.accent)('Keys')]);
 		const sheet = new BoxRenderable(renderer, { flexDirection: 'column', width: '100%' });
 		for (const section of Object.values(KEYMAP)) {
 			const bindings: readonly Binding[] = Object.values(section.bindings);
@@ -64,11 +60,6 @@ export class KeysPanel extends SidePanel {
 				sheet.add(bindingRow(renderer, bindingLabel(binding), binding.does));
 		}
 		this.addBody(sheet);
-		for (const part of [this.heading, this.scroll]) this.root.add(part);
-	}
-
-	/** Show the panel, or hide it. The sheet is the same at each draw. */
-	draw(open: boolean): void {
-		this.root.visible = open;
+		this.root.add(this.scroll);
 	}
 }

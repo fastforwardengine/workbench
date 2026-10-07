@@ -5,13 +5,13 @@ exports[`the help text > lists every command and key, as the person reads them 1
   /room <name>      switch to another room. Ctrl+R lists the rooms.
   /new <name> [goal]  create a room. Without a goal, the next line is the goal.
   /user <name>      switch to another person
-  /files            search the workspace files and read one in a side panel
-  /open <path>      open the files panel on one file
+  /files            search the workspace files and read one in the dock
+  /open <path>      open the files layer of the dock on one file
   /attach <path>    copy a local file into the workspace and cite it in your next message
   /ps               show the background processes of the specialists, their output,
                     and cancel one with x, twice
   /camera           show the latest frame of each camera that the open room shows,
-                    beside the conversation, and hide them when they show. The
+                    in the dock, and hide them when they show. The
                     Engineer shows a camera. Ctrl+L chooses the Look now button
                     under a camera, Enter presses it, and Esc goes back. It needs
                     a terminal with Kitty graphics, such as Ghostty.
