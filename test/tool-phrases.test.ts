@@ -23,7 +23,7 @@ describe('callPhrase', () => {
 				name: 'datasheets',
 				goal: 'Compare the tuners.\nSecond line',
 				message: 'm',
-				agents: ['worker'],
+				agents: ['engineer-bg'],
 			},
 			'⇉ breakout datasheets: Compare the tuners.',
 		],

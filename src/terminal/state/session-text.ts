@@ -72,7 +72,7 @@ const seatedAgents = (view: RoomView | undefined): { name: string; attention: st
 
 /**
  * The seats that `@` completes to, each with its attention in the open room. A root room
- * offers every specialist. A breakout room offers the agents it seats, which are its workers.
+ * offers every specialist. A breakout room offers the agents it seats, which are twins of specialists.
  */
 export function seatChoices(
 	team: readonly { name: string }[],

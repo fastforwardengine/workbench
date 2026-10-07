@@ -1,8 +1,8 @@
 # A local workstation
 
 **This folder builds a workstation in a container.** A workstation is one
-server with one Unix account for each specialist, and one for the worker of
-the breakout rooms
+server with one Unix account for each specialist, and one for the twin of
+each specialist in the breakout rooms
 ([Ambion: the workstation](https://github.com/ambionframework/ambion/blob/main/docs/workstation.md)).
 Workbench runs the `bash` and file tools of each seat on it over SSH, as
 the account of that seat. The git account of the workstation holds the
@@ -159,10 +159,10 @@ libusb reaches a device that arrives after the start. The container runs no
 udev, so the entrypoint gives `plugdev` read and write on each USB device
 file every 5 seconds.
 
-**The `worker` account is in no device group.** The Dockerfile adds the
-groups of the devices to `engineer` alone. A task of a breakout room
-cannot open a device of the bench. [Breakout rooms](../docs/breakouts.md)
-gives the reason.
+**The accounts `researcher-bg` and `engineer-bg` are in no device group.**
+The Dockerfile adds the groups of the devices to `engineer` alone. A task
+of a breakout room cannot open a device of the bench.
+[Breakout rooms](../docs/breakouts.md) gives the reason.
 
 **The workstation makes the device file of each camera, serial port,
 USBTMC instrument, and sound device.** The container's own `/dev` holds no
@@ -266,7 +266,7 @@ native, and `make usb` does nothing.
 
 - **Add a specialist.** Add its name to `accounts`, run `setup.sh` again,
   and rebuild with `--build`. `test/workstation-config.test.ts` fails
-  while the list and the team differ. The worker has its line in the list
+  while the list and the team differ. Each twin has its line in the list
   too.
 - **Keep the keys.** `setup.sh` keeps each key that exists, so a second
   run changes nothing for the running container.

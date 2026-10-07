@@ -23,18 +23,18 @@ const call = (name: string, input: Parameters<typeof fauxToolCall>[1]) =>
 
 const quiet = () => fauxAssistantMessage('quiet', { stopReason: 'stop' });
 
-/** The Engineer opens a breakout room. The worker reports, and the Engineer archives the room. */
+/** The Engineer opens a breakout room. The twin reports, and the Engineer archives the room. */
 function fullPath(agent: string, count: number): AssistantMessage {
 	if (agent === 'engineer' && count === 1)
 		return call('breakout', {
 			name: 'datasheets',
 			goal: 'Write and test a sweep script.',
 			message: 'Write a script that sweeps the supply, and test it.',
-			agents: ['worker'],
+			agents: ['engineer-bg'],
 		});
 	if (agent === 'engineer' && count === 2)
 		return call('say', { text: 'The script runs in the background.' });
-	if (agent === 'worker' && count === 1)
+	if (agent === 'engineer-bg' && count === 1)
 		return call('report', { text: 'The script passes its test.' });
 	// A request that follows a `say` ends the activation: the script answers it with `quiet`.
 	if (agent === 'engineer' && count === 4)
@@ -44,14 +44,14 @@ function fullPath(agent: string, count: number): AssistantMessage {
 	return quiet();
 }
 
-/** The Engineer opens a breakout room. The worker does nothing, so the room stays open. */
+/** The Engineer opens a breakout room. The twin does nothing, so the room stays open. */
 function openOnly(agent: string, count: number): AssistantMessage {
 	if (agent === 'engineer' && count === 1)
 		return call('breakout', {
 			name: 'datasheets',
 			goal: 'Write and test a sweep script.',
 			message: 'Write a script that sweeps the supply, and test it.',
-			agents: ['worker'],
+			agents: ['engineer-bg'],
 		});
 	if (agent === 'engineer' && count === 2)
 		return call('say', { text: 'The script runs in the background.' });
@@ -148,14 +148,14 @@ describe('a breakout room in the host', () => {
 		await ask(lab);
 		await until(lab, (all) => all.some((room) => room.breakout?.state === 'archived'));
 		stop();
-		// The breakout room opens and archives, and its worker starts: three events at least.
+		// The breakout room opens and archives, and its twin starts: three events at least.
 		expect(heard).toBeGreaterThanOrEqual(3);
 		const after = heard;
 		await lab.control('build', 'stop');
 		expect(heard).toBe(after);
 	});
 
-	it('refuses a message to a specialist that the breakout room does not seat, and takes one for the worker', async () => {
+	it('refuses a message to a specialist that the breakout room does not seat, and takes one for the twin', async () => {
 		const lab = await open(openOnly);
 		await ask(lab);
 		const rooms = await until(lab, (all) => all.some((room) => room.name === ROOM));
@@ -170,7 +170,7 @@ describe('a breakout room in the host', () => {
 		const seated = (await lab.read(ROOM, 0)).participants.map((seat) => seat.name);
 		expect(seated).not.toContain('researcher');
 		await expect(
-			lab.send(ROOM, person, 'to-worker', 'Add the TEA5767.', [], 'worker'),
+			lab.send(ROOM, person, 'to-twin', 'Add the TEA5767.', [], 'engineer-bg'),
 		).resolves.toBe(undefined);
 		await expect(lab.send(ROOM, person, 'to-nobody', 'Hello.', [], 'nobody')).rejects.toThrow(
 			"'nobody' is not a seat of this breakout room.",
