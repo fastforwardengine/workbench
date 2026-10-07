@@ -95,7 +95,8 @@ export class Painter {
 		for (const item of this.session.refItems)
 			refs.set(item.seq, [...(refs.get(item.seq) ?? []), item]);
 		const marks: Marks = { refs, picked: picking, focus: this.session.focus };
-		if (!this.graphics()) return marks;
+		// A Kitty picture draws above every cell, so it would show through a dock over the conversation.
+		if (!this.graphics() || this.dock.covers) return marks;
 		this.pictures.want(this.session.refItems.flatMap((item) => pictureRefs([item])));
 		marks.pictures = stripsBySeq(this.session.refItems, (ref) => this.pictures.get(ref));
 		marks.cellAspect = this.cellAspect();

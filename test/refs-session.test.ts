@@ -92,7 +92,6 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 				camera: {} as never,
 			},
 			panel: {} as never,
-			transcript: { root } as never,
 			width: () => 120,
 		}),
 		transcript: { root, scrollBy: () => {} },

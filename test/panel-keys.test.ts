@@ -2,9 +2,9 @@
  * How the keys open, drive, and close the layers of the dock. The parts are real
  * widgets on OpenTUI's headless renderer, over a fake host.
  */
-import { BoxRenderable, type KeyEvent } from '@opentui/core';
+import { BoxRenderable, getTreeSitterClient, type KeyEvent } from '@opentui/core';
 import { createTestRenderer } from '@opentui/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { LOST, NO_CAMERA } from '../src/host/viewfinder.ts';
 import { Dock } from '../src/terminal/app/dock.ts';
 import { Painter } from '../src/terminal/app/draw.ts';
@@ -31,6 +31,11 @@ import { PNG } from './png.ts';
 import { fakeTake, quietParts, quietVoice } from './voice-fakes.ts';
 
 const cleanups: (() => void)[] = [];
+/** The first highlight in a process starts the worker. Start it once, before a frame shows a message. */
+beforeAll(async () => {
+	await getTreeSitterClient().highlightOnce('# x', 'markdown');
+}, 30_000);
+
 afterEach(() => {
 	for (const cleanup of cleanups.splice(0)) cleanup();
 });
@@ -99,7 +104,7 @@ async function build(width = 120, voice = quietVoice()) {
 		camera: viewfinder,
 	};
 	const dockPanel = new DockPanel(renderer);
-	const dock = new Dock({ surfaces, panel: dockPanel, transcript, width: () => renderer.width });
+	const dock = new Dock({ surfaces, panel: dockPanel, width: () => renderer.width });
 	const painter = new Painter({
 		session,
 		transcript,
@@ -379,6 +384,19 @@ describe('the camera layer', () => {
 		expect(built.composer.input.focused).toBe(true);
 	});
 
+	it('enters the buttons from the dock with Ctrl+L, while the camera is on top', async () => {
+		const built = await withLook();
+		built.press('o', { ctrl: true, sequence: '' });
+		expect(built.keys.mode).toBe('dock');
+		built.press('l', { ctrl: true });
+		expect(built.keys.mode).toBe('actions');
+		expect(built.composer.input.focused).toBe(false);
+		expect(await built.frame()).toContain('▸ [ Look now ]');
+		built.press('escape');
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+	});
+
 	it('leaves the buttons with Ctrl+C, and the composer takes the keys back', async () => {
 		const built = await withLook();
 		built.press('l', { ctrl: true });
@@ -514,6 +532,41 @@ describe('the camera layer', () => {
 		expect(built.transcript.root.visible).toBe(true);
 	});
 
+	it('says the width on Ctrl+O when the terminal is narrow and the camera is the only layer', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
+		await wait(20);
+		built.setup.resize(80, 30);
+		built.render();
+		built.press('o', { ctrl: true, sequence: '' });
+		expect(built.keys.mode).toBe('compose');
+		expect(built.session.notice ?? '').toContain('at least 100 columns wide');
+		expect(built.session.notice ?? '').not.toContain('No layer is open');
+	});
+
+	it('says the width on the camera command in a narrow terminal, and leaves the open layer alone', async () => {
+		const built = await build(120);
+		built.kitty.on = true;
+		built.keys.toggleCamera();
+		await wait(20);
+		built.setup.resize(80, 30);
+		built.render();
+		built.session.say('Cleared.');
+		built.keys.toggleCamera();
+		expect(built.session.notice ?? '').toContain('at least 100 columns wide');
+		expect(built.dock.has('camera')).toBe(true);
+		built.session.say('Cleared.');
+		built.keys.toggleCamera();
+		expect(built.session.notice ?? '').toContain('at least 100 columns wide');
+		expect(built.dock.has('camera')).toBe(true);
+		built.setup.resize(120, 30);
+		built.render();
+		await wait(20);
+		expect(built.dock.shown).toBe('camera');
+		expect(built.camera.open).toBe(true);
+	});
+
 	it('hides when the terminal becomes narrow, and shows again with a new poll when it widens', async () => {
 		const built = await build(120);
 		built.kitty.on = true;
@@ -562,13 +615,6 @@ describe('opening a layer', () => {
 		expect(built.composer.input.focused).toBe(false);
 	});
 
-	it('gives the dock the whole width on a narrow terminal, while it has the keys', async () => {
-		const built = await build(80);
-		await openFiles(built);
-		expect(built.transcript.root.visible).toBe(false);
-		expect(await dockWidth(built)).toBeGreaterThanOrEqual(78);
-	});
-
 	it('opens the processes layer and reads the list', async () => {
 		const built = await build(120);
 		await openProcesses(built);
@@ -577,6 +623,114 @@ describe('opening a layer', () => {
 		expect(built.processes.processes.map((process) => process.handle)).toEqual(['bash-aaa111']);
 		expect(await dockWidth(built)).toBeGreaterThan(40);
 		expect(await dockWidth(built)).toBeLessThan(120 * 0.6);
+	});
+});
+
+/** Put one message in the open room, so the conversation has text to show. */
+async function say(built: Built, text: string): Promise<void> {
+	built.host.table.set(
+		built.session.room,
+		view(built.session.room, {
+			participants: [{ name: 'priya', kind: 'person' }],
+			messages: [{ seq: 1, kind: 'said', from: 'priya', text, at: AT }],
+		}),
+	);
+	await built.session.refresh();
+	built.render();
+	await wait(50);
+}
+
+/** The rows of the frame, cut to the columns that the conversation keeps beside the dock. */
+const leftOf = (frame: string, column: number): string =>
+	frame
+		.split('\n')
+		.map((row) => row.slice(0, column))
+		.join('\n');
+
+describe('the dock over the conversation, below 100 columns', () => {
+	const ctrlO = { ctrl: true, sequence: '' };
+	const WORDS = 'Rail ok';
+
+	/** A frame after the Markdown of the messages has drawn. */
+	const shot = async (built: Built) => {
+		await vi.waitFor(async () => expect(await built.frame()).toContain(WORDS), { timeout: 3_000 });
+		return built.frame();
+	};
+
+	it('draws over the right part, and the conversation keeps its width and its text', async () => {
+		const built = await build(80);
+		await say(built, WORDS);
+		await built.frame();
+		const before = built.transcript.root.width;
+		await openFiles(built);
+		const frame = await shot(built);
+		expect(built.transcript.root.visible).toBe(true);
+		expect(built.transcript.root.width).toBe(before);
+		expect(built.dockPanel.root.visible).toBe(true);
+		expect(built.dockPanel.root.width).toBe(64);
+		expect(built.dockPanel.root.x + built.dockPanel.root.width).toBe(80);
+		expect(leftOf(frame, 80 - 64)).toContain(WORDS);
+		expect(frame).toContain('Files');
+		expect(built.dock.covers).toBe(true);
+	});
+
+	it('takes 40 columns at least, and no more than the terminal', async () => {
+		const small = await build(44);
+		await openFiles(small);
+		expect(await dockWidth(small)).toBe(40);
+		const tiny = await build(30);
+		await openFiles(tiny);
+		expect(await dockWidth(tiny)).toBe(30);
+	});
+
+	it('goes away on Esc and comes back on Ctrl+O, while the layer stays open', async () => {
+		const built = await build(80);
+		await say(built, WORDS);
+		await openFiles(built);
+		const invalidate = vi.spyOn(built.painter, 'invalidate');
+		built.render.mockClear();
+		built.press('escape');
+		expect(built.dockPanel.root.visible).toBe(false);
+		expect(built.transcript.root.visible).toBe(true);
+		expect(built.dock.has('files')).toBe(true);
+		expect(invalidate).toHaveBeenCalledTimes(1);
+		expect(built.render).toHaveBeenCalledTimes(1);
+		expect(await shot(built)).toContain(WORDS);
+		expect(built.keys.mode).toBe('compose');
+		built.press('o', ctrlO);
+		expect(built.keys.mode).toBe('dock');
+		expect(built.dockPanel.root.visible).toBe(true);
+		expect(await dockWidth(built)).toBe(64);
+		expect(leftOf(await shot(built), 80 - 64)).toContain(WORDS);
+	});
+
+	it('moves the dock between beside and over the conversation when the terminal resizes', async () => {
+		const built = await build(120);
+		await say(built, WORDS);
+		await openFiles(built);
+		await built.frame();
+		const beside = built.transcript.root.width;
+		expect(beside).toBeLessThan(80);
+		expect(built.dock.covers).toBe(false);
+		expect(built.dockPanel.root.width).toBe(60);
+		const invalidate = vi.spyOn(built.painter, 'invalidate');
+		built.setup.resize(80, 30);
+		built.render();
+		expect(invalidate).toHaveBeenCalledTimes(1);
+		await built.frame();
+		expect(built.dock.covers).toBe(true);
+		expect(built.dockPanel.root.width).toBe(64);
+		expect(built.transcript.root.width).toBe(80);
+		expect(leftOf(await shot(built), 80 - 64)).toContain(WORDS);
+		built.setup.resize(120, 30);
+		built.render();
+		expect(invalidate).toHaveBeenCalledTimes(2);
+		await built.frame();
+		expect(built.dock.covers).toBe(false);
+		expect(built.dockPanel.root.width).toBe(60);
+		expect(built.transcript.root.width).toBe(beside);
+		expect(built.dockPanel.root.x).toBe(120 - 60);
+		expect(await shot(built)).toContain(WORDS);
 	});
 });
 
@@ -948,23 +1102,6 @@ describe('what opening and closing a layer do, in order', () => {
 		expect(open).not.toHaveBeenCalled();
 		expect(show).toHaveBeenCalledTimes(1);
 		expect(built.dock.shown).toBe('processes');
-	});
-
-	it('gives the conversation back on a narrow terminal when the keys go back, and keeps the layer', async () => {
-		const built = await build(80);
-		await openFiles(built);
-		expect(built.transcript.root.visible).toBe(false);
-		const invalidate = vi.spyOn(built.painter, 'invalidate');
-		built.render.mockClear();
-		built.press('escape');
-		expect(built.transcript.root.visible).toBe(true);
-		expect(built.dockPanel.root.visible).toBe(false);
-		expect(built.session.browser.open).toBe(false);
-		expect(invalidate).toHaveBeenCalledTimes(1);
-		expect(built.render).toHaveBeenCalledTimes(1);
-		built.press('o', { ctrl: true, sequence: '' });
-		expect(built.transcript.root.visible).toBe(false);
-		expect(built.session.browser.open).toBe(true);
 	});
 
 	it('hides the processes layer when it closes', async () => {
