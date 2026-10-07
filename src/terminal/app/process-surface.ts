@@ -1,4 +1,5 @@
 import type { KeyEvent } from '@opentui/core';
+import { type Act, actOf } from '../state/keymap.ts';
 import type { ProcessBrowser } from '../state/process-browser.ts';
 import type { ProcessesPanel } from '../widgets/process-panel.ts';
 import type { Surface } from './surface.ts';
@@ -44,22 +45,20 @@ export class ProcessesSurface implements Surface {
 	}
 
 	/** What each key does. */
-	private readonly keys: Record<string, (close: () => void) => void> = {
+	private readonly acts: Record<Act<'processes'>, (close: () => void) => void> = {
 		up: () => this.browser.move(-1),
-		k: () => this.browser.move(-1),
 		down: () => this.browser.move(1),
-		j: () => this.browser.move(1),
-		pageup: () => this.panel.scrollBy(-this.panel.page),
-		pagedown: () => this.panel.scrollBy(this.panel.page),
-		x: () => void this.browser.cancel(),
-		escape: (close) => close(),
-		q: (close) => close(),
+		pageUp: () => this.panel.scrollBy(-this.panel.page),
+		pageDown: () => this.panel.scrollBy(this.panel.page),
+		cancel: () => void this.browser.cancel(),
+		copy: () => this.copyOutput(),
+		close: (close) => close(),
 	};
 
 	onKey(key: KeyEvent, close: () => void): void {
 		key.preventDefault();
-		if (key.ctrl && key.name === 'y') this.copyOutput();
-		else if (!key.ctrl && !key.meta) this.keys[key.name]?.(close);
+		const act = actOf('processes', key);
+		if (act) this.acts[act](close);
 	}
 
 	private copyOutput(): void {

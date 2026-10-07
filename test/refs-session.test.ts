@@ -87,6 +87,7 @@ function keysOver(session: Awaited<ReturnType<typeof open>>['session']) {
 				page: 4,
 			} as unknown as FilesPanel),
 			processes: {} as never,
+			keys: {} as never,
 		},
 		transcript: { root, scrollBy: () => {} },
 		voice: quietVoice(),

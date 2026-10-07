@@ -9,6 +9,7 @@ import { LOST, NO_CAMERA } from '../src/host/viewfinder.ts';
 import { Painter } from '../src/terminal/app/draw.ts';
 import { FilesSurface } from '../src/terminal/app/files-surface.ts';
 import { Keys } from '../src/terminal/app/keys.ts';
+import { KeysSurface } from '../src/terminal/app/keys-surface.ts';
 import { ProcessesSurface } from '../src/terminal/app/process-surface.ts';
 import { ViewfinderSurface } from '../src/terminal/app/viewfinder-surface.ts';
 import { PictureCache } from '../src/terminal/state/picture-cache.ts';
@@ -18,6 +19,7 @@ import { Voice } from '../src/terminal/state/voice.ts';
 import { Composer } from '../src/terminal/widgets/composer.ts';
 import { FilesPanel } from '../src/terminal/widgets/files-panel.ts';
 import { Header } from '../src/terminal/widgets/header.ts';
+import { KeysPanel } from '../src/terminal/widgets/keys-panel.ts';
 import { Palette } from '../src/terminal/widgets/palette.ts';
 import { ProcessesPanel } from '../src/terminal/widgets/process-panel.ts';
 import { Transcript } from '../src/terminal/widgets/transcript.ts';
@@ -71,6 +73,7 @@ async function build(width = 120, voice = quietVoice()) {
 	const processPanel = new ProcessesPanel(renderer);
 	const processes = new ProcessBrowser(host, render);
 	const cameraPanel = new ViewfinderPanel(renderer);
+	const keysPanel = new KeysPanel(renderer);
 	const camera = new ViewfinderBrowser(
 		host,
 		{
@@ -89,6 +92,7 @@ async function build(width = 120, voice = quietVoice()) {
 	const surfaces = {
 		files: new FilesSurface(session.browser, panel),
 		processes: new ProcessesSurface(processes, processPanel, render),
+		keys: new KeysSurface(keysPanel),
 	};
 	const viewfinder = new ViewfinderSurface(camera, cameraPanel, () => kitty.on);
 	const painter = new Painter({
@@ -111,7 +115,13 @@ async function build(width = 120, voice = quietVoice()) {
 		width: '100%',
 		height: BODY_ROWS,
 	});
-	for (const part of [transcript.root, panel.root, processPanel.root, cameraPanel.root])
+	for (const part of [
+		transcript.root,
+		panel.root,
+		processPanel.root,
+		keysPanel.root,
+		cameraPanel.root,
+	])
 		body.add(part);
 	renderer.root.add(body);
 	renderer.root.add(composer.root);
@@ -810,7 +820,7 @@ describe('the keys that scroll, copy, and swallow', () => {
 		expect(built.session.browser.tab).toBe(0);
 	});
 
-	it('tells the person whether the copy worked, on the hint line', async () => {
+	it('tells the person whether the copy worked, under the file', async () => {
 		const built = await build();
 		await openFiles(built);
 		await wait(20);
@@ -1043,5 +1053,80 @@ describe('the status line in voice mode', () => {
 		built.keys.mode = 'refs';
 		built.press('space');
 		expect(built.voice.phase).toBe('idle');
+	});
+});
+
+describe('the keys sheet', () => {
+	it('opens on ? from an empty composer and lists the sections of the table', async () => {
+		const built = await build();
+		built.press('?', { shift: true });
+		await wait(20);
+		expect(built.keys.mode).toBe('keys');
+		expect(built.composer.input.focused).toBe(false);
+		expect(built.prevented.count).toBe(1);
+		const frame = await built.frame();
+		expect(frame).toContain('Keys');
+		expect(frame).toContain('Ctrl+J Shift+Enter Alt+Enter');
+		expect(frame).toContain('Reading the keys. Esc closes the sheet.');
+		expect(frame).toContain('Ctrl+R');
+		expect(frame).toContain('Look now');
+		expect(frame).not.toContain('Processes panel');
+		let lower = frame;
+		for (let page = 0; page < 6 && !lower.includes('Processes panel'); page++) {
+			built.press('pagedown');
+			lower = await built.frame();
+		}
+		expect(lower).toContain('Processes panel');
+	});
+
+	it('types ? into a composer that holds text', async () => {
+		const built = await build();
+		built.composer.setText('why');
+		built.press('?', { shift: true });
+		expect(built.keys.mode).toBe('compose');
+		expect(built.prevented.count).toBe(0);
+	});
+
+	it.each(['escape', '?', 'q'])(
+		'closes on %s and gives the keys back to the composer',
+		async (name) => {
+			const built = await build();
+			built.press('?');
+			built.press(name);
+			expect(built.keys.mode).toBe('compose');
+			expect(built.composer.input.focused).toBe(true);
+			expect(built.transcript.root.visible).toBe(true);
+			expect(built.surfaces.keys.root.visible).toBe(false);
+		},
+	);
+
+	it('closes on Ctrl+C', async () => {
+		const built = await build();
+		built.press('?');
+		built.press('c', { ctrl: true });
+		expect(built.keys.mode).toBe('compose');
+		expect(built.composer.input.focused).toBe(true);
+	});
+
+	it('scrolls with the page keys', async () => {
+		const built = await build();
+		built.press('?');
+		expect(await built.frame()).toContain('Composer');
+		built.press('pagedown');
+		expect(await built.frame()).not.toContain('Composer');
+		built.press('pageup');
+		expect(await built.frame()).toContain('Composer');
+	});
+
+	it('shows the hint in the composer footer in compose mode only', async () => {
+		const built = await build();
+		built.render();
+		expect(await built.frame()).toContain('? keys');
+		built.press('?');
+		expect(await built.frame()).not.toContain('? keys');
+		built.press('escape');
+		expect(await built.frame()).toContain('? keys');
+		built.keys.openFiles();
+		expect(await built.frame()).not.toContain('? keys');
 	});
 });

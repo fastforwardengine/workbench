@@ -1,6 +1,7 @@
 import { fg, StyledText } from '@opentui/core';
 import type { RefItem } from '../../view/refs.ts';
 import { stagedCue } from '../state/attachments.ts';
+import { bindingLabel, KEYMAP } from '../state/keymap.ts';
 import { isPanel, type Mode, type PanelMode } from '../state/mode.ts';
 import type { PictureCache } from '../state/picture-cache.ts';
 import { pictureRefs, stripKey, stripsBySeq } from '../state/pictures.ts';
@@ -13,14 +14,8 @@ import type { Header } from '../widgets/header.ts';
 import type { Marks, Transcript } from '../widgets/transcript.ts';
 import type { Surface } from './surface.ts';
 
-const HINTS: Partial<Record<Mode, string>> = {
-	compose: 'Enter sends   Ctrl+J newline   / commands   Ctrl+R rooms   Tab refs',
-	refs: 'Up/Down choose a ref   Enter opens it   Esc back',
-	actions: 'Up/Down choose an action   Enter presses it   Esc back',
-};
-
-/** At this width or wider, the composer shows its hint line. */
-const ROOMY = 96;
+/** The one hint of the footer. It names the key that opens the keys sheet. */
+const KEYS_HINT = `${bindingLabel(KEYMAP.composer.bindings.keys)} keys`;
 
 /** The parts the painter draws into. */
 export interface DrawParts {
@@ -140,10 +135,8 @@ export class Painter {
 		this.composer.setPlaceholder(this.placeholder());
 		this.composer.setStatus(new StyledText(this.statusChunks(mode, picking)));
 		this.composer.setCue(stagedCue(session.pendingRefs));
-		const roomy = this.width() >= ROOMY;
-		// A side panel draws its own hints, so its mode has none here.
-		const quiet = session.error || session.offline || !roomy;
-		this.composer.setHints(quiet ? '' : (HINTS[mode] ?? ''));
+		// The keys sheet opens from the composer only, so no other mode shows the hint.
+		this.composer.setHints(mode === 'compose' ? KEYS_HINT : '');
 	}
 
 	/** What the status line says about the chosen ref: why it does not open, or what Enter does. */

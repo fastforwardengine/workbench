@@ -12,9 +12,9 @@ exports[`the frames of the panels > draws the files panel in a short terminal 1`
 │                                      │
 │                                      │
 │ /shared/plan.txt   1.8 KB, 61 lines  │
-│ Type to searchd/pUp/Down choose      │
-│ PgUp/PgDn scroll   Ctrl+Y copy   Esc │
-└─close────────────────────────────────┘
+│ line of /shared/plan.txt 1         ▀ │
+│ line of /shared/plan.txt 2           │
+└──────────────────────────────────────┘
 "
 `;
 
@@ -47,7 +47,7 @@ exports[`the frames of the panels > draws the files panel over the whole width 1
 │ line of /shared/plan.txt 15                                                                      │
 │ line of /shared/plan.txt 16                                                                      │
 │ line of /shared/plan.txt 17                                                                      │
-│ Type to search   Up/Down choose   PgUp/PgDn scroll   Ctrl+Y copy   Esc close                     │
+│ line of /shared/plan.txt 18                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 "
 `;
@@ -80,8 +80,8 @@ exports[`the frames of the panels > draws the files panel with a long text file 
 │ line of /shared/plan.txt 14                         │
 │ line of /shared/plan.txt 15                         │
 │ line of /shared/plan.txt 16                         │
-│ Type to search   Up/Down choose   PgUp/PgDn scroll  │
-│ Ctrl+Y copy   Esc close                             │
+│ line of /shared/plan.txt 17                         │
+│ line of /shared/plan.txt 18                         │
 └─────────────────────────────────────────────────────┘
 "
 `;
@@ -154,6 +154,8 @@ exports[`the frames of the panels > draws the processes panel with a long output
 │ $ python3 scan/scan.py                              │
 │ second line                                         │
 │ 900 B of output.                                    │
+│ output of bash-aaa111 52                            │
+│ output of bash-aaa111 53                            │
 │ output of bash-aaa111 54                            │
 │ output of bash-aaa111 55                            │
 │ output of bash-aaa111 56                            │
@@ -166,8 +168,6 @@ exports[`the frames of the panels > draws the processes panel with a long output
 │ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
 │ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
 │ wwww                                              ▄ │
-│ Up/Down choose   PgUp/PgDn scroll   x x cancel      │
-│ Ctrl+Y copy   Esc close                             │
 └─────────────────────────────────────────────────────┘
 "
 `;
@@ -186,6 +186,8 @@ exports[`the frames of the panels > draws the processes panel with the second pr
 │ bash-bbb222   researcher, exit 0 after 4s           │
 │ $ echo done                                         │
 │ 900 B of output.                                    │
+│ output of bash-bbb222 50                            │
+│ output of bash-bbb222 51                            │
 │ output of bash-bbb222 52                            │
 │ output of bash-bbb222 53                            │
 │ output of bash-bbb222 54                            │
@@ -196,12 +198,10 @@ exports[`the frames of the panels > draws the processes panel with the second pr
 │ output of bash-bbb222 59                            │
 │ output of bash-bbb222 60                            │
 │ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
-│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww   │
+│ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww ▄ │
 │ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww █ │
 │ wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww █ │
 │ wwww                                              █ │
-│ Up/Down choose   PgUp/PgDn scroll   x x cancel      │
-│ Ctrl+Y copy   Esc close                             │
 └─────────────────────────────────────────────────────┘
 "
 `;

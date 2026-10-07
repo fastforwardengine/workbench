@@ -1,10 +1,8 @@
 import type { KeyEvent } from '@opentui/core';
 import type { FileBrowser } from '../state/browser.ts';
+import { type Act, actOf } from '../state/keymap.ts';
 import type { FilesPanel } from '../widgets/files-panel.ts';
 import type { Surface } from './surface.ts';
-
-/** What one key does in the files panel. `close` shuts the panel. */
-type Action = (close: () => void) => void;
 
 /** The files panel and its keys. */
 export class FilesSurface implements Surface {
@@ -41,28 +39,26 @@ export class FilesSurface implements Surface {
 		this.panel.fill(whole);
 	}
 
-	/** What each key does. Any other printable key adds to the search. */
-	private readonly keys: Record<string, Action> = {
+	/** What each key does. */
+	private readonly acts: Record<Act<'files'>, (close: () => void) => void> = {
 		up: () => this.browser.move(-1),
 		down: () => this.browser.move(1),
-		left: () => this.browser.moveTab(-1),
-		right: () => this.browser.moveTab(1),
-		pageup: () => this.panel.scrollBy(-this.panel.page),
-		pagedown: () => this.panel.scrollBy(this.panel.page),
+		previousTable: () => this.browser.moveTab(-1),
+		nextTable: () => this.browser.moveTab(1),
+		pageUp: () => this.panel.scrollBy(-this.panel.page),
+		pageDown: () => this.panel.scrollBy(this.panel.page),
+		erase: () => this.browser.backspace(),
+		clearSearch: () => this.browser.clear(),
+		copy: () => this.copy(),
 		// Esc clears the search first, then closes the panel.
-		escape: (close) => (this.browser.query ? this.browser.clear() : close()),
-		backspace: () => this.browser.backspace(),
+		close: (close) => (this.browser.query ? this.browser.clear() : close()),
 	};
 
-	private readonly controlKeys: Record<string, Action> = {
-		y: () => this.copy(),
-		u: () => this.browser.clear(),
-	};
-
+	/** Any other printable key adds to the search. */
 	onKey(key: KeyEvent, close: () => void): void {
 		key.preventDefault();
-		const action = key.ctrl ? this.controlKeys[key.name] : this.keys[key.name];
-		if (action) action(close);
+		const act = actOf('files', key);
+		if (act) this.acts[act](close);
 		else if (!key.ctrl && !key.meta && key.sequence.length === 1 && key.sequence >= ' ')
 			this.browser.type(key.sequence);
 	}

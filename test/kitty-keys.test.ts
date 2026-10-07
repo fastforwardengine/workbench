@@ -309,6 +309,17 @@ describe('hold Space to talk, through the parser', () => {
 		expect(voice.phase).toBe('idle');
 	});
 
+	it('sends the recording when Space comes up with Ctrl down', async () => {
+		const { delivered, send, time, voice } = await talking();
+		send(' ');
+		expect(voice.phase).toBe('listening');
+		time.at += 1_500;
+		send(release(' ', 5));
+		await wait(20);
+		expect(delivered).toEqual(['check the supply']);
+		expect(voice.phase).toBe('idle');
+	});
+
 	it('reads the press as the space key, and the CSI release as a release of it', async () => {
 		const { seen, freed, send } = await talking();
 		send(' ', release(' '));

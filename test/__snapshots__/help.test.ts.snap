@@ -24,16 +24,10 @@ exports[`the help text > lists every command and key, as the person reads them 1
   /steps [n]        show the steps of the newest activation of exchange n, oldest first.
                     Without n, the latest exchange. /steps off hides them.
   /quit             leave the terminal. The rooms stop with it.
-Keys
-  Enter sends. Ctrl+J, Alt+Enter, and Shift+Enter add a line.
-  Tab chooses a ref of a shown message. Up and Down choose. Enter opens a file or a
-  table in the files panel, or jumps to a message. Esc goes back to the composer.
-  PageUp and PageDown scroll. Start a message with // to send a leading slash.
-  Ctrl+C clears the composer, cancels a new room that waits for its goal, and closes a
-  panel. On an empty composer it drops the staged attachments.
-  In voice mode, Space on an empty composer starts a recording. Let go to send it.
-  Ctrl+C drops the recording.
-  Ctrl+D on an empty composer leaves the terminal. /quit also leaves.
+Messages
+  Start a message with // to send a leading slash.
   Start a message with @name to address one seat. The seat wakes, and the host
-  seats it first when it is not seated. Start with @@ to send a leading at sign."
+  seats it first when it is not seated. Start with @@ to send a leading at sign.
+Keys
+  Press ? on an empty composer to open the keys sheet."
 `;

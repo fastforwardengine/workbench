@@ -18,8 +18,8 @@ afterEach(() => {
 });
 
 /** The page size that each panel reports at 100x30, with the frames below. */
-const PAGE_FILES = 15;
-const PAGE_PROCESSES = 11;
+const PAGE_FILES = 17;
+const PAGE_PROCESSES = 13;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -113,17 +113,17 @@ describe('the files panel', () => {
 		return { browser, panel, frame };
 	}
 
-	it('draws the search box, the list with the chosen row, the title, and the hints', async () => {
+	it('draws the search box, the list with the chosen row, and the title', async () => {
 		const { frame } = await opened();
 		const text = await frame();
 		expect(text).toContain('Files › ▌   2 of 2');
 		expect(text).toContain('▸ /library/cell-18650.md  797 B');
 		expect(text).toContain('  /shared/notes.md        40 B');
 		expect(text).toContain('/library/cell-18650.md   30 B, 1 line');
-		expect(text).toContain('Type to search   Up/Down choose');
+		expect(text).not.toContain('Type to search');
 	});
 
-	it('narrows the list to a search, and replaces the hints with a flash', async () => {
+	it('narrows the list to a search, and shows a flash', async () => {
 		const { browser, panel, frame } = await opened();
 		browser.type('notes');
 		await wait(30);
@@ -132,7 +132,6 @@ describe('the files panel', () => {
 		const text = await frame();
 		expect(text).toContain('Files › notes▌   1 of 2');
 		expect(text).toContain('Copied to the clipboard.');
-		expect(text).not.toContain('Type to search   Up/Down choose');
 	});
 
 	it('takes the whole width when the terminal is narrow, and hides when the browser closes', async () => {
@@ -171,7 +170,7 @@ describe('the processes panel', () => {
 		expect(text).toContain('scan (bash-aaa111)');
 		expect(text).toContain('$ python3 scan/scan.py');
 		expect(text).toContain('output of bash-aaa111');
-		expect(text).toContain('x x cancel');
+		expect(text).not.toContain('x x cancel');
 	});
 
 	it('shows the output of the process that is chosen', async () => {

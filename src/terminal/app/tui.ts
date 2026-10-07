@@ -17,6 +17,7 @@ import { brand, tui as palette } from '../widgets/brand.ts';
 import { Composer } from '../widgets/composer.ts';
 import { FilesPanel } from '../widgets/files-panel.ts';
 import { Header } from '../widgets/header.ts';
+import { KeysPanel } from '../widgets/keys-panel.ts';
 import { Palette } from '../widgets/palette.ts';
 import { ProcessesPanel } from '../widgets/process-panel.ts';
 import { Transcript } from '../widgets/transcript.ts';
@@ -25,6 +26,7 @@ import { Painter } from './draw.ts';
 import { FilesSurface } from './files-surface.ts';
 import { KEYBOARD, keyboardProblem } from './keyboard.ts';
 import { Keys } from './keys.ts';
+import { KeysSurface } from './keys-surface.ts';
 import { Microphone } from './microphone.ts';
 import { ProcessesSurface } from './process-surface.ts';
 import { ViewfinderSurface } from './viewfinder-surface.ts';
@@ -84,6 +86,7 @@ class EngineTui {
 			processes: new ProcessesSurface(this.processes, new ProcessesPanel(renderer), () =>
 				this.render(),
 			),
+			keys: new KeysSurface(new KeysPanel(renderer)),
 		};
 		const viewfinder = new ViewfinderSurface(
 			new ViewfinderBrowser(
@@ -149,6 +152,7 @@ class EngineTui {
 		body.add(transcript.root);
 		body.add(surfaces.files.root);
 		body.add(surfaces.processes.root);
+		body.add(surfaces.keys.root);
 		body.add(viewfinder.root);
 		root.add(body);
 		root.add(this.composer.root);
