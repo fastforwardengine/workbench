@@ -11,6 +11,7 @@ import {
 	StyledText,
 	TextRenderable,
 } from '@opentui/core';
+import type { LiveActivation, LiveCall } from '../../view/live.ts';
 import { chipLine, type RefItem } from '../../view/refs.ts';
 import { ellipsize } from '../../view/text.ts';
 import type { Block, LiveBlock, MessageBlock, Role, StepsBlock } from '../../view/timeline.ts';
@@ -22,6 +23,10 @@ import { planRows } from './row-diff.ts';
 /** The cells a chip loses to the padding, the rail, and the scrollbar. */
 const CHIP_MARGIN = 8;
 const CHIP_MIN = 20;
+
+/** The cells that a live call line loses to the indent, the mark, the padding, and the scrollbar. */
+const CALL_MARGIN = 10;
+const CALL_MIN = 20;
 
 /** The rows of one thumbnail. */
 const THUMB_ROWS = 8;
@@ -104,6 +109,20 @@ function headerOf(block: MessageBlock, fill?: string): Chunk[] {
 	const returns = paint(returnsAt(block), { color: palette.accent, fill });
 	return [paint(from, { color: palette.accent, fill }), arrow, returns, at];
 }
+
+/** The mark of an activation in the live block, by state. */
+const ACTIVATION_MARK = {
+	running: { text: '●', color: palette.coral },
+	done: { text: '✓', color: palette.green },
+	failed: { text: '✗', color: palette.red },
+} as const;
+
+/** The mark of a call in the live block, by state. */
+const CALL_MARK = {
+	running: { text: '…', color: palette.dim },
+	done: { text: '✓', color: palette.green },
+	failed: { text: '✗', color: palette.red },
+} as const;
 
 const railOf: Record<Role, string> = {
 	question: palette.text,
@@ -392,14 +411,65 @@ export class Transcript {
 		return box;
 	}
 
-	private liveNode(block: LiveBlock): TextRenderable {
+	/** The live block: one line of state, then each activation with its latest calls. */
+	private liveNode(block: LiveBlock): BoxRenderable {
 		const detail = block.detail ? [paint(`   ${block.detail}`, { color: palette.dim })] : [];
-		return this.text([
-			paint('● ', { color: palette.coral }),
-			paint(block.text, { color: palette.muted }),
-			...detail,
-			paint('   /abort cancels it', { color: palette.dim }),
-		]);
+		const box = new BoxRenderable(this.renderer, { flexDirection: 'column', width: '100%' });
+		box.add(
+			this.text([
+				paint('● ', { color: palette.coral }),
+				paint(block.text, { color: palette.muted }),
+				...detail,
+				paint('   /abort cancels it', { color: palette.dim }),
+			]),
+		);
+		for (const activation of block.activations) this.addActivation(box, activation);
+		return box;
+	}
+
+	private addActivation(box: BoxRenderable, activation: LiveActivation): void {
+		const mark = ACTIVATION_MARK[activation.state];
+		box.add(
+			this.line([
+				paint(`  ${mark.text} `, { color: mark.color }),
+				paint(ellipsize(activation.title, Math.max(CALL_MIN, this.root.width - CALL_MARGIN)), {
+					color: palette.muted,
+				}),
+			]),
+		);
+		if (activation.earlier > 0)
+			box.add(
+				this.line([
+					paint(`    +${activation.earlier} earlier call${activation.earlier === 1 ? '' : 's'}`, {
+						color: palette.dim,
+					}),
+				]),
+			);
+		for (const call of activation.calls) box.add(this.line(this.callChunks(call)));
+	}
+
+	/** The chunks of one call line: the mark, the call, and its result. The line fits one row. */
+	private callChunks(call: LiveCall): Chunk[] {
+		const mark = CALL_MARK[call.state];
+		const room = Math.max(CALL_MIN, this.root.width - CALL_MARGIN);
+		const text = ellipsize(call.text, room);
+		const left = room - text.length - 2;
+		const result = call.result && left > 1 ? ellipsize(call.result, left) : '';
+		const color = call.state === 'failed' ? palette.red : palette.dim;
+		return [
+			paint(`    ${mark.text} `, { color: mark.color }),
+			paint(text, { color: palette.text }),
+			...(result ? [paint(`  ${result}`, { color })] : []),
+		];
+	}
+
+	/** One row that does not wrap. */
+	private line(chunks: Chunk[]): TextRenderable {
+		return new TextRenderable(this.renderer, {
+			content: new StyledText(chunks),
+			wrapMode: 'none',
+			width: '100%',
+		});
 	}
 
 	private noticeNode(notice: string): TextRenderable {

@@ -1,6 +1,7 @@
 import type { Exchange } from '@ambionframework/ambion';
 import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
+import { liveActivations } from '../../view/live.ts';
 import { type Known, type RefItem, refItems, shows } from '../../view/refs.ts';
 import { type ActivationSteps, activationLine, ended, stepsView } from '../../view/steps.ts';
 import { errorText } from '../../view/text.ts';
@@ -18,15 +19,7 @@ import {
 } from './commands.ts';
 import { dismissCommand } from './dismiss.ts';
 import { RoomReader } from './room-reader.ts';
-import {
-	DONE,
-	HELP,
-	mentionRefusal,
-	notesOf,
-	refusal,
-	seatChoices,
-	workingSeats,
-} from './session-text.ts';
+import { DONE, HELP, mentionRefusal, notesOf, refusal, seatChoices } from './session-text.ts';
 
 /** What the terminal does after a command, beyond what the session already changed. */
 export type Intent =
@@ -61,6 +54,8 @@ export class Session {
 	steps: { id: string; read: ActivationSteps | undefined } | undefined;
 	/** The files that `/attach` copied in. They go, as refs, with the next message. */
 	pendingRefs: StagedAttachment[] = [];
+	/** The steps of each running activation of the open exchange, by activation id. */
+	private live = new Map<string, ActivationSteps>();
 	private readonly reader: RoomReader<RoomView>;
 	private readonly changed: () => void;
 	private sending = false;
@@ -148,13 +143,39 @@ export class Session {
 		if (this.view?.status !== 'running') await this.refresh();
 	}
 
-	/** Read what a room read does not hold: the open steps. A failure keeps the last answer. */
+	/** Read what a room read does not hold: the open steps and the live steps. */
 	private async readSide(room: string): Promise<void> {
+		await Promise.all([this.readSteps(room), this.readLive(room)]);
+	}
+
+	/** Read the steps that `/steps` shows. A failure keeps the last answer. */
+	private async readSteps(room: string): Promise<void> {
 		const steps = this.steps;
 		if (!steps) return;
 		const read = await this.host.activation(room, steps.id).catch(() => undefined);
 		if (this.room !== room) return;
 		if (read && this.steps?.id === steps.id) this.steps = { id: steps.id, read };
+	}
+
+	/**
+	 * Read the steps of each running activation of the open exchange. A failed
+	 * read keeps the last steps of that activation. An activation that no longer
+	 * runs drops out.
+	 */
+	private async readLive(room: string): Promise<void> {
+		const running = (this.view?.exchange?.activations ?? [])
+			.filter((activation) => activation.outcome.kind === 'running')
+			.map((activation) => activation.id);
+		const reads = await Promise.all(
+			running.map((id) => this.host.activation(room, id).catch(() => undefined)),
+		);
+		if (this.room !== room) return;
+		const next = new Map<string, ActivationSteps>();
+		running.forEach((id, at) => {
+			const read = reads[at] ?? this.live.get(id);
+			if (read) next.set(id, read);
+		});
+		this.live = next;
 	}
 
 	/** What the person owes the room, one line each. It is empty when nothing waits. */
@@ -183,6 +204,7 @@ export class Session {
 		const view = this.view;
 		if (!view) return;
 		const activity = view.activity.at(-1);
+		const error = activity?.type === 'error' || activity?.type === 'port_error';
 		this.blocks = buildTimeline({
 			messages: this.reader.messages,
 			exchanges: view.exchanges,
@@ -192,8 +214,8 @@ export class Session {
 					.filter((participant) => participant.kind === 'person')
 					.map((participant) => participant.name),
 			),
-			working: workingSeats(view),
-			activity: activity ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
+			live: liveActivations(view.exchange?.activations ?? [], this.live, view.failures),
+			activity: activity && error ? `${activity.agent ?? 'room'}: ${activity.text}` : undefined,
 			tail: this.tail(view),
 			failures: view.failures,
 		});
@@ -352,6 +374,7 @@ export class Session {
 		this.blocks = [];
 		this.focus = undefined;
 		this.steps = undefined;
+		this.live = new Map();
 		this.notice = undefined;
 		const dropped = this.pendingRefs.length;
 		this.pendingRefs = [];

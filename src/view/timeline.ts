@@ -1,4 +1,5 @@
 import type { Exchange, ExchangeActivation, Message } from '@ambionframework/ambion';
+import type { LiveActivation } from './live.ts';
 import { formatUsage, type PassView } from './steps.ts';
 
 type ClosedView = Extract<Exchange, { status: 'closed' }>;
@@ -35,7 +36,9 @@ export interface StepsBlock {
 export interface LiveBlock {
 	type: 'live';
 	text: string;
-	/** The latest work a seat reported, when there is one. */
+	/** The activations of the open exchange. */
+	activations: LiveActivation[];
+	/** The latest error that a seat reported, when there is one. */
 	detail?: string;
 }
 
@@ -45,11 +48,11 @@ export interface TimelineInput {
 	messages: readonly Message[];
 	exchanges: readonly Exchange[];
 	open?: { person?: string };
-	/** The latest work a seat reported in the open exchange. */
+	/** The latest error that a seat reported in the open exchange. */
 	activity?: string;
 	humans: ReadonlySet<string>;
-	/** The seats that are working now. */
-	working: readonly string[];
+	/** The activations of the open exchange, as the live block shows them. */
+	live?: readonly LiveActivation[];
 	/** Blocks that follow the messages, before the live block. */
 	tail?: readonly Block[];
 	/** Why each failed activation failed, by activation id, as this process heard it. */
@@ -148,16 +151,15 @@ export function buildTimeline(input: TimelineInput): Block[] {
 		for (const text of notes.get(message.seq) ?? []) blocks.push({ type: 'note', text });
 	}
 	blocks.push(...(input.tail ?? []));
-	if (input.open) blocks.push(liveBlock(input.open.person, input.working, input.activity));
+	if (input.open) blocks.push(liveBlock(input.open.person, input.live ?? [], input.activity));
 	return blocks;
 }
 
 function liveBlock(
 	person: string | undefined,
-	working: readonly string[],
+	live: readonly LiveActivation[],
 	activity?: string,
 ): LiveBlock {
-	const seats = working.length > 0 ? ` with ${working.join(', ')}` : '';
 	const work = person === undefined ? 'the room’s work' : `${person}’s question`;
-	return { type: 'live', text: `Working on ${work}${seats}`, detail: activity };
+	return { type: 'live', text: `Working on ${work}`, activations: [...live], detail: activity };
 }
