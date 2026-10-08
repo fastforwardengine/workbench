@@ -1,4 +1,5 @@
 import type { Exchange } from '@ambionframework/ambion';
+import { VOICE_MARK } from '../../domain/voice.ts';
 import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
 import {
@@ -60,6 +61,17 @@ const runningSeats = (view: RoomView): string[] =>
 	(view.exchange?.activations ?? [])
 		.filter((activation) => activation.outcome.kind === 'running')
 		.map((activation) => activation.seat);
+
+/** How a submission differs from typed text. */
+export interface SubmitOptions {
+	/** True when the text is a speech transcript. A message then starts with `VOICE_MARK`. */
+	voice?: boolean;
+}
+
+/** Start a message body with the voice mark. An empty body and a marked body stay as they are. */
+function voiced(body: string, voice: boolean): string {
+	return voice && body && !body.startsWith(VOICE_MARK) ? `${VOICE_MARK}${body}` : body;
+}
 
 /**
  * Everything the terminal does that is not drawing. It holds who the person is,
@@ -425,11 +437,11 @@ export class Session {
 	// The composer's submissions
 
 	/** Handle what the person submitted: a goal, a message, or a command. */
-	async submit(text: string): Promise<Intent | undefined> {
+	async submit(text: string, options: SubmitOptions = {}): Promise<Intent | undefined> {
 		this.error = undefined;
 		this.notice = undefined;
 		if (this.awaitingGoal) return this.createWithGoal(this.awaitingGoal, text);
-		return this.execute(parse(text));
+		return this.execute(parse(text), options.voice === true);
 	}
 
 	/**
@@ -462,13 +474,13 @@ export class Session {
 		this.say('Canceled. No room was created.');
 	}
 
-	private async execute(parsed: Parsed): Promise<Intent | undefined> {
+	private async execute(parsed: Parsed, voice: boolean): Promise<Intent | undefined> {
 		if (parsed.kind === 'message') {
 			const refusal = parsed.to
 				? mentionRefusal(parsed, seatChoices(this.host.team, this.view), this.pendingRefs.length)
 				: undefined;
 			if (refusal) this.fail(new Error(refusal));
-			else await this.send(parsed.text, parsed.to);
+			else await this.send(parsed.text, parsed.to, voice);
 			return undefined;
 		}
 		if (parsed.kind === 'unknown') {
@@ -647,8 +659,8 @@ export class Session {
 
 	// Messages and room control
 
-	private async send(text: string, to?: string): Promise<void> {
-		const body = bodyOf(text, to, this.pendingRefs);
+	private async send(text: string, to?: string, voice = false): Promise<void> {
+		const body = voiced(bodyOf(text, to, this.pendingRefs), voice);
 		if (!body) return;
 		if (this.inFlight) return this.fail(new Error('The last message is still sending.'));
 		if (!this.identity) return this.say('Pick a person first: /user <name>.');
