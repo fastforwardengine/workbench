@@ -677,7 +677,9 @@ with `//` to send a leading slash.
 
   Voice mode also reads the replies aloud. When your last message was a voice
   message, the terminal reads aloud the text that a specialist puts between
-  `<voice>` and `</voice>` in each new reply. The screen shows the reply
+  `<voice>` and `</voice>` in each new reply. While a specialist works on a
+  voice message, it also speaks a short update when it starts, at each
+  milestone, at a blocker, and when it finishes. The screen shows the reply
   with no tags. The terminal uses Kokoro, a speech model that runs on this
   computer. `/voice` starts `koko` on a free port of `127.0.0.1`, and
   switching voice mode off ends it. A press of Space or Ctrl+C stops the
