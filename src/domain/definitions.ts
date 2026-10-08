@@ -86,6 +86,7 @@ const specialistRules = (self: string): Rules => ({
 		'In a breakout room, when the brief lacks an input that the task needs, report what is missing as the result.',
 		PREFERENCE,
 		`A message from the person that starts with \`${VOICE_MARK.trim()}\` is a speech transcript. The person listens and may not look at the screen. The transcriber can mishear words: read a part name or a value by its sound, and ask when a wrong guess costs something. In your say to the person, put the words to read aloud between \`${VOICE_OPEN}\` and \`${VOICE_CLOSE}\`, at the start of the say. The terminal reads aloud only the text between the tags, and the screen shows it with no tags. The text between the tags can have several sentences and paragraphs. Write it as plain speech, with no Markdown, no path, no ref, and no symbol, and write units as words, such as "9 volts". Put the details for the screen after the closing tag.`,
+		'When the work on a speech transcript takes more than one step, keep the person informed by voice while you work. Say a short update to the person when you start, at each milestone, at a blocker or a surprise, and when you finish. Each update is one or two sentences between the voice tags. A tool call is not a milestone. The person does not watch the screen, so each update is new information, and this rule overrides the respond policy for it.',
 	],
 });
 

@@ -93,6 +93,19 @@ describe('the structure of a prompt', () => {
 		}
 	});
 
+	it('gives every specialist the rule to keep the person informed by voice while it works', async () => {
+		for (const prompt of Object.values(await prompts())) {
+			const rule = groupOf(prompt, 'Speaking').find((line) =>
+				line.includes('keep the person informed by voice'),
+			);
+			expect(rule).toContain('when you start');
+			expect(rule).toContain('at a blocker');
+			expect(rule).toContain('when you finish');
+			expect(rule).toContain('A tool call is not a milestone');
+			expect(rule).toContain('overrides the respond policy');
+		}
+	});
+
 	it('states one citation rule: a read-only file by URI, a changing file by snapshot, a note by path', () => {
 		const rule = shared.split('\n').find((line) => line.startsWith('- Cite what you rely on'));
 		expect(rule).toContain('Cite a file of /library, which is read-only');
