@@ -132,7 +132,7 @@ from the Engineer or from the person (`@researcher`).
 The reserve is empty, so no seat needs the `seat` and `unseat` tools. `team`
 in `src/domain/definitions.ts` defines each specialist once, and the `Lab`
 lists them in `team` as the names that a message can address. A breakout
-room seats the agents that its opener chose ([Breakout rooms](breakouts.md)).
+room seats the specialists that its opener chose ([Breakout rooms](breakouts.md)).
 
 **Workbench has one person.** The name is the name of the OS account that
 runs the process (`people` in `src/domain/definitions.ts`). `join` and
@@ -204,9 +204,11 @@ returns a ref that a message can cite.
 from the object store, and the workspace checks the digest. It shows a
 database as tables, a picture by the extension of the path, and text up to
 128 KiB. Other binary bytes, and a database or picture over 8 MiB, give a
-note. A ref of another workspace fails. `commit` shows the repository, the
-branch or the tag, the hash, the author, the parents, the message, the
-changed paths, and where the branch or the tag points now.
+note. A ref of another workspace fails. `commit` shows these parts:
+
+- The repository, the branch or the tag, and the hash.
+- The author, the parents, and the message.
+- The changed paths, and where the branch or the tag points now.
 
 ## The backends
 
@@ -229,13 +231,19 @@ camera.` A skill macro that calls `fetch` needs a backend with
 endpoints (`docs/skills.md`).
 
 **`workstation.json` configures the workstation.** `loadWorkstation` reads
-it, and an error names the missing field. It holds `host`, `port` (22 by
-default), `hostKey` (the SHA-256 fingerprint), `keys` (a folder with one
-key for each account, relative to the file), `gitAccount`, `layout` (the
-`audit`, `rooms`, and `snapshots` folders), `roots`, and an optional
-`objects` block for an S3 store. `objects.credentials` names an env file
-beside `workstation.json`, so the config holds no secret. Without
-`objects`, the workstation keeps the snapshots in `layout.snapshots`.
+it, and an error names the missing field. The file holds these fields:
+
+- `host`, and `port` (22 by default).
+- `hostKey`: the SHA-256 fingerprint of the server.
+- `keys`: a folder with one key for each account, relative to the file.
+- `gitAccount`: the account of the git server.
+- `layout`: the `audit`, `rooms`, and `snapshots` folders.
+- `roots`: the roots that the file list reads.
+- `objects` (optional): an S3 store. `objects.credentials` names an env
+  file beside `workstation.json`, so the config holds no secret.
+
+Without `objects`, the workstation keeps the snapshots in
+`layout.snapshots`.
 
 **The probe names the cause of an SSH failure.** `probeWorkstation` makes
 the first operation as the host account. A failure names the server, the
