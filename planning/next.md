@@ -40,21 +40,54 @@ local container of `workstation/` today.
   and the folders follow `workstation/Dockerfile` and
   `workstation/entrypoint.sh`, in a container or on the host.
 
-## The first bench, in the garage
+## The first hands-free build
 
-**The person sets up the first physical bench in the garage.** The date is
-open. The software for the supply and both cameras is ready, and has run
-only on the simulator and in the container.
+**The person solders the first kit with the voice guidance of the
+Engineer.** The person keeps both hands on the work. A foot pedal holds to
+talk, and the Engineer answers aloud. The microscope is the only device.
 
-- [ ] **Test the `psu` template on the real HM310P first.** The HM310P
-      driver and the controller have run only on the `sim` driver. Run
-      `status`, then each actuator, on the real supply.
-- [ ] **Bring up the microscope.** `device-scan` finds it, and the
-      `usb-camera` template captures a frame of a solder joint. Settle the
+**The setup is the Mac at the bench.** The decisions of 2026-10-08:
+
+- **The Mac runs Workbench and the workstation container.** `make` starts
+  both. `make usb` gives the microscope to the container through OrbStack.
+  The Lambda Vector stays the target workstation, for later sessions.
+- **The other devices stay off the bench.** The BRIO, the HM310P, and the
+  USB microphone stay off the bench for this build.
+- **The radio takes its power from USB.** The HM310P does not power this
+  build.
+- **Voice goes both ways.** The pedal sends F13, whisper.cpp writes the
+  message, and Kokoro reads the reply.
+
+**The session goes one step at a time.** The person says "next". The
+Engineer says the parts, the place, and the orientation of the step. Before
+the person solders a polarized part, the person puts the board under the
+microscope and says "check". The Engineer reads the frame, and says pass,
+fail, or unclear. The Engineer records the step in the notes.
+
+- [ ] **A build plan in the notes.** `notes/build/first-kit.md` holds the
+      28 steps of the manual as small steps: the parts, the place, the
+      orientation mark, the risk, the check, and the page image of the
+      manual. It also holds the parts and their counts.
+- [ ] **Spoken replies of more than one sentence.** Tags in a reply mark
+      the parts that the terminal reads aloud. The other parts stay as
+      text on the screen.
+- [ ] **A dry run on the Mac, with no device.** The person runs `make`,
+      turns on `/voice`, and asks for step 1 with the pedal. A phone photo
+      through `/attach` stands in for the microscope.
+- [ ] **Bring up the microscope.** Set it to its PC camera mode (UVC).
+      `device-scan` finds it, `v4l2-ctl --list-formats-ext` shows MJPEG at
+      1920x1080, and the viewfinder shows the `scope` camera. Settle the
       unverified facts of the next section.
+- [ ] **The session.** The person solders every part, with the guidance
+      of the Engineer.
 
-**Done when** each command of the `psu` template gives the same result on
-the HM310P as on the simulator, and the microscope gives a frame.
+**Unverified:** whether the UVC stream of the microscope works through the
+USB attach of OrbStack. When it does not, the Mac keeps the terminal and
+connects to a workstation on the Lambda Vector over an SSH tunnel.
+
+**Done when** the radio plays a station on USB power, and
+`notes/build/first-kit.md` holds each step with its state and the
+microscope ref of each polarized part.
 
 ## The microscope: a TOMLOV TM4K-AF
 
@@ -86,8 +119,8 @@ part. The BRIO keeps the view of the whole bench.
   the camera ring, and whether Linux can control the focus or the LED
   lights.
 
-**The first bench settles the rest.** Its microscope item holds the check
-on real hardware.
+**The first hands-free build settles the rest.** Its microscope item holds
+the check on real hardware.
 
 ## The outcome
 
@@ -150,9 +183,10 @@ GPUs of the workstation, and a bench panel in the terminal.
 
 ## The activities, in order
 
-**The work comes in slices.** The first kit, built by hand, carries paths A
-and B early, with the awareness they need. The awareness then deepens, and
-the second kit carries the guided build. Path C comes last. Activity 1 runs
+**The work comes in slices.** The first kit, built with voice guidance,
+carries paths A and B early, with the awareness they need. The awareness
+then deepens, and the second kit carries the guided build with every
+sensor. Path C comes last. Activity 1 runs
 in parallel with the rest.
 
 Each activity ends with a result that the person can check. Check off an
@@ -181,7 +215,8 @@ time budget.
 - [x] Record the schematic of the board, from the kit's documentation or
       from the photos of the board. `library/fm-radio-kit-schematic.md`
       lists the nets that a reading of the picture leaves open.
-- [ ] The person builds the first kit by hand.
+- [ ] The person builds the first kit, with voice guidance (the first
+      hands-free build).
 - [ ] Settle the facts that [`fm-radio.md`](fm-radio.md) lists as open.
 
 **Done when** the first radio plays a station, and the team answers "what
@@ -241,6 +276,8 @@ evidence.
 - [ ] The team follows the assembly from the camera, and checks the
       placement and the orientation of each polarized part before it is
       soldered.
+- [ ] Test the `psu` template on the real HM310P: `status`, then each
+      actuator. The HM310P driver has run only on the `sim` driver.
 - [ ] The first power-on through the HM310P, current-limited, with the
       expected current from the datasheets.
 

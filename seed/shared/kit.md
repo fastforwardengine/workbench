@@ -1,7 +1,7 @@
 # The project
 
-**Workbench holds one bench project: an FM radio kit.** The person builds
-the first kit by hand. The seeded room `build` holds every phase. The goal
+**Workbench holds one bench project: an FM radio kit.** The Engineer guides
+the build of the first kit by voice, with the microscope. The seeded room `build` holds every phase. The goal
 of the room lists the phases in order.
 
 **The notes hold the state of the bench.** They are the git repository
