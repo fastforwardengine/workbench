@@ -23,7 +23,8 @@ RUN apt-get update -q \
 #   v4l-utils         v4l2-ctl, the USB cameras (UVC), their formats and controls
 #   fswebcam          one frame of a V4L2 camera, as a JPEG
 #   alsa-utils        arecord, the USB microphones: sound cards and one clip
-#   numpy, pil        a frame as numbers: the brightness of each step
+#   numpy, pil        a frame as numbers: the brightness of each step; pil also
+#                     makes the grey copy for the change rule of the camera sensor
 #   gphoto2           the cameras that gphoto2 drives, such as a DSLR
 RUN apt-get update -q \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
