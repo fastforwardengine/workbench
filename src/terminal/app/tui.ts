@@ -263,7 +263,7 @@ class EngineTui {
 	/** Send a transcript as the person's message. It takes the path of Enter. */
 	private async sendVoice(text: string): Promise<void> {
 		const isMessage = !this.session.awaitingGoal && parse(text).kind === 'message';
-		const intent = await this.session.submit(text);
+		const intent = await this.session.submit(text, { voice: true });
 		// A message that failed to send goes to the box, so the person can send it again.
 		if (isMessage && this.session.error && this.composer.text === '') this.composer.setText(text);
 		if (intent) this.apply(intent);
