@@ -49,7 +49,7 @@ type Rules = Partial<Record<Group, string[]>>;
 const SHARED_RULES: Rules = {
 	Project: [
 		'Read /shared/kit.md for the parts and the house rules, and /library for the datasheets, before you act.',
-		'The notes are the memory of the team. They are the git repository shared/notes. Before you act, follow the keep-notes skill to read them. Follow it also to add to them.',
+		'The notes are the shared record of the team, the git repository shared/notes. Read them when your task depends on earlier work. Add to them only what another seat or a later session needs: a decision, a finding, a reading, or a procedure. Follow the keep-notes skill for both.',
 		'You have file, shell, and git tools, and no web or email tools. The Engineer reaches the devices of the bench through the shell.',
 	],
 	Evidence: [

@@ -29,8 +29,8 @@ export const buildRoom: RoomPlan = {
 	name: 'build',
 	goal:
 		'Know the FM radio kit, and guide the build of the first one, one step at a time, from notes/build/first-kit.md. ' +
-		'Check each polarized part from a microscope photo before it is soldered. Record each part ' +
-		'and each step with its evidence in the notes. The first radio, on USB power, must play a station. ' +
+		'Check each polarized part from a microscope photo before it is soldered. Record the build ' +
+		'in the notes when the person pauses or finishes. The first radio, on USB power, must play a station. ' +
 		'Then tune the radio. Path A: a Pico presses the buttons, and the camera reads the display. ' +
 		'Path B: the Pico drives the tuner over I²C, and a scan maps the stations of the band. ' +
 		'Then guide the build of the second kit with every sensor, and power it on through the HM310P ' +

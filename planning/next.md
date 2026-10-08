@@ -62,7 +62,8 @@ talk, and the Engineer answers aloud. The microscope is the only device.
 Engineer says the parts, the place, and the orientation of the step. Before
 the person solders a polarized part, the person puts the board under the
 microscope and says "check". The Engineer reads the frame, and says pass,
-fail, or unclear. The Engineer records the step in the notes.
+fail, or unclear. The Engineer records the build in the notes when the
+person pauses or finishes.
 
 - [ ] **A build plan in the notes.** `notes/build/first-kit.md` holds the
       28 steps of the manual as small steps: the parts, the place, the

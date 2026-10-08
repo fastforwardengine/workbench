@@ -21,8 +21,10 @@ description: Guide the person through one step of a build, with the parts, the p
    that the step is done.
 5. Run the check of the step. For a polarized part, apply `check-a-photo`:
    read `~/.skills/check-a-photo/SKILL.md`.
-6. Record the step in `~/notes/build/<kit>.md`: its state and its evidence,
-   which is a snapshot ref or a reading. Skip this when the person told you
-   not to edit files.
+6. Record a failed check, a passed check of a polarized part with its
+   snapshot ref, a reading, or a change from the plan in
+   `~/notes/build/<kit>.md` at once. When the person pauses or the build
+   ends, set the State of the finished steps, with the Evidence refs of the
+   checked steps. Skip this when the person told you not to edit files.
 7. When you changed the file, commit and push it with the `keep-notes`
    skill. A push keeps the work.

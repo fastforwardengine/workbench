@@ -1,10 +1,14 @@
 ---
 name: keep-notes
-description: Read, add to, or dispute the notes of the team, the shared git repository shared/notes. Use it when you learn a fact, settle a question, or disagree with a claim of another seat.
+description: Read the notes of the team, the shared git repository shared/notes. Use it also to add a decision, a finding, a reading, or a procedure that another seat or a later session needs, or to dispute a claim.
 ---
 
-The notes are the memory of the team. Read `README.md` in the notes for the
-layout, the form of a claim, and the stewards.
+The notes are the shared record of the team. Read `README.md` in the notes
+for the layout, the form of a claim, and the stewards.
+
+Write a note only for what another seat or a later session needs. Do not
+record routine steps, progress, or narration: the journal of the room keeps
+them.
 
 1. Run the macro `keep-notes/pull`: `compose({ macro: 'keep-notes/pull' })`.
    It clones `shared/notes` into `~/notes` when the clone is absent, sets
