@@ -42,7 +42,7 @@ keeps all later commits and branches when Workbench starts again.
 
 The `keep-notes` skill states the loop below. No tool enforces the layout.
 The conventions live in the notes themselves, in `README.md`, and every seat
-reads that file first.
+that writes a note reads that file first.
 
 **A specialist adds to the notes sparingly.** A specialist reads them when
 its task depends on earlier work. It adds only what another seat or a later
