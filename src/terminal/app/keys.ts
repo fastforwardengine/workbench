@@ -4,7 +4,7 @@ import { type Act, actOf, KEYMAP } from '../state/keymap.ts';
 import type { LayerId } from '../state/layers.ts';
 import type { Mode } from '../state/mode.ts';
 import type { Session } from '../state/session.ts';
-import type { Voice } from '../state/voice.ts';
+import { PEDAL_KEY, type Voice } from '../state/voice.ts';
 import type { Composer } from '../widgets/composer.ts';
 import type { Palette } from '../widgets/palette.ts';
 import type { Transcript } from '../widgets/transcript.ts';
@@ -24,7 +24,7 @@ export interface KeyParts {
 	/** The camera layer, for the actions of the cameras. */
 	viewfinder: ViewfinderSurface;
 	transcript: Transcript;
-	/** Voice mode. Space on an empty composer records. */
+	/** Voice mode. Space on an empty composer records, and so does F13 in any mode. */
 	voice: Voice;
 	render: () => void;
 	/** Leave the terminal. */
@@ -127,18 +127,20 @@ export class Keys {
 	}
 
 	/**
-	 * Space in voice mode. True when voice mode takes the key. Voice mode owns
+	 * Space and F13 in voice mode. True when voice mode takes the key. Voice mode owns
 	 * Space in the composer only, because the dock and the refs use Space themselves.
+	 * F13 comes from a foot pedal and no other part uses it, so voice mode owns F13 in every mode.
 	 */
 	private voiceKey(key: KeyEvent): boolean {
-		if (this.mode !== 'compose' || !this.voice.press(key, this.composer.text === '')) return false;
+		if (this.mode !== 'compose' && key.name !== PEDAL_KEY) return false;
+		if (!this.voice.press(key, this.composer.text === '')) return false;
 		key.preventDefault();
 		return true;
 	}
 
 	/**
 	 * A key comes back up. Only the terminals that report key release send this.
-	 * Voice mode sends the recording when the person lets go of Space, in any
+	 * Voice mode sends the recording when the person lets go of Space or F13, in any
 	 * mode, because the hold can outlast a mode change. The release ends the hold
 	 * with any modifier, because the person can press Ctrl or Alt before they let go.
 	 */
@@ -429,7 +431,7 @@ export class Keys {
 	 * What each key of the composer does. A handler returns true when it takes the
 	 * key, and false when the textarea gets it. The textarea handles `send` and
 	 * `newline` through its own bindings. `talk` belongs to voice mode, which reads
-	 * Space before the keys route it.
+	 * Space and F13 before the keys route them.
 	 */
 	private readonly composeActs: Record<Act<'composer'>, () => boolean> = {
 		send: () => false,

@@ -84,7 +84,7 @@ export const COMMANDS = [
 		summary: 'Switch voice mode on or off',
 		help: [
 			'  /voice            switch voice mode on or off. In voice mode, hold Space on an empty',
-			'                    composer to talk, and let go to send what whisper.cpp hears.',
+			'                    composer, or F13, to talk, and let go to send what whisper.cpp hears.',
 		],
 	},
 	{

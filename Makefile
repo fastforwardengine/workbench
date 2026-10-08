@@ -12,6 +12,7 @@
 #   make test-workstation       the workspace tier on the workstation, no model
 #   make reset                  remove the workstation and its volumes, after a prompt
 #   make voice                  whisper.cpp and its model for /voice, once
+#   make pedal                  program a USB foot pedal to send F13, the hold-to-talk key
 #
 # workstation/README.md describes the workstation.
 
@@ -24,7 +25,7 @@ WHISPER_MODEL := $(HOME)/.cache/whisper/ggml-large-v3.bin
 WHISPER_URL := https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
 
 .DEFAULT_GOAL := workbench
-.PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset voice
+.PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset voice pedal
 
 # The dependencies, again when the manifest or the lockfile changes.
 node_modules/.modules.yaml: package.json pnpm-lock.yaml
@@ -64,6 +65,18 @@ workbench: workstation node_modules/.modules.yaml
 ## leaves no model that looks complete.
 voice: $(WHISPER_MODEL)
 	@command -v whisper-server >/dev/null || brew install whisper-cpp
+
+## What a foot pedal needs: footswitch from Homebrew. It programs a USB pedal
+## to send F13, and F13 holds to talk in voice mode like Space. The pedal is a
+## HID keyboard, so `make usb` leaves it with macOS. footswitch finds a pedal
+## by its USB IDs, and it stops with a message when none is plugged in. The
+## last command prints what the pedal sends.
+pedal:
+	@command -v footswitch >/dev/null || { \
+		brew tap rgerganov/footswitch https://github.com/rgerganov/footswitch.git && \
+		brew install --HEAD footswitch; }
+	footswitch -k f13
+	footswitch -r
 
 $(WHISPER_MODEL):
 	mkdir -p $(dir $@)

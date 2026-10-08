@@ -71,6 +71,7 @@ describe('keyLabel', () => {
 		expect(keyLabel({ name: 'left' })).toBe('←');
 		expect(keyLabel({ name: 'right' })).toBe('→');
 		expect(keyLabel({ name: 'space' })).toBe('Space');
+		expect(keyLabel({ name: 'f13' })).toBe('F13');
 		expect(keyLabel({ name: 'tab' })).toBe('Tab');
 		expect(keyLabel({ name: 'backspace' })).toBe('Backspace');
 		expect(keyLabel({ name: '?' })).toBe('?');

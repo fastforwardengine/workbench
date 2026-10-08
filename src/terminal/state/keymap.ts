@@ -38,6 +38,7 @@ const J = { name: 'j' } as const;
 const Q = { name: 'q' } as const;
 const ENTER = { name: 'return' } as const;
 const SPACE = { name: 'space' } as const;
+const F13 = { name: 'f13' } as const;
 const ESC = { name: 'escape' } as const;
 const PAGE_UP = { name: 'pageup' } as const;
 const PAGE_DOWN = { name: 'pagedown' } as const;
@@ -69,8 +70,8 @@ export const KEYMAP = {
 				does: 'Give the keys to the dock, while a layer is open',
 			},
 			talk: {
-				keys: [SPACE],
-				does: 'In voice mode, hold on an empty composer to talk, and let go to send',
+				keys: [SPACE, F13],
+				does: 'In voice mode, hold Space on an empty composer, or F13 in any mode, to talk, and let go to send',
 			},
 			tab: {
 				keys: [{ name: 'tab' }],
@@ -238,6 +239,7 @@ const NAMES: ReadonlyMap<string, string> = new Map([
 	['left', '←'],
 	['right', '→'],
 	['space', 'Space'],
+	['f13', 'F13'],
 	['tab', 'Tab'],
 	['backspace', 'Backspace'],
 ]);

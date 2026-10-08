@@ -401,3 +401,66 @@ describe('hold Space to talk, through the parser', () => {
 		expect(composer.text).toBe(' ');
 	});
 });
+
+describe('hold F13 to talk, through the parser', () => {
+	/** F13 is a key without text: the press, the repeat, and the release are `CSI u` codes. */
+	const F13 = { press: '\x1b[57376u', repeat: '\x1b[57376;1:2u', release: release(57376) };
+
+	async function pedal(over = {}) {
+		const time = { at: 1_000 };
+		const delivered: string[] = [];
+		const say = vi.fn();
+		const start = vi.fn(async () => fakeTake());
+		const voice = new Voice(
+			quietParts({
+				now: () => time.at,
+				start,
+				say,
+				transcribe: async () => 'check the supply',
+				deliver: async (text) => {
+					delivered.push(text);
+				},
+				...over,
+			}),
+		);
+		await voice.toggle();
+		const built = await build(voice);
+		return { ...built, voice, time, delivered, start, say };
+	}
+
+	it('reads the press as f13, the repeat as a flagged press, and the code as a release', async () => {
+		const { seen, freed, send } = await pedal();
+		send(F13.press, F13.repeat, F13.release);
+		expect(seen.map((key) => [key.name, key.repeated])).toEqual([
+			['f13', undefined],
+			['f13', true],
+		]);
+		expect(freed.map((key) => [key.name, key.eventType])).toEqual([['f13', 'release']]);
+	});
+
+	it('records on the press, takes the repeats once, types nothing, and sends on the release', async () => {
+		const { composer, send, voice, time, delivered, start } = await pedal();
+		composer.setText('draft');
+		send(F13.press);
+		expect(voice.phase).toBe('listening');
+		for (let repeat = 0; repeat < 30; repeat++) {
+			time.at += 30;
+			send(F13.repeat);
+		}
+		time.at += 1_500;
+		send(F13.release);
+		await wait(20);
+		expect(start).toHaveBeenCalledTimes(1);
+		expect(delivered).toEqual(['check the supply']);
+		expect(composer.text).toBe('draft');
+		expect(voice.phase).toBe('idle');
+	});
+
+	it('shows the note once when voice mode is off', async () => {
+		const say = vi.fn();
+		const { send } = await build(new Voice(quietParts({ say })));
+		send(F13.press, F13.repeat, F13.repeat, F13.release);
+		expect(say).toHaveBeenCalledTimes(1);
+		expect(say).toHaveBeenCalledWith('Voice mode is off. /voice turns it on.');
+	});
+});

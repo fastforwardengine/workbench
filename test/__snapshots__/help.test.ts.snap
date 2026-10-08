@@ -20,7 +20,7 @@ exports[`the help text > lists every command and key, as the person reads them 1
                     a terminal with Kitty graphics, such as Ghostty. A terminal under
                     100 columns hides the layer, and /camera closes it there.
   /voice            switch voice mode on or off. In voice mode, hold Space on an empty
-                    composer to talk, and let go to send what whisper.cpp hears.
+                    composer, or F13, to talk, and let go to send what whisper.cpp hears.
   /try              fill the composer with the room’s suggested question
   /abort            cancel the open exchange in this room
   /dismiss <n>      dismiss the say n that waits to return. The seat does not come back to it.

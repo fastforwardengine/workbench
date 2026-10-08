@@ -1,15 +1,21 @@
-/** A press of Space shorter than this sends nothing. */
+/** A press of Space or F13 shorter than this sends nothing. */
 export const MIN_HOLD_MS = 300;
 
 /** A hold stops at this length. A terminal that does not report key release never ends a hold by itself. */
 export const MAX_HOLD_MS = 60_000;
 
 /**
- * A terminal repeats a held key with no flag that says so. A Space that
- * comes within this time of the last one belongs to the hold in progress.
+ * A terminal repeats a held Space with no flag that says so. A Space or F13
+ * that comes within this time of the last one belongs to the hold in progress.
  * A key repeat starts after at most 2 s.
  */
 export const HOLD_GAP_MS = 2_500;
+
+/** The name of the key that a USB foot pedal sends. `make pedal` programs the pedal to send it. */
+export const PEDAL_KEY = 'f13';
+
+/** The note that F13 shows when voice mode is off. */
+const PEDAL_OFF_NOTE = 'Voice mode is off. /voice turns it on.';
 
 /** What voice mode does now. */
 export type VoicePhase = 'idle' | 'listening' | 'transcribing';
@@ -68,22 +74,22 @@ export interface VoiceParts {
 
 /** The status line, by phase. */
 const VOICE_LINE: Readonly<Record<VoicePhase, string>> = {
-	idle: 'Voice: hold Space to talk. /voice returns to text.',
+	idle: 'Voice: hold Space or F13 to talk. /voice returns to text.',
 	listening: 'listening',
 	transcribing: 'transcribing',
 };
 
 /** The status line while the model loads. A recording waits for the model. */
 const LOADING_LINE: Readonly<Record<VoicePhase, string>> = {
-	idle: 'Voice: loading model. You can hold Space to talk. /voice returns to text.',
+	idle: 'Voice: loading model. You can hold Space or F13 to talk. /voice returns to text.',
 	listening: 'listening',
 	transcribing: 'loading model',
 };
 
-/** True for Space without a modifier. */
-function isPlainSpace(key: VoiceKey): boolean {
+/** True for the key of that name, without a modifier. */
+function isPlain(key: VoiceKey, name: string): boolean {
 	const modified = key.ctrl || key.meta || key.shift || key.super || key.hyper;
-	return key.name === 'space' && !modified;
+	return key.name === name && !modified;
 }
 
 /** The first line of an error, as one line of at most 200 characters. */
@@ -108,8 +114,9 @@ export function cleanTranscript(output: string): string {
 }
 
 /**
- * Voice mode. The person holds Space on an empty composer to record, and
- * releases it to send what the recording says. This class holds the rules and
+ * Voice mode. The person holds Space on an empty composer, or F13 anywhere,
+ * to record, and releases the key to send what the recording says. F13 comes
+ * from a foot pedal, which cannot type text. This class holds the rules and
  * no device: the recorder and the transcriber come in as parts.
  */
 export class Voice {
@@ -119,9 +126,9 @@ export class Voice {
 	private readonly parts: VoiceParts;
 	private readonly now: () => number;
 	private pressedAt = 0;
-	/** The time of the last Space that voice mode took. */
-	private lastSpace = Number.NEGATIVE_INFINITY;
-	/** True from the press that starts a recording to the release of Space. */
+	/** The time of the last Space or F13 that voice mode took. */
+	private lastPress = Number.NEGATIVE_INFINITY;
+	/** True from the press that starts a recording to the release of the key. */
 	private held = false;
 	/** The failure line that voice mode put on screen. */
 	private shownLine: string | undefined;
@@ -150,15 +157,16 @@ export class Voice {
 	 * Read a key press. True when voice mode takes the key, so the composer
 	 * does not type it. Space on an empty composer starts a recording. Space
 	 * on a composer with text types a space, so the person can type `/voice`.
-	 * The repeats of a held Space come until the release, and voice mode takes them all.
+	 * F13 starts a recording with any composer, because it types nothing.
+	 * When voice mode is off, a new press of F13 shows a note, and voice mode stays off.
+	 * The repeats of a held key come until the release, and voice mode takes them all.
 	 */
 	press(key: VoiceKey, composerEmpty: boolean): boolean {
-		if (!this.on || !isPlainSpace(key)) return false;
-		const at = this.now();
-		const holding = this.held && at - this.lastSpace <= HOLD_GAP_MS;
-		this.lastSpace = at;
-		if (holding || this.phase === 'listening') return true;
-		if (!composerEmpty) return false;
+		if (!this.on) return this.pressWhenOff(key);
+		const pedal = isPlain(key, PEDAL_KEY);
+		if (!pedal && !isPlain(key, 'space')) return false;
+		if (this.touch() || this.phase === 'listening') return true;
+		if (!composerEmpty && !pedal) return false;
 		const free = this.phase === 'idle' && !this.settling && !this.disposed;
 		if (free && !key.repeated) this.begin();
 		return true;
@@ -196,7 +204,7 @@ export class Voice {
 		this.parts.changed();
 	}
 
-	/** The person let go of Space. */
+	/** The person let go of Space or F13. Either key ends the hold, whichever key started it. */
 	async release(): Promise<void> {
 		this.held = false;
 		await this.stop();
@@ -231,6 +239,21 @@ export class Voice {
 		this.disposed = true;
 		this.stale();
 		this.parts.halt();
+	}
+
+	/** Note the time of a press. True when the press belongs to the hold in progress. */
+	private touch(): boolean {
+		const at = this.now();
+		const holding = this.held && at - this.lastPress <= HOLD_GAP_MS;
+		this.lastPress = at;
+		return holding;
+	}
+
+	/** A key while voice mode is off. F13 says so on a new press, and voice mode takes every press and repeat of it. */
+	private pressWhenOff(key: VoiceKey): boolean {
+		if (!isPlain(key, PEDAL_KEY)) return false;
+		if (!key.repeated) this.parts.say(PEDAL_OFF_NOTE);
+		return true;
 	}
 
 	private turnOn(): void {
