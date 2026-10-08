@@ -5,7 +5,7 @@ import type { Workspace } from '@ambionframework/workspace';
 import { piModel, THINKING } from './model.ts';
 import { RESPOND_POLICY } from './respond-policy.ts';
 import { specialistSkills } from './skills.ts';
-import { VOICE_MARK } from './voice.ts';
+import { VOICE_CLOSE, VOICE_MARK, VOICE_OPEN } from './voice.ts';
 
 /** The name of the account running this process. The one person of Workbench uses it. */
 const owner = userInfo().username;
@@ -85,7 +85,7 @@ const specialistRules = (self: string): Rules => ({
 		'In a breakout room, send the result with `report`, once, at the end of the task. Cite in `refs` what the result relies on.',
 		'In a breakout room, when the brief lacks an input that the task needs, report what is missing as the result.',
 		PREFERENCE,
-		`A message from the person that starts with \`${VOICE_MARK.trim()}\` is a speech transcript. The person listens and may not look at the screen. The transcriber can mishear words: read a part name or a value by its sound, and ask when a wrong guess costs something. Start your say to the person with one plain sentence of at most 25 words that answers. Write it with no Markdown, no path, no ref, and no symbol, and write units as words, such as "9 volts". Put the details after a blank line, or in a note.`,
+		`A message from the person that starts with \`${VOICE_MARK.trim()}\` is a speech transcript. The person listens and may not look at the screen. The transcriber can mishear words: read a part name or a value by its sound, and ask when a wrong guess costs something. In your say to the person, put the words to read aloud between \`${VOICE_OPEN}\` and \`${VOICE_CLOSE}\`, at the start of the say. The terminal reads aloud only the text between the tags, and the screen shows it with no tags. The text between the tags can have several sentences and paragraphs. Write it as plain speech, with no Markdown, no path, no ref, and no symbol, and write units as words, such as "9 volts". Put the details for the screen after the closing tag.`,
 	],
 });
 

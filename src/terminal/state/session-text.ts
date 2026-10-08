@@ -1,4 +1,5 @@
 import type { ScheduledSay } from '@ambionframework/ambion';
+import { withoutVoiceTags } from '../../domain/voice.ts';
 import type { RoomAction, RoomView } from '../../host/host.ts';
 import type { Block } from '../../view/timeline.ts';
 import { COMMANDS } from './commands.ts';
@@ -61,7 +62,7 @@ function pendingLine(say: ScheduledSay): string {
 				hour: '2-digit',
 				minute: '2-digit',
 			});
-	return `${say.seat} comes back at ${time}: ${say.text} (/dismiss ${say.seq})`;
+	return `${say.seat} comes back at ${time}: ${withoutVoiceTags(say.text)} (/dismiss ${say.seq})`;
 }
 
 /** The agents that a view seats, with the attention of each. */

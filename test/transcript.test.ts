@@ -865,6 +865,53 @@ describe('the body of a message', () => {
 	}, 20_000);
 });
 
+describe('the voice parts of a message', () => {
+	const draw = async (text: string) => {
+		const view = await mount();
+		const message = { seq: 1, kind: 'said', from: 'engineer', text, at: AT };
+		const blocks = buildTimeline({
+			messages: [message],
+			exchanges: [],
+			open: undefined,
+			humans: new Set(['priya']),
+			tail: [],
+			failures: new Map(),
+		} as never);
+		view.transcript.render(blocks, undefined, undefined, true);
+		await stable(view.setup, view.transcript.root);
+		return view;
+	};
+
+	it('shows the spoken words as plain text after the label, with no tags', async () => {
+		const text = '<voice>\nThe supply is **on**.\n</voice>\n\nDetails: **9 V** at 1 A.';
+		const view = await draw(text);
+		const frame = view.setup.captureCharFrame();
+		expect(frame).toMatch(/voice\s+The supply is \*\*on\*\*\./);
+		expect(frame).toContain('Details: 9 V at 1 A.');
+		expect(frame).not.toContain('**9 V**');
+		expect(frame).not.toContain('voice>');
+	}, 20_000);
+
+	it('draws the words in the note colour and the details in the text colour', async () => {
+		const view = await draw('<voice>Spoken words.</voice>\n\nWritten words.');
+		const spans = view.setup.captureSpans().lines.flatMap((line) => line.spans);
+		const colorOf = (text: string) => spans.find((span) => span.text.includes(text))?.fg.toString();
+		expect(colorOf('Spoken words.')).toBe(RGBA.fromHex(palette.note).toString());
+		expect(colorOf('Written words.')).toBe(RGBA.fromHex(palette.text).toString());
+		expect(colorOf('voice')).toBe(RGBA.fromHex(palette.dim).toString());
+	}, 20_000);
+
+	it('draws two spans and the text between them in order, one blank row apart', async () => {
+		const view = await draw('<voice>One.</voice>\n\nBetween.\n\n<voice>Two.</voice>');
+		const lines = view.setup.captureCharFrame().split('\n');
+		const at = (word: string) => lines.findIndex((line) => line.includes(word));
+		expect(at('One.')).toBeLessThan(at('Between.'));
+		expect(at('Between.')).toBeLessThan(at('Two.'));
+		expect(at('Between.') - at('One.')).toBe(2);
+		expect(at('Two.') - at('Between.')).toBe(2);
+	}, 20_000);
+});
+
 describe('the system rows', () => {
 	const TIME = new Date(AT).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 	const system = (seq: number, text: string, extra: object = {}) =>

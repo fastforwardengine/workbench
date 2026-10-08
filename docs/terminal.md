@@ -411,10 +411,25 @@ Ctrl+C. `EngineTui.render` calls `Speech.update` after each repaint.
   watermark moves to the last seq when voice mode turns on and when the open
   room changes, so no message plays twice. A change of room also stops the
   sound.
-- **The text:** only the first paragraph, which ends at the first blank line.
-  Headings, list marks, emphasis, code ticks, and links lose their Markdown,
-  and a link keeps its text. A message with no words left is skipped.
-- **The queue:** one message plays at a time, in seq order. `stop` aborts the
+- **The text:** only the words between `<voice>` and `</voice>`
+  (`VOICE_OPEN` and `VOICE_CLOSE` in `src/domain/voice.ts`). A message can
+  hold several spans, and the terminal reads them in order. A span can hold
+  several paragraphs. An open tag with no close tag runs to the end of the
+  message, and a close tag with no open tag has no effect. Text outside the
+  tags is never read, so a reply with no tags is silent. Headings, list
+  marks, emphasis, code ticks, and links lose their Markdown, and a link
+  keeps its text. A paragraph with no words left is skipped.
+- **The transcript:** `voiceParts` (`src/domain/voice.ts`) splits a say
+  into its voice spans and the text between them. `Transcript` draws one
+  node for each part, in order, with one blank row between two nodes. The
+  text between the spans goes through the Markdown body. A voice span is a
+  row on the raised tone: the dim label `voice`, then the words as plain
+  text in the `note` colour. The tags do not show, and a span shows no
+  Markdown formatting. A one-line
+  preview of a say, such as the `/dismiss` list, uses `withoutVoiceTags`,
+  which keeps the content and removes the tags.
+- **The queue:** `Speech` queues one text for each paragraph of a span, so
+  the first sound starts soon. One text plays at a time, in seq order. `stop` aborts the
   sound and clears the queue. A failure shows one note and clears the queue.
 - **The microphone:** while the `busy` part is true, the phase of `Voice` is
   not `idle`. `Speech.update` then stops the sound and moves the watermark.
@@ -659,12 +674,14 @@ with `//` to send a leading slash.
   asks macOS for the microphone.
 
   Voice mode also reads the replies aloud. When your last message was a voice
-  message, the terminal reads the first paragraph of each new reply of a
-  specialist to you. It uses Kokoro, a speech model that runs on this
+  message, the terminal reads aloud the text that a specialist puts between
+  `<voice>` and `</voice>` in each new reply. The screen shows the reply
+  with no tags. The terminal uses Kokoro, a speech model that runs on this
   computer. `/voice` starts `koko` on a free port of `127.0.0.1`, and
   switching voice mode off ends it. A press of Space or Ctrl+C stops the
-  reply. A reply to a typed message stays silent. A reply that lands while
-  the microphone records or whisper transcribes stays silent too.
+  reply. A reply to a typed message stays silent, and so does a reply with
+  no tags. A reply that lands while the microphone records or whisper
+  transcribes stays silent too.
   `make voice` also builds `koko` with `cargo` into `~/.cache/kokoro/bin/`,
   and downloads the model files of about 340 MB to `~/.cache/kokoro/`. The
   build folder `~/.cache/kokoro/build` stays, because `koko` reads its

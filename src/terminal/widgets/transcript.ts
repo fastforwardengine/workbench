@@ -10,6 +10,7 @@ import {
 	StyledText,
 	TextRenderable,
 } from '@opentui/core';
+import { voiceParts } from '../../domain/voice.ts';
 import type { LiveActivation, LiveCall, LiveProcess } from '../../view/live.ts';
 import { chipLine, type RefItem, stayPick, systemPick } from '../../view/refs.ts';
 import { failedKind, NO_STEPS, type PassView } from '../../view/steps.ts';
@@ -49,6 +50,9 @@ const ROW_MIN = 20;
 
 /** The most cells that the source of a folded system row takes. */
 const SOURCE_MAX = 20;
+
+/** The label before the words of a voice part. */
+const VOICE_LABEL = 'voice';
 
 /** The rows of one thumbnail. */
 const THUMB_ROWS = 8;
@@ -366,13 +370,63 @@ export class Transcript {
 		});
 		const chosen = marks.picked === systemPick(block.message.seq);
 		box.add(this.text(headerOf(block, chosen ? palette.selected : fill)));
-		const body = bodyOf(block.message);
-		if (body) box.add(markdownBody(this.renderer, body, fill));
+		this.addBody(box, block.message, fill);
 		const width = Math.max(CHIP_MIN, this.root.width - CHIP_MARGIN);
 		for (const item of marks.refs.get(block.message.seq) ?? [])
 			box.add(this.chip(item, item.id === marks.picked, width, fill));
 		for (const strip of marks.pictures?.get(block.message.seq) ?? [])
 			this.addStrip(box, strip, width, marks.cellAspect ?? CELL_ASPECT);
+		return box;
+	}
+
+	/**
+	 * The body of a message. A say splits into its voice parts and the Markdown
+	 * between them, one node each, with a blank row between two nodes.
+	 */
+	private addBody(box: BoxRenderable, message: Message, fill: string | undefined): void {
+		const body = bodyOf(message);
+		const parts = message.kind === 'said' ? voiceParts(body) : [{ voice: false, text: body }];
+		let first = true;
+		for (const part of parts) {
+			const text = part.text.replace(/^(?:[ \t]*\r?\n)+/, '').trimEnd();
+			if (text === '') continue;
+			const node = part.voice
+				? this.voiceNode(text, fill)
+				: markdownBody(this.renderer, text, fill);
+			if (!first) node.marginTop = GAP;
+			box.add(node);
+			first = false;
+		}
+	}
+
+	/**
+	 * The words that the terminal reads aloud: the label `voice` in the dim
+	 * colour, then the words as plain text on the raised tone.
+	 */
+	private voiceNode(words: string, fill: string | undefined): BoxRenderable {
+		const box = new BoxRenderable(this.renderer, {
+			flexDirection: 'row',
+			width: '100%',
+			gap: APART,
+			paddingLeft: GUTTER,
+			paddingRight: GUTTER,
+			backgroundColor: fill ?? palette.raised,
+		});
+		box.add(
+			new TextRenderable(this.renderer, {
+				content: new StyledText([paint(VOICE_LABEL, { color: palette.dim })]),
+				wrapMode: 'none',
+				flexShrink: 0,
+			}),
+		);
+		box.add(
+			new TextRenderable(this.renderer, {
+				content: new StyledText([paint(words, { color: palette.note })]),
+				wrapMode: 'word',
+				flexGrow: 1,
+				flexShrink: 1,
+			}),
+		);
 		return box;
 	}
 
