@@ -28,7 +28,7 @@ export interface RoomPlan {
 export const buildRoom: RoomPlan = {
 	name: 'build',
 	goal:
-		'Know the FM radio kit, and guide the build of the first one, one step at a time. ' +
+		'Know the FM radio kit, and guide the build of the first one, one step at a time, from notes/build/first-kit.md. ' +
 		'Check each polarized part from a microscope photo before it is soldered. Record each part ' +
 		'and each step with its evidence in the notes. The first radio, on USB power, must play a station. ' +
 		'Then tune the radio. Path A: a Pico presses the buttons, and the camera reads the display. ' +

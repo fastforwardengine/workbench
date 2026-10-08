@@ -3,6 +3,8 @@
 **Why it matters:** The manual, the schematic, and the datasheets disagree
 about the supply limit.
 
-**What answers it:** Power the radio from the HM310P with a current limit.
-Read VDD, the net 3V3, and the idle and full-volume current. Snapshot the
+**What answers it:** The first power-on of the first kit uses USB, through
+the charging module (`build/first-kit.md`). Read VDD and the net 3V3 with a
+multimeter. It also shows whether the module powers the radio with no
+cell. The HM310P gives the idle and full-volume current later. Snapshot the
 readings.
