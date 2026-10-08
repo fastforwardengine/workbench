@@ -28,6 +28,7 @@ import { sharedRegistrations } from '../domain/notes.ts';
 import { buildRoom, seats } from '../domain/room.ts';
 import { WORKSPACE } from '../view/refs.ts';
 import { stepLog } from '../view/steps.ts';
+import { type ActivationLog, openActivationLog } from './activations.ts';
 import { labRepositories } from './repositories.ts';
 import { seedWorkspace } from './seed.ts';
 import { unavailable } from './unavailable.ts';
@@ -137,18 +138,28 @@ export async function openRooms(
 	// The steps of each activation go to a log in this process. Each step
 	// tells the watchers of its room to read again.
 	const log = stepLog();
+	// Each step is also a line in `activations.jsonl`, for a reader after a restart.
+	const activations: ActivationLog = openActivationLog(directory);
 	const runtime = createRuntime({
 		storage: sqliteJournals(sql),
 		execution: modelExecution(options, reason),
 		logger: (record) => {
 			log.logger(record);
+			activations.write(record);
 			const state = stateOf(record.room);
 			recordFailure(state, record.step);
 			changed(state);
 		},
 	});
 	let closing = false;
-	const { backend, roots } = await workspaceBackends(directory, options.workstation);
+	let backends: Awaited<ReturnType<typeof workspaceBackends>>;
+	try {
+		backends = await workspaceBackends(directory, options.workstation);
+	} catch (error) {
+		await activations.close();
+		throw error;
+	}
+	const { backend, roots } = backends;
 	const workspace = openWorkspace({ name: WORKSPACE, backend, audit: {}, rooms: true });
 	try {
 		if (options.workstation) await probeWorkstation(workspace, options.workstation);
@@ -158,6 +169,7 @@ export async function openRooms(
 		await workspace.git?.use(workspace.mirrorAgent, (env) => env.list());
 	} catch (error) {
 		await workspace.dispose().catch(() => {});
+		await activations.close();
 		throw error;
 	}
 	let workspaceTail = Promise.resolve();
@@ -195,6 +207,7 @@ export async function openRooms(
 		await canvas.close().catch(() => {});
 		await workspaceTail.catch(() => {});
 		await workspace.dispose().catch(() => {});
+		await activations.close();
 		throw error;
 	}
 	// Every seat that the host runs. Each one has a home in the workspace.
@@ -266,9 +279,14 @@ export async function openRooms(
 		closing = true;
 		// Each room keeps its row, so a restart resumes the rooms that ran. The
 		// canvas reports a stop that failed and stops the other rooms.
-		await canvas.close();
-		await workspaceTail;
-		await workspace.dispose();
+		try {
+			await canvas.close();
+			await workspaceTail;
+			await workspace.dispose();
+		} finally {
+			// The canvas closed first, so the log holds the final `end` steps.
+			await activations.close();
+		}
 	}
 	return {
 		/** The specialists that a room can seat. */

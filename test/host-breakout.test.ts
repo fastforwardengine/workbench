@@ -1,5 +1,5 @@
 /** The host and the breakout rooms: the view of a breakout room, its watchers, and the messages of a person. */
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PiExecutionOptions } from '@ambionframework/pi';
@@ -115,11 +115,15 @@ afterEach(async () => {
 	}
 });
 
-async function open(respond: (seat: Seat) => AssistantMessage) {
+async function openIn(respond: (seat: Seat) => AssistantMessage) {
 	const directory = await mkdtemp(join(tmpdir(), 'workbench-breakout-'));
 	const lab = await openLab({ directory, stream: streamOf(respond) });
 	opened.push({ lab, directory });
-	return lab;
+	return { lab, directory };
+}
+
+async function open(respond: (seat: Seat) => AssistantMessage) {
+	return (await openIn(respond)).lab;
 }
 
 /** Wait until the rooms of the lab satisfy a check. */
@@ -225,5 +229,22 @@ describe('a breakout room in the host', () => {
 		const resumed = await lab.control(ROOM, 'resume');
 		expect(resumed.status).toBe('running');
 		expect(resumed.breakout?.state).toBe('running');
+	});
+
+	it('logs each step of the root room and the breakout room, and ends each activation with an end step', async () => {
+		const { lab, directory } = await openIn(fullPath);
+		await ask(lab);
+		await until(lab, (all) => all.some((room) => room.breakout?.state === 'archived'));
+		await lab.close();
+		const text = await readFile(join(directory, 'activations.jsonl'), 'utf8');
+		const lines = text.split('\n').filter((line) => line !== '');
+		const records = lines.map(
+			(line) => JSON.parse(line) as { room: string; step: { type: string; activation: string } },
+		);
+		expect(new Set(records.map((record) => record.room))).toEqual(new Set(['build', ROOM]));
+		const last = new Map<string, string>();
+		for (const { room, step } of records) last.set(`${room} ${step.activation}`, step.type);
+		expect(last.size).toBeGreaterThan(0);
+		for (const type of last.values()) expect(type).toBe('end');
 	});
 });
