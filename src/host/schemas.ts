@@ -100,7 +100,9 @@ change of config. A line has these fields:
   \`instructions\`, \`guidance\`, \`respondPolicy\`, \`summaryPolicy\`,
   \`activationTokenLimit\` (\`null\` for no limit), \`estimateTokens\`,
   \`reminderCount\`, and \`tools\`. A tool holds its \`name\`,
-  \`description\`, and \`parameters\` (JSON schema). The source of a
+  \`label\`, \`description\`, \`parameters\` (JSON schema), and
+  \`compose\` (\`false\`, or the output schema). Any other plain field of
+  a tool or an executor is also in the line. The source of a
   function is not in the file. \`respondPolicySource\` and
   \`summaryPolicySource\` say whether the text is the Ambion \`default\` or
   comes from the \`definition\`.
