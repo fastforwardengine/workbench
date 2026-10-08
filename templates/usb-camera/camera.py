@@ -245,13 +245,15 @@ def judge(last, grey, gap):
 
 
 def grey_of(jpeg):
-    """A grey 64x36 copy of a JPEG as 2304 ints, or None when the JPEG does not decode."""
+    """A grey 64x36 copy of a JPEG as 2304 ints, or None when the JPEG does not decode.
+    Any failure gives None: a corrupt frame can raise more than a decode error, such as the
+    decompression bomb error of Pillow or MemoryError."""
     from PIL import Image  # Pillow loads here only: the tests of the rule and the demo need none.
     try:
         with Image.open(io.BytesIO(jpeg)) as image:
             image.draft("L", GREY_SIZE)  # The decoder then scales down while it reads.
             return list(image.convert("L").resize(GREY_SIZE).tobytes())
-    except (OSError, SyntaxError, ValueError):
+    except Exception:  # noqa: BLE001 - One bad frame must not stop the reader thread.
         return None
 
 
@@ -276,6 +278,7 @@ class Splitter:
             del self.buffer[:len(self.buffer) - self.buffer.endswith(b"\xff")]
             return None
         del self.buffer[:start]
+        # A frame ends at the first EOI, so an embedded EXIF thumbnail would split it. UVC MJPEG streams carry none.
         end = self.buffer.find(EOI, 2)
         if end < 0:
             if len(self.buffer) > FRAME_LIMIT:
@@ -413,8 +416,8 @@ class Reader(threading.Thread):
             try:
                 self.once()
                 self.problem = "The stream ended."
-            except (OSError, ValueError, subprocess.SubprocessError) as error:
-                self.problem = str(error)
+            except Exception as error:  # noqa: BLE001 - A surprise becomes the problem and a restart.
+                self.problem = str(error) or type(error).__name__
             self.stopping.wait(self.pause)
 
     def once(self):
@@ -434,7 +437,8 @@ class Reader(threading.Thread):
 
     def take(self, jpeg):
         """Offer one frame. A frame that is due for the rule needs a grey copy.
-        A frame that does not decode is skipped."""
+        A frame that does not decode is skipped. A frame that is not due must start with the
+        start marker and end with the end marker, or the reader skips it."""
         at, seen = utc(), self.ring.clock()
         grey = None
         if seen - self.checked >= DETECT_PERIOD:
@@ -442,6 +446,8 @@ class Reader(threading.Thread):
             if grey is None:
                 return
             self.checked = seen
+        elif not (jpeg.startswith(b"\xff\xd8\xff") and jpeg.endswith(EOI)):
+            return
         self.ring.offer(jpeg, grey, at)
 
     @staticmethod
@@ -454,14 +460,18 @@ class Reader(threading.Thread):
             process.wait()
         process.stdout.close()
 
-    def stop(self):
-        """Stop the stream, and wait for the thread."""
+    def stop(self, timeout=10):
+        """Stop the stream, and wait for the thread. A thread that stays alive loses its process by kill."""
         self.stopping.set()
         with self.hold:
             if self.process is not None:
                 self.process.terminate()
         if self.is_alive():
-            self.join(timeout=10)
+            self.join(timeout=timeout)
+        if self.is_alive():
+            with self.hold:
+                if self.process is not None:
+                    self.process.kill()  # v4l2-ctl must not outlive the server.
 
 
 class Capture:
@@ -485,7 +495,9 @@ def kept_status(frame):
 
 
 def newest_status(frame, last_at):
-    """The text about a newest frame that the ring did not keep."""
+    """The text about a newest frame that the ring did not keep. `last_at` is None before the first kept frame."""
+    if last_at is None:
+        return "Not kept: the ring kept no frame yet."
     if frame.share is not None and frame.share > CHANGED_SHARE:
         return (f"Not kept yet: {percent(frame.share)} of the pixels differ from the kept frame of {last_at}. "
                 f"The rule keeps a frame {MIN_GAP:g} s after the last kept frame.")

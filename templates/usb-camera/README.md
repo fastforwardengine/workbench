@@ -178,17 +178,24 @@ v4l2-ctl -d /dev/video0 --set-fmt-video=width=1280,height=720,pixelformat=MJPG \
 
 The camera sends MJPEG at 5 frames each second. The thread splits stdout
 into JPEG frames at the start marker (`FF D8`) and the end marker
-(`FF D9`). A camera that has no MJPEG mode at that resolution gives no
+(`FF D9`). A frame ends at the first end marker, so an embedded EXIF
+thumbnail would split it. UVC MJPEG streams carry none. A camera that has no MJPEG mode at that resolution gives no
 frame: check the modes with `--list-formats-ext`. When the stream ends,
 for example after an unplug, the thread waits 1 second, finds the node
-again, and starts the stream again. A stop of the server stops `v4l2-ctl`.
+again, and starts the stream again. An error that the thread did not expect
+also restarts the stream, and the message stays as the problem. A stop of
+the server stops `v4l2-ctl`. When the thread does not end in 10 seconds,
+the server kills `v4l2-ctl`.
 
 - **The change rule.** The thread judges 2 frames each second. It makes a
   grey copy of 64x36 pixels with Pillow and subtracts the mean grey, so a
   change of exposure does not count. A pixel differs when its grey value
   moves by more than 20. The thread keeps a frame when more than 2 % of the
   pixels differ from the last kept frame, and 2 seconds passed since that
-  frame. The first frame is kept. A frame that does not decode is skipped.
+  frame. The first frame is kept. A frame that does not decode is skipped,
+  and so is a frame that Pillow refuses, for example a frame that claims a
+  huge size. A frame between two judged frames is skipped too, unless it
+  starts with `FF D8 FF` and ends with `FF D9`.
 - **The ring.** The ring holds the kept frames of the last 120 seconds, 60
   frames at most. A frame is the JPEG that the camera sent, with no new
   encode. At 1280x720 a frame has 100 to 200 KB, so the ring holds 6 to
@@ -200,7 +207,8 @@ again, and starts the stream again. A stop of the server stops `v4l2-ctl`.
   `mediaType: image/jpeg`. The text gives the receipt time, the age in
   seconds, and the share of changed pixels of a kept frame. On the newest
   frame it says "no change since" the time of the last kept frame, or that
-  a change waits for the 2 seconds. The time is the receipt time on the
+  a change waits for the 2 seconds. Before the first kept frame it says
+  that the ring kept no frame yet. The time is the receipt time on the
   workstation. It is no clock of the camera.
 - **The files.** `/files/<sha256>` reads the frames in RAM first, and then
   `blobs/`. The server holds each newest frame that an observation named

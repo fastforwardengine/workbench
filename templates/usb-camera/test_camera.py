@@ -778,6 +778,12 @@ class ObserveTests(unittest.TestCase):
         text = self.observe()[-1]["parts"][0]["text"]
         self.assertIn("Not kept yet: 16.7 % of the pixels differ from the kept frame of", text)
 
+    def test_the_status_of_a_newest_frame_before_any_kept_frame_has_no_none(self):
+        frame = camera.Frame(stamp(1), 1.0, jpeg(1), digest_of(jpeg(1)), 0.0)
+        text = camera.newest_status(frame, None)
+        self.assertNotIn("None", text)
+        self.assertEqual(text, "Not kept: the ring kept no frame yet.")
+
     def test_files_come_from_ram_and_a_frame_that_left_the_ring_gives_404(self):
         self.offer(0, scene(10, 10))
         self.offer(1, scene(40, 20), 5)
@@ -855,6 +861,52 @@ class ReaderTests(unittest.TestCase):
         threading.Event().wait(0.05)
         self.assertIsNone(self.ring.newest)
         self.assertFalse(self.ring.arrived.is_set())
+
+    def test_a_frame_that_is_not_due_must_look_like_a_jpeg(self):
+        clock = Clock()
+        self.ring = camera.Ring(clock)
+        reader = camera.Reader(self.ring, self.resolve, self.launch, lambda _jpeg: camera.DEMO_GREY)
+        reader.take(jpeg(1))  # Due: the first frame.
+        clock.now += 0.01
+        for junk in (b"junk", jpeg(2)[:-2], jpeg(2)[1:], b"\xff\xd8" + b"\x00" * 8 + b"\xff\xd9"):
+            reader.take(junk)
+            self.assertEqual(self.ring.newest.jpeg, jpeg(1))
+        reader.take(jpeg(3))
+        self.assertEqual(self.ring.newest.jpeg, jpeg(3))
+
+    def test_a_decode_that_raises_restarts_the_stream(self):
+        def decode(data):
+            if data == jpeg(1):
+                raise RuntimeError("Surprise.")
+            return camera.DEMO_GREY
+
+        self.processes = [FakeProcess([jpeg(1)]), FakeProcess([jpeg(2)], hold=True)]
+        reader = self.reader(decode=decode)
+        reader.start()
+        self.wait_for(lambda: self.ring.newest is not None and self.ring.newest.jpeg == jpeg(2))
+        self.assertEqual(len(self.launched), 2)
+        self.assertTrue(reader.is_alive())
+        self.assertEqual(reader.problem, "Surprise.")
+
+    def test_stop_kills_a_process_that_outlives_the_wait(self):
+        killed = threading.Event()
+
+        class Stubborn(FakeProcess):
+            def terminate(self):
+                self.terminated = True  # The process ignores terminate.
+
+            def kill(self):
+                killed.set()
+                self.hold.set()
+
+        self.processes = [Stubborn([jpeg(1)], hold=True)]
+        reader = self.reader()
+        reader.start()
+        self.wait_for(lambda: self.ring.arrived.is_set())
+        reader.stop(timeout=0.05)
+        self.assertTrue(killed.is_set())
+        reader.join(timeout=5)
+        self.assertFalse(reader.is_alive())
 
     def test_the_stream_restarts_after_it_ends_and_resolves_the_node_again(self):
         self.processes = [FakeProcess([jpeg(1)]), FakeProcess([jpeg(2)]), FakeProcess([jpeg(3)], hold=True)]
@@ -935,6 +987,12 @@ class DecodeTests(unittest.TestCase):
         self.assertIsNone(camera.grey_of(b"not a jpeg"))
         self.assertIsNone(camera.grey_of(camera.DEMO_JPEG[:300]))
         self.assertIsNone(camera.grey_of(b""))
+
+    def test_a_frame_that_claims_a_huge_size_gives_none(self):
+        data = bytearray(camera.DEMO_JPEG)
+        marker = next(at for at in range(len(data) - 9) if data[at] == 0xFF and data[at + 1] in (0xC0, 0xC1, 0xC2))
+        data[marker + 5:marker + 9] = (60000).to_bytes(2, "big") * 2  # Height and width of the SOF segment.
+        self.assertIsNone(camera.grey_of(bytes(data)))
 
 
 class FakeSysfs:
