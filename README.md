@@ -126,7 +126,7 @@ A bench script comes from a template.
 
 - **Rooms:** the seeded room `build` holds every phase of the FM radio, in
   this order:
-  1. Know the kit, and support the first hand build.
+  1. Know the kit, and guide the build of the first kit.
   2. Tune the radio: path A and path B.
   3. Guide the build of the second kit.
   4. Write new firmware: path C.

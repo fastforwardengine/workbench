@@ -28,8 +28,9 @@ export interface RoomPlan {
 export const buildRoom: RoomPlan = {
 	name: 'build',
 	goal:
-		'Know the FM radio kit, and support the hand build of the first one. Record each part ' +
-		'with its evidence in the notes. The first radio must play a station. ' +
+		'Know the FM radio kit, and guide the build of the first one from notes/build/first-kit.md. ' +
+		'Check each polarized part with the scope camera before it is soldered, and power it on over USB. ' +
+		'Record each part with its evidence in the notes. The first radio must play a station. ' +
 		'Then tune the radio. Path A: a Pico presses the buttons, and the camera reads the display. ' +
 		'Path B: the Pico drives the tuner over I²C, and a scan maps the stations of the band. ' +
 		'Then guide the build of the second kit, check each polarized part from a photo before it ' +

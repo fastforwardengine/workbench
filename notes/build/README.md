@@ -2,8 +2,7 @@
 
 One file for each kit: `build/<kit>.md`, such as `build/first-kit.md` and
 `build/second-kit.md`. The file holds the plan of each step and its record.
-The team builds the first kit by hand. The team builds the second kit with
-the guidance of the specialists. The Engineer keeps the files, with the
+The Engineer guides the build of each kit, and keeps the files, with the
 `guide-a-build-step` skill.
 
 ## Format
@@ -25,8 +24,10 @@ section holds a plan and a record.
 | Record         | `State:` `todo`, `done`, or `blocked`                       |
 | Record         | `Evidence:` a snapshot ref of a photo, or a reading         |
 
-**First power-on.** Give the expected current from the datasheets, and the
-current limit of the supply. Stop at once when the current reaches the limit.
+**First power-on.** Give the source of power, the expected current from the
+datasheets, and the current limit of the supply. Stop at once when the
+current reaches the limit. A source with no set limit, such as USB, needs a
+stop rule: the signs that stop the power at once.
 
 ## Rules
 
