@@ -10,7 +10,7 @@ import {
 	StyledText,
 	TextRenderable,
 } from '@opentui/core';
-import { voiceParts } from '../../domain/voice.ts';
+import { voiceParts, withoutVoiceTags } from '../../domain/voice.ts';
 import type { LiveActivation, LiveCall, LiveProcess } from '../../view/live.ts';
 import { chipLine, type RefItem, stayPick, systemPick } from '../../view/refs.ts';
 import { failedKind, NO_STEPS, type PassView } from '../../view/steps.ts';
@@ -105,6 +105,11 @@ const clock = (at: string | undefined): string => {
 function bodyOf(message: Message): string {
 	if (message.kind === 'said' || message.kind === 'system') return message.text ?? '';
 	return '';
+}
+
+/** True for a say, and for a say that the room returned to its seat. Both can hold voice tags. */
+function carriesVoice(message: Message): boolean {
+	return message.kind === 'said' || (message.kind === 'system' && message.returns !== undefined);
 }
 
 /** When a say to oneself returns, as a clock time after its header, or `dismissed` when a dismissal names it. */
@@ -385,7 +390,7 @@ export class Transcript {
 	 */
 	private addBody(box: BoxRenderable, message: Message, fill: string | undefined): void {
 		const body = bodyOf(message);
-		const parts = message.kind === 'said' ? voiceParts(body) : [{ voice: false, text: body }];
+		const parts = carriesVoice(message) ? voiceParts(body) : [{ voice: false, text: body }];
 		let first = true;
 		for (const part of parts) {
 			const text = part.text.replace(/^(?:[ \t]*\r?\n)+/, '').trimEnd();
@@ -449,7 +454,11 @@ export class Transcript {
 	 * text, and the clock time. The text takes the ellipsis, so the row fits one line.
 	 */
 	private systemChunks(message: SystemMessage, fill: string | undefined): Chunk[] {
-		const row = systemRow(message);
+		const row = systemRow(
+			message.returns === undefined
+				? message
+				: { ...message, text: withoutVoiceTags(message.text ?? '') },
+		);
 		const source = ellipsize(row.source, SOURCE_MAX);
 		const at = clock(message.at);
 		const fixed = row.mark.length + 1 + source.length + (at ? APART + at.length : 0) + APART;

@@ -39,6 +39,41 @@ describe('voiceParts', () => {
 	});
 });
 
+describe('voice tags in code', () => {
+	it('treats a tag inside an inline code span as text', () => {
+		const text = '<voice>Put words in tags.</voice>\n\nWrite `<voice>` then `</voice>`.';
+		expect(voiceParts(text)).toEqual([
+			{ voice: true, text: 'Put words in tags.' },
+			{ voice: false, text: '\n\nWrite `<voice>` then `</voice>`.' },
+		]);
+		expect(withoutVoiceTags(text)).toBe('Put words in tags.\n\nWrite `<voice>` then `</voice>`.');
+	});
+
+	it('treats a tag inside a double-tick span as text, and a tag after an unpaired tick as a tag', () => {
+		expect(voiceParts('Use ``<voice>`` here.')).toEqual([
+			{ voice: false, text: 'Use ``<voice>`` here.' },
+		]);
+		expect(voiceParts('A ` tick <voice>Said.</voice>')).toEqual([
+			{ voice: false, text: 'A ` tick ' },
+			{ voice: true, text: 'Said.' },
+		]);
+	});
+
+	it('treats a tag inside a fenced block as text', () => {
+		const text = '```\n<voice>hi</voice>\n```';
+		expect(voiceParts(text)).toEqual([{ voice: false, text }]);
+		expect(voiceSpans(text)).toEqual([]);
+		expect(withoutVoiceTags(text)).toBe(text);
+		const tilde = 'Before.\n~~~md\n<voice>hi</voice>\n~~~\n<voice>Said.</voice>';
+		expect(voiceSpans(tilde)).toEqual(['Said.']);
+	});
+
+	it('keeps a close tag inside a fenced block in the span', () => {
+		const text = '<voice>One.\n```\n</voice>\n```\nTwo.</voice>';
+		expect(voiceSpans(text)).toEqual(['One.\n```\n</voice>\n```\nTwo.']);
+	});
+});
+
 describe('voiceSpans', () => {
 	it('gives the text of each span, in order', () => {
 		expect(voiceSpans('<voice>One.</voice> Screen. <voice>Two.</voice>')).toEqual(['One.', 'Two.']);

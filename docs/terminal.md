@@ -415,8 +415,9 @@ Ctrl+C. `EngineTui.render` calls `Speech.update` after each repaint.
   (`VOICE_OPEN` and `VOICE_CLOSE` in `src/domain/voice.ts`). A message can
   hold several spans, and the terminal reads them in order. A span can hold
   several paragraphs. An open tag with no close tag runs to the end of the
-  message, and a close tag with no open tag has no effect. Text outside the
-  tags is never read, so a reply with no tags is silent. Headings, list
+  message. A close tag with no open tag is removed and does not start a
+  span. A tag inside a fenced code block or an inline code span is text.
+  Text outside the tags is never read, so a reply with no tags is silent. Headings, list
   marks, emphasis, code ticks, and links lose their Markdown, and a link
   keeps its text. A paragraph with no words left is skipped.
 - **The transcript:** `voiceParts` (`src/domain/voice.ts`) splits a say
@@ -425,9 +426,10 @@ Ctrl+C. `EngineTui.render` calls `Speech.update` after each repaint.
   text between the spans goes through the Markdown body. A voice span is a
   row on the raised tone: the dim label `voice`, then the words as plain
   text in the `note` colour. The tags do not show, and a span shows no
-  Markdown formatting. A one-line
-  preview of a say, such as the `/dismiss` list, uses `withoutVoiceTags`,
-  which keeps the content and removes the tags.
+  Markdown formatting. A say that the room returns to its seat draws the
+  same way, and its folded row shows no tags. A one-line preview of a say,
+  such as the `/dismiss` list, uses `withoutVoiceTags`, which keeps the
+  content and removes the tags that stand outside code.
 - **The queue:** `Speech` queues one text for each paragraph of a span, so
   the first sound starts soon. One text plays at a time, in seq order. `stop` aborts the
   sound and clears the queue. A failure shows one note and clears the queue.

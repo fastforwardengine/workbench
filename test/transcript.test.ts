@@ -951,6 +951,17 @@ describe('the system rows', () => {
 		expect(folded[2]).toBe(`  ▸ system  Dropped the key.  ${TIME}`);
 	}, 20_000);
 
+	it('draws a returned say with no tags, folded and open', async () => {
+		const messages = [
+			system(3, '<voice>\nCheck the supply.\n</voice>', { to: 'Engineer', returns: 1 }),
+		];
+		const folded = rows(await draw(blocksOf([], messages)));
+		expect(folded).toEqual([`  ↩ Engineer  Check the supply.  ${TIME}`]);
+		const open = (await draw(blocksOf([3], messages))).setup.captureCharFrame();
+		expect(open).toMatch(/voice\s+Check the supply\./);
+		expect(open).not.toContain('voice>');
+	}, 20_000);
+
 	it('draws three adjacent rows with no blank line between them', async () => {
 		const view = await draw(blocksOf());
 		const lines = view.setup.captureCharFrame().split('\n');

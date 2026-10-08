@@ -120,7 +120,7 @@ describe('plain text and spoken texts', () => {
 				'<voice>It is **9 volts**.\nStable.\n\n- Next.</voice> Skip. <voice>Last.</voice>',
 			),
 		).toEqual(['It is 9 volts. Stable.', 'Next.', 'Last.']);
-		expect(spokenTexts('<voice>```\n\n```</voice>')).toEqual([]);
+		expect(spokenTexts('<voice>\n```\n\n```\n</voice>')).toEqual([]);
 	});
 
 	it('gives no text outside the tags', () => {
