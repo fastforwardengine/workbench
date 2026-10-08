@@ -25,7 +25,7 @@ these fields:
 - \`room\`: the room that the activation ran in.
 - \`seat\`: the seat that ran the activation.
 - \`exchange\`: the seq of the message that opened the exchange. A line
-  outside an exchange has no \`exchange\`.
+  outside an exchange, or before its first pass, has no \`exchange\`.
 - \`step\`: the step, with the stamp fields below.
 
 **The stamp of \`step\`.** \`activation\` is the id of the activation. \`pass\` is
@@ -40,7 +40,7 @@ unique in one data directory only.
 | Type          | Fields                                                              |
 | ------------- | ------------------------------------------------------------------- |
 | \`pass\`        | \`input\` (\`view\` or \`delta\`), \`through\` (the last seq that the pass read)  |
-| \`input\`       | \`part\` (\`system\` or \`record\`), \`text\`                                   |
+| \`input\`       | \`part\` (\`system\` or \`record\`), \`text\`. Only when a definition sets \`trace.input\` |
 | \`thinking\`    | \`text\`, \`final\`. The log keeps the start of each block                  |
 | \`text\`        | \`text\`, \`final\`                                                       |
 | \`tool_call\`   | \`call\`, \`name\`, \`input\`, \`parent\` (optional)                            |
