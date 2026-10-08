@@ -11,7 +11,7 @@
 #   make ssh ACCOUNT=researcher   a shell as one account, over ssh
 #   make test-workstation       the workspace tier on the workstation, no model
 #   make reset                  remove the workstation and its volumes, after a prompt
-#   make voice                  whisper.cpp and its model for /voice, once
+#   make voice                  whisper.cpp, Kokoros, and their models for /voice, once
 #
 # workstation/README.md describes the workstation.
 
@@ -22,6 +22,12 @@ DATA ?= .data
 ACCOUNT ?= researcher
 WHISPER_MODEL := $(HOME)/.cache/whisper/ggml-large-v3.bin
 WHISPER_URL := https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin
+KOKORO_DIR := $(HOME)/.cache/kokoro
+KOKORO_MODEL := $(KOKORO_DIR)/kokoro-v1.0.onnx
+KOKORO_VOICES := $(KOKORO_DIR)/voices-v1.0.bin
+KOKORO_URL := https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0
+KOKORO_BIN := $(KOKORO_DIR)/bin/koko
+KOKOROS_REV := dda39518d210ba48a63782e524eaee435eab17a7
 
 .DEFAULT_GOAL := workbench
 .PHONY: workbench workstation usb usb-detach stop logs shell ssh test-workstation reset voice
@@ -59,15 +65,28 @@ usb-detach:
 workbench: workstation node_modules/.modules.yaml
 	WORKBENCH_WORKSTATION=$(CONFIG) pnpm start $(DATA)
 
-## What /voice needs: whisper-server from Homebrew, and the large-v3 model of
-## about 3 GB. The download goes to a part file first, so a stopped download
-## leaves no model that looks complete.
-voice: $(WHISPER_MODEL)
+## What /voice needs. Speech to text: whisper-server from Homebrew, and the
+## large-v3 model of about 3 GB. Spoken replies: koko from Kokoros, built with
+## cargo at a fixed commit, and the two Kokoro model files of about 340 MB. The
+## build keeps its target folder in $(KOKORO_DIR)/build, because koko reads the
+## espeak-ng data from the folder of the build at run time. koko goes to
+## $(KOKORO_BIN). A download goes to a part file first, so a stopped download
+## leaves no file that looks complete.
+voice: $(WHISPER_MODEL) $(KOKORO_MODEL) $(KOKORO_VOICES)
 	@command -v whisper-server >/dev/null || brew install whisper-cpp
+	@test -x $(KOKORO_BIN) || ((command -v cargo >/dev/null || brew install rust) && \
+		brew install pkg-config opus cmake && \
+		cargo install --locked --git https://github.com/lucasjinreal/Kokoros --rev $(KOKOROS_REV) \
+			--root $(KOKORO_DIR) --target-dir $(KOKORO_DIR)/build koko)
 
 $(WHISPER_MODEL):
 	mkdir -p $(dir $@)
 	curl -fL --retry 3 -C - -o $@.part $(WHISPER_URL)
+	mv $@.part $@
+
+$(KOKORO_MODEL) $(KOKORO_VOICES):
+	mkdir -p $(dir $@)
+	curl -fL --retry 3 -C - -o $@.part $(KOKORO_URL)/$(notdir $@)
 	mv $@.part $@
 
 stop:

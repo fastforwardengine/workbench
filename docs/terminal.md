@@ -27,7 +27,7 @@ the camera server that the viewfinder reads.
 | The state checks  | `test/session.test.ts` and others        | `room-reader`, `feed`, `refs-session`, `status-row`, `title`, `layers` |
 | The widget checks | `test/panels.test.ts` and others         | `transcript`, `row-diff`, `header`, `thumbnails`, `attachments-ui`     |
 | The app checks    | `test/panel-keys.test.ts`                | The keys, the dock, and the layers, over `test/fake-host.ts`           |
-| The voice checks  | `test/voice.test.ts` and others          | `voice-fakes`, `whisper`, `whisper-server`, `kitty-keys`               |
+| The voice checks  | `test/voice.test.ts` and others          | `voice-fakes`, `whisper`, `whisper-server`, `speech`, `kokoro`         |
 
 ## Design
 
@@ -138,7 +138,7 @@ no widget, and no app file. A test builds it over a fake host
 | Layers   | `layers.ts`, `browser.ts`, `process-browser.ts`, `viewfinder-browser.ts`, `action-pad.ts` | The stack of the dock and the state of each layer   |
 | Counts   | `process-count.ts`, `process-tails.ts`                                                    | The processes for the status row and the live block |
 | Pictures | `pictures.ts`, `picture-cache.ts`                                                         | The thumbnails under a message                      |
-| Voice    | `voice.ts`                                                                                | The rules of voice mode                             |
+| Voice    | `voice.ts`, `speech.ts`                                                                   | The rules of voice mode and of spoken replies       |
 
 **`RoomReader` reads the open room as often as it changes.** It owns one
 `RoomFeed` and one watch. `select(room)` drops the messages of the old room,
@@ -225,7 +225,8 @@ holds the state, and the app holds no state of the room.
 | `surface.ts`                                       | `Surface`: the interface of one layer                                               |
 | `*-surface.ts`                                     | The files, processes, keys, and camera layers                                       |
 | `keyboard.ts`                                      | The Kitty keyboard flags, and the check for voice mode                              |
-| `microphone.ts`, `whisper.ts`, `whisper-server.ts` | The devices of voice mode                                                           |
+| `microphone.ts`, `whisper.ts`, `whisper-server.ts` | The devices of voice mode: the recorder and the transcriber                         |
+| `kokoro.ts`, `kokoro-server.ts`, `speaker.ts`      | The devices of spoken replies: the engine and the player                            |
 
 **`runEngine` is the only entry.** `src/main.ts` calls it with the data
 directory, the person, and the path of `workstation.json`. It calls
@@ -233,8 +234,8 @@ directory, the person, and the path of `workstation.json`. It calls
 events and a target of 30 frames each second. `EngineTui` then builds the
 widgets, the session, the four surfaces, the dock, the painter, the key
 router, and voice mode. When the renderer ends, the app stops the keys,
-voice mode, and the timers. It then stops the whisper server, ends the visit
-of the person, and closes the host.
+voice mode, and the timers. It then stops the whisper server and the Kokoro
+server, ends the visit of the person, and closes the host.
 
 ### The three layers and the import rule
 
@@ -386,6 +387,42 @@ so the specialists know that the person spoke. A command gets no mark.
   Enter. `cleanTranscript` drops the lines that only name a sound. A
   transcript for another room or person is dropped, and the status line
   shows the words.
+
+**`Speech` in `state/speech.ts` reads the replies aloud.** It holds the rules
+and no device, as `Voice` does. The app gives it the parts (`SpeechParts`):
+the check for the engine, the start and the end of the engine, the sound, the
+open room, and the note. `Voice` needs no change. The `serve` and `halt` parts
+of `Voice` also turn `Speech` on and off. The `start` part calls
+`Speech.stop` before the microphone records, so the microphone does not
+record the reply. The app also calls `Speech.stop` on
+Ctrl+C. `EngineTui.render` calls `Speech.update` after each repaint.
+
+- **What it reads:** the latest message of the person in the open room must
+  start with `VOICE_MARK`. Each new `said` message after it is read when its
+  author is a seat and its `to` is the person or empty. System messages,
+  breakout reports, and says to another seat are not read.
+- **What is new:** a message is new when its seq is above the watermark. The
+  watermark moves to the last seq when voice mode turns on and when the open
+  room changes, so no message plays twice. A change of room also stops the
+  sound.
+- **The text:** only the first paragraph, which ends at the first blank line.
+  Headings, list marks, emphasis, code ticks, and links lose their Markdown,
+  and a link keeps its text. A message with no words left is skipped.
+- **The queue:** one message plays at a time, in seq order. `stop` aborts the
+  sound and clears the queue. A failure shows one note and clears the queue.
+- **The microphone:** while the `busy` part is true, the phase of `Voice` is
+  not `idle`. `Speech.update` then stops the sound and moves the watermark.
+  The replies that land are never read.
+- **The engine:** `app/kokoro-server.ts` starts `koko` from Kokoros in server
+  mode on a free port of `127.0.0.1`, with one instance. It posts the text to
+  `/v1/audio/speech` and gets a WAV file. `app/speaker.ts` writes the file to
+  a temporary folder and plays it with `afplay` on macOS or `ffplay` on
+  other systems. An abort kills the player, and the folder goes away.
+  `app/kokoro.ts` builds the arguments and checks that `koko`, the two
+  model files, and the player exist. It runs `~/.cache/kokoro/bin/koko` and
+  does not search PATH for it.
+- **The missing engine:** voice mode works without it. One note says what is
+  missing, and no reply is read.
 
 ## Use
 
@@ -612,3 +649,18 @@ with `//` to send a leading slash.
   reads the speech as English. `WORKBENCH_WHISPER_LANGUAGE` names another
   language, such as `ro`, and `auto` makes whisper detect it. The first press
   asks macOS for the microphone.
+
+  Voice mode also reads the replies aloud. When your last message was a voice
+  message, the terminal reads the first paragraph of each new reply of a
+  specialist to you. It uses Kokoro, a speech model that runs on this
+  computer. `/voice` starts `koko` on a free port of `127.0.0.1`, and
+  switching voice mode off ends it. A press of Space or Ctrl+C stops the
+  reply. A reply to a typed message stays silent. A reply that lands while
+  the microphone records or whisper transcribes stays silent too.
+  `make voice` also builds `koko` with `cargo` into `~/.cache/kokoro/bin/`,
+  and downloads the model files of about 340 MB to `~/.cache/kokoro/`. The
+  build folder `~/.cache/kokoro/build` stays, because `koko` reads its
+  phoneme data from there. When `koko` or the files are missing, voice mode
+  works and one note says to run `make voice`. `WORKBENCH_KOKORO_VOICE` names another voice, such as
+  `bf_emma`. The default is `af_heart`. When the system kills Workbench with
+  SIGKILL, the server can stay. End it with `pkill koko`.
