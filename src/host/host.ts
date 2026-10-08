@@ -20,6 +20,7 @@ import { MAX_GOAL, ROOM_NAME } from './names.ts';
 import { readCommitFile, readSnapshotFile } from './previews.ts';
 import { byRecency, type ProcessOutput, type ProcessView, readOutput } from './processes.ts';
 import { fail, openRooms, type RoomAction, type RoomsOptions, type RoomView } from './rooms.ts';
+import { writeSchemas } from './schemas.ts';
 import { openViewfinder, type Viewfinder } from './viewfinder.ts';
 import { loadWorkstation } from './workstation.ts';
 
@@ -188,6 +189,8 @@ export async function openLab(options: OpenOptions): Promise<Lab> {
 			workstation,
 		});
 		if (fresh) await seedRooms(rooms);
+		// The tables of `rooms.db` exist now.
+		await writeSchemas(database, options.directory);
 	} catch (error) {
 		await rooms?.close().catch(() => undefined);
 		database.close();
