@@ -11,6 +11,7 @@ import { parse } from '../state/commands.ts';
 import { PictureCache } from '../state/picture-cache.ts';
 import { ProcessBrowser } from '../state/process-browser.ts';
 import { type Intent, Session } from '../state/session.ts';
+import { Speech } from '../state/speech.ts';
 import { Ticker } from '../state/ticker.ts';
 import { TerminalTitle, titleOf } from '../state/title.ts';
 import { ViewfinderBrowser } from '../state/viewfinder-browser.ts';
@@ -32,8 +33,11 @@ import { FilesSurface } from './files-surface.ts';
 import { KEYBOARD, keyboardProblem } from './keyboard.ts';
 import { Keys } from './keys.ts';
 import { KeysSurface } from './keys-surface.ts';
+import { type KokoroConfig, kokoroConfig, kokoroProblem } from './kokoro.ts';
+import { KokoroServer } from './kokoro-server.ts';
 import { Microphone } from './microphone.ts';
 import { ProcessesSurface } from './process-surface.ts';
+import { playWav } from './speaker.ts';
 import { ViewfinderSurface } from './viewfinder-surface.ts';
 import { type WhisperConfig, whisperConfig, whisperProblem } from './whisper.ts';
 import { WhisperServer } from './whisper-server.ts';
@@ -76,6 +80,8 @@ class EngineTui {
 	private readonly voice: Voice;
 	private readonly microphone = new Microphone();
 	private readonly whisper: WhisperServer;
+	private readonly speech: Speech;
+	private readonly kokoro: KokoroServer;
 	/** Repaints the chrome each second while an activation of the open room runs. */
 	private readonly clock = new Ticker(CLOCK_MS, () => this.tick());
 	private readonly title: TerminalTitle;
@@ -90,6 +96,12 @@ class EngineTui {
 			changed: () => this.render(),
 			stopped: (line) => this.voice.crashed(line),
 		});
+		const speaking = kokoroConfig();
+		this.kokoro = new KokoroServer(speaking, {
+			changed: () => this.render(),
+			stopped: (line) => this.speech.crashed(line),
+		});
+		this.speech = this.newSpeech(speaking);
 		this.voice = this.newVoice(config);
 		const header = new Header(renderer);
 		const transcript = new Transcript(renderer);
@@ -180,6 +192,8 @@ class EngineTui {
 		this.root.add(this.composer.root);
 		renderer.root.add(this.root);
 		renderer.keyInput.on('keypress', (key: KeyEvent) => {
+			// Ctrl+C also silences a reply. The key router drops a recording.
+			if (key.ctrl && key.name === 'c') this.speech.stop();
 			this.keys.onKey(key);
 			this.followEdit();
 		});
@@ -213,8 +227,8 @@ class EngineTui {
 			});
 			void this.begin();
 		});
-		// The server ends with the terminal. `voice.dispose` already asked it to end.
-		await this.whisper.stop();
+		// The servers end with the terminal. `voice.dispose` already asked them to end.
+		await Promise.all([this.whisper.stop(), this.kokoro.stop()]);
 	}
 
 	private async begin(): Promise<void> {
@@ -237,14 +251,41 @@ class EngineTui {
 		}, 0);
 	}
 
+	/** Spoken replies, over the Kokoro server and a player. */
+	private newSpeech(config: KokoroConfig): Speech {
+		return new Speech({
+			ready: () => kokoroProblem(config),
+			serve: () => this.kokoro.start(),
+			halt: () => void this.kokoro.stop(),
+			speak: async (text, signal) => playWav(await this.kokoro.synthesize(text, signal), signal),
+			heard: () => ({
+				room: this.session.view?.name ?? '',
+				person: this.session.identity?.name,
+				humans: this.session.humans,
+				messages: this.session.messages,
+			}),
+			say: (note) => this.session.say(note),
+		});
+	}
+
 	/** Voice mode, over the microphone of this terminal and whisper-server. */
 	private newVoice(config: WhisperConfig): Voice {
 		return new Voice({
 			ready: async () =>
 				keyboardProblem(this.renderer.capabilities) ?? (await whisperProblem(config)),
-			start: () => this.microphone.start(),
-			serve: () => this.whisper.start(),
-			halt: () => void this.whisper.stop(),
+			// The microphone would record the speech, so a recording silences it first.
+			start: () => {
+				this.speech.stop();
+				return this.microphone.start();
+			},
+			serve: () => {
+				this.whisper.start();
+				this.speech.enable();
+			},
+			halt: () => {
+				void this.whisper.stop();
+				this.speech.disable();
+			},
 			loading: () => this.whisper.loading(),
 			transcribe: (file, signal) => this.whisper.transcribe(file, signal),
 			discard: (file) => this.microphone.discard(file),
@@ -290,6 +331,7 @@ class EngineTui {
 		this.painter.render(this.keys.mode, this.keys.picking);
 		this.keys.refreshPalette();
 		this.title.show(titleOf(this.session, PRODUCT));
+		this.speech.update();
 	}
 
 	private async onSubmit(): Promise<void> {

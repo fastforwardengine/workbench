@@ -25,10 +25,10 @@ const SERVER_TIMES: ServerTimes = {
 };
 
 /** One readiness probe that gets no answer in this time has failed. */
-const PROBE_TIMEOUT_MS = 1_000;
+export const PROBE_TIMEOUT_MS = 1_000;
 
 /** The server keeps this many characters of its last output. */
-const TAIL_CHARS = 4_000;
+export const TAIL_CHARS = 4_000;
 
 /** What the terminal needs to know about the server. */
 export interface ServerHooks {
@@ -59,7 +59,7 @@ interface Instance {
 }
 
 /** Ask the system for a free port on this computer. */
-function freePort(): Promise<number> {
+export function freePort(): Promise<number> {
 	return new Promise((resolve, reject) => {
 		const probe = createServer();
 		probe.once('error', reject);
@@ -71,12 +71,14 @@ function freePort(): Promise<number> {
 	});
 }
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+export const sleep = (ms: number): Promise<void> =>
+	new Promise((resolve) => setTimeout(resolve, ms));
 
-const aborted = (): DOMException => new DOMException('The operation was aborted.', 'AbortError');
+export const aborted = (): DOMException =>
+	new DOMException('The operation was aborted.', 'AbortError');
 
 /** Wait for the work, and stop waiting when the signal fires. The work itself goes on. */
-function until<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+export function until<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 	if (signal.aborted) return Promise.reject(aborted());
 	return new Promise<T>((resolve, reject) => {
 		const onAbort = () => reject(aborted());
@@ -86,13 +88,13 @@ function until<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 }
 
 /** The last line of some output, as at most 200 characters. */
-function lastLine(output: string): string | undefined {
+export function lastLine(output: string): string | undefined {
 	const lines = output.split('\n').filter((line) => line.trim() !== '');
 	return lines.at(-1)?.trim().slice(0, 200);
 }
 
 /** The message of an error body from the server, or the start of the body. */
-function bodyMessage(body: string): string {
+export function bodyMessage(body: string): string {
 	try {
 		const parsed: unknown = JSON.parse(body);
 		const message = (parsed as { error?: unknown } | null)?.error;
@@ -104,7 +106,7 @@ function bodyMessage(body: string): string {
 }
 
 /** The reason of a failed request, with the system code when the request never reached the server. */
-function requestLine(error: unknown): string {
+export function requestLine(error: unknown): string {
 	const cause = error instanceof Error ? error.cause : undefined;
 	return cause instanceof Error ? oneLine(cause) : oneLine(error);
 }
