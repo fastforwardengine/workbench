@@ -344,8 +344,8 @@ Expected current: TBD. No datasheet in `library/` gives the current of the
 whole radio. Current limit: none, because USB has no set limit. The stop
 rule below replaces the limit.
 
-**Stop at once** on smoke, a smell, a hot part, a display that stays dark,
-or 3V3 above 3.3 V. To stop: move S5 up, and pull the USB cable.
+**Stop at once** on smoke, a smell, a hot part, or a display that stays
+dark. To stop: move S5 up, and pull the USB cable.
 
 **Checks before power:**
 
@@ -353,11 +353,15 @@ or 3V3 above 3.3 V. To stop: move S5 up, and pull the USB cable.
 2. No AAA cells are in the holder. S5 is up, so the radio is off.
 3. With the multimeter on resistance, read VDD to GND across C1. A reading
    near 0 Ω is a short: stop and find it. Expected value: TBD.
-4. When a lithium cell is in use, its red wire is on + of the module.
+4. With no USB cable in, check continuity from the GND pad of the charging
+   module to the board GND (U1 pin 8). Check continuity from the + output
+   pad of the module to the S5 pole that S5 down connects to VDD. When
+   either check fails, the module is reversed in M3: stop and fix it.
+5. When a lithium cell is in use, its red wire is on + of the module.
 
 **Power-on:**
 
-1. Pull out the antenna. Plug the USB cable into the charger and into
+1. Plug the USB cable into the charger and into
    USB1. The red LED of the module shows charging. With no cell, both
    LEDs can stay off (library/tp4056.md).
 2. Move S5 down. Watch the board for 5 seconds. The display and the power
@@ -366,9 +370,10 @@ or 3V3 above 3.3 V. To stop: move S5 up, and pull the USB cable.
    seconds, and power on again. Source: library/fm-radio-kit-manual.md,
    page 15.
 4. Read VDD across C1, and 3V3 across C2, with the multimeter. VDD is 3.7
-   to 4.2 V on the cell net. 3V3 is 3.3 V or less. Source:
-   library/fm-radio-kit-schematic.md.
-5. Press CH+ to search for a station. Press V+ and V− for the volume.
+   to 4.2 V on the cell net. 3V3 is about 3.3 V. Stop when 3V3 reads above
+   3.4 V. Source: library/fm-radio-kit-schematic.md.
+5. Press V+ and V− to change the volume of the rustling sound. The antenna
+   is not yet on the board, so the station search waits for Step 16.
 
 Scope: one frame of the display while the radio runs.
 State: todo
@@ -392,8 +397,8 @@ passes. Move S5 up, and pull the USB cable first.
 5. Snap on the case, and fix it with the screws. Do not over-tighten.
 
 Risk: a pinched wire, or a cracked case.
-Check: no wire is under a screw, and the radio plays a station in the
-case.
+Check: no wire is under a screw. Pull out the antenna, and press CH+ to
+search. The radio plays a station in the case.
 State: todo
 Evidence: none
 
