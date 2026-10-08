@@ -12,6 +12,8 @@ const ENTRIES: Record<string, string> = {
 	'rooms.db-shm': 'SQLite. The shared memory of `rooms.db`.',
 	'activations.jsonl':
 		'JSON lines. One line for each step of each activation. The format is below.',
+	'configs.jsonl':
+		'JSON lines. One line for each change of the config of the seats. The format is below.',
 	'git.db': 'SQLite. The git repositories of the workspace, such as the templates and the notes.',
 	workspace: 'Folder. The files of the workspace: the shared folders and the home of each seat.',
 	[SCHEMAS]: 'Markdown. This file. The host writes it again at each start.',
@@ -74,6 +76,48 @@ jq -c 'select(.room=="build" and .step.activation=="message:4:engineer:1")' acti
 \`\`\`
 `;
 
+const CONFIGS = `## configs.jsonl
+
+**One line is one snapshot of the config that the seats run with.** The host
+copies the snapshot from the live definitions at each start. It appends a
+line only when the snapshot differs from the last line, so each line is a
+change of config. A line has these fields:
+
+- \`at\`: the ISO time of the start that wrote the line.
+- \`hash\`: the SHA-256, in hex, of the canonical JSON of the line without
+  \`at\` and \`hash\`.
+- \`versions\`: the version of Workbench, and the installed version of each
+  \`@ambionframework\` package.
+- \`model\`: \`login\` is \`present\` or \`missing\`. The line never holds a key,
+  a token, or an environment value.
+- \`workstation\`: \`null\` for the local backend, or \`{ "host": string }\`.
+- \`limits\`: the limits of the runtime. The host sets none, so the values
+  are the Ambion defaults. A function is not a value, so the retry backoff
+  is absent. \`Infinity\` shows as the text \`"Infinity"\`.
+- \`people\`: the definition of each person.
+- \`specialists\`: for each seat, \`name\`, \`identity\`, \`trace\`, and
+  \`executor\`. The executor holds \`kind\`, \`model\`, \`thinking\`,
+  \`instructions\`, \`guidance\`, \`respondPolicy\`, \`summaryPolicy\`,
+  \`activationTokenLimit\` (\`null\` for no limit), \`estimateTokens\`,
+  \`reminderCount\`, and \`tools\`. A tool holds its \`name\`,
+  \`description\`, and \`parameters\` (JSON schema). The source of a
+  function is not in the file. \`respondPolicySource\` and
+  \`summaryPolicySource\` say whether the text is the Ambion \`default\` or
+  comes from the \`definition\`.
+
+**The line in force for an activation is the last line whose \`at\` is before
+the first step of the activation.** The \`at\` of a step is in
+\`activations.jsonl\`. The \`session\` step of an activation records the
+model and the tools that the activation ran with, as they ran.
+
+Example:
+
+\`\`\`sh
+# The model and the thinking level of each seat, at each change of config.
+jq -c '{at, hash, models: [.specialists[] | {name, model: .executor.model, thinking: .executor.thinking}]}' configs.jsonl
+\`\`\`
+`;
+
 /** The entries of the data directory, one line each. */
 async function listing(directory: string): Promise<string> {
 	const found = await readdir(directory, { withFileTypes: true });
@@ -106,7 +150,8 @@ ${await listing(directory)}
 ${statements(database)}
 \`\`\`
 
-${ACTIVATIONS}`;
+${ACTIVATIONS}
+${CONFIGS}`;
 }
 
 /** Write \`schemas.md\` in the data directory. An old file is overwritten. */

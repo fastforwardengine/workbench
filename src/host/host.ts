@@ -5,9 +5,11 @@ import type { Room } from '@ambionframework/ambion';
 import type { WidgetAct, WidgetActResult } from '@ambionframework/canvas';
 import type { PiExecutionOptions } from '@ambionframework/pi';
 import { type Person, people } from '../domain/definitions.ts';
+import { missingLogin } from '../domain/model.ts';
 import { buildRoom } from '../domain/room.ts';
 import type { ActivationSteps } from '../view/steps.ts';
 import { type ActionWidget, frameActions } from './actions.ts';
+import { writeConfig } from './config.ts';
 import {
 	type Attachment,
 	attachFile,
@@ -189,6 +191,14 @@ export async function openLab(options: OpenOptions): Promise<Lab> {
 			workstation,
 		});
 		if (fresh) await seedRooms(rooms);
+		// The config goes first, so that `schemas.md` lists `configs.jsonl` at the first start.
+		await writeConfig(options.directory, {
+			specialists: rooms.definitions,
+			people,
+			limits: rooms.limits,
+			workstation: workstation?.host,
+			login: missingLogin(options.env ?? process.env) === undefined,
+		});
 		// The tables of `rooms.db` exist now.
 		await writeSchemas(database, options.directory);
 	} catch (error) {
