@@ -51,7 +51,7 @@ talk, and the Engineer answers aloud. The microscope is the only device.
 - **The Mac runs Workbench and the workstation container.** `make` starts
   both. `make usb` gives the microscope to the container through OrbStack.
   The Lambda Vector stays the target workstation, for later sessions.
-- **The microscope is the only camera.** The BRIO, the HM310P, and the
+- **The other devices stay off the bench.** The BRIO, the HM310P, and the
   USB microphone stay off the bench for this build.
 - **The radio takes its power from USB.** The HM310P does not power this
   build.
