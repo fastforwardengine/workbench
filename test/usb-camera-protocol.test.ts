@@ -1,6 +1,6 @@
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -18,13 +18,14 @@ import {
 
 const directory = join(templatesDirectory, 'usb-camera');
 const at = '2026-01-01T00:00:00.123Z';
-// Freeze only the acquisition clock. Exercise the real server and disk store.
+// Freeze only the clock of the receipt time. Exercise the real stream, ring, and server.
 const launch = `
 import camera, sys
 camera.utc = lambda: '${at}'
 source = {'repository': 'engineer/bench-camera', 'commit': 'a' * 40, 'dirty': False}
 cam = camera.Camera(source, sys.argv[1], None, demo=True)
-cam.acquire()
+cam.start()
+assert cam.ready(5)
 server = camera.open_server(cam)
 print(server.server_port, flush=True)
 server.serve_forever()
@@ -34,10 +35,10 @@ server.serve_forever()
 const bytes = python
 	? execFileSync(
 			'python3',
-			['-B', '-c', 'import camera,sys; sys.stdout.buffer.write(camera.demo_png())'],
+			['-B', '-c', 'import camera,sys; sys.stdout.buffer.write(camera.DEMO_JPEG)'],
 			{ cwd: directory },
 		)
-	: Buffer.from('png');
+	: Buffer.from('jpeg');
 const digest = createHash('sha256').update(bytes).digest('hex');
 // The demo clip and the level series of its 10 ms windows.
 const clip = python
@@ -109,13 +110,29 @@ describe.skipIf(!python)('the USB camera sensor protocol, version 2', () => {
 	it('answers an unknown sensor, path, file, and method with a JSON error', () =>
 		expectUnknown(root));
 
-	it('serves the frame that the camera observation names, by its digest', async () => {
-		const [observation] = observationsOf(await send(root, '/camera/observe'));
-		expect(observation?.at).toBe(at);
-		const parts = observation?.parts as { kind: string; file?: string; mediaType?: string }[];
-		expect(parts.map((part) => part.kind)).toEqual(['text', 'frame']);
-		expect(parts[1]).toMatchObject({ file: digest, mediaType: 'image/png' });
+	it('serves the frames of the ring, newest last, by their digests', async () => {
+		const observations = observationsOf(await send(root, '/camera/observe'));
+		expect(observations.length).toBeGreaterThan(0);
+		for (const observation of observations) {
+			expect(observation.at).toBe(at);
+			const parts = observation.parts as { kind: string; file?: string; mediaType?: string }[];
+			expect(parts.map((part) => part.kind)).toEqual(['text', 'frame']);
+			expect(parts[1]).toMatchObject({ file: digest, mediaType: 'image/jpeg' });
+		}
+		// The demo scene never changes: the ring keeps the first frame, and the newest frame follows it.
+		const newest = observations.at(-1)?.parts[0] as { text?: string } | undefined;
+		expect(newest?.text).toMatch(/Kept: the first frame|Not kept: no change since/);
 		expect(await fileOf(root, digest)).toEqual(bytes);
+	});
+
+	it('writes no camera frame to disk and no camera line to the log', async () => {
+		observationsOf(await send(root, '/camera/observe'));
+		const log = await readFile(join(data, 'observations.jsonl'), 'utf8').catch(() => '');
+		const sensors = log
+			.split('\n')
+			.filter(Boolean)
+			.map((line) => (JSON.parse(line) as { sensor: string }).sensor);
+		expect(sensors).not.toContain('camera');
 	});
 
 	it('serves the microphone clip and its level series', async () => {

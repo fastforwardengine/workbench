@@ -12,9 +12,10 @@ what the cameras, the microphone, and the instruments saw in the last
 minutes. It backs each claim with a ref. `planning/next.md` holds the
 milestone that this serves: objectives 1 to 4, and activities 6 and 9.
 
-**Status: partly implemented.** The notes, the room record, and the supply
-sensor work today. The frame ring of the cameras is the next change. The
-sections below mark each part as implemented or planned.
+**Status: partly implemented.** The notes, the room record, the supply
+sensor, and the frame ring of the cameras work today. The ring of the
+microphone is the next change. The sections below mark each part as
+implemented or planned.
 
 ## Three layers
 
@@ -38,18 +39,19 @@ ring in RAM.** A read of the sensor returns its digest: a small selection
 that a seat can read at once. The server computes the digest on the
 workstation, so raw frames and sound stay there.
 
-**Media goes to disk only as evidence (planned).** A sensor server keeps
-its frames and clips in the ring, and writes none to disk. When a seat
-fetches one, the `fetch` tool saves it in the snapshot store of the seat's
-home, and the ref stays valid after the ring drops it. Today the
-`usb-camera` server writes each frame and each clip to `blobs/`, and
-appends a line to `observations.jsonl`. The `psu` sensor writes its
-samples to `samples.jsonl`, and each `recent` document to `blobs/`.
+**Media goes to disk only as evidence.** A sensor server keeps its frames
+and clips in the ring, and writes none to disk. When a seat fetches one,
+the `fetch` tool saves it in the snapshot store of the seat's home, and the
+ref stays valid after the ring drops it. The `camera` sensor of
+`usb-camera` follows this rule today. Its `microphone` sensor still writes
+each clip to `blobs/`, and appends a line to `observations.jsonl`, until
+the microphone ring exists. The `psu` sensor writes its samples to
+`samples.jsonl`, and each `recent` document to `blobs/`.
 
 | Sensor                      | Ring                                          | Digest                                                                            | Status                               |
 | --------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------ |
 | `psu` `output`              | 60 s, 4 samples each second                   | `recent`: statistics over 3, 5, 15, 30, and 60 s, and the changes of the settings | Implemented                          |
-| `camera` (BRIO, microscope) | 120 s of the frames that the change rule kept | The kept frames and the newest frame, oldest first                                | Planned, the next change             |
+| `camera` (BRIO, microscope) | 120 s of the frames that the change rule kept | The kept frames and the newest frame, oldest first                                | Implemented                          |
 | `microphone` (BRIO)         | None                                          | One clip on request, with a level series                                          | Implemented on request; ring planned |
 | USB devices                 | None                                          | None. `device-scan` runs once                                                     | Planned                              |
 
@@ -61,7 +63,7 @@ gives the statistics of each window and the changes of the settings, with
 the owner of each change. A span read of `output` gives the samples.
 `templates/psu/README.md` holds the details.
 
-### The cameras (planned)
+### The cameras
 
 **The camera server streams, and keeps a frame only when the scene
 changed.** The ring is the digest. A read of `/camera/observe` returns the
@@ -78,16 +80,17 @@ flowchart LR
 ```
 
 - **Capture.** A reader thread runs `v4l2-ctl --stream-mmap --stream-to=-`
-  with the MJPEG format, and splits the stream into JPEG frames. After an
-  unplug, it finds the node by `--usb-id` again and restarts the stream.
-  The server stops the use of `fswebcam`.
-- **The change rule.** The thread makes a grey 64x36 copy of each frame
-  with Pillow. Pillow is on the workstation (`python3-pil`), and the
-  template README then names it as a dependency. The thread subtracts the mean grey of the copy, so a change of exposure does
-  not count. A pixel differs when its grey value moves by more than 20. The
-  thread keeps the frame when more than 2 % of the pixels differ from the
-  last kept frame, and 2 s passed since that frame. The scene after a
-  movement differs from the last kept frame, so the rule keeps it too.
+  with the MJPEG format at 5 frames each second, and splits the stream
+  into JPEG frames. After an unplug, it finds the node by `--usb-id` again
+  and restarts the stream. The server no longer uses `fswebcam`.
+- **The change rule.** The thread makes a grey 64x36 copy of 2 frames each
+  second with Pillow. Pillow is on the workstation (`python3-pil`), and the
+  template README names it as a dependency. The thread subtracts the mean
+  grey of the copy, so a change of exposure does not count. A pixel differs
+  when its grey value moves by more than 20. The thread keeps the frame
+  when more than 2 % of the pixels differ from the last kept frame, and
+  2 s passed since that frame. The scene after a movement differs from the
+  last kept frame, so the rule keeps it too. The first frame is kept.
 - **Memory.** The ring holds the JPEG bytes of the stream, with no new
   encode. The ring holds 60 frames at most. At 1280x720 a frame is about
   100 to 200 KB, so the ring holds 6 to 12 MB for each camera.
@@ -95,19 +98,24 @@ flowchart LR
   `mediaType: image/jpeg`. The text gives the receipt time, the age, and
   the share of changed pixels. On the newest frame it says "no change
   since" the time of the last kept frame when nothing changed.
-- **Files.** `/files/<digest>` reads the ring only. A frame that left the
-  ring gives 404. The seat that fetched it earlier keeps it in its snapshot
-  store, and cites that ref.
+- **Files.** `/files/<digest>` reads RAM only. It serves the ring and the
+  newest frames that an observation named, for 120 s and 20 frames at most,
+  so a seat can fetch the newest frame after the stream moved on. A frame
+  that left the ring gives 404. The seat that fetched it earlier keeps it
+  in its snapshot store, and cites that ref.
 - **The viewfinder needs no change.** It takes the last observation as the
-  newest frame (`src/host/viewfinder.ts`), and OpenTUI decodes JPEG. Its
-  poll every 3 s then costs no capture. The workspace keeps no snapshot of
-  a viewfinder read, so the poll writes nothing to disk.
+  newest frame (`src/host/viewfinder.ts`). Its poll every 3 s costs no
+  capture. The workspace keeps no snapshot of a viewfinder read, so the
+  poll writes nothing to disk. The bench session checks that OpenTUI draws
+  the JPEG.
 
 **Known risks.** A stream reserves USB bandwidth all the time, so two
 cameras need separate USB controllers. A UVC camera can send MJPEG frames
 with no Huffman tables, so check that a frame decodes in Pillow and in the
-terminal. The autofocus of the microscope can count as a change. The first
-bench session checks these, and tunes the 2 % and the 20.
+terminal. The autofocus of the microscope can count as a change. The camera
+must offer MJPEG at the resolution that the server asks for. The first
+bench session checks these and the `v4l2-ctl` options, and tunes the 2 % and
+the 20.
 
 ### The microphone (planned)
 
@@ -132,13 +140,13 @@ another machine. Run NTP on both.
 sensors.** The record and the reminders arrive with the activation. The
 seat reads the rest with tools.
 
-| Step | What the seat reads                                             | How                                                          | Status                      |
-| ---- | --------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------- |
-| 1    | The prompt, the recent messages, and their refs                 | The room record, in the activation                           | Implemented                 |
-| 2    | The shown cameras and their process handles                     | The widget reminder, in the activation                       | Implemented                 |
-| 3    | The facts, the decisions, and the open questions of the subject | `git` and `read` in the clone of the notes                   | Implemented                 |
-| 4    | The running sensor servers                                      | `ps`                                                         | Implemented                 |
-| 5    | The last minutes of each sensor                                 | `fetch` of `/camera/observe` and `/recent/observe` by handle | Supply now; cameras planned |
+| Step | What the seat reads                                             | How                                                          | Status      |
+| ---- | --------------------------------------------------------------- | ------------------------------------------------------------ | ----------- |
+| 1    | The prompt, the recent messages, and their refs                 | The room record, in the activation                           | Implemented |
+| 2    | The shown cameras and their process handles                     | The widget reminder, in the activation                       | Implemented |
+| 3    | The facts, the decisions, and the open questions of the subject | `git` and `read` in the clone of the notes                   | Implemented |
+| 4    | The running sensor servers                                      | `ps`                                                         | Implemented |
+| 5    | The last minutes of each sensor                                 | `fetch` of `/camera/observe` and `/recent/observe` by handle | Implemented |
 
 **A seat cites what it read.** Each `fetch` returns a snapshot ref. A claim
 about the bench in a message cites the ref of its frame, clip, or reading.
@@ -161,16 +169,19 @@ reduces them:
 ## Privacy
 
 **Frames and sound stay on the workstation.** No sensor sends a frame or a
-clip to a remote model unless the person asks. With the planned rings, a
-frame or a clip reaches disk only when a seat fetches it as evidence.
+clip to a remote model unless the person asks. With the camera ring, a
+frame reaches disk only when a seat fetches it as evidence. The planned
+microphone ring does the same for a clip.
 Face blur and a crop to the bench are planned (`planning/next.md`).
 
 ## How it is evaluated
 
 - **Scripted tier.** Each sensor tests its digest with no device. The
-  camera tests the change rule as a function on frames that Pillow makes:
-  a still scene keeps nothing, a change of brightness keeps nothing, and a
-  moved block keeps one frame. The supply tests `recent` on the simulator.
+  camera tests the change rule as a function on grey copies of 2304
+  integers, with no Pillow: a still scene keeps nothing, a change of
+  brightness keeps nothing, and a moved block keeps one frame. It tests the
+  splitter, the ring, and the restart of the reader with a fake process.
+  The supply tests `recent` on the simulator.
 - **Bench check.** The person moves a part, waits, and asks "what happened
   in the last minute?". The seat names the change and its time, and cites
   the frame.
@@ -179,10 +190,10 @@ Face blur and a crop to the bench are planned (`planning/next.md`).
 
 ## The order of work
 
-1. **The camera ring** in `usb-camera`: the stream, the change rule, the
-   ring, `/camera/observe` that returns the ring, `/files` from the ring,
-   the content type of a JPEG, a synthetic stream for `--demo`, and the
-   tests. Step 5 of `observe-the-camera` changes to match.
+1. **Done: the camera ring** in `usb-camera`: the stream, the change rule,
+   the ring, `/camera/observe` that returns the ring, `/files` from the
+   ring, the content type of a JPEG, a synthetic stream for `--demo`, and
+   the tests. Step 5 of `observe-the-camera` matches.
 2. **The microphone ring** and its level digest.
 3. **Events on the supply output:** on, off, a step of the current, and
    the start and the end of constant current.

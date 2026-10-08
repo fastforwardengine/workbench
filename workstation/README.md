@@ -206,8 +206,8 @@ container. `arecord -l` still works.
 
 To keep the frames and the clips as evidence, the Engineer forks the
 [`usb-camera` template](../templates/usb-camera/README.md). The template
-uses the Python, `fswebcam`, and `arecord` tools of the image, so the image
-needs no change. The server listens on the loopback address of the workstation, on the
+uses the Python, `v4l2-ctl`, Pillow, and `arecord` tools of the image, so
+the image needs no change. The server listens on the loopback address of the workstation, on the
 port of `$PORT`. Ambion 0.7.0 carries each `fetch` through SSH forwarding.
 `fetch` saves the observation and the frame or clip in the snapshot store.
 Docker publishes no sensor port. Other seats fetch from the same process and

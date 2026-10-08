@@ -66,7 +66,7 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 				timeout: 120,
 			});
 			handle = (started.details as { process: { handle: string } }).process.handle;
-			// The server prints no ready line. It listens after its first capture.
+			// The server prints no ready line. It listens after its first frame.
 			const index = await fetchWhenListening(handle);
 			expect(JSON.parse(index)).toMatchObject({ api: 2, source: { dirty: false } });
 			// Advancing the checkout must not relabel the serving process.
@@ -84,7 +84,7 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 			const parts = JSON.parse(
 				text(await invoke('read', { path: observation.file }, 'researcher')),
 			) as { observations: { parts: { kind: string; file?: string }[] }[] };
-			const digest = parts.observations[0]?.parts.find((part) => part.kind === 'frame')?.file;
+			const digest = parts.observations.at(-1)?.parts.find((part) => part.kind === 'frame')?.file;
 			if (!digest) throw new Error('No frame in the camera observation');
 			const frame = await invoke(
 				'fetch',
@@ -119,10 +119,10 @@ describe.skipIf(!config)('the USB camera lifecycle on the workstation', () => {
 			expect(text(restored)).toContain(digest);
 			await invoke(
 				'restore',
-				{ ref: retained.ref, path: `~/camera-frame-${token}.png` },
+				{ ref: retained.ref, path: `~/camera-frame-${token}.jpg` },
 				'researcher',
 			);
-			const picture = await invoke('read', { path: `~/camera-frame-${token}.png` }, 'researcher');
+			const picture = await invoke('read', { path: `~/camera-frame-${token}.jpg` }, 'researcher');
 			expect(picture.content.some((part) => part.type === 'image')).toBe(true);
 		} finally {
 			if (handle) await invoke('cancel', { handle }).catch(() => undefined);

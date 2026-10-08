@@ -78,12 +78,13 @@ part. The BRIO keeps the view of the whole bench.
   of the sibling TM4K and TM4K Max lists a storage mode (MSDC) and a PC
   camera mode (UVC). The person sets the UVC mode. In that mode the manual
   lists 3840x2160 at 30 fps as H264, 1920x1080 at 30 fps, and 1280x720 at
-  60 fps. `fswebcam` does not decode H264, so the skill uses 1920x1080. The
-  autofocus runs in the microscope, so the team expects no focus control
-  over USB. It probably has no microphone.
-- **Unverified:** the USB ID, the formats on Linux, whether the autofocus
-  settles within the 10 skipped frames of a capture, and whether Linux can
-  control the focus or the LED lights.
+  60 fps. The camera server streams MJPEG and does not decode H264, so the
+  skill uses 1920x1080. The autofocus runs in the microscope, so the team
+  expects no focus control over USB. It probably has no microphone.
+- **Unverified:** the USB ID, the formats on Linux, whether the microscope
+  offers MJPEG at 1920x1080, whether the autofocus counts as a change for
+  the camera ring, and whether Linux can control the focus or the LED
+  lights.
 
 **The first bench settles the rest.** Its microscope item holds the check
 on real hardware.

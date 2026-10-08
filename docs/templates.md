@@ -53,16 +53,20 @@ commit bytecode.
 
 The `usb-camera` template follows the
 [Ambion 0.7.0 camera-chat lifecycle](https://github.com/ambionframework/ambion/tree/v0.7.0/examples/camera-chat).
-It captures frames with Python and V4L2 on the workstation. It records
-clips from the microphone of the camera with ALSA. One process owns the
-USB device and serves two sensors, `camera` and `microphone`. The server follows the sensor protocol, version 2. The Engineer forks and
-saves the server, and starts it with `bash` under the name `camera`. The
-workspace gives the process a port in `$PORT`. The Engineer then reads the
-sensors with `fetch`, and shows the camera to the person with a `frame`
-widget that names the handle. Each fetched observation, frame, and clip goes into
-the snapshot store. The in-process just-bash backend has no sensor
-endpoints. The [template README](../templates/usb-camera/README.md) gives
-the steps for replacement, rollback, and restoration.
+It streams MJPEG frames from the camera with `v4l2-ctl`, and keeps a frame
+in a ring in RAM when the scene changed. A change rule on a grey copy of
+each frame decides this, and Pillow makes the copy. The server writes no
+camera frame to disk. It records clips from the microphone of the camera
+with ALSA. One process owns the USB device and serves two sensors,
+`camera` and `microphone`. The server follows the sensor protocol,
+version 2. The Engineer forks and saves the server, and starts it with
+`bash` under the name `camera`. The workspace gives the process a port in
+`$PORT`. The Engineer then reads the sensors with `fetch`, and shows the
+camera to the person with a `frame` widget that names the handle. Each
+fetched observation, frame, and clip goes into the snapshot store. The
+in-process just-bash backend has no sensor endpoints. The
+[template README](../templates/usb-camera/README.md) gives the steps for
+replacement, rollback, and restoration.
 
 **[Sensors and devices](sensors.md) holds the rules of the bench templates.**
 It covers the protocol checks, the locks, and the camera on screen.
@@ -72,7 +76,7 @@ commands exist in the Workbench repository only.
 
 - `pnpm exec vitest run test/usb-camera-protocol.test.ts` runs the
   sensor protocol checks of Workbench against both sensors of the
-  server. The test fixes the clock of the acquisition.
+  server. The test fixes the clock of the receipt time.
 - `WORKBENCH_WORKSTATION=.workstation/workstation.json pnpm exec vitest run
 test/usb-camera-workstation.test.ts` checks these steps: fork, save,
   start, `fetch` by a second account, cancellation, and restoration of a
