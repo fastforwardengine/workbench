@@ -102,7 +102,7 @@ describe('the structure of a prompt', () => {
 			expect(rule).toContain('at a blocker');
 			expect(rule).toContain('when you finish');
 			expect(rule).toContain('A tool call is not a milestone');
-			expect(rule).toContain('overrides the respond policy');
+			expect(rule).toContain('overrides the defaults on silence and on plans');
 		}
 	});
 
