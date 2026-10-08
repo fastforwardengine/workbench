@@ -1,6 +1,7 @@
 """Offline checks. No device is opened; synthetic evidence only."""
 import copy
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -20,71 +21,169 @@ from unittest.mock import patch
 
 import camera
 
+SOURCE = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
+FLAT = [100] * 2304
+HAS_PILLOW = importlib.util.find_spec("PIL") is not None
+
+
+def scene(left, top, width=16, height=12, level=200, base=100):
+    """A 64x36 grey copy: a flat field with one bright block."""
+    return [level if left <= x < left + width and top <= y < top + height else base
+            for y in range(36) for x in range(64)]
+
+
+def jpeg(number):
+    """Bytes that look like a JPEG to the splitter and the file route. The ring does not decode them."""
+    return b"\xff\xd8\xff" + bytes([number]) * 40 + b"\xff\xd9"
+
+
+def digest_of(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+class Clock:
+    """A clock that the test moves."""
+
+    def __init__(self, now=1000.0):
+        self.now = now
+
+    def __call__(self):
+        return self.now
+
+
+def stamp(seconds):
+    return f"2026-01-01T00:00:{seconds:06.3f}Z"
+
+
+class Pipe:
+    """The stdout of a fake process: each read returns the next chunk, then the end of the stream."""
+
+    def __init__(self, chunks):
+        self.chunks = list(chunks)
+        self.closed = False
+
+    def read1(self, _size):
+        return self.chunks.pop(0) if self.chunks else b""
+
+    def close(self):
+        self.closed = True
+
+
+class FakeProcess:
+    """Stands in for v4l2-ctl. With `hold`, the stream stays open until terminate."""
+
+    def __init__(self, chunks, hold=False):
+        self.stdout = Pipe(chunks)
+        self.hold = threading.Event() if hold else None
+        self.terminated = False
+        if hold:
+            self.stdout.read1 = self.waiting(self.stdout.read1)
+
+    def waiting(self, read1):
+        def read(size):
+            return read1(size) or (self.hold.wait(10) and b"")
+        return read
+
+    def terminate(self):
+        self.terminated = True
+        if self.hold:
+            self.hold.set()
+
+    kill = terminate
+
+    def wait(self, timeout=None):
+        return 0
+
+
+def serve(served, timeout=10):
+    """Run the server of `served` in a thread. Returns the root URL and a function that stops it."""
+    server = camera.open_server(served, timeout=timeout)
+    thread = threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True)
+    thread.start()
+
+    def stop():
+        server.shutdown()
+        server.server_close()
+        thread.join()
+    return f"http://127.0.0.1:{server.server_port}", stop
+
+
+def get(root, path, method="GET"):
+    """One request. Returns the status and the JSON body, or the bytes of a file."""
+    request = urllib.request.Request(root + path, method=method)
+    try:
+        response = urllib.request.urlopen(request, timeout=5)
+    except urllib.error.HTTPError as error:
+        response = error
+    with response:
+        data = response.read()
+        kind = response.headers.get_content_type()
+        return response.status, data if kind in ("image/png", "image/jpeg", "audio/wav") else json.loads(data)
+
 
 class CameraTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
-        self.source = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
+        self.source = copy.deepcopy(SOURCE)
         self.camera = camera.Camera(copy.deepcopy(self.source), self.folder.name, None, demo=True)
+        self.clock = Clock()
+        self.camera.ring = camera.Ring(self.clock)
         self.running = False
         self.start_server()
         self.addCleanup(self.stop_server)
 
     def start_server(self, served=None, timeout=10):
-        self.server = camera.open_server(served or self.camera, timeout=timeout)
-        self.thread = threading.Thread(target=self.server.serve_forever, args=(0.01,), daemon=True)
-        self.thread.start()
+        self.root, self.stop = serve(served or self.camera, timeout)
         self.running = True
-        self.root = f"http://127.0.0.1:{self.server.server_port}"
 
     def stop_server(self):
-        if not self.running:
-            return
-        self.running = False
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join()
+        if self.running:
+            self.running = False
+            self.stop()
 
     def request(self, path, method="GET"):
-        request = urllib.request.Request(self.root + path, method=method)
-        try:
-            response = urllib.request.urlopen(request, timeout=5)
-        except urllib.error.HTTPError as error:
-            response = error
-        with response:
-            data = response.read()
-            return response.status, data if response.headers.get_content_type() in ("image/png", "audio/wav") else json.loads(data)
+        return get(self.root, path, method)
 
-    def test_discovery_and_evidence_survive_later_capture_and_shutdown(self):
-        self.assertEqual(self.server.server_address[0], "127.0.0.1")
+    def offer(self, data=camera.DEMO_JPEG, grey=camera.DEMO_GREY, seconds=1.0):
+        self.clock.now += seconds
+        self.camera.ring.offer(data, grey, stamp(self.clock.now % 60))
+
+    def test_discovery_and_a_frame_that_lives_in_ram(self):
         status, index = self.request("/")
         self.assertEqual(status, 200)
         self.assertEqual(index["api"], 2)
         self.assertEqual(index["source"], self.source)
         self.assertEqual([(sensor["name"], sensor["spans"]) for sensor in index["sensors"]], [("camera", False), ("microphone", False)])
+        self.offer()
         status, body = self.request("/camera/observe")
         self.assertEqual(status, 200)
         self.assertEqual(body["api"], 2)
         observation = body["observations"][0]
         self.assertIn("SYNTHETIC", observation["parts"][0]["text"])
+        self.assertEqual(observation["parts"][1]["mediaType"], "image/jpeg")
         digest = observation["parts"][1]["file"]
-        status, png = self.request("/files/" + digest)
+        status, frame = self.request("/files/" + digest)
         self.assertEqual(status, 200)
-        self.assertEqual(hashlib.sha256(png).hexdigest(), digest)
-        self.assertEqual(png, camera.demo_png())
-        self.camera.acquire()
-        self.assertEqual(self.request("/files/" + digest)[1], png)
-        records = [json.loads(row) for row in (Path(self.folder.name) / "observations.jsonl").read_text().splitlines()]
-        self.assertEqual(records[0], {"source": self.source, "sensor": "camera", "observation": observation})
-        self.assertEqual(len(records), 2)
-        # Restart/rollback uses the same directory without deleting old evidence.
-        restarted = camera.Camera(self.source, self.folder.name, None, demo=True)
-        restarted.acquire()
-        self.assertEqual((Path(self.folder.name) / "blobs" / digest).read_bytes(), png)
-        self.assertEqual(len((Path(self.folder.name) / "observations.jsonl").read_text().splitlines()), 3)
+        self.assertEqual(frame, camera.DEMO_JPEG)
+        self.assertEqual(digest_of(frame), digest)
+        # A camera frame writes no blob and no log line.
+        self.assertEqual([path.name for path in Path(self.folder.name).iterdir()], ["blobs"])
+        self.assertEqual(list((Path(self.folder.name) / "blobs").iterdir()), [])
+
+    def test_the_server_binds_to_loopback(self):
+        server = camera.open_server(self.camera)
+        self.addCleanup(server.server_close)
+        self.assertEqual(server.server_address[0], "127.0.0.1")
+
+    def test_content_type_follows_the_bytes(self):
+        self.assertEqual(camera.media_type(camera.DEMO_JPEG), "image/jpeg")
+        self.assertEqual(camera.media_type(b"\x89PNG\r\n\x1a\n"), "image/png")
+        self.assertEqual(camera.media_type(b"RIFF....WAVE"), "audio/wav")
+        self.assertEqual(camera.media_type(b"\xff\xd8"), "audio/wav")
 
     def test_invalid_queries_unknown_paths_and_unsupported_spans(self):
+        self.offer()
         first, second = "2026-01-01T00:00:00.000Z", "2026-01-02T00:00:00.000Z"
         for query in [f"from={second}&to={first}", f"from={first}&to={first}", f"from={first}", f"to={second}",
                       "from=x&to=y", "from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z",
@@ -102,59 +201,49 @@ class CameraTests(unittest.TestCase):
             self.assertEqual((status, body["code"], body["api"]), (404, "unknown", 2), f"{method} {path}")
             self.assertIsInstance(body["message"], str)
 
-    def test_truncated_blob_is_replaced_atomically(self):
-        digest = hashlib.sha256(camera.demo_png()).hexdigest()
-        blobs = Path(self.folder.name) / "blobs"
-        (blobs / digest).write_bytes(camera.demo_png()[:10])
-        self.assertEqual(self.request("/camera/observe")[0], 200)
-        self.assertEqual((blobs / digest).read_bytes(), camera.demo_png())
-        self.assertEqual([path.name for path in blobs.iterdir()], [digest])
+    def test_a_clip_on_disk_still_serves_next_to_a_frame_in_ram(self):
+        self.offer()
+        status, body = self.request("/microphone/observe")
+        self.assertEqual(status, 200)
+        digest = body["observations"][0]["parts"][1]["file"]
+        self.assertEqual(self.request("/files/" + digest), (200, camera.demo_wav()))
 
     def test_idle_connection_does_not_block_observe(self):
+        self.offer()
         self.stop_server()
         self.start_server(timeout=0.5)
-        with socket.create_connection(("127.0.0.1", self.server.server_port)):
+        with socket.create_connection(("127.0.0.1", int(self.root.rsplit(":", 1)[1]))):
             self.assertEqual(self.request("/camera/observe")[0], 200)
 
-    def check_capture_failure(self, run):
-        live = camera.Camera(self.source, self.folder.name, "/dev/video4")
-        self.stop_server()
-        self.start_server(live)
-        log = Path(self.folder.name) / "observations.jsonl"
-        before = log.read_text() if log.exists() else ""
-        with patch("camera.subprocess.run", side_effect=run):
-            status, body = self.request("/camera/observe")
+    def check_unavailable(self):
+        status, body = self.request("/camera/observe")
         self.assertEqual(status, 503)
         self.assertEqual((body["code"], body["api"]), ("unavailable", 2))
         self.assertNotIn("observations", body)
-        self.assertEqual(log.read_text() if log.exists() else "", before)
-        self.assertEqual([path.name for path in Path(self.folder.name).iterdir() if path.is_dir()], ["blobs"])
+        self.assertFalse((Path(self.folder.name) / "observations.jsonl").exists())
 
-    def test_capture_timeout_gives_503(self):
-        self.check_capture_failure(subprocess.TimeoutExpired("fswebcam", 30))
+    def test_no_frame_yet_gives_503(self):
+        self.check_unavailable()
 
-    def test_capture_error_gives_503(self):
-        self.check_capture_failure(subprocess.CalledProcessError(1, "fswebcam"))
+    def test_a_stale_stream_gives_503(self):
+        self.offer()
+        self.assertEqual(self.request("/camera/observe")[0], 200)
+        self.clock.now += camera.STALE_SECONDS - 0.5
+        self.assertEqual(self.request("/camera/observe")[0], 200)
+        self.clock.now += 1
+        self.check_unavailable()
+        self.offer()
+        self.assertEqual(self.request("/camera/observe")[0], 200)
 
-    def test_capture_without_file_gives_503(self):
-        self.check_capture_failure(lambda *_args, **_kwargs: None)
-
-    def test_capture_of_other_bytes_gives_503(self):
-        def capture(command, **_kwargs):
-            Path(command[-1]).write_bytes(b"not a png")
-        self.check_capture_failure(capture)
-
-    def test_v4l2_capture_arguments_and_receipt_timestamp(self):
+    def test_live_observation_names_the_device_and_the_receipt_time(self):
         live = camera.Camera(self.source, self.folder.name, "/dev/video4", "640x480")
-        def capture(command, **kwargs):
-            self.assertEqual(command[:5], ["fswebcam", "-d", "/dev/video4", "-r", "640x480"])
-            self.assertEqual(kwargs["timeout"], 30)
-            self.assertTrue(kwargs["check"])
-            Path(command[-1]).write_bytes(camera.demo_png())
-        with patch("camera.subprocess.run", side_effect=capture), patch("camera.utc", return_value="2026-01-01T00:00:00.123Z"):
-            observation = live.acquire()
-        self.assertEqual(observation["at"], "2026-01-01T00:00:00.123Z")
-        self.assertNotIn("SYNTHETIC", observation["parts"][0]["text"])
+        live.ring = self.camera.ring
+        self.offer()
+        observation = live.frames()[0]
+        self.assertEqual(observation["at"], stamp(self.clock.now % 60))
+        self.assertEqual(observation["parts"][0]["text"],
+                         "USB camera /dev/video4; timestamp is receipt time. "
+                         f"Received {stamp(self.clock.now % 60)}, 0.0 s ago. Kept: the first frame of the stream.")
 
     def test_launch_source_stays_fixed_when_branch_advances(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -191,59 +280,45 @@ def wav_bytes(samples, channels=1, rate=48000):
 
 
 class ConcurrencyTests(unittest.TestCase):
-    """Requests overlap. A request waits only for a capture of its own sensor."""
+    """Requests overlap. A request for a clip waits only for a clip. A request for the camera waits for nothing."""
 
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
-        source = {"repository": "engineer/bench-camera", "commit": "a" * 40, "dirty": False}
-        self.camera = camera.Camera(source, self.folder.name, None, demo=True)
-        self.server = camera.open_server(self.camera)
-        self.thread = threading.Thread(target=self.server.serve_forever, args=(0.01,), daemon=True)
-        self.thread.start()
-        self.addCleanup(self.stop_server)
-        self.root = f"http://127.0.0.1:{self.server.server_port}"
+        self.camera = camera.Camera(SOURCE, self.folder.name, None, demo=True)
+        self.camera.ring.offer(camera.DEMO_JPEG, camera.DEMO_GREY, stamp(1))
+        self.root, stop = serve(self.camera)
         self.release = threading.Event()
+        self.addCleanup(stop)
         self.addCleanup(self.release.set)
         self.captures = []
         self.entered = threading.Semaphore(0)
         self.arrivals = threading.Semaphore(0)
-        original_acquire = camera.Camera.acquire
+        original_record = camera.Camera.record
         original_observe = camera.Camera.observe
 
-        def acquire(served, sensor="camera"):
-            self.captures.append(sensor)
+        def record(served):
+            self.captures.append("microphone")
             self.entered.release()
-            if sensor in self.held:
+            if self.held:
                 self.assertTrue(self.release.wait(10))
             if self.failing:
                 raise OSError("device lost")
-            return original_acquire(served, sensor)
+            return original_record(served)
 
         def observe(served, sensor):
             self.arrivals.release()
             return original_observe(served, sensor)
 
-        self.held = {"camera", "microphone"}
+        self.held = True
         self.failing = False
-        for name, function in (("acquire", acquire), ("observe", observe)):
+        for name, function in (("record", record), ("observe", observe)):
             patcher = patch.object(camera.Camera, name, function)
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def stop_server(self):
-        self.release.set()
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join()
-
     def request(self, path):
-        try:
-            response = urllib.request.urlopen(self.root + path, timeout=10)
-        except urllib.error.HTTPError as error:
-            response = error
-        with response:
-            return response.status, json.loads(response.read())
+        return get(self.root, path)
 
     def ask(self, sensor, results):
         thread = threading.Thread(target=lambda: results.append(self.request(f"/{sensor}/observe")))
@@ -257,13 +332,13 @@ class ConcurrencyTests(unittest.TestCase):
 
     def test_requests_for_one_sensor_share_the_capture_in_flight(self):
         results = []
-        self.ask("camera", results)
+        self.ask("microphone", results)
         self.wait_for(self.entered)
-        self.ask("camera", results)
+        self.ask("microphone", results)
         self.wait_for(self.arrivals, 2)
         self.release.set()
         self.assertTrue(self.wait_for_result(results, 2))
-        self.assertEqual(self.captures, ["camera"])
+        self.assertEqual(self.captures, ["microphone"])
         self.assertEqual([status for status, _body in results], [200, 200])
         self.assertEqual(results[0][1], results[1][1])
         log = (Path(self.folder.name) / "observations.jsonl").read_text().splitlines()
@@ -277,14 +352,13 @@ class ConcurrencyTests(unittest.TestCase):
         return False
 
     def test_a_request_after_the_capture_ends_starts_a_new_capture(self):
-        self.held = set()
-        self.assertEqual(self.request("/camera/observe")[0], 200)
-        self.assertEqual(self.request("/camera/observe")[0], 200)
-        self.assertEqual(self.captures, ["camera", "camera"])
+        self.held = False
+        self.assertEqual(self.request("/microphone/observe")[0], 200)
+        self.assertEqual(self.request("/microphone/observe")[0], 200)
+        self.assertEqual(self.captures, ["microphone", "microphone"])
 
     def test_a_camera_request_does_not_wait_for_a_microphone_clip(self):
         clip = []
-        self.held = {"microphone"}
         self.ask("microphone", clip)
         self.wait_for(self.entered)
         status, body = self.request("/camera/observe")
@@ -294,10 +368,11 @@ class ConcurrencyTests(unittest.TestCase):
         self.release.set()
         self.assertTrue(self.wait_for_result(clip, 1))
         self.assertEqual(clip[0][0], 200)
+        self.assertEqual(self.captures, ["microphone"])
 
     def test_drain_waits_for_the_captures_in_flight(self):
         results = []
-        self.ask("camera", results)
+        self.ask("microphone", results)
         self.wait_for(self.entered)
         drained = threading.Event()
         waiter = threading.Thread(target=lambda: (self.camera.drain(), drained.set()))
@@ -314,14 +389,14 @@ class ConcurrencyTests(unittest.TestCase):
     def test_a_failed_capture_gives_503_to_every_waiting_request(self):
         results = []
         self.failing = True
-        self.ask("camera", results)
+        self.ask("microphone", results)
         self.wait_for(self.entered)
-        self.ask("camera", results)
+        self.ask("microphone", results)
         self.wait_for(self.arrivals, 2)
         self.release.set()
         self.assertTrue(self.wait_for_result(results, 2))
         self.assertEqual([status for status, _body in results], [503, 503])
-        self.assertEqual(self.captures, ["camera"])
+        self.assertEqual(self.captures, ["microphone"])
 
 
 class LevelTests(unittest.TestCase):
@@ -408,6 +483,15 @@ class MicrophoneTests(unittest.TestCase):
         log = (Path(self.folder.name) / "observations.jsonl").read_text().splitlines()
         self.assertEqual(json.loads(log[0])["sensor"], "microphone")
 
+    def test_truncated_blob_is_replaced_atomically(self):
+        self.start_server(camera.Camera(self.source, self.folder.name, None, demo=True))
+        digest = hashlib.sha256(camera.demo_wav()).hexdigest()
+        blobs = Path(self.folder.name) / "blobs"
+        (blobs / digest).write_bytes(camera.demo_wav()[:10])
+        self.assertEqual(self.request("/microphone/observe")[0], 200)
+        self.assertEqual((blobs / digest).read_bytes(), camera.demo_wav())
+        self.assertEqual([path.name for path in blobs.iterdir()], [digest])
+
     def test_arecord_arguments_and_timestamps(self):
         clip = wav_bytes([1000, -1000] * 24000)
         def fake(command, **kwargs):
@@ -418,7 +502,7 @@ class MicrophoneTests(unittest.TestCase):
             Path(command[-1]).write_bytes(clip)
         times = iter(["2026-01-01T00:00:00.000Z", "2026-01-01T00:00:03.050Z"])
         with patch("camera.subprocess.run", side_effect=fake), patch("camera.utc", side_effect=lambda: next(times)):
-            observation = self.live(seconds=3).acquire("microphone")
+            observation = self.live(seconds=3).record()
         self.assertEqual(observation["at"], "2026-01-01T00:00:03.050Z")
         text, file, series = observation["parts"]
         self.assertIn("USB microphone plughw:CARD=BRIO,DEV=0; 3 s clip", text["text"])
@@ -435,7 +519,7 @@ class MicrophoneTests(unittest.TestCase):
             script.write_text(f'#!/bin/sh\nfor last; do :; done\ncp "{clip}" "$last"\n')
             script.chmod(0o755)
             with patch.dict(os.environ, {"PATH": bin_dir + os.pathsep + os.environ["PATH"]}):
-                observation = self.live().acquire("microphone")
+                observation = self.live().record()
         self.assertEqual(len(observation["parts"][2]["values"]), 10)
 
     def test_bad_capture_gives_503_and_keeps_nothing(self):
@@ -472,6 +556,385 @@ class MicrophoneTests(unittest.TestCase):
         self.start_server(camera.Camera(self.source, self.folder.name, None, demo=True))
         span = "from=2026-01-01T00:00:00.000Z&to=2026-01-02T00:00:00.000Z"
         self.assertEqual(self.request("/microphone/observe?" + span)[0], 422)
+
+
+class ChangeRuleTests(unittest.TestCase):
+    """The change rule is a pure function on grey copies of 2304 ints. It needs no Pillow and no numpy."""
+
+    def test_the_first_frame_is_kept(self):
+        self.assertEqual(camera.judge(None, FLAT, 0), (True, None))
+
+    def test_a_still_scene_keeps_nothing(self):
+        noisy = [value + (index % 5) - 2 for index, value in enumerate(FLAT)]
+        keep, share = camera.judge(FLAT, noisy, 60)
+        self.assertEqual((keep, share), (False, 0.0))
+
+    def test_a_step_of_brightness_keeps_nothing(self):
+        before = scene(10, 10)
+        for step in (30, -30, 55):
+            keep, share = camera.judge(before, [value + step for value in before], 60)
+            self.assertEqual((keep, share), (False, 0.0), step)
+
+    def test_a_moved_block_keeps_one_frame(self):
+        keep, share = camera.judge(scene(10, 10), scene(40, 20), 60)
+        self.assertTrue(keep)
+        self.assertAlmostEqual(share, 2 * 16 * 12 / 2304)
+
+    def test_a_change_under_the_share_keeps_nothing(self):
+        # A block of 5x10 pixels is 2.2 % of the copy and over the limit. A block of 4x10 is 1.7 % and under it.
+        self.assertTrue(camera.judge(FLAT, scene(10, 10, 5, 10), 60)[0])
+        self.assertFalse(camera.judge(FLAT, scene(10, 10, 4, 10), 60)[0])
+
+    def test_a_pixel_must_move_more_than_the_delta(self):
+        # A block that rises by the delta moves less than the delta after the mean leaves. One that rises by twice moves more.
+        self.assertEqual(camera.changed_share(FLAT, scene(10, 10, level=100 + camera.PIXEL_DELTA)), 0.0)
+        self.assertEqual(camera.changed_share(FLAT, scene(10, 10, level=100 + 2 * camera.PIXEL_DELTA)), 192 / 2304)
+
+    def test_the_gap_holds_a_frame_until_min_gap_passed(self):
+        before, after = scene(10, 10), scene(40, 20)
+        self.assertFalse(camera.judge(before, after, camera.MIN_GAP - 0.1)[0])
+        self.assertTrue(camera.judge(before, after, camera.MIN_GAP)[0])
+
+    def test_the_mean_leaves_the_copy(self):
+        grey = scene(10, 10)
+        self.assertAlmostEqual(sum(camera.centered(grey)), 0.0, places=6)
+
+
+class SplitterTests(unittest.TestCase):
+    def test_two_frames_in_one_read(self):
+        splitter = camera.Splitter()
+        self.assertEqual(splitter.feed(jpeg(1) + jpeg(2)), [jpeg(1), jpeg(2)])
+
+    def test_a_frame_split_across_reads(self):
+        splitter = camera.Splitter()
+        data = jpeg(1) + jpeg(2)
+        frames = []
+        for start in range(0, len(data), 7):
+            frames += splitter.feed(data[start:start + 7])
+        self.assertEqual(frames, [jpeg(1), jpeg(2)])
+
+    def test_a_marker_split_between_two_reads(self):
+        splitter = camera.Splitter()
+        frame = jpeg(3)
+        self.assertEqual(splitter.feed(b"junk\xff"), [])
+        self.assertEqual(splitter.feed(frame[1:-1]), [])
+        self.assertEqual(splitter.feed(frame[-1:]), [frame])
+
+    def test_junk_between_frames_goes_away(self):
+        splitter = camera.Splitter()
+        self.assertEqual(splitter.feed(b"junk" + jpeg(1) + b"\x00\x01noise" + jpeg(2) + b"tail"), [jpeg(1), jpeg(2)])
+        self.assertEqual(splitter.buffer, b"")
+
+    def test_the_buffer_stays_bounded_without_an_end_marker(self):
+        splitter = camera.Splitter()
+        with patch("camera.FRAME_LIMIT", 100):
+            self.assertEqual(splitter.feed(b"\xff\xd8" + b"x" * 200), [])
+            self.assertEqual(splitter.buffer, b"")
+            self.assertEqual(splitter.feed(b"x" * 500 + jpeg(4)), [jpeg(4)])
+        self.assertEqual(splitter.feed(b"x" * 100_000), [])
+        self.assertEqual(len(splitter.buffer), 0)
+
+
+class RingTests(unittest.TestCase):
+    def setUp(self):
+        self.clock = Clock()
+        self.ring = camera.Ring(self.clock)
+
+    def offer(self, number, grey, seconds=1.0):
+        self.clock.now += seconds
+        self.ring.offer(jpeg(number), grey, stamp(self.clock.now % 60))
+
+    def test_a_still_scene_keeps_the_first_frame_only(self):
+        for number in range(10):
+            self.offer(number, FLAT, 0.5)
+        kept, extra, last_at = self.ring.snapshot()
+        self.assertEqual([frame.jpeg for frame in kept], [jpeg(0)])
+        self.assertEqual(extra.jpeg, jpeg(9))
+        self.assertEqual(last_at, kept[0].at)
+        self.assertIsNone(kept[0].share)
+
+    def test_a_frame_that_skips_the_rule_is_the_newest_frame_only(self):
+        self.offer(0, FLAT)
+        self.offer(1, None)
+        kept, extra, _last = self.ring.snapshot()
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(extra.jpeg, jpeg(1))
+
+    def test_a_moved_block_is_kept_after_the_gap(self):
+        self.offer(0, scene(10, 10))
+        self.offer(1, scene(40, 20), 0.5)  # The change comes at once. The gap holds the frame.
+        kept, extra, _last = self.ring.snapshot()
+        self.assertEqual(len(kept), 1)
+        self.assertGreater(extra.share, camera.CHANGED_SHARE)
+        self.offer(2, scene(40, 20), camera.MIN_GAP)
+        kept, extra, _last = self.ring.snapshot()
+        self.assertEqual([frame.jpeg for frame in kept], [jpeg(0), jpeg(2)])
+        self.assertIsNone(extra)
+        self.offer(3, scene(40, 20), 0.5)
+        self.assertEqual(len(self.ring.snapshot()[0]), 2)
+
+    def test_the_ring_drops_a_frame_after_ring_seconds(self):
+        self.offer(0, scene(10, 10))
+        self.offer(1, scene(40, 20), 3)
+        self.assertEqual(len(self.ring.snapshot()[0]), 2)
+        self.clock.now += camera.RING_SECONDS - 2
+        self.offer(2, scene(40, 20), 0)
+        self.assertEqual([frame.jpeg for frame in self.ring.snapshot()[0]], [jpeg(1)])
+        self.assertIsNone(self.ring.find(digest_of(jpeg(0))))
+        self.assertEqual(self.ring.find(digest_of(jpeg(1))), jpeg(1))
+
+    def test_the_ring_holds_ring_max_frames(self):
+        with patch("camera.RING_SECONDS", 10_000):
+            for number in range(camera.RING_MAX + 5):
+                self.offer(number, scene(40 * (number % 2), 0), camera.MIN_GAP)
+        kept = self.ring.snapshot()[0]
+        self.assertEqual(len(kept), camera.RING_MAX)
+        self.assertEqual(kept[-1].jpeg, jpeg(camera.RING_MAX + 4))
+        self.assertIsNone(self.ring.find(digest_of(jpeg(0))))
+
+    def test_the_last_kept_time_stays_after_the_ring_drops_the_frame(self):
+        self.offer(0, FLAT)
+        first = self.ring.snapshot()[0][0].at
+        for number in range(1, 5):
+            self.offer(number, FLAT, 40)
+        kept, extra, last_at = self.ring.snapshot()
+        self.assertEqual(kept, [])
+        self.assertEqual(last_at, first)
+        self.assertEqual(extra.jpeg, jpeg(4))
+
+    def test_a_stale_stream_raises_and_a_new_frame_recovers(self):
+        with self.assertRaises(ValueError):
+            self.ring.snapshot()
+        self.offer(0, FLAT)
+        self.clock.now += camera.STALE_SECONDS + 1
+        with self.assertRaises(ValueError):
+            self.ring.snapshot()
+        self.offer(1, None)
+        self.assertEqual(self.ring.snapshot()[1].jpeg, jpeg(1))
+
+    def test_the_newest_frame_that_an_observation_named_stays_readable(self):
+        self.offer(0, FLAT)
+        self.offer(1, None)
+        named = self.ring.snapshot()[1]
+        self.offer(2, None)
+        self.offer(3, None)
+        self.assertEqual(self.ring.find(named.digest), jpeg(1))
+        self.assertIsNone(self.ring.find(digest_of(jpeg(2))))  # No observation named this frame.
+        self.clock.now += camera.RING_SECONDS + 1
+        self.assertIsNone(self.ring.find(named.digest))
+
+
+class ObserveTests(unittest.TestCase):
+    """The observation of the camera sensor: kept frames, then the newest frame, oldest first."""
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.clock = Clock()
+        self.camera = camera.Camera(SOURCE, self.folder.name, None, demo=True)
+        self.camera.ring = camera.Ring(self.clock)
+        self.root, stop = serve(self.camera)
+        self.addCleanup(stop)
+
+    def offer(self, number, grey, seconds=1.0):
+        self.clock.now += seconds
+        self.camera.ring.offer(jpeg(number), grey, stamp(self.clock.now % 60))
+
+    def observe(self):
+        status, body = get(self.root, "/camera/observe")
+        self.assertEqual(status, 200)
+        return body["observations"]
+
+    def test_kept_frames_come_first_and_the_newest_frame_comes_last(self):
+        self.offer(0, scene(10, 10))
+        self.offer(1, scene(40, 20), 5)
+        self.offer(2, scene(10, 10), 5)
+        self.offer(3, scene(10, 10), 0.4)
+        observations = self.observe()
+        self.assertEqual([item["parts"][1]["file"] for item in observations],
+                         [digest_of(jpeg(number)) for number in (0, 1, 2, 3)])
+        self.assertEqual([item["at"] for item in observations], sorted(item["at"] for item in observations))
+        texts = [item["parts"][0]["text"] for item in observations]
+        self.assertIn("Kept: the first frame of the stream.", texts[0])
+        self.assertIn("Kept: 16.7 % of the pixels changed since the previous kept frame.", texts[1])
+        self.assertIn("0.4 s ago", texts[2])
+        self.assertIn("0.0 s ago", texts[3])
+        self.assertIn(f"Not kept: no change since {observations[2]['at']}.", texts[3])
+        for item in observations:
+            self.assertEqual([part["kind"] for part in item["parts"]], ["text", "frame"])
+            self.assertEqual(item["parts"][1]["mediaType"], "image/jpeg")
+            self.assertIn("SYNTHETIC DEMO", item["parts"][0]["text"])
+
+    def test_the_newest_frame_is_not_listed_twice_when_the_ring_kept_it(self):
+        self.offer(0, scene(10, 10))
+        self.offer(1, scene(40, 20), 5)
+        observations = self.observe()
+        self.assertEqual(len(observations), 2)
+        self.assertEqual(observations[-1]["parts"][1]["file"], digest_of(jpeg(1)))
+
+    def test_a_change_inside_the_gap_says_so(self):
+        self.offer(0, scene(10, 10))
+        self.offer(1, scene(40, 20), 0.5)
+        text = self.observe()[-1]["parts"][0]["text"]
+        self.assertIn("Not kept yet: 16.7 % of the pixels differ from the kept frame of", text)
+
+    def test_files_come_from_ram_and_a_frame_that_left_the_ring_gives_404(self):
+        self.offer(0, scene(10, 10))
+        self.offer(1, scene(40, 20), 5)
+        old, new = (digest_of(jpeg(number)) for number in (0, 1))
+        self.assertEqual(get(self.root, "/files/" + old), (200, jpeg(0)))
+        self.assertEqual(get(self.root, "/files/" + new), (200, jpeg(1)))
+        self.clock.now += camera.RING_SECONDS - 4
+        self.offer(2, scene(40, 20), 0)
+        self.assertEqual(get(self.root, "/files/" + old)[0], 404)
+        self.assertEqual(get(self.root, "/files/" + new)[0], 200)
+        self.assertEqual(sorted(path.name for path in Path(self.folder.name).iterdir()), ["blobs"])
+
+    def test_the_newest_frame_stays_readable_after_the_next_frame(self):
+        self.offer(0, scene(10, 10))
+        self.offer(1, None, 0.2)
+        named = self.observe()[-1]["parts"][1]["file"]
+        self.offer(2, None, 0.2)
+        self.assertEqual(get(self.root, "/files/" + named), (200, jpeg(1)))
+
+    def test_the_microphone_clip_is_the_only_file_on_disk(self):
+        self.offer(0, scene(10, 10))
+        self.observe()
+        self.assertEqual(list((Path(self.folder.name) / "blobs").iterdir()), [])
+        self.assertEqual(get(self.root, "/microphone/observe")[0], 200)
+        self.assertEqual(len(list((Path(self.folder.name) / "blobs").iterdir())), 1)
+        lines = (Path(self.folder.name) / "observations.jsonl").read_text().splitlines()
+        self.assertEqual([json.loads(line)["sensor"] for line in lines], ["microphone"])
+
+
+class ReaderTests(unittest.TestCase):
+    """The reader thread, with a fake process in place of v4l2-ctl."""
+
+    def setUp(self):
+        self.ring = camera.Ring()
+        self.launched = []
+        self.processes = []
+        self.resolved = []
+
+    def resolve(self):
+        self.resolved.append(len(self.resolved))
+        return f"/dev/video{2 * len(self.resolved) - 2}"
+
+    def launch(self, node):
+        self.launched.append(node)
+        return self.processes.pop(0)
+
+    def reader(self, decode=lambda _jpeg: camera.DEMO_GREY):
+        reader = camera.Reader(self.ring, self.resolve, self.launch, decode, pause=0.01)
+        self.addCleanup(reader.stop)
+        return reader
+
+    def wait_for(self, condition):
+        for _ in range(500):
+            if condition():
+                return
+            threading.Event().wait(0.01)
+        self.fail("The condition did not hold.")
+
+    def test_the_stream_splits_into_frames_and_the_first_frame_is_kept(self):
+        self.processes = [FakeProcess([b"junk" + jpeg(1)[:9], jpeg(1)[9:] + jpeg(2)], hold=True)]
+        reader = self.reader()
+        reader.start()
+        self.wait_for(lambda: self.ring.newest is not None and self.ring.newest.jpeg == jpeg(2))
+        kept, extra, _last = self.ring.snapshot()
+        self.assertEqual([frame.jpeg for frame in kept], [jpeg(1)])
+        self.assertEqual(extra.jpeg, jpeg(2))  # The second frame came inside DETECT_PERIOD: no rule.
+        self.assertEqual(extra.share, 0.0)
+
+    def test_a_frame_that_does_not_decode_is_skipped(self):
+        process = FakeProcess([jpeg(1) + jpeg(2)], hold=True)
+        self.processes = [process]
+        reader = self.reader(decode=lambda _jpeg: None)
+        reader.start()
+        self.wait_for(lambda: process.stdout.chunks == [])
+        threading.Event().wait(0.05)
+        self.assertIsNone(self.ring.newest)
+        self.assertFalse(self.ring.arrived.is_set())
+
+    def test_the_stream_restarts_after_it_ends_and_resolves_the_node_again(self):
+        self.processes = [FakeProcess([jpeg(1)]), FakeProcess([jpeg(2)]), FakeProcess([jpeg(3)], hold=True)]
+        launched = list(self.processes)
+        reader = self.reader()
+        reader.start()
+        self.wait_for(lambda: len(self.launched) == 3 and self.ring.newest.jpeg == jpeg(3))
+        self.assertEqual(self.launched, ["/dev/video0", "/dev/video2", "/dev/video4"])
+        self.assertTrue(all(process.terminated and process.stdout.closed for process in launched[:2]))
+        self.assertEqual(reader.problem, "The stream ended.")
+
+    def test_a_camera_that_is_absent_is_retried(self):
+        answers = [ValueError("No capture node has USB ID 046d:085e."), "/dev/video6"]
+
+        def resolve():
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+        self.processes = [FakeProcess([jpeg(1)], hold=True)]
+        reader = camera.Reader(self.ring, resolve, self.launch, lambda _jpeg: camera.DEMO_GREY, pause=0.01)
+        self.addCleanup(reader.stop)
+        reader.start()
+        self.wait_for(lambda: self.ring.arrived.is_set())
+        self.assertEqual(self.launched, ["/dev/video6"])
+
+    def test_a_failed_start_is_kept_as_the_problem(self):
+        def launch(_node):
+            raise FileNotFoundError("v4l2-ctl")
+
+        reader = camera.Reader(self.ring, lambda: "/dev/video0", launch, lambda _jpeg: None, pause=0.01)
+        self.addCleanup(reader.stop)
+        reader.start()
+        self.wait_for(lambda: reader.problem)
+        self.assertEqual(reader.problem, "v4l2-ctl")
+
+    def test_stop_ends_the_process_and_the_thread(self):
+        self.processes = [FakeProcess([jpeg(1)], hold=True)]
+        reader = self.reader()
+        reader.start()
+        self.wait_for(lambda: self.ring.arrived.is_set())
+        reader.stop()
+        self.assertFalse(reader.is_alive())
+        self.assertTrue(self.launched and not self.processes)
+
+    def test_the_rule_runs_about_two_times_each_second(self):
+        clock = Clock()
+        self.ring = camera.Ring(clock)
+        decoded = []
+        reader = camera.Reader(self.ring, self.resolve, self.launch, lambda data: decoded.append(data) or camera.DEMO_GREY)
+        for number in range(5 * camera.STREAM_FPS):  # Five seconds of frames.
+            clock.now += 1 / camera.STREAM_FPS
+            reader.take(jpeg(number))
+        self.assertIn(len(decoded), range(8, 11))
+        self.assertEqual(self.ring.newest.jpeg, jpeg(5 * camera.STREAM_FPS - 1))
+
+    def test_the_stream_command(self):
+        self.assertEqual(camera.stream_command("/dev/video2", "1920x1080"),
+                         ["v4l2-ctl", "-d", "/dev/video2", "--set-fmt-video=width=1920,height=1080,pixelformat=MJPG",
+                          "--set-parm=5", "--stream-mmap", "--stream-to=-"])
+        with patch("camera.subprocess.Popen") as popen:
+            process = camera.start_stream("/dev/video2", "640x480")
+        self.assertIs(process, popen.return_value)
+        self.assertEqual(popen.call_args.args[0][:3], ["v4l2-ctl", "-d", "/dev/video2"])
+        self.assertEqual(popen.call_args.kwargs["stdout"], subprocess.PIPE)
+
+
+@unittest.skipUnless(HAS_PILLOW, "Pillow is not installed.")
+class DecodeTests(unittest.TestCase):
+    def test_the_demo_frame_decodes_to_a_grey_copy_of_the_scene(self):
+        grey = camera.grey_of(camera.DEMO_JPEG)
+        self.assertEqual(len(grey), 2304)
+        error = sum(abs(one - other) for one, other in zip(grey, camera.DEMO_GREY)) / 2304
+        self.assertLess(error, 10)
+
+    def test_a_frame_that_does_not_decode_gives_none(self):
+        self.assertIsNone(camera.grey_of(b"not a jpeg"))
+        self.assertIsNone(camera.grey_of(camera.DEMO_JPEG[:300]))
+        self.assertIsNone(camera.grey_of(b""))
 
 
 class FakeSysfs:
@@ -525,16 +988,6 @@ class UsbIdTests(unittest.TestCase):
     def live(self, usb_id="046d:085e"):
         return camera.Camera(self.source, self.data, None, usb_id=usb_id)
 
-    def capture(self, live):
-        """Capture one frame with fswebcam patched. Returns the fswebcam command and the observation."""
-        commands = []
-        def run(command, **_kwargs):
-            commands.append(command)
-            Path(command[-1]).write_bytes(camera.demo_png())
-        with patch("camera.subprocess.run", side_effect=run), patch("camera.VIDEO4LINUX", self.sysfs.root):
-            observation = live.acquire()
-        return commands[0], observation
-
     def test_the_capture_node_is_the_one_with_index_0(self):
         self.assertEqual(camera.capture_node("046d:085e", self.sysfs.root), "/dev/video0")
         self.assertEqual(camera.capture_node("1234:abcd", self.sysfs.root), "/dev/video2")
@@ -565,35 +1018,52 @@ class UsbIdTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             camera.capture_node("0bda:5801", self.sysfs.root)
 
-    def test_each_capture_looks_up_the_node_after_a_reconnect(self):
+    def test_each_start_of_the_stream_looks_up_the_node_after_a_reconnect(self):
         live = self.live()
-        command, observation = self.capture(live)
-        self.assertEqual(command[:3], ["fswebcam", "-d", "/dev/video0"])
-        self.assertEqual(observation["parts"][0]["text"],
-                         "USB camera 046d:085e at /dev/video0; timestamp is capture receipt time.")
-        self.sysfs.clear()
-        self.sysfs.camera("1-2", "1234:abcd", 0)
-        self.sysfs.camera("1-1", "046d:085e", 2)
-        command, observation = self.capture(live)
-        self.assertEqual(command[:3], ["fswebcam", "-d", "/dev/video2"])
-        self.assertEqual(observation["parts"][0]["text"],
-                         "USB camera 046d:085e at /dev/video2; timestamp is capture receipt time.")
+        with patch("camera.VIDEO4LINUX", self.sysfs.root):
+            self.assertEqual(live.find_node(), "/dev/video0")
+            self.sysfs.clear()
+            self.sysfs.camera("1-2", "1234:abcd", 0)
+            self.sysfs.camera("1-1", "046d:085e", 2)
+            self.assertEqual(live.find_node(), "/dev/video2")
+        self.assertEqual(live.node, "/dev/video2")
+
+    def test_the_stream_of_a_usb_id_names_the_node_in_its_observations(self):
+        live = self.live()
+        started = []
+
+        def start_stream(node, resolution):
+            started.append((node, resolution))
+            return FakeProcess([camera.DEMO_JPEG], hold=True)
+
+        with patch("camera.VIDEO4LINUX", self.sysfs.root), patch("camera.start_stream", side_effect=start_stream), \
+                patch("camera.grey_of", return_value=camera.DEMO_GREY):
+            live.start()
+            self.addCleanup(live.stop)
+            self.assertTrue(live.ready(5))
+            observation = live.frames()[0]
+        self.assertEqual(started, [("/dev/video0", "1280x720")])
+        self.assertTrue(observation["parts"][0]["text"].startswith(
+            "USB camera 046d:085e at /dev/video0; timestamp is receipt time. Received "))
+        self.assertNotIn("SYNTHETIC", observation["parts"][0]["text"])
+        self.assertEqual(observation["parts"][1]["file"], hashlib.sha256(camera.DEMO_JPEG).hexdigest())
 
     def test_a_missing_camera_gives_503(self):
         self.sysfs.clear()
-        server = camera.open_server(self.live())
-        thread = threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True)
-        thread.start()
-        self.addCleanup(thread.join)
-        self.addCleanup(server.server_close)
-        self.addCleanup(server.shutdown)
-        url = f"http://127.0.0.1:{server.server_port}/camera/observe"
-        with patch("camera.VIDEO4LINUX", self.sysfs.root), patch("camera.subprocess.run") as run, \
-                self.assertRaises(urllib.error.HTTPError) as caught:
-            urllib.request.urlopen(url, timeout=5)
-        self.assertEqual(caught.exception.code, 503)
-        caught.exception.close()
-        run.assert_not_called()
+        live = self.live()
+        root, stop = serve(live)
+        self.addCleanup(stop)
+        with patch("camera.VIDEO4LINUX", self.sysfs.root), patch("camera.start_stream") as start:
+            live.start()
+            self.addCleanup(live.stop)
+            self.assertFalse(live.ready(0.1))
+            for _ in range(200):
+                if live.reader.problem:
+                    break
+                threading.Event().wait(0.01)
+            self.assertEqual(get(root, "/camera/observe")[0], 503)
+        self.assertIn("No capture node has USB ID 046d:085e", live.reader.problem)
+        start.assert_not_called()
 
     def test_the_usb_id_alone_serves_the_camera_sensor(self):
         self.assertEqual(list(self.live().sensors()), ["camera"])
@@ -654,8 +1124,49 @@ class MainTests(unittest.TestCase):
             self.addCleanup(process.communicate)
             index = self.listening(process)
             self.assertEqual([one["name"] for one in index["sensors"]], ["camera", "microphone"])
-            self.assertEqual(len((Path(data) / "observations.jsonl").read_text().splitlines()), 2)
+            # The microphone clip is the only file on disk. The frames stay in RAM.
+            lines = (Path(data) / "observations.jsonl").read_text().splitlines()
+            self.assertEqual([json.loads(line)["sensor"] for line in lines], ["microphone"])
+            with urllib.request.urlopen(f"http://127.0.0.1:{process.port}/camera/observe", timeout=5) as response:
+                parts = json.load(response)["observations"][0]["parts"]
+            self.assertEqual(parts[1]["mediaType"], "image/jpeg")
+            self.assertEqual([path.name for path in (Path(data) / "blobs").iterdir()],
+                             [hashlib.sha256(camera.demo_wav()).hexdigest()])
             self.stop(process)
+
+    @unittest.skipUnless(HAS_PILLOW, "Pillow is not installed.")
+    def test_a_fake_v4l2_ctl_on_path_streams_into_the_ring_and_stops_with_the_server(self):
+        with tempfile.TemporaryDirectory() as data, tempfile.TemporaryDirectory() as bin_dir:
+            frame = Path(bin_dir) / "frame.jpg"
+            frame.write_bytes(camera.DEMO_JPEG)
+            script = Path(bin_dir) / "v4l2-ctl"
+            script.write_text(f'#!/bin/sh\necho $$ > "{bin_dir}/pid"\nprintf "%s\\n" "$@" > "{bin_dir}/args"\n'
+                              f'while :; do cat "{frame}"; sleep 0.1; done\n')
+            script.chmod(0o755)
+            path = bin_dir + os.pathsep + os.environ["PATH"]
+            process = self.run_main("--device", "/dev/video7", "--resolution", "640x480", data=data, PATH=path)
+            self.addCleanup(process.kill)
+            self.addCleanup(process.communicate)
+            index = self.listening(process)
+            self.assertEqual([one["name"] for one in index["sensors"]], ["camera"])
+            with urllib.request.urlopen(f"http://127.0.0.1:{process.port}/camera/observe", timeout=5) as response:
+                observation = json.load(response)["observations"][0]
+            self.assertIn("USB camera /dev/video7; timestamp is receipt time.", observation["parts"][0]["text"])
+            self.assertEqual((Path(bin_dir) / "args").read_text().split(),
+                             ["-d", "/dev/video7", "--set-fmt-video=width=640,height=480,pixelformat=MJPG",
+                              "--set-parm=5", "--stream-mmap", "--stream-to=-"])
+            self.assertEqual(list(Path(data).iterdir()), [Path(data) / "blobs"])
+            self.assertEqual(list((Path(data) / "blobs").iterdir()), [])
+            pid = int((Path(bin_dir) / "pid").read_text())
+            self.stop(process)
+            for _ in range(100):
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                threading.Event().wait(0.05)
+            else:
+                self.fail("v4l2-ctl still runs.")
 
     def test_a_port_in_use_exits_with_one_line(self):
         with socket.socket() as holder, tempfile.TemporaryDirectory() as data:
@@ -742,6 +1253,18 @@ class MainTests(unittest.TestCase):
             process = self.run_main(data=data)
             _out, err = process.communicate(timeout=10)
         self.assertIn("--usb-id", err)
+
+    def test_no_first_frame_exits_with_one_line_and_stops_the_stream(self):
+        with tempfile.TemporaryDirectory() as data:
+            live = camera.Camera(SOURCE, data, "/dev/video4")
+            live.ready = lambda: live.ring.arrived.wait(0.05)  # The real wait is FIRST_FRAME_SECONDS.
+            with patch("camera.start_stream", side_effect=lambda *_args: FakeProcess([], hold=True)), \
+                    patch("sys.stderr", new_callable=io.StringIO) as err, self.assertRaises(SystemExit) as caught:
+                camera.start_evidence(live)
+        self.assertEqual(caught.exception.code, 1)
+        self.assertTrue(err.getvalue().startswith("camera got no frame in 30 s."), err.getvalue())
+        self.assertEqual(len(err.getvalue().splitlines()), 1)
+        self.assertFalse(live.reader.is_alive())
 
     def test_invalid_audio_options_exit_with_2(self):
         self.check_exit("--audio-device", "x;rm")
