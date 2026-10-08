@@ -264,6 +264,7 @@ class EngineTui {
 				humans: this.session.humans,
 				messages: this.session.messages,
 			}),
+			busy: () => this.voice.phase !== 'idle',
 			say: (note) => this.session.say(note),
 		});
 	}

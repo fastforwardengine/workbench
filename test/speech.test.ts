@@ -25,6 +25,7 @@ const HUMANS: ReadonlySet<string> = new Set(['priya']);
 
 /** The room and the parts that a test moves. */
 function bench(over: Partial<SpeechParts> = {}) {
+	const mic = { busy: false };
 	const room = { name: 'bench', person: 'priya' as string | undefined, messages: [] as Message[] };
 	const log = {
 		spoken: [] as string[],
@@ -58,6 +59,7 @@ function bench(over: Partial<SpeechParts> = {}) {
 			humans: HUMANS,
 			messages: room.messages,
 		}),
+		busy: () => mic.busy,
 		say: (note) => log.notes.push(note),
 		...over,
 	};
@@ -74,7 +76,7 @@ function bench(over: Partial<SpeechParts> = {}) {
 		sounds.shift()?.();
 		await settle();
 	};
-	return { speech, room, log, land, settle, finish };
+	return { speech, room, log, mic, land, settle, finish };
 }
 
 /** A bench with spoken replies on, and one voice message sent. */
@@ -135,7 +137,7 @@ describe('Speech', () => {
 		expect(b.log.spoken).toEqual([]);
 	});
 
-	it('reads a reply to a typed message after a voice message too', async () => {
+	it('stays silent for a typed message, and reads a reply to a voice message after it', async () => {
 		const b = bench();
 		b.speech.enable();
 		await b.settle();
@@ -145,6 +147,41 @@ describe('Speech', () => {
 		b.land(said(3, 'priya', `${VOICE_MARK}spoken`), said(4, 'engineer', 'Spoken answer.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['Spoken answer.']);
+	});
+
+	it('never reads a reply that lands while the microphone is busy', async () => {
+		const b = await ready();
+		b.mic.busy = true;
+		b.land(said(4, 'engineer', 'During recording.'));
+		await b.settle();
+		b.mic.busy = false;
+		b.speech.update();
+		await b.settle();
+		expect(b.log.spoken).toEqual([]);
+	});
+
+	it('reads a reply that lands after the microphone is free', async () => {
+		const b = await ready();
+		b.mic.busy = true;
+		b.land(said(4, 'engineer', 'During recording.'));
+		b.mic.busy = false;
+		b.land(said(5, 'engineer', 'After recording.'));
+		await b.settle();
+		expect(b.log.spoken).toEqual(['After recording.']);
+	});
+
+	it('drops the sound and the queue when the microphone becomes busy', async () => {
+		const b = await ready();
+		b.land(said(4, 'engineer', 'One.'), said(5, 'engineer', 'Two.'));
+		await b.settle();
+		b.mic.busy = true;
+		b.speech.update();
+		await b.settle();
+		expect(b.log.aborted).toEqual(['One.']);
+		b.mic.busy = false;
+		b.speech.update();
+		await b.settle();
+		expect(b.log.spoken).toEqual(['One.']);
 	});
 
 	it('skips system messages, directed says to other seats, and other people', async () => {

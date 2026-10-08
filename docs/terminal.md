@@ -234,8 +234,8 @@ directory, the person, and the path of `workstation.json`. It calls
 events and a target of 30 frames each second. `EngineTui` then builds the
 widgets, the session, the four surfaces, the dock, the painter, the key
 router, and voice mode. When the renderer ends, the app stops the keys,
-voice mode, and the timers. It then stops the whisper server and the Kokoro server, ends the visit
-of the person, and closes the host.
+voice mode, and the timers. It then stops the whisper server and the Kokoro
+server, ends the visit of the person, and closes the host.
 
 ### The three layers and the import rule
 
@@ -410,13 +410,17 @@ Ctrl+C. `EngineTui.render` calls `Speech.update` after each repaint.
   and a link keeps its text. A message with no words left is skipped.
 - **The queue:** one message plays at a time, in seq order. `stop` aborts the
   sound and clears the queue. A failure shows one note and clears the queue.
+- **The microphone:** while the `busy` part is true, the phase of `Voice` is
+  not `idle`. `Speech.update` then stops the sound and moves the watermark.
+  The replies that land are never read.
 - **The engine:** `app/kokoro-server.ts` starts `koko` from Kokoros in server
   mode on a free port of `127.0.0.1`, with one instance. It posts the text to
   `/v1/audio/speech` and gets a WAV file. `app/speaker.ts` writes the file to
   a temporary folder and plays it with `afplay` on macOS or `ffplay` on
   other systems. An abort kills the player, and the folder goes away.
   `app/kokoro.ts` builds the arguments and checks that `koko`, the two
-  model files, and the player exist.
+  model files, and the player exist. It runs `~/.cache/kokoro/bin/koko` and
+  does not search PATH for it.
 - **The missing engine:** voice mode works without it. One note says what is
   missing, and no reply is read.
 
@@ -651,10 +655,12 @@ with `//` to send a leading slash.
   specialist to you. It uses Kokoro, a speech model that runs on this
   computer. `/voice` starts `koko` on a free port of `127.0.0.1`, and
   switching voice mode off ends it. A press of Space or Ctrl+C stops the
-  reply. A reply to a typed message stays silent. `make voice` also installs
-  `koko` with Homebrew and `cargo`, and downloads the model files of about
-  340 MB to `~/.cache/kokoro/`. When `koko` or
-  the files are missing, voice mode works and one note says to run
-  `make voice`. `WORKBENCH_KOKORO_VOICE` names another voice, such as
+  reply. A reply to a typed message stays silent. A reply that lands while
+  the microphone records or whisper transcribes stays silent too.
+  `make voice` also builds `koko` with `cargo` into `~/.cache/kokoro/bin/`,
+  and downloads the model files of about 340 MB to `~/.cache/kokoro/`. The
+  build folder `~/.cache/kokoro/build` stays, because `koko` reads its
+  phoneme data from there. When `koko` or the files are missing, voice mode
+  works and one note says to run `make voice`. `WORKBENCH_KOKORO_VOICE` names another voice, such as
   `bf_emma`. The default is `af_heart`. When the system kills Workbench with
   SIGKILL, the server can stay. End it with `pkill koko`.

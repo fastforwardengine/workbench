@@ -1,11 +1,10 @@
+import { constants } from 'node:fs';
+import { access } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { exists, onPath, SERVER_HOST } from './whisper.ts';
 
-/** The program of Kokoros that keeps the Kokoro model loaded and answers over HTTP. */
-const KOKORO_COMMAND = 'koko';
-
-/** Where the files of the model are, below the home folder. */
+/** Where `make voice` puts `koko` and the model files, below the home folder. */
 const MODEL_FOLDER = join('.cache', 'kokoro');
 
 /** The voice of the replies, when `WORKBENCH_KOKORO_VOICE` is not set. */
@@ -13,6 +12,7 @@ const DEFAULT_VOICE = 'af_heart';
 
 /** How the terminal runs `koko`. */
 export interface KokoroConfig {
+	/** The path of `koko`, the program of Kokoros that keeps the Kokoro model loaded and answers over HTTP. */
 	command: string;
 	/** The path of the ONNX model file. */
 	model: string;
@@ -23,16 +23,17 @@ export interface KokoroConfig {
 }
 
 /**
- * Read the settings. The model files are in `~/.cache/kokoro/`, where
- * `make voice` puts them. `WORKBENCH_KOKORO_VOICE` names another voice of
- * the voices file.
+ * Read the settings. `koko` is `~/.cache/kokoro/bin/koko`, and the model
+ * files are in `~/.cache/kokoro/`. `make voice` puts them there. The settings
+ * do not use PATH. `WORKBENCH_KOKORO_VOICE` names another voice of the voices
+ * file.
  */
 export function kokoroConfig(
 	env: NodeJS.ProcessEnv = process.env,
 	home: string = homedir(),
 ): KokoroConfig {
 	return {
-		command: KOKORO_COMMAND,
+		command: join(home, MODEL_FOLDER, 'bin', 'koko'),
 		model: join(home, MODEL_FOLDER, 'kokoro-v1.0.onnx'),
 		voices: join(home, MODEL_FOLDER, 'voices-v1.0.bin'),
 		voice: env.WORKBENCH_KOKORO_VOICE?.trim() || DEFAULT_VOICE,
@@ -72,9 +73,16 @@ export function playerCommand(
 	return { command: 'ffplay', args: ['-nodisp', '-autoexit', '-loglevel', 'quiet', file] };
 }
 
+/** True when the file exists and the user can run it. */
+const runs = (file: string): Promise<boolean> =>
+	access(file, constants.X_OK).then(
+		() => true,
+		() => false,
+	);
+
 /**
  * What stops spoken replies, as one note, or undefined when `koko`, the model
- * files, and a player are there. The note names each missing part.
+ * files, and a player are there. `path` is the PATH that finds the player. The note names each missing part.
  */
 export async function kokoroProblem(
 	config: KokoroConfig,
@@ -82,7 +90,7 @@ export async function kokoroProblem(
 	platform: NodeJS.Platform = process.platform,
 ): Promise<string | undefined> {
 	const missing: string[] = [];
-	if (!(await onPath(config.command, path))) missing.push(`${config.command} is not installed`);
+	if (!(await runs(config.command))) missing.push(`koko is not installed at ${config.command}`);
 	if (!(await exists(config.model)) || !(await exists(config.voices)))
 		missing.push('the Kokoro model files are missing');
 	const player = playerCommand('', platform).command;

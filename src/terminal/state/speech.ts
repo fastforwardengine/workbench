@@ -26,6 +26,8 @@ export interface SpeechParts {
 	speak(text: string, signal: AbortSignal): Promise<void>;
 	/** The open room and its messages now. */
 	heard(): Heard;
+	/** True while the microphone records or whisper transcribes. No reply plays then. */
+	busy(): boolean;
 	/** Show a short note. */
 	say(note: string): void;
 }
@@ -103,7 +105,8 @@ function isReply(message: Message, heard: Heard): boolean {
  * The rules read the room after each change. A message is new when its seq is
  * above the watermark. The watermark moves to the last seq when voice mode
  * turns on and when the open room changes, so a message that the terminal
- * already had is never read.
+ * already had is never read. While the parts report busy, the watermark
+ * moves too, and the replies that land are never read.
  */
 export class Speech {
 	private readonly parts: SpeechParts;
@@ -170,6 +173,7 @@ export class Speech {
 	/** Read the room after a change. It queues each new reply that the rules allow. */
 	update(): void {
 		if (this.state === 'off') return;
+		if (this.parts.busy()) this.stop();
 		const heard = this.parts.heard();
 		if (heard.room !== this.room) {
 			this.room = heard.room;
@@ -179,7 +183,7 @@ export class Speech {
 		}
 		const last = lastSeq(heard.messages);
 		if (last <= this.watermark) return;
-		if (this.state === 'ready') this.queue.push(...this.repliesAfter(heard));
+		if (this.state === 'ready' && !this.parts.busy()) this.queue.push(...this.repliesAfter(heard));
 		this.watermark = last;
 		void this.pump();
 	}

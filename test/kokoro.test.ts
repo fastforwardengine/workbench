@@ -1,6 +1,6 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	kokoroArgs,
@@ -12,7 +12,7 @@ import {
 describe('kokoroConfig', () => {
 	it('puts the model files in the cache folder of the home folder', () => {
 		const config = kokoroConfig({}, '/home/p');
-		expect(config.command).toBe('koko');
+		expect(config.command).toBe('/home/p/.cache/kokoro/bin/koko');
 		expect(config.model).toBe('/home/p/.cache/kokoro/kokoro-v1.0.onnx');
 		expect(config.voices).toBe('/home/p/.cache/kokoro/voices-v1.0.bin');
 		expect(config.voice).toBe('af_heart');
@@ -72,13 +72,16 @@ describe('kokoroProblem', () => {
 		folders.push(root);
 		const bin = join(root, 'bin');
 		mkdirSync(bin);
-		const program = (name: string) => {
-			writeFileSync(join(bin, name), '#!/bin/sh\n');
-			chmodSync(join(bin, name), 0o755);
-		};
-		if (files.koko) program('koko');
-		if (files.player) program('ffplay');
 		const config = kokoroConfig({}, root);
+		const program = (file: string) => {
+			writeFileSync(file, '#!/bin/sh\n');
+			chmodSync(file, 0o755);
+		};
+		if (files.koko) {
+			mkdirSync(dirname(config.command), { recursive: true });
+			program(config.command);
+		}
+		if (files.player) program(join(bin, 'ffplay'));
 		if (files.model) {
 			mkdirSync(join(root, '.cache', 'kokoro'), { recursive: true });
 			writeFileSync(config.model, 'm');
@@ -96,10 +99,17 @@ describe('kokoroProblem', () => {
 		const { config, bin } = setup({});
 		const note = await kokoroProblem(config, bin, 'linux');
 		expect(note).toContain('Spoken replies are off');
-		expect(note).toContain('koko is not installed');
+		expect(note).toContain(`koko is not installed at ${config.command}`);
 		expect(note).toContain('the Kokoro model files are missing');
 		expect(note).toContain('ffplay is not installed');
 		expect(note).toContain('make voice');
+	});
+
+	it('does not look for koko on PATH', async () => {
+		const { config, bin } = setup({ player: true, model: true });
+		writeFileSync(join(bin, 'koko'), '#!/bin/sh\n');
+		chmodSync(join(bin, 'koko'), 0o755);
+		expect(await kokoroProblem(config, bin, 'linux')).toContain('koko is not installed');
 	});
 
 	it('finds one missing part', async () => {
