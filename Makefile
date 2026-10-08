@@ -80,14 +80,16 @@ voice: $(WHISPER_MODEL) $(KOKORO_MODEL) $(KOKORO_VOICES)
 		cargo install --locked --git https://github.com/lucasjinreal/Kokoros --rev $(KOKOROS_REV) \
 			--root $(KOKORO_DIR) --target-dir $(KOKORO_DIR)/build koko)
 
-## What a foot pedal needs: footswitch from Homebrew. It programs a USB pedal
-## to send F13, and F13 holds to talk in voice mode like Space. The pedal is a
-## HID keyboard, so `make usb` leaves it with macOS. footswitch finds a pedal
-## by its USB IDs, and it stops with a message when none is plugged in. The
-## last command prints what the pedal sends.
+## What a foot pedal needs: footswitch from a Homebrew tap. Homebrew loads a
+## formula from a tap only when the formula is trusted. footswitch programs a
+## USB pedal to send F13, and F13 holds to talk in voice mode like Space. The
+## pedal is a HID keyboard, so `make usb` leaves it with macOS. footswitch
+## finds a pedal by its USB IDs, and it stops with a message when none is
+## plugged in. The last command prints what the pedal sends.
 pedal:
 	@command -v footswitch >/dev/null || { \
 		brew tap rgerganov/footswitch https://github.com/rgerganov/footswitch.git && \
+		brew trust --formula rgerganov/footswitch/footswitch && \
 		brew install --HEAD footswitch; }
 	footswitch -k f13
 	footswitch -r
