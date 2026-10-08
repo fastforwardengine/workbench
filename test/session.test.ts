@@ -115,9 +115,7 @@ describe('Session voice', () => {
 	it('starts the body of a voice message with the voice mark', async () => {
 		const { host, session } = await started();
 		await session.submit('what is the draw now', { voice: true });
-		expect(host.calls.at(-1)).toBe(
-			`send:characterization:priya:${VOICE_MARK}what is the draw now`,
-		);
+		expect(host.calls.at(-1)).toBe(`send:characterization:priya:${VOICE_MARK}what is the draw now`);
 		expect(host.sentTo).toEqual([]);
 	});
 
@@ -141,9 +139,7 @@ describe('Session voice', () => {
 	it('does not mark twice', async () => {
 		const { host, session } = await started();
 		await session.submit(`${VOICE_MARK}what is the draw now`, { voice: true });
-		expect(host.calls.at(-1)).toBe(
-			`send:characterization:priya:${VOICE_MARK}what is the draw now`,
-		);
+		expect(host.calls.at(-1)).toBe(`send:characterization:priya:${VOICE_MARK}what is the draw now`);
 	});
 
 	it('does not mark a transcript that is a command', async () => {
