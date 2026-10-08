@@ -36,17 +36,23 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    and tell the person that the microscope is missing.
 
 5. Read a camera with `fetch({ process: handle, path: '/camera/observe' })`.
-   The camera streams all the time. The fetch returns the frames that the
-   server kept in the last two minutes, and the newest frame, oldest
-   first. The server keeps a frame when the scene changed, so the kept
-   frames are a timeline of changes. A still bench gives the first kept
-   frame and the newest frame.
+   Your widget reminder names the handle of each shown camera, and `ps`
+   names each process. When no camera runs, say so, and start one as
+   steps 2 and 3 say. The camera streams all the time. The fetch returns
+   the frames that the server kept in the last two minutes, and the newest
+   frame, oldest first. The server keeps a frame when the scene changed,
+   so the kept frames are a timeline of changes. After two minutes of a
+   still bench, the fetch returns only the newest frame.
 
-   Read the text parts first. Each gives the receipt time, the age in
-   seconds, and the share of changed pixels. They tell what changed and
-   when. Then fetch the frames that you need with `/files/<sha256>`,
-   newest first. The server drops a frame after two minutes, and `/files`
-   then gives status 404. Fetch the frames soon after the observation.
+   Read the text parts first. Each gives the receipt time and the age in
+   seconds. A kept frame also gives the share of changed pixels. The text
+   of the newest frame names the time of the last change. The text tells
+   when the scene changed and how much. Only the frame shows what changed.
+   To answer what happened at the bench, read every running camera. Then
+   fetch the frames that you need with `/files/<sha256>`, newest first.
+   The server drops a frame after two minutes, and `/files` then gives
+   status 404. Fetch the frames soon after the observation. For an event
+   older than two minutes, use the refs in the room and the notes.
 
    A frame from earlier in the ring is valid evidence of that time. Name
    its receipt time when you cite it. Cite the snapshot ref of the
@@ -92,7 +98,7 @@ timeout: 0 })`. The server prints no ready line. `fetch` fails until
    widget reminder, and follow step 5. Read the newest frame. Do not ask
    which camera. When its process ended, say so.
 
-7. Aim the camera at the bench before you capture. Read the frame before
+7. Ask the person to aim the camera at the bench. Read the frame before
    you describe the bench or the display. No tool reads the digits of the
    display for you. Inspect each image, and report pass, fail, or unclear,
    with the ref. For FM radio path A, frame the display and check that you
