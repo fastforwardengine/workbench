@@ -20,11 +20,11 @@ sections below mark each part as implemented or planned.
 
 **The facts of the bench live in three layers, by how fast they change.**
 
-| Layer   | Holds                                                        | Lives in                                    | Kept for                   |
-| ------- | ------------------------------------------------------------ | ------------------------------------------- | -------------------------- |
-| Durable | Facts, decisions, open questions, the parts, the build step  | The notes, `shared/notes` (`docs/notes.md`) | Always, in git             |
-| Session | What people and seats said, the shown widgets, the processes | The room record, the canvas, the workspace  | The life of the room       |
-| Live    | What the sensors saw and measured in the last minutes        | A ring in each sensor server, in RAM        | 60 to 120 s, by the sensor |
+| Layer   | Holds                                                        | Lives in                                    | Kept for                             |
+| ------- | ------------------------------------------------------------ | ------------------------------------------- | ------------------------------------ |
+| Durable | Facts, decisions, open questions, the parts, the build step  | The notes, `shared/notes` (`docs/notes.md`) | Always, in git                       |
+| Session | What people and seats said, the shown widgets, the processes | The room record, the canvas, the workspace  | The room; a process until its cancel |
+| Live    | What the sensors saw and measured in the last minutes        | A ring in each sensor server, in RAM        | 60 to 120 s, by the sensor           |
 
 **A fact moves up a layer when a seat concludes it.** A seat reads a live
 observation, cites its snapshot ref in the room, and commits a claim to the
@@ -38,9 +38,13 @@ ring in RAM.** A read of the sensor returns its digest: a small selection
 that a seat can read at once. The server computes the digest on the
 workstation, so raw frames and sound stay there.
 
-**Media goes to disk only as evidence.** A sensor server writes no frame
-and no clip to disk by itself. When a seat fetches one, the workspace
-snapshot store keeps it, and the ref stays valid after the ring drops it.
+**Media goes to disk only as evidence (planned).** A sensor server keeps
+its frames and clips in the ring, and writes none to disk. When a seat
+fetches one, the `fetch` tool saves it in the snapshot store of the seat's
+home, and the ref stays valid after the ring drops it. Today the
+`usb-camera` server writes each frame and each clip to `blobs/`, and
+appends a line to `observations.jsonl`. The `psu` sensor writes its
+samples to `samples.jsonl`, and each `recent` document to `blobs/`.
 
 | Sensor                      | Ring                                          | Digest                                                                            | Status                               |
 | --------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------ |
@@ -76,25 +80,28 @@ flowchart LR
 - **Capture.** A reader thread runs `v4l2-ctl --stream-mmap --stream-to=-`
   with the MJPEG format, and splits the stream into JPEG frames. After an
   unplug, it finds the node by `--usb-id` again and restarts the stream.
-  `fswebcam` goes away.
+  The server stops the use of `fswebcam`.
 - **The change rule.** The thread makes a grey 64x36 copy of each frame
-  with Pillow, and subtracts its mean grey, so a change of exposure does
+  with Pillow. Pillow is on the workstation (`python3-pil`), and the
+  template README then names it as a dependency. The thread subtracts the mean grey of the copy, so a change of exposure does
   not count. A pixel differs when its grey value moves by more than 20. The
   thread keeps the frame when more than 2 % of the pixels differ from the
   last kept frame, and 2 s passed since that frame. The scene after a
   movement differs from the last kept frame, so the rule keeps it too.
 - **Memory.** The ring holds the JPEG bytes of the stream, with no new
-  encode. At 1280x720 a frame is about 100 to 200 KB, so the ring stays
-  under 10 MB for each camera.
+  encode. The ring holds 60 frames at most. At 1280x720 a frame is about
+  100 to 200 KB, so the ring holds 6 to 12 MB for each camera.
 - **The answer.** Each observation has a text part and a `frame` part with
   `mediaType: image/jpeg`. The text gives the receipt time, the age, and
   the share of changed pixels. On the newest frame it says "no change
   since" the time of the last kept frame when nothing changed.
-- **Files.** `/files/<digest>` reads the ring, then the disk. A frame that
-  left the ring and that no seat fetched gives 404.
+- **Files.** `/files/<digest>` reads the ring only. A frame that left the
+  ring gives 404. The seat that fetched it earlier keeps it in its snapshot
+  store, and cites that ref.
 - **The viewfinder needs no change.** It takes the last observation as the
-  newest frame (`src/host/viewfinder.ts`). Its poll every 3 s then costs
-  no capture and writes nothing to disk.
+  newest frame (`src/host/viewfinder.ts`), and OpenTUI decodes JPEG. Its
+  poll every 3 s then costs no capture. The workspace keeps no snapshot of
+  a viewfinder read, so the poll writes nothing to disk.
 
 **Known risks.** A stream reserves USB bandwidth all the time, so two
 cameras need separate USB controllers. A UVC camera can send MJPEG frames
@@ -154,8 +161,8 @@ reduces them:
 ## Privacy
 
 **Frames and sound stay on the workstation.** No sensor sends a frame or a
-clip to a remote model unless the person asks. The rings live in RAM, and
-a frame or a clip reaches disk only when a seat fetches it as evidence.
+clip to a remote model unless the person asks. With the planned rings, a
+frame or a clip reaches disk only when a seat fetches it as evidence.
 Face blur and a crop to the bench are planned (`planning/next.md`).
 
 ## How it is evaluated
