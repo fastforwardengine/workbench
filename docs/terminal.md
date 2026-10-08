@@ -438,7 +438,8 @@ Ctrl+C. `EngineTui.render` calls `Speech.update` after each repaint.
   The replies that land are never read.
 - **The engine:** `app/kokoro-server.ts` starts `koko` from Kokoros in server
   mode on a free port of `127.0.0.1`, with one instance. It posts the text to
-  `/v1/audio/speech` and gets a WAV file. `app/speaker.ts` writes the file to
+  `/v1/audio/speech` at speed 1.2 and gets a WAV file. `SPEECH_SPEED` sets
+  the speed. `app/speaker.ts` writes the file to
   a temporary folder and plays it with `afplay` on macOS or `ffplay` on
   other systems. An abort kills the player, and the folder goes away.
   `app/kokoro.ts` builds the arguments and checks that `koko`, the two
