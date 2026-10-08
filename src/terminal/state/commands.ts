@@ -1,4 +1,5 @@
 import type { ScheduledSay } from '@ambionframework/ambion';
+import { withoutVoiceTags } from '../../domain/voice.ts';
 import { ellipsize } from '../../view/text.ts';
 import { markOf, shortName, standingOf } from './breakouts.ts';
 
@@ -323,7 +324,7 @@ function argumentSuggestions(name: string, wanted: string, choices: Choices): Su
 	if (name === 'dismiss')
 		return choices.says
 			.filter((say) => String(say.seq).startsWith(text))
-			.map((say) => row(String(say.seq), `${say.seat}: ${say.text}`));
+			.map((say) => row(String(say.seq), `${say.seat}: ${withoutVoiceTags(say.text)}`));
 	return [];
 }
 

@@ -1,5 +1,5 @@
 import type { Message } from '@ambionframework/ambion';
-import { VOICE_MARK } from '../../domain/voice.ts';
+import { VOICE_MARK, voiceSpans } from '../../domain/voice.ts';
 import { oneLine } from './voice.ts';
 
 /** What spoken replies read from the terminal: the open room and its messages. */
@@ -38,11 +38,6 @@ type SpeechState = 'off' | 'checking' | 'ready' | 'missing';
 /** The paragraphs of a text are the parts between blank lines. */
 const BLANK_LINE = /\r?\n[ \t]*\r?\n/;
 
-/** The text up to the first blank line. */
-export function firstParagraph(text: string): string {
-	return text.trim().split(BLANK_LINE)[0] ?? '';
-}
-
 /** Remove the marks that start a line: a heading, a quote, a list item, a rule. */
 function withoutLineMarks(line: string): string {
 	return line
@@ -74,9 +69,19 @@ export function plainText(markdown: string): string {
 		.trim();
 }
 
-/** The words to say for a message: its first paragraph with no Markdown. Empty when nothing is left. */
-export function spokenText(text: string): string {
-	return plainText(firstParagraph(text));
+/**
+ * The texts to say for a message, in order: one for each paragraph of each
+ * voice span, with no Markdown. A paragraph with no words left is dropped.
+ * Text outside the voice tags gives no text.
+ */
+export function spokenTexts(text: string): string[] {
+	return voiceSpans(text).flatMap((span) =>
+		span
+			.trim()
+			.split(BLANK_LINE)
+			.map(plainText)
+			.filter((paragraph) => paragraph !== ''),
+	);
 }
 
 /** One text that waits to be said. */
@@ -99,8 +104,9 @@ function isReply(message: Message, heard: Heard): boolean {
 
 /**
  * Spoken replies. While voice mode is on, a seat reply to a voice message is
- * read aloud: its first paragraph, one message at a time. This class holds the
- * rules and no device: the engine and the player come in as parts.
+ * read aloud: the text between its voice tags, one paragraph at a time. This
+ * class holds the rules and no device: the engine and the player come in as
+ * parts.
  *
  * The rules read the room after each change. A message is new when its seq is
  * above the watermark. The watermark moves to the last seq when voice mode
@@ -196,10 +202,11 @@ export class Speech {
 		const after = Math.max(this.watermark, ask.seq);
 		return messages
 			.filter((message) => message.seq > after && isReply(message, heard))
-			.flatMap((message) => {
-				const text = message.kind === 'said' ? spokenText(message.text) : '';
-				return text === '' ? [] : [{ seq: message.seq, text }];
-			});
+			.flatMap((message) =>
+				message.kind === 'said'
+					? spokenTexts(message.text).map((text) => ({ seq: message.seq, text }))
+					: [],
+			);
 	}
 
 	private checked(epoch: number, problem: string | undefined): void {

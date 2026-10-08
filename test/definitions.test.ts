@@ -3,7 +3,7 @@ import { openWorkspace } from '@ambionframework/workspace';
 import { describe, expect, it } from 'vitest';
 import { PREFERENCE, people, shared, team } from '../src/domain/definitions.ts';
 import { seats } from '../src/domain/room.ts';
-import { VOICE_MARK } from '../src/domain/voice.ts';
+import { VOICE_CLOSE, VOICE_MARK, VOICE_OPEN } from '../src/domain/voice.ts';
 import { labRepositories } from '../src/host/repositories.ts';
 import { resolveRef } from '../src/view/refs.ts';
 
@@ -83,11 +83,12 @@ describe('the structure of a prompt', () => {
 			expect(groupOf(prompt, 'Speaking')).toContain(`- ${PREFERENCE}`);
 	});
 
-	it('gives every specialist the rule for a voice message, built from the mark', async () => {
+	it('gives every specialist the rule for a voice message, built from the mark and the tags', async () => {
 		for (const prompt of Object.values(await prompts())) {
 			const rule = groupOf(prompt, 'Speaking').find((line) => line.includes('speech transcript'));
 			expect(rule).toContain(`starts with \`${VOICE_MARK.trim()}\``);
-			expect(rule).toContain('at most 25 words');
+			expect(rule).toContain(`between \`${VOICE_OPEN}\` and \`${VOICE_CLOSE}\``);
+			expect(rule).not.toContain('at most 25 words');
 			expect(rule).toContain('"9 volts"');
 		}
 	});

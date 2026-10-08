@@ -3,14 +3,13 @@
  */
 import type { Message } from '@ambionframework/ambion';
 import { describe, expect, it } from 'vitest';
-import { VOICE_MARK } from '../src/domain/voice.ts';
+import { VOICE_CLOSE, VOICE_MARK, VOICE_OPEN } from '../src/domain/voice.ts';
 import {
-	firstParagraph,
 	type Heard,
 	plainText,
 	Speech,
 	type SpeechParts,
-	spokenText,
+	spokenTexts,
 } from '../src/terminal/state/speech.ts';
 
 const AT = '2026-01-01T00:00:00Z';
@@ -20,6 +19,14 @@ const said = (seq: number, from: string, text: string, to?: string): Message =>
 
 const system = (seq: number, text: string): Message =>
 	({ seq, kind: 'system', text, at: AT }) as Message;
+
+/** A seat reply with the words to read aloud between the voice tags. */
+const tagged = (...words: string[]): string =>
+	words.map((one) => `${VOICE_OPEN}${one}${VOICE_CLOSE}`).join('\n\n');
+
+/** A seat reply that has `words` between the voice tags. */
+const reply = (seq: number, from: string, words: string, to?: string): Message =>
+	said(seq, from, tagged(words), to);
 
 const HUMANS: ReadonlySet<string> = new Set(['priya']);
 
@@ -82,20 +89,14 @@ function bench(over: Partial<SpeechParts> = {}) {
 /** A bench with spoken replies on, and one voice message sent. */
 async function ready() {
 	const b = bench();
-	b.room.messages = [said(1, 'priya', 'old question'), said(2, 'engineer', 'old answer')];
+	b.room.messages = [said(1, 'priya', 'old question'), reply(2, 'engineer', 'old answer')];
 	b.speech.enable();
 	await b.settle();
 	b.land(said(3, 'priya', `${VOICE_MARK}check the supply`));
 	return b;
 }
 
-describe('first paragraph and plain text', () => {
-	it('stops at the first blank line', () => {
-		expect(firstParagraph('One.\nTwo.\n\nThree.')).toBe('One.\nTwo.');
-		expect(firstParagraph('One.\n  \t\nTwo.')).toBe('One.');
-		expect(firstParagraph('  Only.  ')).toBe('Only.');
-	});
-
+describe('plain text and spoken texts', () => {
 	it('removes headings, lists, quotes, and rules', () => {
 		expect(plainText('## The supply')).toBe('The supply');
 		expect(plainText('- one\n* two\n3. three')).toBe('one two three');
@@ -113,26 +114,80 @@ describe('first paragraph and plain text', () => {
 		expect(plainText('2 * 3 * 4')).toBe('2 * 3 * 4');
 	});
 
-	it('speaks the first paragraph only', () => {
-		expect(spokenText('The supply is on at **9 volts**.\n\n- detail one\n- detail two')).toBe(
-			'The supply is on at 9 volts.',
-		);
-		expect(spokenText('```\n\n```')).toBe('');
+	it('gives one text for each paragraph of each span, with no Markdown', () => {
+		expect(
+			spokenTexts(
+				'<voice>It is **9 volts**.\nStable.\n\n- Next.</voice> Skip. <voice>Last.</voice>',
+			),
+		).toEqual(['It is 9 volts. Stable.', 'Next.', 'Last.']);
+		expect(spokenTexts('<voice>\n```\n\n```\n</voice>')).toEqual([]);
+	});
+
+	it('gives no text outside the tags', () => {
+		expect(spokenTexts('No tags here.')).toEqual([]);
+		expect(spokenTexts('Before.\n\n<voice>Said.</voice>\n\nAfter.')).toEqual(['Said.']);
 	});
 });
 
 describe('Speech', () => {
 	it('reads a seat reply to a voice message', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', 'The supply is on.\n\nDetails follow.'));
+		b.land(said(4, 'engineer', `${tagged('The supply is on.')}\n\nDetails follow.`));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['The supply is on.']);
+	});
+
+	it('reads nothing from an untagged reply to a voice message', async () => {
+		const b = await ready();
+		b.land(said(4, 'engineer', 'The supply is on.\n\nDetails follow.'));
+		await b.settle();
+		expect(b.log.spoken).toEqual([]);
+	});
+
+	it('queues one text for each paragraph of a span, in order', async () => {
+		const b = await ready();
+		b.land(reply(4, 'engineer', 'First thing.\n\nSecond thing.\nStill second.'));
+		await b.settle();
+		expect(b.log.spoken).toEqual(['First thing.']);
+		await b.finish();
+		expect(b.log.spoken).toEqual(['First thing.', 'Second thing. Still second.']);
+	});
+
+	it('reads two spans of one message in order, and not the text between them', async () => {
+		const b = await ready();
+		b.land(
+			said(
+				4,
+				'engineer',
+				`Before.\n\n${tagged('One.')}\n\nOn the screen only.\n\n${tagged('Two.')}\n\nAfter.`,
+			),
+		);
+		await b.settle();
+		expect(b.log.spoken).toEqual(['One.']);
+		await b.finish();
+		expect(b.log.spoken).toEqual(['One.', 'Two.']);
+		await b.finish();
+		expect(b.log.spoken).toEqual(['One.', 'Two.']);
+	});
+
+	it('removes Markdown inside a span', async () => {
+		const b = await ready();
+		b.land(reply(4, 'engineer', 'The supply is **on** at `9 volts`, see [notes](https://x.test).'));
+		await b.settle();
+		expect(b.log.spoken).toEqual(['The supply is on at 9 volts, see notes.']);
+	});
+
+	it('reads the words of a span that has no close tag', async () => {
+		const b = await ready();
+		b.land(said(4, 'engineer', `${VOICE_OPEN}It is on.`));
+		await b.settle();
+		expect(b.log.spoken).toEqual(['It is on.']);
 	});
 
 	it('reads nothing when the latest message of the person is typed', async () => {
 		const b = await ready();
 		b.land(said(4, 'priya', 'now typed'));
-		b.land(said(5, 'engineer', 'A reply.'));
+		b.land(reply(5, 'engineer', 'A reply.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual([]);
 	});
@@ -141,10 +196,10 @@ describe('Speech', () => {
 		const b = bench();
 		b.speech.enable();
 		await b.settle();
-		b.land(said(1, 'priya', 'typed'), said(2, 'engineer', 'Heard.'));
+		b.land(said(1, 'priya', 'typed'), reply(2, 'engineer', 'Heard.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual([]);
-		b.land(said(3, 'priya', `${VOICE_MARK}spoken`), said(4, 'engineer', 'Spoken answer.'));
+		b.land(said(3, 'priya', `${VOICE_MARK}spoken`), reply(4, 'engineer', 'Spoken answer.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['Spoken answer.']);
 	});
@@ -152,7 +207,7 @@ describe('Speech', () => {
 	it('never reads a reply that lands while the microphone is busy', async () => {
 		const b = await ready();
 		b.mic.busy = true;
-		b.land(said(4, 'engineer', 'During recording.'));
+		b.land(reply(4, 'engineer', 'During recording.'));
 		await b.settle();
 		b.mic.busy = false;
 		b.speech.update();
@@ -163,16 +218,16 @@ describe('Speech', () => {
 	it('reads a reply that lands after the microphone is free', async () => {
 		const b = await ready();
 		b.mic.busy = true;
-		b.land(said(4, 'engineer', 'During recording.'));
+		b.land(reply(4, 'engineer', 'During recording.'));
 		b.mic.busy = false;
-		b.land(said(5, 'engineer', 'After recording.'));
+		b.land(reply(5, 'engineer', 'After recording.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['After recording.']);
 	});
 
 	it('drops the sound and the queue when the microphone becomes busy', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', 'One.'), said(5, 'engineer', 'Two.'));
+		b.land(reply(4, 'engineer', 'One.'), reply(5, 'engineer', 'Two.'));
 		await b.settle();
 		b.mic.busy = true;
 		b.speech.update();
@@ -188,8 +243,8 @@ describe('Speech', () => {
 		const b = await ready();
 		b.land(
 			system(4, 'breakout sweep: Done.'),
-			said(5, 'engineer', 'To the researcher.', 'researcher'),
-			said(6, 'dev', 'A colleague speaks.'),
+			reply(5, 'engineer', 'To the researcher.', 'researcher'),
+			reply(6, 'dev', 'A colleague speaks.'),
 			said(7, 'priya', 'my own words'),
 		);
 		await b.settle();
@@ -198,7 +253,7 @@ describe('Speech', () => {
 
 	it('reads a say directed to the person, and a say to nobody', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', 'For you.', 'priya'), said(5, 'researcher', 'For all.'));
+		b.land(reply(4, 'engineer', 'For you.', 'priya'), reply(5, 'researcher', 'For all.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['For you.']);
 		await b.finish();
@@ -207,14 +262,14 @@ describe('Speech', () => {
 
 	it('skips a message with no words after the cleanup', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', '---'), said(5, 'engineer', 'Words.'));
+		b.land(reply(4, 'engineer', '---'), reply(5, 'engineer', 'Words.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['Words.']);
 	});
 
 	it('does not read what was there when voice mode turned on', async () => {
 		const b = bench();
-		b.room.messages = [said(1, 'priya', `${VOICE_MARK}before`), said(2, 'engineer', 'Old reply.')];
+		b.room.messages = [said(1, 'priya', `${VOICE_MARK}before`), reply(2, 'engineer', 'Old reply.')];
 		b.speech.enable();
 		await b.settle();
 		b.speech.update();
@@ -224,7 +279,7 @@ describe('Speech', () => {
 
 	it('does not read a message twice', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', 'Once.'));
+		b.land(reply(4, 'engineer', 'Once.'));
 		b.speech.update();
 		b.speech.update();
 		await b.settle();
@@ -237,19 +292,19 @@ describe('Speech', () => {
 		b.room.name = 'other';
 		b.room.messages = [
 			said(1, 'priya', `${VOICE_MARK}there`),
-			said(2, 'engineer', 'Seen already.'),
+			reply(2, 'engineer', 'Seen already.'),
 		];
 		b.speech.update();
 		await b.settle();
 		expect(b.log.spoken).toEqual([]);
-		b.land(said(3, 'engineer', 'New in the other room.'));
+		b.land(reply(3, 'engineer', 'New in the other room.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['New in the other room.']);
 	});
 
 	it('stops the sound when the room changes', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', 'First.'), said(5, 'engineer', 'Second.'));
+		b.land(reply(4, 'engineer', 'First.'), reply(5, 'engineer', 'Second.'));
 		await b.settle();
 		b.room.name = 'other';
 		b.room.messages = [];
@@ -261,8 +316,8 @@ describe('Speech', () => {
 
 	it('reads the replies one at a time, in order', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', 'One.'), said(5, 'researcher', 'Two.'));
-		b.land(said(6, 'engineer', 'Three.'));
+		b.land(reply(4, 'engineer', 'One.'), reply(5, 'researcher', 'Two.'));
+		b.land(reply(6, 'engineer', 'Three.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['One.']);
 		await b.finish();
@@ -273,20 +328,20 @@ describe('Speech', () => {
 
 	it('stops the sound and clears the queue', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', 'One.'), said(5, 'engineer', 'Two.'));
+		b.land(reply(4, 'engineer', 'One.'), reply(5, 'engineer', 'Two.'));
 		await b.settle();
 		b.speech.stop();
 		await b.settle();
 		expect(b.log.aborted).toEqual(['One.']);
 		expect(b.log.spoken).toEqual(['One.']);
-		b.land(said(6, 'engineer', 'Three.'));
+		b.land(reply(6, 'engineer', 'Three.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['One.', 'Three.']);
 	});
 
 	it('says nothing and plays nothing while voice mode is off', async () => {
 		const b = bench();
-		b.land(said(1, 'priya', `${VOICE_MARK}hi`), said(2, 'engineer', 'Hello.'));
+		b.land(said(1, 'priya', `${VOICE_MARK}hi`), reply(2, 'engineer', 'Hello.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual([]);
 		expect(b.log.served).toBe(0);
@@ -306,12 +361,12 @@ describe('Speech', () => {
 
 	it('stops the sound and drops the queue when voice mode turns off', async () => {
 		const b = await ready();
-		b.land(said(4, 'engineer', 'One.'), said(5, 'engineer', 'Two.'));
+		b.land(reply(4, 'engineer', 'One.'), reply(5, 'engineer', 'Two.'));
 		await b.settle();
 		b.speech.disable();
 		await b.settle();
 		expect(b.log.aborted).toEqual(['One.']);
-		b.land(said(6, 'engineer', 'Three.'));
+		b.land(reply(6, 'engineer', 'Three.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual(['One.']);
 	});
@@ -319,7 +374,7 @@ describe('Speech', () => {
 	it('does not read what landed while voice mode was off', async () => {
 		const b = await ready();
 		b.speech.disable();
-		b.land(said(4, 'engineer', 'While off.'));
+		b.land(reply(4, 'engineer', 'While off.'));
 		b.speech.enable();
 		await b.settle();
 		b.speech.update();
@@ -332,7 +387,7 @@ describe('Speech', () => {
 		const b = bench({ ready: async () => note });
 		b.speech.enable();
 		await b.settle();
-		b.land(said(1, 'priya', `${VOICE_MARK}hi`), said(2, 'engineer', 'Hello.'));
+		b.land(said(1, 'priya', `${VOICE_MARK}hi`), reply(2, 'engineer', 'Hello.'));
 		b.speech.enable();
 		await b.settle();
 		expect(b.log.notes).toEqual([note]);
@@ -364,9 +419,9 @@ describe('Speech', () => {
 		b.speech.enable();
 		await b.settle();
 		b.land(said(1, 'priya', `${VOICE_MARK}hi`));
-		b.land(said(2, 'engineer', 'One.'), said(3, 'engineer', 'Two.'));
+		b.land(reply(2, 'engineer', 'One.'), reply(3, 'engineer', 'Two.'));
 		await b.settle();
-		b.land(said(4, 'engineer', 'Three.'));
+		b.land(reply(4, 'engineer', 'Three.'));
 		await b.settle();
 		expect(b.log.notes).toEqual(['Cannot speak: koko answered 500: no good']);
 	});
@@ -383,7 +438,7 @@ describe('Speech', () => {
 		b.room.person = undefined;
 		b.speech.enable();
 		await b.settle();
-		b.land(said(1, 'engineer', `${VOICE_MARK}odd`), said(2, 'engineer', 'Reply.'));
+		b.land(said(1, 'engineer', `${VOICE_MARK}odd`), reply(2, 'engineer', 'Reply.'));
 		await b.settle();
 		expect(b.log.spoken).toEqual([]);
 	});
