@@ -316,7 +316,8 @@ values. `Keys` in `app/keys.ts` holds the current one.
    the second press within `QUIT_WINDOW_MS` (2 s), from an empty composer in
    `compose` mode.
 2. `voiceKey` takes Space in `compose` mode when voice mode wants it. The
-   dock and the refs use Space themselves.
+   dock and the refs use Space themselves. It takes F13 in every mode,
+   because no other part uses F13.
 3. In `dock` mode, `dockKey` takes the keys of the `dock` scope (Ctrl+O,
    Tab, Ctrl+L). The top layer gets every other key.
 4. Page Up and Page Down scroll the conversation in the other modes.
@@ -368,10 +369,15 @@ The send calls `Session.submit(text, { voice: true })`. A transcript that
 parses as a message then starts with `VOICE_MARK` (`src/domain/voice.ts`),
 so the specialists know that the person spoke. A command gets no mark.
 
-- **The hold:** Space on an empty composer starts a recording. The release
-  ends it. A hold under `MIN_HOLD_MS` (300 ms) sends nothing. A hold ends at
+- **The hold:** Space on an empty composer starts a recording. F13 starts
+  one with any composer, and F13 types no text. A foot pedal sends F13
+  (`make pedal` programs it). The release of either key ends the hold. A
+  hold under `MIN_HOLD_MS` (300 ms) sends nothing. A hold ends at
   `MAX_HOLD_MS` (60 s). A terminal repeats a held Space with no flag, so a
   Space within `HOLD_GAP_MS` (2.5 s) of the last one belongs to the hold.
+  Kitty flags the repeat of F13 (`repeated`), and the same gap applies.
+  When voice mode is off, a new press of F13 shows "Voice mode is off.
+  /voice turns it on." and changes nothing else.
 - **The release:** `Keys.onRelease` calls `Voice.release` in every mode,
   because the hold can outlast a mode change. Only a terminal with Kitty key
   events reports a release, so `keyboardProblem` refuses voice mode
@@ -626,19 +632,21 @@ with `//` to send a leading slash.
 
 - **Voice mode:** `/voice` switches voice mode on and off. Hold Space on
   an empty composer to record, and let go to send what you said as a message.
-  A press under 300 ms sends nothing. Ctrl+C drops a recording. A transcript
-  goes to the room that was open when you pressed Space. When you switch
-  room before it is ready, Workbench drops it and shows the words. The
-  terminal records mono audio at 16 kHz. It transcribes with
-  `whisper-server` of whisper.cpp, which runs on this computer. No audio
-  leaves it. The terminal must report key release: Kitty and Ghostty do.
+  F13 does the same in every mode, with any composer. `make pedal` programs
+  a USB foot pedal to send F13. A press under 300 ms sends nothing. Ctrl+C
+  drops a recording. A transcript goes to the room that was open when you
+  pressed the key. When you switch room before it is ready, Workbench drops
+  it and shows the words. The terminal records mono audio at 16 kHz. It
+  transcribes with `whisper-server` of whisper.cpp, which runs on this
+  computer. No audio leaves it. The terminal must report key release: Kitty
+  and Ghostty do.
 
   `/voice` starts `whisper-server` on a free port of `127.0.0.1`, and the
   model stays loaded until you switch voice mode off or leave the terminal.
   The line "loading model" shows until the model is ready. A recording that
   you make before then waits for the model, and Workbench sends it when the
   model is ready. When the server ends by itself, one line shows its last
-  message, and the next press of Space starts it again. When the system
+  message, and the next press of Space or F13 starts it again. When the system
   kills Workbench with SIGKILL, the server can stay. End it with
   `pkill whisper-server`.
 

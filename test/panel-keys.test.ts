@@ -1616,7 +1616,7 @@ describe('the status line in voice mode', () => {
 	it('says how to talk and how to go back in the composer, and keeps the usual status line, when it waits', async () => {
 		const built = await listening();
 		const frame = await built.frame();
-		expect(frame).toContain('Voice: hold Space to talk. /voice returns to text.');
+		expect(frame).toContain('Voice: hold Space or F13 to talk. /voice returns to text.');
 		expect(frame).toContain('Active');
 	});
 
@@ -1650,6 +1650,36 @@ describe('the status line in voice mode', () => {
 		const built = await build();
 		built.render();
 		expect(await built.frame()).not.toContain('Voice:');
+	});
+
+	it.each(['refs', 'dock', 'actions'] as const)(
+		'takes F13 in %s mode, and starts a recording',
+		async (mode) => {
+			const built = await listening();
+			built.keys.mode = mode;
+			built.press('f13');
+			expect(built.voice.phase).toBe('listening');
+			expect(built.prevented.count).toBe(1);
+			built.time.at += 1_000;
+			built.keys.onRelease({ name: 'f13' } as KeyEvent);
+			await wait(5);
+			expect(await built.frame()).toContain('transcribing');
+		},
+	);
+
+	it('takes F13 with text in the composer, and keeps the text', async () => {
+		const built = await listening();
+		built.composer.setText('why');
+		built.press('f13');
+		expect(built.voice.phase).toBe('listening');
+		expect(built.composer.text).toBe('why');
+	});
+
+	it('takes F13 and keeps the mode when voice mode is off', async () => {
+		const built = await build();
+		built.press('f13');
+		expect(built.prevented.count).toBe(1);
+		expect(built.keys.mode).toBe('compose');
 	});
 
 	it('leaves Space to the refs, which use it to open a ref', async () => {

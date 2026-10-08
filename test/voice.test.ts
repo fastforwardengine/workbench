@@ -156,7 +156,7 @@ describe('the transcriber', () => {
 		expect(voice.line).toBe('loading model');
 		loading = false;
 		await released;
-		expect(voice.line).toContain('hold Space to talk');
+		expect(voice.line).toContain('hold Space or F13 to talk');
 	});
 
 	it('records while the model loads, and sends the take after the model is ready', async () => {
@@ -264,6 +264,83 @@ describe('the Space key', () => {
 		const { voice, log } = await ready();
 		await voice.release();
 		expect(log.delivered).toEqual([]);
+	});
+});
+
+describe('the F13 key', () => {
+	const f13: VoiceKey = { name: 'f13', ctrl: false, meta: false, shift: false };
+
+	it('starts a recording and takes the key', async () => {
+		const { voice } = await ready();
+		expect(voice.press(f13, true)).toBe(true);
+		expect(voice.phase).toBe('listening');
+	});
+
+	it('records when the composer holds text, and the person can send the hold', async () => {
+		const { voice, time, log } = await ready();
+		expect(voice.press(f13, false)).toBe(true);
+		expect(voice.phase).toBe('listening');
+		time.at += 1_000;
+		await voice.release();
+		expect(log.delivered).toEqual(['check the supply']);
+	});
+
+	it('does not start a second recording from its repeats', async () => {
+		const start = vi.fn(async () => fakeTake());
+		const { voice, time } = await ready({ start });
+		voice.press(f13, false);
+		for (let repeat = 0; repeat < 5; repeat++) {
+			time.at += 30;
+			expect(voice.press({ ...f13, repeated: true }, false)).toBe(true);
+		}
+		expect(start).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not start from a repeat after the hold ended', async () => {
+		const start = vi.fn(async () => fakeTake());
+		const { voice, time } = await ready({ start });
+		await hold(voice, time, 1_000);
+		expect(voice.press({ ...f13, repeated: true }, true)).toBe(true);
+		expect(start).toHaveBeenCalledTimes(1);
+		expect(voice.phase).toBe('idle');
+	});
+
+	it.each([
+		['Ctrl', { ctrl: true }],
+		['Alt', { meta: true }],
+		['Shift', { shift: true }],
+		['Super', { super: true }],
+	])('does not start on F13 with %s', async (_label, modifier) => {
+		const { voice, log } = await ready();
+		expect(voice.press({ ...f13, ...modifier }, true)).toBe(false);
+		expect(voice.phase).toBe('idle');
+		expect(log.said).toEqual([]);
+	});
+
+	it('ends a hold that Space started, and a hold that F13 started, on either release', async () => {
+		const { voice, time, log } = await ready();
+		voice.press(space, true);
+		voice.press(f13, true);
+		time.at += 1_000;
+		await voice.release();
+		expect(log.delivered).toEqual(['check the supply']);
+		voice.press(f13, true);
+		voice.press({ ...space, repeated: true }, true);
+		time.at += 1_000;
+		await voice.release();
+		expect(log.delivered).toHaveLength(2);
+	});
+
+	it('says that voice mode is off, once for each new press, and leaves voice mode off', async () => {
+		const said: string[] = [];
+		const voice = new Voice(quietParts({ say: (note) => said.push(note) }));
+		expect(voice.press(f13, true)).toBe(true);
+		for (let repeat = 0; repeat < 5; repeat++) voice.press({ ...f13, repeated: true }, true);
+		expect(said).toEqual(['Voice mode is off. /voice turns it on.']);
+		voice.press(f13, true);
+		expect(said).toHaveLength(2);
+		expect(voice.on).toBe(false);
+		expect(voice.phase).toBe('idle');
 	});
 });
 
