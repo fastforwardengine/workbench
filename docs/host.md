@@ -12,6 +12,7 @@ this page with each change to a file of `src/host/`.
 | The host         | `src/host/host.ts`                                                                            | `openLab`, the `Lab` interface, and the delivery of a message                   |
 | The schema guide | `src/host/schemas.ts`                                                                         | `writeSchemas`: the file `schemas.md` of the data directory                     |
 | The step log     | `src/host/activations.ts`                                                                     | The append stream of `activations.jsonl`                                        |
+| The config log   | `src/host/config.ts`                                                                          | `writeConfig`: the lines of `configs.jsonl`                                     |
 | The rooms        | `src/host/rooms.ts`                                                                           | `openRooms`: runtime, canvas, workspace, and room views                         |
 | The names        | `src/host/names.ts`                                                                           | `ROOM_NAME` and `MAX_GOAL`                                                      |
 | The seats        | `src/domain/room.ts`                                                                          | `seats`, and `buildRoom`, the seeded room                                       |
@@ -118,6 +119,16 @@ of any room. List the failed activations with
 At each start the host writes `schemas.md` in the same directory. The file
 lists the entries, gives the `CREATE` statements of `rooms.db`, and states
 the format of `activations.jsonl`, so a coding agent can explore the data.
+
+**The host records the config of the seats in `configs.jsonl`.** At each
+start `writeConfig` copies the live definitions that the host seats: the
+model, the thinking level, the instructions, the policies, and each tool
+with its parameters. It adds the versions of the packages, the runtime
+limits, the workstation host, and whether the model has a login. The file
+never holds a credential. The host appends one line, with the time and the
+SHA-256 of the snapshot, only when the snapshot differs from the last line.
+Each line is a change of config. The line in force for an activation is the
+last line whose `at` is before the first step of the activation.
 
 **`send` needs a person who is in the room.** It needs a nonempty key and
 text. The same key and text return the first exchange and add no message.

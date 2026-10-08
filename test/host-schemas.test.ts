@@ -28,7 +28,14 @@ describe('schemas.md in the data directory', () => {
 		await withDirectory(async (directory) => {
 			const text = await readFile(join(directory, 'schemas.md'), 'utf8');
 			expect(text).toContain('generates this file at each start');
-			for (const name of ['rooms.db', 'activations.jsonl', 'git.db', 'workspace', 'schemas.md'])
+			for (const name of [
+				'rooms.db',
+				'activations.jsonl',
+				'configs.jsonl',
+				'git.db',
+				'workspace',
+				'schemas.md',
+			])
 				expect(text).toContain(`- \`${name}\`:`);
 			const database = new DatabaseSync(join(directory, 'rooms.db'), { readOnly: true });
 			const tables = database
@@ -38,6 +45,8 @@ describe('schemas.md in the data directory', () => {
 			expect(tables.length).toBeGreaterThan(0);
 			for (const { name } of tables) expect(text).toMatch(new RegExp(`CREATE TABLE "?${name}"?`));
 			expect(text).toContain('## activations.jsonl');
+			expect(text).toContain('## configs.jsonl');
+			expect(text).toContain('One line is one snapshot');
 			expect(text).toContain('One line is one Ambion `TracedStep`');
 			expect(text).not.toMatch(/INSERT|rows?:/);
 		});

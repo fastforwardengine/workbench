@@ -8,7 +8,7 @@ import {
 	readRoom,
 	type TraceStep,
 } from '@ambionframework/ambion';
-import type { Execution } from '@ambionframework/ambion/hosting';
+import { type Execution, hostingOf } from '@ambionframework/ambion/hosting';
 import {
 	type CanvasClose,
 	type CanvasError,
@@ -289,6 +289,10 @@ export async function openRooms(
 		}
 	}
 	return {
+		/** The definitions that the host seats, as the runtime runs them. */
+		definitions: roomTeam.specialists,
+		/** The limits that the runtime runs with. */
+		limits: hostingOf(runtime).limits,
 		/** The specialists that a room can seat. */
 		team: roomTeam.specialists.map(({ name, identity }) => ({ name, identity })),
 		/** Whether a room is a breakout room. */
