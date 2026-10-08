@@ -112,6 +112,8 @@ bench and the evidence for it.
 
 **The team keeps a live model of the bench, with evidence for each fact.**
 Every activity feeds it, and every activity reads it.
+[`docs/awareness.md`](../docs/awareness.md) holds how Workbench keeps
+awareness today, and the order of the next changes.
 
 - **A bench model.** Each fact has a subject, a source (the person, the
   camera, the microphone, an instrument, a datasheet), a time, and a
