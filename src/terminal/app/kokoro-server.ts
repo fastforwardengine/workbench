@@ -25,6 +25,12 @@ const KOKORO_TIMES: ServerTimes = {
 	kill: 3_000,
 };
 
+/**
+ * The speed of the speech. Kokoro makes the speech shorter at the same pitch.
+ * 1 is the speed of the model, and 1.2 is 20% faster.
+ */
+const SPEECH_SPEED = 1.2;
+
 /** One run of the `koko` process. */
 interface Run {
 	child: ChildProcess | undefined;
@@ -90,6 +96,7 @@ export class KokoroServer {
 					input: text,
 					voice: this.config.voice,
 					response_format: 'wav',
+					speed: SPEECH_SPEED,
 				}),
 				signal: AbortSignal.any([signal, limit]),
 			});

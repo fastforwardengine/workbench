@@ -93,6 +93,7 @@ describe('KokoroServer', () => {
 			input: 'The supply is on.',
 			voice: 'af_heart',
 			response_format: 'wav',
+			speed: 1.2,
 		});
 		expect(request?.args.slice(0, 13)).toEqual([
 			'-m',
