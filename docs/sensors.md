@@ -78,7 +78,7 @@ They need `python3` 3.11 or newer.
 
 **A sensor reads a device. A controller or an actuator writes to it.**
 `sensor.py` calls only the read methods of the guard: `describe`, `measure`,
-`settings`, and `mode`. It takes no drive lock, so it runs beside a
+`settings`, and `mode`. It calls `close` at exit. It takes no drive lock, so it runs beside a
 controller. The guard (`templates/psu/guard.py`) enforces the limits and the
 locks.
 
@@ -158,7 +158,8 @@ does not call `show` in a breakout room. [Terminal](terminal.md) holds the
 drawing of the camera.
 
 **`openViewfinder` binds each shown `frame` widget to its process.** The host
-makes one viewfinder for each room. The viewfinder reads the widgets of the
+opens a viewfinder for one room on request. The terminal opens one for the
+room on screen, and closes it when the room changes. The viewfinder reads the widgets of the
 room at its start, on the `started` and `answered` events, and on each
 `widget` event.
 
@@ -188,8 +189,10 @@ its digest. The workspace keeps no snapshot of these reads.
 
 The size limits apply to `Content-Length` and to the bytes that arrive.
 
-**Each camera has a note for the person.** A failed read keeps the last
-frame and sets the note. The next good read clears it.
+**A camera has a note for the person, and the viewfinder has one of its
+own.** A failed read keeps the last frame and sets the note of the camera.
+The next good read clears it. The rows `NO_CAMERA` and `NO_ENDPOINTS`, and
+the `MAX_BINDINGS` row, are the note of the viewfinder.
 
 | Situation                                          | Text                                                                        |
 | -------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -230,8 +233,8 @@ with a new observation. The terminal draws the buttons.
    observation and of each file.
 7. **Update the pages.** Edit the README of the template, the sensor table of
    [Situation awareness](awareness.md), and the skill that starts the server.
-8. **Run the tests.** Run `python3 -B -m unittest` in the template, run
-   `pnpm exec vitest run test/<name>.test.ts` on the protocol test, and run
+8. **Run the tests.** Run `python3 -B -m unittest` in the template. Run
+   `pnpm exec vitest run test/<name>.test.ts` on the protocol test. Run
    `pnpm check` before you finish.
 
 A new template needs more: follow [Templates](templates.md), add its
