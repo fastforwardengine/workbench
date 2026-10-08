@@ -81,9 +81,8 @@ fail, or unclear. The Engineer records the step in the notes.
 - [ ] **The session.** The person solders every part, with the guidance
       of the Engineer.
 
-**Unverified:** whether the UVC stream of the microscope works through the
-USB attach of OrbStack. When it does not, the Mac keeps the terminal and
-connects to a workstation on the Lambda Vector over an SSH tunnel.
+**The microscope works through the USB attach of OrbStack** (Andrei,
+2026-10-08).
 
 **Done when** the radio plays a station on USB power, and
 `notes/build/first-kit.md` holds each step with its state and the
