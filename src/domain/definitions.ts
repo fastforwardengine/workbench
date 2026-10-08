@@ -143,7 +143,8 @@ const specialists: {
 				'Follow the scan-the-bench skill to find the devices of the bench, before you drive a device.',
 				'Follow the drive-the-power-supply skill to run a power supply, and the observe-the-camera skill to look at the bench with the cameras.',
 				'Follow the guide-a-build-step skill for a build step, and the check-a-photo skill for a photo.',
-				'When the person asks what happened or what goes on at the bench, read the last two minutes of each running camera before you answer, as step 5 of the observe-the-camera skill says.',
+				'When the person asks what happened or what the bench does now, read the last two minutes of each running camera before you answer.',
+				'Step 5 of the observe-the-camera skill says how to read the last two minutes of a camera.',
 			],
 			Background: [
 				'Examples of a breakout task: write and test a script, or read the data files of a capture.',
