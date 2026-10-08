@@ -1675,7 +1675,7 @@ describe('the status line in voice mode', () => {
 		expect(built.composer.text).toBe('why');
 	});
 
-	it('leaves F13 to the keys when voice mode is off', async () => {
+	it('takes F13 and keeps the mode when voice mode is off', async () => {
 		const built = await build();
 		built.press('f13');
 		expect(built.prevented.count).toBe(1);
