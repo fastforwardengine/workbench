@@ -1,4 +1,4 @@
-import type { Exchange } from '@ambionframework/ambion';
+import type { Exchange, Message } from '@ambionframework/ambion';
 import { VOICE_MARK } from '../../domain/voice.ts';
 import type { FileEntry, Lab, Person, RoomAction, RoomView } from '../../host/host.ts';
 import { MAX_GOAL, ROOM_NAME } from '../../host/names.ts';
@@ -234,6 +234,19 @@ export class Session {
 		return this.inFlight;
 	}
 
+	/** The messages read from the open room, in order. */
+	get messages(): readonly Message[] {
+		return this.reader.messages;
+	}
+
+	/** The names of the people in the open room. */
+	get humans(): ReadonlySet<string> {
+		const participants = this.view?.participants ?? [];
+		return new Set(
+			participants.filter((participant) => participant.kind === 'person').map((p) => p.name),
+		);
+	}
+
 	/** The messages of the person that a running seat of the open exchange has not read yet. */
 	get steering(): WaitingMessage[] {
 		return waitingMessages({
@@ -384,11 +397,7 @@ export class Session {
 			messages: this.reader.messages,
 			exchanges: view.exchanges,
 			open: view.exchange,
-			humans: new Set(
-				view.participants
-					.filter((participant) => participant.kind === 'person')
-					.map((participant) => participant.name),
-			),
+			humans: this.humans,
 			live: liveActivations(
 				view.exchange?.activations ?? [],
 				this.live,

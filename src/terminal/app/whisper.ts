@@ -63,14 +63,15 @@ export function serverArgs(config: WhisperConfig, port: number): string[] {
 	];
 }
 
-const exists = (path: string): Promise<boolean> =>
+/** True when the file can be read. */
+export const exists = (path: string): Promise<boolean> =>
 	access(path, constants.R_OK).then(
 		() => true,
 		() => false,
 	);
 
 /** True when a program of that name runs from a folder in PATH. */
-async function onPath(command: string, path: string | undefined): Promise<boolean> {
+export async function onPath(command: string, path: string | undefined): Promise<boolean> {
 	for (const folder of (path ?? '').split(delimiter)) {
 		if (folder === '') continue;
 		const found = await access(join(folder, command), constants.X_OK).then(
