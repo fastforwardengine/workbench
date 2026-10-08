@@ -20,7 +20,7 @@ floor).
 | `src/domain`   | The lab domain: the person, the specialists, the room, the model, templates, skills                            |
 | `src/view`     | Read-only projections over the room journal: the timeline, steps, refs                                         |
 | `src/host`     | The room host: rooms, file handling, processes, name assignment. `docs/host.md` holds the design               |
-| `src/terminal` | The OpenTUI terminal, in `state/`, `widgets/`, and `app/`. The next paragraph names the rule                   |
+| `src/terminal` | The OpenTUI terminal, in `state/`, `widgets/`, and `app/`. `docs/terminal.md` holds the design                 |
 | `templates/`   | The git templates that a specialist forks. `docs/templates.md` holds the pattern                               |
 | `skills/`      | One folder of skills for each specialist, and `shared/` for all. `docs/skills.md` holds the pattern            |
 | `seed/`        | The files of a new workspace, by workspace path: `seed/shared/kit.md` is `/shared/kit.md`                      |
