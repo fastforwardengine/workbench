@@ -64,6 +64,9 @@ the snapshot store. The in-process just-bash backend has no sensor
 endpoints. The [template README](../templates/usb-camera/README.md) gives
 the steps for replacement, rollback, and restoration.
 
+**[Sensors and devices](sensors.md) holds the rules of the bench templates.**
+It covers the protocol checks, the locks, and the camera on screen.
+
 **Two tests validate the `usb-camera` protocol.** Both open no camera. The
 commands exist in the Workbench repository only.
 
