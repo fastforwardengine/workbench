@@ -8,7 +8,7 @@ const NOTES = 'notes';
 
 /** What `repos` shows for the notes. */
 const DESCRIPTION =
-	'The notes of the team: facts, decisions, and open questions of the FM radio bench, one claim per bullet with its source. Every specialist commits here. Start with README.md.';
+	'The notes of the team: facts, decisions, and open questions of the FM radio bench, one claim per bullet with its source. A specialist commits what another seat or a later session needs. Start with README.md.';
 
 /**
  * The registration of the notes as a shared repository. Ambion seeds the

@@ -28,7 +28,7 @@ describe('the rules that a skill holds', () => {
 		['engineer', 'check-a-photo', 'a photo or a measurement that you'],
 		['engineer', 'guide-a-build-step', 'The power stays off until the person confirms'],
 		['engineer', 'guide-a-build-step', 'one small step at a time'],
-		['engineer', 'guide-a-build-step', 'Record the step in `~/notes/build/<kit>.md`'],
+		['engineer', 'guide-a-build-step', 'When the person pauses or the build ends'],
 		['researcher', 'write-a-test-plan', 'Write the outline of the plan even when'],
 		['researcher', 'write-a-test-plan', 'also when another specialist already answered'],
 	])('puts the rule in %s/%s: %s', (specialist, skill, rule) => {

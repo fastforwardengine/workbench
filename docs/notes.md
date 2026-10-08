@@ -44,8 +44,10 @@ The `keep-notes` skill states the loop below. No tool enforces the layout.
 The conventions live in the notes themselves, in `README.md`, and every seat
 reads that file first.
 
-**A specialist adds to the notes by default.** A specialist stops when the
-person tells it not to edit files.
+**A specialist adds to the notes sparingly.** A specialist reads them when
+its task depends on earlier work. It adds only what another seat or a later
+session needs: a decision, a finding, a reading, or a procedure. It writes
+nothing when the person tells it not to edit files.
 
 ## The layout
 
@@ -112,8 +114,8 @@ for what the person remembers.
 1. **Pull, and read.** Read `README.md` and the folder for the task. To see
    what changed since the last look, run `git log --since` or
    `git diff <last seen>..origin/main`.
-2. **Write small.** Add a claim, or change a claim of your own. Commit at
-   each step.
+2. **Write small.** Add a claim, or change a claim of your own. Commit the
+   change.
 3. **Name the commit.** Use the form `<folder>: <what and why>`, such as
    `circuit: buttons on P3.1, P3.0, P5.4, P5.5`.
 4. **Push.** When git rejects the push, pull with rebase and push again.
@@ -170,8 +172,8 @@ The steward records the message ref in the merge commit.
 
 - **Raw readings, frames, and clips.** They are snapshots. A note cites the
   ref.
-- **The record of the room.** The journal keeps it. A note keeps the
-  conclusion, and cites the message.
+- **The record of the room.** The journal keeps it, with routine steps and
+  progress. A note keeps the conclusion, and cites the message.
 - **Secrets.** No key, token, or password.
 - **Source documents.** They belong to the library.
 

@@ -39,4 +39,6 @@ stop rule: the signs that stop the power at once.
   each orientation.
 - **Mark a missing value `TBD`.** Replace it when the datasheet or a photo
   supplies it.
+- **Record a fault or a reading at once.** Update the states of the steps
+  when the person pauses or the build ends.
 - **Set `State: done` only with evidence.** Cite the snapshot ref.

@@ -1,9 +1,10 @@
 # Notes of the team
 
 **These notes hold what the team knows and decides about the FM radio
-bench.** Every specialist reads them and commits to them. The library
-(`/library`) holds the source documents and is read-only. A note cites the
-library file that it rests on. The `keep-notes` skill states the git steps.
+bench.** A note holds what another seat or a later session needs. The
+journal of the room keeps routine work. The library (`/library`) holds the
+source documents and is read-only. A note cites the library file that it
+rests on. The `keep-notes` skill states the git steps.
 
 ## Layout
 
