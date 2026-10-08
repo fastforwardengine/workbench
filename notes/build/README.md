@@ -2,8 +2,9 @@
 
 One file for each kit: `build/<kit>.md`, such as `build/first-kit.md` and
 `build/second-kit.md`. The file holds the plan of each step and its record.
-The Engineer guides the build of each kit, and keeps the files, with the
-`guide-a-build-step` skill.
+The Engineer guides the build of the first kit by voice, with the
+microscope. The team guides the build of the second kit with every sensor.
+The Engineer keeps the files, with the `guide-a-build-step` skill.
 
 ## Format
 

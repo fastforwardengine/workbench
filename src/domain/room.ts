@@ -28,15 +28,15 @@ export interface RoomPlan {
 export const buildRoom: RoomPlan = {
 	name: 'build',
 	goal:
-		'Know the FM radio kit, and guide the build of the first one from notes/build/first-kit.md. ' +
-		'Check each polarized part with the scope camera before it is soldered, and power it on over USB. ' +
-		'Record each part with its evidence in the notes. The first radio must play a station. ' +
+		'Know the FM radio kit, and guide the build of the first one, one step at a time, from notes/build/first-kit.md. ' +
+		'Check each polarized part from a microscope photo before it is soldered. Record each part ' +
+		'and each step with its evidence in the notes. The first radio, on USB power, must play a station. ' +
 		'Then tune the radio. Path A: a Pico presses the buttons, and the camera reads the display. ' +
 		'Path B: the Pico drives the tuner over I²C, and a scan maps the stations of the band. ' +
-		'Then guide the build of the second kit, check each polarized part from a photo before it ' +
-		'is soldered, and power the kit on through the HM310P with a current limit. ' +
+		'Then guide the build of the second kit with every sensor, and power it on through the HM310P ' +
+		'with a current limit. ' +
 		'Last, path C: new firmware for the STC8G1K that takes serial commands.',
-	pattern: 'Kit → first build → tune → second build → firmware',
+	pattern: 'Kit → guided first build → tune → second build → firmware',
 	prompt:
 		'List the parts of the kit from the notes, and name the facts we must settle before the build.',
 };

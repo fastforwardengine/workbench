@@ -65,8 +65,9 @@ chip from the kit, or on a second spare.
 ## On hand
 
 **The person has two FM radio kits, the ELEGOO Electronics Fun Kit, and
-soldering equipment.** The first FM kit is built by hand, and carries paths
-A and B. The second kit is built with the guidance of the team.
+soldering equipment.** The first FM kit is built with the voice guidance
+of the Engineer and the microscope, and carries paths A and B. The second
+kit is built with the guidance of the team and every sensor.
 
 **The ELEGOO kit gives the breadboard work around the radio:** the wiring
 of the Pico, the button presses of path A, and the pull-up resistors of the
@@ -76,7 +77,7 @@ bus.
 
 | Item                                                     | For the radio                                                                                       |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Two FM radio kits                                        | The first for paths A and B, built by hand. The second for the guided build                         |
+| Two FM radio kits                                        | The first for paths A and B, built with voice guidance. The second for the guided build             |
 | Soldering iron, solder, flux, desoldering wick           | The assembly of both kits (activities 2 and 7 of [`next.md`](next.md))                              |
 | ELEGOO kit: breadboard, jumper and Dupont wires, headers | The connections of the Pico to the radio                                                            |
 | ELEGOO kit: PN2222 transistors, 4N35 optocoupler         | Path A: the Pico closes each button of the radio                                                    |

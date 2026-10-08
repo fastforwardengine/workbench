@@ -2,21 +2,20 @@
 
 **A shared lab workspace where people and specialists work on electrical
 engineering, hardware, and electrochemistry.** It runs on
-[Ambion](https://github.com/ambionframework/ambion) 0.7.0, the
+[Ambion](https://github.com/ambionframework/ambion) 0.8.0, the
 collaboration kernel, and follows
 [Ambion's example](https://github.com/ambionframework/ambion/tree/main/examples/workbench).
 **The objective now is an FM radio that the team helps build and then
 controls.** The team tunes the radio in three ways: it presses its buttons,
-drives its tuner chip, and replaces its firmware. It then guides the build
-of a second kit, and checks each step with the camera and the instruments.
-The team knows the state of the bench at all times, from its instruments,
-its camera, and a microphone.
-[`planning/next.md`](planning/next.md) holds the milestone, and
+drives its tuner chip, and replaces its firmware. The team knows the state
+of the bench at all times, from its instruments, its cameras, and a
+microphone. [`planning/next.md`](planning/next.md) holds the milestone, and
 [`planning/fm-radio.md`](planning/fm-radio.md) the kit.
 
-**The first project, an LED on a programmable supply, is done.** The team
-drove the supply, watched the LED through the camera, swept it, and
-blinked it.
+**The next step is the first hands-free build.** The person solders the
+first kit with both hands on the work. A foot pedal holds to talk, the
+Engineer answers aloud, and the microscope checks each polarized part
+before it is soldered.
 
 ## Install
 
@@ -65,17 +64,11 @@ pnpm start ./bench                # another directory
 - **The rooms live on a canvas.** The canvas table `canvas_rooms` holds one
   row for each room, and the host resumes the rooms that ran. Workbench
   reads no room list of an earlier version.
-- **Ambion 0.7.0 opens a journal of 0.6.0.** Move an older data directory
-  away, and start again. A workstation needs `workstation/setup.sh` again:
-  `workstation.json` names the `snapshots` folder now.
-- **A room from before the removal of the assistant does not resume.**
-  Its journal seats the assistant, and Ambion stops with the error
-  `agent 'assistant' has no binding`. Move the data directory away, and
-  start again.
-- **Ambion 0.8.0 does not open a journal that holds a `posted` message.**
-  A breakout report, a close notice, and a returned say wrote one in
-  0.7.0. The room list then fails. Move the data directory away, and start
-  again.
+- **A data directory of an earlier version does not open.** Ambion 0.8.0
+  does not open the journals of 0.7.0 and earlier, and the rooms of
+  Workbench changed their seats. Workbench is an alpha and has no
+  migration. Move the data directory away, and start again. A workstation
+  needs `make` again.
 
 ## Run on a local workstation
 
@@ -126,7 +119,7 @@ A bench script comes from a template.
 
 - **Rooms:** the seeded room `build` holds every phase of the FM radio, in
   this order:
-  1. Know the kit, and guide the build of the first kit.
+  1. Know the kit, and guide the build of the first one.
   2. Tune the radio: path A and path B.
   3. Guide the build of the second kit.
   4. Write new firmware: path C.
@@ -149,8 +142,51 @@ A bench script comes from a template.
 - **Skills:** a folder of skills for each specialist, in `skills/`. See
   [`docs/skills.md`](docs/skills.md).
 
-The library holds the datasheets and the manual of the kit parts, and no
-real hardware is connected. Every measurement is a planned value.
+## The bench
+
+**The bench has templates for each device, and none has run on real
+hardware yet.** Each ran on a simulator or in the container. The first
+hands-free build is the first session on real hardware.
+
+| Device                           | Template      | What it gives                                                                  |
+| -------------------------------- | ------------- | ------------------------------------------------------------------------------ |
+| HANMATEK HM310P power supply     | `psu`         | Readings 4 times each second, a 60 s ring, ramp, sweep, hold, and sequence     |
+| Logitech BRIO and the microscope | `usb-camera`  | A stream that keeps the frames of each change for 2 minutes; a clip of the mic |
+| Any USB device                   | `device-scan` | The inventory of the devices, with their USB IDs                               |
+
+[`docs/sensors.md`](docs/sensors.md) holds the rules of a bench template,
+and [`docs/awareness.md`](docs/awareness.md) how the team knows the state of
+the bench.
+
+## Voice
+
+**Voice mode lets the person work with both hands busy.** `/voice` turns it
+on. Hold Space, or a foot pedal that sends F13, to talk. whisper.cpp
+writes the message on this machine. The terminal reads the replies aloud
+with Kokoro.
+
+```sh
+make voice            # whisper.cpp, Kokoros, and their models, once
+make pedal            # program a USB foot pedal to send F13
+```
+
+**Voice mode needs a terminal that reports a key release:** Ghostty or
+Kitty. `make voice` and `make pedal` use Homebrew, so they run on macOS
+today. [Terminal](docs/terminal.md) holds the details.
+
+## Design pages
+
+| Page                                     | What                                                |
+| ---------------------------------------- | --------------------------------------------------- |
+| [`docs/host.md`](docs/host.md)           | The room host: rooms, files, processes, and names   |
+| [`docs/terminal.md`](docs/terminal.md)   | The terminal: commands, keys, voice, and the design |
+| [`docs/awareness.md`](docs/awareness.md) | How the team knows the state of the bench           |
+| [`docs/sensors.md`](docs/sensors.md)     | The rules of a bench template, and the viewfinder   |
+| [`docs/breakouts.md`](docs/breakouts.md) | Breakout rooms for background tasks                 |
+| [`docs/notes.md`](docs/notes.md)         | The team notes, `shared/notes`                      |
+| [`docs/templates.md`](docs/templates.md) | The git templates                                   |
+| [`docs/skills.md`](docs/skills.md)       | The skills of the specialists                       |
+| [`docs/writing.md`](docs/writing.md)     | The writing rules of the pages                      |
 
 ## Develop
 
