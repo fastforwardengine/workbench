@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { VOICE_MARK } from '../src/domain/voice.ts';
 import type { ActivationSteps, ProcessView } from '../src/host/host.ts';
 import { lastPart } from '../src/host/processes.ts';
 import { COMMANDS } from '../src/terminal/state/commands.ts';
@@ -107,6 +108,50 @@ describe('Session mentions', () => {
 		await session.submit('@@nobody hello');
 		expect(host.calls.at(-1)).toBe('send:characterization:priya:@nobody hello');
 		expect(host.sentTo).toEqual([]);
+	});
+});
+
+describe('Session voice', () => {
+	it('starts the body of a voice message with the voice mark', async () => {
+		const { host, session } = await started();
+		await session.submit('what is the draw now', { voice: true });
+		expect(host.calls.at(-1)).toBe(
+			`send:characterization:priya:${VOICE_MARK}what is the draw now`,
+		);
+		expect(host.sentTo).toEqual([]);
+	});
+
+	it('keeps the seat of a mention, and puts the mark before the mention', async () => {
+		const { host, session } = await started();
+		await session.submit('@researcher find the limit', { voice: true });
+		expect(host.sentTo).toEqual(['researcher']);
+		expect(host.calls.at(-1)).toBe(
+			`send:characterization:priya:${VOICE_MARK}@researcher find the limit`,
+		);
+	});
+
+	it('does not mark a typed message', async () => {
+		const { host, session } = await started();
+		await session.submit('what is the draw now');
+		await session.submit('what is the draw now', { voice: false });
+		const sent = host.calls.filter((call) => call.startsWith('send:'));
+		expect(sent).toEqual(Array(2).fill('send:characterization:priya:what is the draw now'));
+	});
+
+	it('does not mark twice', async () => {
+		const { host, session } = await started();
+		await session.submit(`${VOICE_MARK}what is the draw now`, { voice: true });
+		expect(host.calls.at(-1)).toBe(
+			`send:characterization:priya:${VOICE_MARK}what is the draw now`,
+		);
+	});
+
+	it('does not mark a transcript that is a command', async () => {
+		const { host, session } = await started();
+		host.calls.length = 0;
+		await session.submit('/help', { voice: true });
+		expect(host.calls).toEqual([]);
+		expect(session.notice).toBe(HELP);
 	});
 });
 

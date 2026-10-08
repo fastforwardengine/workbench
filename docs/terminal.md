@@ -363,6 +363,10 @@ it the parts (`VoiceParts`). They are the recorder, the transcriber, the
 check that voice mode can run, the name of the place that a message goes
 to, and the send. A test passes fakes (`test/voice-fakes.ts`).
 
+The send calls `Session.submit(text, { voice: true })`. A transcript that
+parses as a message then starts with `VOICE_MARK` (`src/domain/voice.ts`),
+so the specialists know that the person spoke. A command gets no mark.
+
 - **The hold:** Space on an empty composer starts a recording. The release
   ends it. A hold under `MIN_HOLD_MS` (300 ms) sends nothing. A hold ends at
   `MAX_HOLD_MS` (60 s). A terminal repeats a held Space with no flag, so a
